@@ -284,14 +284,22 @@ export class PayrollWorkspace {
     ])
       if (r[k] !== undefined) detail[k] = text(r, k);
     let employeeName: string | null = null;
-    if (r.employee_id)
-      employeeName =
-        (
-          await client.query(
-            `select concat_ws(' ',employee_number,first_name,middle_name,last_name) as name from employee where tenant_id=$1 and id=$2`,
-            [c.tenantId, r.employee_id],
-          )
-        ).rows[0]?.name ?? null;
+    if (r.employee_id) {
+      const employee = (
+        await client.query(
+          `select concat_ws(' ',employee_number,first_name,middle_name,last_name) as name,employee_number,
+                  concat_ws(' ',first_name,nullif(middle_name,''),last_name) as display_name
+             from employee where tenant_id=$1 and id=$2`,
+          [c.tenantId, r.employee_id],
+        )
+      ).rows[0];
+      employeeName = employee?.name ?? null;
+      // Lists show the employee code and name in separate columns.
+      if (employee) {
+        detail.employee_number = employee.employee_number;
+        detail.employee_display_name = employee.display_name;
+      }
+    }
     const history = (
       await client.query(
         `select action,reason,actor_id,created_at::text as occurred_at,(override_id is not null) as override from hr_payroll_workspace_event where tenant_id=$1 and company_id=$2 and record_id=$3 order by created_at desc,id desc limit 100`,
@@ -987,7 +995,11 @@ export class PayrollWorkspace {
             fail("An active salary structure still uses this component.");
         } else {
           if (input.action === "submit" && state === "draft") next = "submitted";
-          else if (["approve", "reject"].includes(input.action) && state === "submitted") {
+          else if (
+            (["approve", "reject"].includes(input.action) && state === "submitted") ||
+            // A rejected loan or advance can be approved again; the rejection stays in the event history.
+            (input.action === "approve" && state === "rejected" && section === "loans")
+          ) {
             const bindings = before.employee_id
               ? (
                   await client.query(

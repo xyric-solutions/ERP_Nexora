@@ -38,7 +38,7 @@ import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrSearchField } from "../components/hr-list-controls";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
-import { hrCell } from "../components/hr-table";
+import { hrApproveLabel, hrListCode, hrListCell, hrListHead, hrListText } from "../components/hr-table";
 import { Field, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 
 type Navigate = (module: string, page: string, reference?: string) => void;
@@ -360,6 +360,8 @@ function LoanDetail({
   if (record.workflow_managed) {
     if (record.status === "draft" && canManage) decisions.push("submit");
     if (record.status === "submitted" && canApprove) decisions.push("approve", "reject");
+    // A rejected request is not final: an approver can review it and approve it again.
+    if (record.status === "rejected" && canApprove) decisions.push("approve");
     if (record.status === "approved" && canApprove && permissions.includes("banking.payment.read"))
       decisions.push("confirm_disbursement");
   }
@@ -370,6 +372,7 @@ function LoanDetail({
     record.workflow_managed && canManage && isPreparer && ["draft", "submitted"].includes(record.status);
   const isDraft = record.workflow_managed && canManage && record.status === "draft";
   const canEdit = isDraft && isPreparer;
+  const approveLabel = hrApproveLabel(record.status);
 
   if (editing)
     return (
@@ -420,7 +423,7 @@ function LoanDetail({
           : action === "submit"
             ? `${label[kind].one} submitted for approval.`
             : action === "approve"
-              ? `${label[kind].one} approved.`
+              ? `${label[kind].one} ${record.status === "rejected" ? "approved again" : "approved"}.`
               : action === "reject"
                 ? `${label[kind].one} rejected.`
                 : "Disbursement confirmed.",
@@ -447,7 +450,8 @@ function LoanDetail({
         {label[kind].one} · {money(record.amount, record.currency_code)}
       </HrDetailSummary>
       <HrDetailList>
-        <HrDetailTile label="Employee" value={record.employee_name} />
+        <HrDetailTile label="Employee code" value={d.employee_number ?? ""} />
+        <HrDetailTile label="Employee name" value={d.employee_display_name ?? record.employee_name} />
         <HrDetailTile label="Amount" value={money(record.amount, record.currency_code)} />
         <HrDetailTile label="Recovery component" value={d.component_name} />
         <HrDetailTile
@@ -495,7 +499,7 @@ function LoanDetail({
       {decision ? (
         <WorkForm
           className="grid min-w-0 gap-3"
-          aria-label={decisionLabel[decision]}
+          aria-label={decision === "approve" ? approveLabel : decisionLabel[decision]}
           onSubmit={(event) => {
             event.preventDefault();
             void act(decision);
@@ -565,25 +569,37 @@ function LoanDetail({
               Back
             </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? "Saving…" : decisionLabel[decision]}
+              {busy ? "Saving…" : decision === "approve" ? approveLabel : decisionLabel[decision]}
             </Button>
           </HrDrawerActions>
         </WorkForm>
       ) : (
         <HrDrawerActions>
-          {canDelete ? (
+          {record.workflow_managed && canManage ? (
             <HrConfirmDeleteButton
-              label={`Delete ${record.reference}`}
+              label={
+                canDelete
+                  ? `Delete ${record.reference}`
+                  : isPreparer
+                    ? "Only draft or submitted requests can be deleted"
+                    : "Only the person who prepared this request can delete it"
+              }
               title={`Delete ${record.reference}?`}
-              description={`The ${label[kind].one.toLowerCase()} request is cancelled and kept in the audit history.`}
+              description={`The ${label[kind].one.toLowerCase()} request is removed and kept in the audit history.`}
               variant="outline"
-              disabled={busy}
+              disabled={busy || !canDelete}
               onConfirm={() => act("cancel")}
             />
           ) : null}
-          {isDraft ? (
+          {record.workflow_managed && canManage ? (
             <HrEditButton
-              label={canEdit ? `Edit ${record.reference}` : "Only the person who prepared this draft can edit it"}
+              label={
+                canEdit
+                  ? `Edit ${record.reference}`
+                  : isDraft
+                    ? "Only the person who prepared this draft can edit it"
+                    : "Only drafts can be edited"
+              }
               disabled={busy || !canEdit}
               onClick={() => {
                 setError("");
@@ -602,7 +618,7 @@ function LoanDetail({
                 setDecision(action);
               }}
             >
-              {decisionLabel[action]}
+              {action === "approve" ? approveLabel : decisionLabel[action]}
             </Button>
           ))}
         </HrDrawerActions>
@@ -717,19 +733,28 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
               <caption className="sr-only">{label[kind].many}</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
-                  <th scope="col" className={`${hrCell} font-semibold`}>
+                  <th scope="col" className={hrListHead}>
                     Code
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold`}>
-                    Employee
+                  <th scope="col" className={`${hrListHead} max-sm:hidden`}>
+                    Employee Code
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>
+                  <th scope="col" className={hrListHead}>
+                    Employee Name
+                  </th>
+                  <th scope="col" className={`${hrListHead} text-right max-sm:hidden`}>
                     Amount
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold max-md:hidden`}>
+                  <th scope="col" className={`${hrListHead} max-lg:hidden`}>
+                    Recovery component
+                  </th>
+                  <th scope="col" className={`${hrListHead} text-right max-lg:hidden`}>
+                    Instalments
+                  </th>
+                  <th scope="col" className={`${hrListHead} text-right max-md:hidden`}>
                     Outstanding
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold`}>
+                  <th scope="col" className={hrListHead}>
                     Status
                   </th>
                 </tr>
@@ -743,20 +768,31 @@ function LoanRegister({ kind, onNavigate }: { kind: LoanKind; onNavigate: Naviga
                       setOpenedId(item.id);
                     }}
                   >
-                    <td className={`${hrCell} font-mono text-[13px]`}>{item.reference}</td>
-                    <td className={`${hrCell} font-medium wrap-anywhere`}>{item.employee_name}</td>
-                    <td className={`${hrCell} tabular-nums max-sm:hidden`}>{money(item.amount, item.currency_code)}</td>
-                    <td className={`${hrCell} tabular-nums text-muted-foreground max-md:hidden`}>
+                    <td className={hrListCode}>{item.reference}</td>
+                    <td className={`${hrListCode} max-sm:hidden`}>{item.details.employee_number ?? ""}</td>
+                    <td className={`${hrListText} font-medium`}>
+                      {item.details.employee_display_name ?? item.employee_name}
+                    </td>
+                    <td className={`${hrListCell} text-right tabular-nums max-sm:hidden`}>
+                      {money(item.amount, item.currency_code)}
+                    </td>
+                    <td className={`${hrListText} text-muted-foreground max-lg:hidden`}>
+                      {item.details.component_name ?? ""}
+                    </td>
+                    <td className={`${hrListCell} text-right tabular-nums text-muted-foreground max-lg:hidden`}>
+                      {item.details.instalment_count ?? ""}
+                    </td>
+                    <td className={`${hrListCell} text-right tabular-nums text-muted-foreground max-md:hidden`}>
                       {money(item.details.outstanding, item.currency_code)}
                     </td>
-                    <td className={hrCell}>
+                    <td className={hrListCell}>
                       <HrStatusPill status={item.status} />
                     </td>
                   </HrClickableRow>
                 ))}
                 {!items.length ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
+                    <td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">
                       {filter || status !== "all"
                         ? `No ${label[kind].many.toLowerCase()} match.`
                         : `No ${label[kind].many.toLowerCase()} yet.`}

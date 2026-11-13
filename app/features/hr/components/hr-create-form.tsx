@@ -45,20 +45,40 @@ export function HrFormRow({
 export function useHrRecordCodePreview(kind: HrRecordCodeKind, companyId: string | undefined, enabled = true, refreshKey?: unknown) {
   const { api } = useSession();
   const client = useMemo(() => new HrApiClient(api), [api]);
-  const [state, setState] = useState<{ key: string; code: string | null; failed: boolean }>({ key: "", code: null, failed: false });
+  const [state, setState] = useState<{ key: string; code: string | null; failed: boolean; attempt: number }>({
+    key: "",
+    code: null,
+    failed: false,
+    attempt: 0,
+  });
   const key = `${kind}|${companyId ?? ""}|${String(refreshKey ?? "")}`;
+  const attempt = state.key === key ? state.attempt : 0;
   useEffect(() => {
     if (!enabled || !companyId) return;
     let live = true;
-    client
-      .recordCodePreview(companyId, kind)
-      .then((preview) => live && setState({ key, code: preview.code, failed: false }))
-      .catch(() => live && setState({ key, code: null, failed: true }));
+    // A transient failure is retried (up to three attempts) so the form shows the real code.
+    const load = () =>
+      new Promise<Awaited<ReturnType<HrApiClient["recordCodePreview"]>>>((resolve) =>
+        resolve(client.recordCodePreview(companyId, kind)),
+      )
+        .then((preview) => live && setState({ key, code: preview.code, failed: false, attempt }))
+        .catch(
+          () =>
+            live &&
+            setState(
+              attempt < 2
+                ? { key, code: null, failed: false, attempt: attempt + 1 }
+                : { key, code: null, failed: true, attempt },
+            ),
+        );
+    const timer = attempt ? window.setTimeout(load, 1200) : undefined;
+    if (!attempt) void load();
     return () => {
       live = false;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [client, companyId, enabled, key, kind]);
-  return state.key === key ? state : { key, code: null, failed: false };
+  }, [attempt, client, companyId, enabled, key, kind]);
+  return state.key === key ? state : { key, code: null, failed: false, attempt: 0 };
 }
 
 /**
@@ -89,7 +109,7 @@ export function HrRecordCodeField({
     value ||
     (existing
       ? "Not assigned"
-      : (preview.code ?? (preview.failed || !companyId ? "Generated on save" : "Generating…")));
+      : (preview.code ?? (preview.failed ? "Code unavailable" : "Generating…")));
   return (
     <HrFormRow label={label} htmlFor={inputId}>
       <Input

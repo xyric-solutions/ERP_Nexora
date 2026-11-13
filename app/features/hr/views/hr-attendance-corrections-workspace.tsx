@@ -6,6 +6,7 @@ import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createHrCorrectionRequestSchema,
@@ -113,27 +114,15 @@ function Evidence({ value }: { value: HrCorrectionEvidence }) {
       <p className="text-xs text-muted-foreground">
         {value.day.shift_name ?? "No configured shift"} · {value.day.time_zone ?? "Timezone unavailable"}
       </p>
-      <dl className="m-0 grid gap-3 sm:grid-cols-2">
-        <div>
-          <dt className="text-xs text-muted-foreground">Scheduled window</dt>
-          <dd className="m-0 mt-1 text-sm">
-            {displayTime(value.day.scheduled_start, value.day.time_zone)} →{" "}
-            {displayTime(value.day.scheduled_end, value.day.time_zone)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Reporting manager</dt>
-          <dd className="m-0 mt-1 text-sm">{value.manager_name ?? "Manager/user route not configured"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Recorded work</dt>
-          <dd className="m-0 mt-1 text-sm">{minutes(value.day.worked_minutes)}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-muted-foreground">Attendance period</dt>
-          <dd className="m-0 mt-1 text-sm">{value.period_locked ? "Locked" : "Not locked"}</dd>
-        </div>
-      </dl>
+      <HrDetailList>
+        <HrDetailTile
+          label="Scheduled window"
+          value={`${displayTime(value.day.scheduled_start, value.day.time_zone)} → ${displayTime(value.day.scheduled_end, value.day.time_zone)}`}
+        />
+        <HrDetailTile label="Reporting manager" value={value.manager_name ?? "Manager/user route not configured"} />
+        <HrDetailTile label="Recorded work" value={minutes(value.day.worked_minutes)} />
+        <HrDetailTile label="Attendance period" value={value.period_locked ? "Locked" : "Not locked"} />
+      </HrDetailList>
       {value.blockers.length > 0 && (
         <ul className="m-0 grid gap-1 pl-5 text-sm text-destructive">
           {value.blockers.map((b) => (
@@ -924,19 +913,16 @@ export function HrAttendanceCorrectionsWorkspace({
               </p>
               <Status value={detail.status} />
             </div>
-            <dl className="m-0 grid gap-3 sm:grid-cols-2">
+            <HrDetailList>
               {[
                 ["Correction type", label(detail.kind)],
                 ["Check in", displayTime(detail.stated_in, detail.evidence?.day.time_zone ?? null)],
                 ["Check out", displayTime(detail.stated_out, detail.evidence?.day.time_zone ?? null)],
                 ["Routed manager", detail.manager_name ?? "Assigned on submission"],
               ].map(([name, value]) => (
-                <div key={name} className="min-w-0 rounded-lg border border-border bg-background p-3">
-                  <dt className="text-xs text-muted-foreground">{name}</dt>
-                  <dd className="m-0 mt-1 break-words text-sm font-medium">{value}</dd>
-                </div>
+                <HrDetailTile key={name} label={name} value={value} />
               ))}
-            </dl>
+            </HrDetailList>
             <p className="whitespace-pre-wrap break-words rounded-lg border border-border bg-background p-4 text-sm">
               {detail.reason}
             </p>

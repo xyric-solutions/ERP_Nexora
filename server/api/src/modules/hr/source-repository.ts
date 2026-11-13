@@ -276,19 +276,21 @@ type EmployeeHireRequestReviewRow = Omit<
 };
 type EmployeeTransferRequestReviewRow = Omit<
   HrEmployeeTransferRequestReview,
-  "effective_on" | "requested_at" | "decided_at"
+  "effective_on" | "requested_at" | "decided_at" | "rejected_at"
 > & {
   effective_on: string | Date;
   requested_at: string | Date;
   decided_at: string | Date | null;
+  rejected_at: string | Date | null;
 };
 type EmployeePromotionRequestReviewRow = Omit<
   HrEmployeePromotionRequestReview,
-  "effective_on" | "requested_at" | "decided_at"
+  "effective_on" | "requested_at" | "decided_at" | "rejected_at"
 > & {
   effective_on: string | Date;
   requested_at: string | Date;
   decided_at: string | Date | null;
+  rejected_at: string | Date | null;
 };
 type EmployeeManagerChangeRequestReviewRow = Omit<
   HrEmployeeManagerChangeRequestReview,
@@ -381,6 +383,7 @@ function employeeTransferRequestReview(
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    rejected_at: row.rejected_at === null ? null : new Date(row.rejected_at).toISOString(),
     ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
@@ -394,6 +397,7 @@ function employeePromotionRequestReview(
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    rejected_at: row.rejected_at === null ? null : new Date(row.rejected_at).toISOString(),
     ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
@@ -4967,57 +4971,77 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
+      // A pending policy can be approved or rejected; a rejected policy can be approved again.
+      const decision = input.decision ?? "approved";
       const policy = await client.query<{
         company_id: string;
         code: string;
         name: string;
         version: number;
+        status: "pending_approval" | "rejected";
         created_by: string;
         submitted_by: string | null;
       }>(
-        `select legal_employer_id as company_id,code,name,version,created_by,submitted_by
+        `select legal_employer_id as company_id,code,name,version,status,created_by,submitted_by
            from hr_employment_lifecycle_policy
-          where tenant_id=$1 and id=$2 and status='pending_approval'
+          where tenant_id=$1 and id=$2 and status = any($4::text[])
             and exists (select 1 from security_user_company_access access where access.tenant_id=hr_employment_lifecycle_policy.tenant_id and access.user_id=$3 and access.company_id=hr_employment_lifecycle_policy.legal_employer_id and access.revoked_at is null)
           for update`,
-        [context.tenantId, policyId, context.actor.userId],
+        [
+          context.tenantId,
+          policyId,
+          context.actor.userId,
+          decision === "rejected" ? ["pending_approval"] : ["pending_approval", "rejected"],
+        ],
       );
       const before = policy.rows[0];
       if (!before)
         throw new HrApiError(
           409,
           "HR_LIFECYCLE_POLICY_NOT_PENDING",
-          "The lifecycle policy is not pending in your company scope.",
+          decision === "rejected"
+            ? "Only a pending lifecycle policy in your company scope can be rejected."
+            : "The lifecycle policy is not pending or rejected in your company scope.",
         );
       const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
         normalDecisionPermission: "hr.employment_lifecycle_policy.approve",
         makerActorIds: [before.created_by, before.submitted_by ?? ""],
         resourceType: "hr.employment_lifecycle_policy",
         resourceId: policyId,
-        decisionAction: "approve",
+        decisionAction: decision === "rejected" ? "reject" : "approve",
         reason: input.reason,
         correlationId,
         idempotencyKey,
       });
-      await client.query(
-        `update hr_employment_lifecycle_policy
-            set status='approved',approved_by=$3,approved_at=now(),updated_at=now(),
-                approval_override_event_id=$4
-          where tenant_id=$1 and id=$2`,
-        [context.tenantId, policyId, context.actor.userId, approvalOverrideEventId],
-      );
+      if (decision === "rejected")
+        // A rejection keeps no approval evidence on the row; any override event stays in its own ledger.
+        await client.query(
+          `update hr_employment_lifecycle_policy
+              set status='rejected',rejected_by=$3,rejected_at=now(),updated_at=now()
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, policyId, context.actor.userId],
+        );
+      else
+        await client.query(
+          `update hr_employment_lifecycle_policy
+              set status='approved',approved_by=$3,approved_at=now(),updated_at=now(),
+                  approval_override_event_id=$4
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, policyId, context.actor.userId, approvalOverrideEventId],
+        );
       const audit = await this.appendPlatformAudit(
         client,
         context,
         correlationId,
-        "hr.employment_lifecycle_policy.approve",
+        decision === "rejected" ? "hr.employment_lifecycle_policy.reject" : "hr.employment_lifecycle_policy.approve",
         {
           entityId: policyId,
           entityType: "employment_lifecycle_policy",
-          before: { ...before, status: "pending_approval" },
+          before,
           after: {
             ...before,
-            status: "approved",
+            status: decision,
+            reapproval: before.status === "rejected",
             reason: input.reason,
             super_admin_override: approvalOverrideEventId !== null,
           },
@@ -5029,7 +5053,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         code: before.code,
         name: before.name,
         version: before.version,
-        status: "approved",
+        status: decision,
         audit_event_id: audit,
         replayed: false,
       };
@@ -5918,6 +5942,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         relationship_id: string;
         source_assignment_id: string;
         requested_by: string;
+        request_state: "pending" | "rejected";
+        rejected_by: string | null;
+        rejection_reason: string | null;
         effective_on: string;
         proposed_branch_id: string | null;
         proposed_department_id: string | null;
@@ -5930,7 +5957,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         proposed_reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
-                request.requested_by,request.effective_on::text,request.proposed_branch_id,
+                request.requested_by,request.request_state,request.rejected_by,request.rejection_reason,request.effective_on::text,request.proposed_branch_id,
                 request.proposed_department_id,request.proposed_job_id,request.proposed_designation_id,
                 request.proposed_job_grade_id,request.proposed_cost_center_id,
                 request.proposed_work_location_id,request.proposed_employment_setup_id,request.proposed_reporting_manager_id
@@ -5938,7 +5965,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
            join employee_assignment assignment
              on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
           where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
-            and request.request_state='pending' and assignment.assignment_status='active'
+            and request.request_state = any($5::text[]) and assignment.assignment_status='active'
             and assignment.effective_to is null
             and exists (
               select 1 from security_user_company_access access
@@ -5946,14 +5973,23 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                  and access.company_id=request.company_id and access.revoked_at is null
             )
           for update of request,assignment`,
-        [context.tenantId, requestId, employeeId, context.actor.userId],
+        [
+          context.tenantId,
+          requestId,
+          employeeId,
+          context.actor.userId,
+          // A rejected request can be approved again (re-approval); only pending requests can be rejected.
+          input.decision === "approved" ? ["pending", "rejected"] : ["pending"],
+        ],
       );
       const row = pending.rows[0];
       if (!row)
         throw new HrApiError(
           409,
           "HR_TRANSFER_NOT_PENDING",
-          "The transfer request is not pending in your company scope.",
+          input.decision === "approved"
+            ? "The transfer request is not pending or rejected in your company scope, or its source assignment has changed."
+            : "The transfer request is not pending in your company scope.",
         );
       const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
         normalDecisionPermission: "hr.employee_assignment.change",
@@ -6023,7 +6059,10 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       await client.query(
         `update hr_employee_transfer_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1,
+                rejected_by=case when $3='rejected' then $4 else rejected_by end,
+                rejected_at=case when $3='rejected' then now() else rejected_at end,
+                rejection_reason=case when $3='rejected' then $5 else rejection_reason end
           where tenant_id=$1 and id=$2`,
         [
           context.tenantId,
@@ -6042,9 +6081,16 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         "hr.employee_assignment.transfer.decide",
         {
           entityId: requestId,
-          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          before: {
+            status: row.request_state,
+            source_assignment_id: row.source_assignment_id,
+            ...(row.request_state === "rejected"
+              ? { rejected_by: row.rejected_by, rejection_reason: row.rejection_reason }
+              : {}),
+          },
           after: {
             status: input.decision,
+            reapproval: row.request_state === "rejected",
             assignment_id: assignmentId,
             super_admin_override: approvalOverrideEventId !== null,
           },
@@ -6346,6 +6392,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         relationship_id: string;
         source_assignment_id: string;
         requested_by: string;
+        request_state: "pending" | "rejected";
+        rejected_by: string | null;
+        rejection_reason: string | null;
         effective_on: string;
         proposed_job_id: string;
         proposed_designation_id: string;
@@ -6358,7 +6407,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
-                request.requested_by,request.effective_on::text,request.proposed_job_id,
+                request.requested_by,request.request_state,request.rejected_by,request.rejection_reason,request.effective_on::text,request.proposed_job_id,
                 request.proposed_designation_id,request.proposed_job_grade_id,
                 assignment.branch_id,assignment.department_id,assignment.cost_center_id,
                 assignment.work_location_id,assignment.employment_setup_id,assignment.reporting_manager_id
@@ -6368,7 +6417,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
            join hr_employment_relationship relationship
              on relationship.tenant_id=request.tenant_id and relationship.id=request.relationship_id
           where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
-            and request.request_state='pending' and assignment.assignment_status='active'
+            and request.request_state = any($5::text[]) and assignment.assignment_status='active'
             and assignment.effective_to is null and relationship.status='active'
             and exists (
               select 1 from security_user_company_access access
@@ -6376,14 +6425,23 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                  and access.company_id=request.company_id and access.revoked_at is null
             )
           for update of request,assignment,relationship`,
-        [context.tenantId, requestId, employeeId, context.actor.userId],
+        [
+          context.tenantId,
+          requestId,
+          employeeId,
+          context.actor.userId,
+          // A rejected request can be approved again (re-approval); only pending requests can be rejected.
+          input.decision === "approved" ? ["pending", "rejected"] : ["pending"],
+        ],
       );
       const row = pending.rows[0];
       if (!row)
         throw new HrApiError(
           409,
           "HR_PROMOTION_NOT_PENDING",
-          "The promotion request is not pending in your company scope.",
+          input.decision === "approved"
+            ? "The promotion request is not pending or rejected in your company scope, or its source assignment has changed."
+            : "The promotion request is not pending in your company scope.",
         );
       const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
         normalDecisionPermission: "hr.employee_assignment.change",
@@ -6443,7 +6501,10 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       await client.query(
         `update hr_employee_promotion_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1,
+                rejected_by=case when $3='rejected' then $4 else rejected_by end,
+                rejected_at=case when $3='rejected' then now() else rejected_at end,
+                rejection_reason=case when $3='rejected' then $5 else rejection_reason end
           where tenant_id=$1 and id=$2`,
         [
           context.tenantId,
@@ -6462,9 +6523,16 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         "hr.employee_assignment.promotion.decide",
         {
           entityId: requestId,
-          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          before: {
+            status: row.request_state,
+            source_assignment_id: row.source_assignment_id,
+            ...(row.request_state === "rejected"
+              ? { rejected_by: row.rejected_by, rejection_reason: row.rejection_reason }
+              : {}),
+          },
           after: {
             status: input.decision,
+            reapproval: row.request_state === "rejected",
             assignment_id: assignmentId,
             super_admin_override: approvalOverrideEventId !== null,
           },
@@ -8694,7 +8762,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeTransferRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    coalesce(source_branch.name,'') as source_branch,
                    coalesce(source_department.name,'') as source_department,
@@ -8706,7 +8774,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                    proposed_work_location.name as proposed_work_location,
                    request.effective_on,request.requested_by,request.requested_at,
                    request.reason,request.request_state as status,request.decided_by,
-                   request.decided_at,request.decision_reason
+                   request.decided_at,request.decision_reason,request.code,
+                   request.rejected_by,request.rejected_at,request.rejection_reason
               from hr_employee_transfer_request request
               join employee
                 on employee.tenant_id=request.tenant_id and employee.id=request.employee_id
@@ -8732,7 +8801,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeePromotionRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    source_job.name as source_job,source_designation.name as source_designation,
                    source_job_grade.name as source_job_grade,proposed_job.name as proposed_job,
@@ -8740,7 +8809,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                    proposed_job_grade.name as proposed_job_grade,request.effective_on,
                    request.requested_by,request.requested_at,request.reason,
                    request.request_state as status,request.decided_by,
-                   request.decided_at,request.decision_reason
+                   request.decided_at,request.decision_reason,request.code,
+                   request.rejected_by,request.rejected_at,request.rejection_reason
               from hr_employee_promotion_request request
               join employee
                 on employee.tenant_id=request.tenant_id and employee.id=request.employee_id
@@ -8762,7 +8832,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeManagerChangeRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    source_assignment.reporting_manager_id as current_reporting_manager_id,
                    case when current_manager.id is null then null
@@ -8790,7 +8860,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeWorkLocationChangeRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    request.current_work_location_id,current_location.name as current_work_location_name,
                    request.proposed_work_location_id,proposed_location.name as proposed_work_location_name,
@@ -8820,7 +8890,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeOrganizationPlacementChangeRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    jsonb_build_object(
                      'business_unit_id',request.current_business_unit_id,
@@ -9096,6 +9166,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       | "hr.employment_lifecycle_policy.create"
       | "hr.employment_lifecycle_policy.submit"
       | "hr.employment_lifecycle_policy.approve"
+      | "hr.employment_lifecycle_policy.reject"
       | "hr.employment_lifecycle_policy.activate"
       | "hr.employment_lifecycle_policy.update"
       | "hr.employment_lifecycle_policy.delete"

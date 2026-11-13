@@ -28,6 +28,7 @@ import { HrMasterSheet } from "../components/hr-master-sheet";
 import {
   HrDetailFigures,
   HrDetailGroup,
+  HrDetailList,
   HrDetailSection,
   HrDetailSummary,
   HrDetailTile,
@@ -398,7 +399,7 @@ function AssessmentDecision({
       }}
     >
       <HrDetailSummary status={assessment.status}>
-        {assessment.title} · {assessment.mandatory ? "Required" : "Optional"}
+        {assessment.title}{assessment.mandatory ? " · Required" : ""}
       </HrDetailSummary>
       <HrDetailSection title="Decision">
         <label className="grid content-start gap-1 text-sm">
@@ -718,18 +719,18 @@ export function HrInterviewsWorkspace() {
                   {item.panel.find((person) => person.user_id === evaluation.user_id)?.name ?? evaluation.user_id} ·{" "}
                   {evaluation.weighted_score}% · {label(evaluation.recommendation)}
                 </summary>
-                <div className="mt-3 grid gap-2 text-sm">
-                  <p>
-                    <strong>Strengths:</strong> {evaluation.strengths}
-                  </p>
-                  <p>
-                    <strong>Concerns:</strong> {evaluation.concerns}
-                  </p>
-                  {item.template.map((criterion) => (
-                    <p key={criterion.id} className="text-muted-foreground">
-                      {criterion.label}: {evaluation.scores[criterion.id]} / 5 · {criterion.weight}% weight
-                    </p>
-                  ))}
+                <div className="mt-3 grid gap-3 text-sm">
+                  <HrDetailList>
+                    <HrDetailTile label="Strengths" value={evaluation.strengths} />
+                    <HrDetailTile label="Concerns" value={evaluation.concerns} />
+                    {item.template.map((criterion) => (
+                      <HrDetailTile
+                        key={criterion.id}
+                        label={criterion.label}
+                        value={`${evaluation.scores[criterion.id]} / 5 · ${criterion.weight}% weight`}
+                      />
+                    ))}
+                  </HrDetailList>
                   <span className="text-xs text-muted-foreground">Submitted {time(evaluation.submitted_at)}</span>
                 </div>
               </details>
@@ -967,7 +968,7 @@ export function HrInterviewsWorkspace() {
                   <div className="flex flex-wrap justify-between gap-2">
                     <span className="text-sm font-semibold">{item.title}</span>
                     <span className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="outline">{item.mandatory ? "Required" : "Optional"}</Badge>
+                      {item.mandatory ? <Badge variant="outline">Required</Badge> : null}
                       <HrStatusPill status={item.status} label={label(item.status)} />
                     </span>
                   </div>

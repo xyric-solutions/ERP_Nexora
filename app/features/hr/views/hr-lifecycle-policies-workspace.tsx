@@ -32,45 +32,52 @@ import {
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
-import { HrMasterStatusFilter, type HrMasterStatus } from "../components/hr-master-status-filter";
+import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrRecordCodeField } from "../components/hr-create-form";
-import { hrCell } from "../components/hr-table";
+import { hrApproveLabel, hrListCell, hrListCode, hrListHead, hrListText } from "../components/hr-table";
 
 type LoadState = "loading" | "ready" | "error";
 type Policy = HrEmploymentLifecyclePolicyDirectory["items"][number];
-type Decision = "submit" | "approve" | "activate" | "deactivate";
+type Decision = "submit" | "approve" | "reject" | "activate" | "deactivate";
 
 const statusLabel: Record<Policy["status"], string> = {
   draft: "Draft",
-  pending_approval: "Pending approval",
+  pending_approval: "Pending",
   approved: "Approved",
   active: "Active",
   inactive: "Deactivated",
+  rejected: "Rejected",
 };
 
 const decisionLabel: Record<Decision, string> = {
   submit: "Submit for approval",
   approve: "Approve",
+  reject: "Reject",
   activate: "Activate",
   deactivate: "Deactivate",
 };
 
-type PolicyFilter = HrMasterStatus | "pending";
+type PolicyFilter = "all" | "pending" | "approved" | "rejected";
 
-/** Pending covers every policy that is not live yet: draft, awaiting approval, or approved but not activated. */
+/**
+ * Pending: not yet decided (draft or awaiting approval). Approved: approved, including active policies.
+ * Rejected: rejected by an approver and awaiting re-approval. Deactivated policies appear under All records.
+ */
 const policyFilters: readonly { value: PolicyFilter; label: string }[] = [
   { value: "all", label: "All records" },
   { value: "pending", label: "Pending" },
-  { value: "active", label: "Active" },
-  { value: "inactive", label: "Deactivated" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
 ];
 
 const filterMatches = (filter: PolicyFilter, policy: Policy) =>
   filter === "all" ||
   (filter === "pending"
-    ? policy.status === "draft" || policy.status === "pending_approval" || policy.status === "approved"
-    : policy.status === filter);
+    ? policy.status === "draft" || policy.status === "pending_approval"
+    : filter === "approved"
+      ? policy.status === "approved" || policy.status === "active"
+      : policy.status === filter);
 
 /** Lifecycle policies: name and describe a company policy; drafts are edited or deleted, live ones deactivated. */
 export function HrLifecyclePoliciesWorkspace() {
@@ -209,7 +216,13 @@ export function HrLifecyclePoliciesWorkspace() {
       const key = crypto.randomUUID();
       const input = { reason: reason.trim() };
       if (action === "submit") await client.submitEmploymentLifecyclePolicy(policy.id, input, csrfToken(), key);
-      else if (action === "approve") await client.approveEmploymentLifecyclePolicy(policy.id, input, csrfToken(), key);
+      else if (action === "approve" || action === "reject")
+        await client.approveEmploymentLifecyclePolicy(
+          policy.id,
+          { ...input, decision: action === "reject" ? "rejected" : "approved" },
+          csrfToken(),
+          key,
+        );
       else if (action === "activate")
         await client.activateEmploymentLifecyclePolicy(policy.id, input, csrfToken(), key);
       else
@@ -223,7 +236,9 @@ export function HrLifecyclePoliciesWorkspace() {
         action === "submit"
           ? `${policy.code} submitted for approval.`
           : action === "approve"
-            ? `${policy.code} approved.`
+            ? `${policy.code} ${policy.status === "rejected" ? "approved again" : "approved"}.`
+            : action === "reject"
+              ? `${policy.code} rejected.`
             : action === "activate"
               ? `${policy.code} is now active.`
               : `${policy.code} deactivated.`,
@@ -250,14 +265,18 @@ export function HrLifecyclePoliciesWorkspace() {
     ? opened.status === "draft" && canManage
       ? ["submit"]
       : opened.status === "pending_approval" && canApprove
-        ? ["approve"]
-        : opened.status === "approved" && canApprove
-          ? ["activate"]
-          : []
+        ? ["reject", "approve"]
+        : opened.status === "rejected" && canApprove
+          ? ["approve"]
+          : opened.status === "approved" && canApprove
+            ? ["activate"]
+            : []
     : [];
+  const actionLabel = (action: Decision) =>
+    action === "approve" && opened ? hrApproveLabel(opened.status) : decisionLabel[action];
   const blockedBySelfReview =
     !!opened &&
-    (opened.status === "pending_approval" || opened.status === "approved") &&
+    (opened.status === "pending_approval" || opened.status === "approved" || opened.status === "rejected") &&
     opened.self_decision_requires_override &&
     !opened.super_admin_override_allowed;
   const isDraft = opened?.status === "draft";
@@ -270,7 +289,7 @@ export function HrLifecyclePoliciesWorkspace() {
           id="hr-lifecycle-policies-search"
           value={search}
           onChange={setSearch}
-          placeholder="Search policy name, code or text"
+          placeholder="Search policy code, name or text"
         />
         {canManage ? (
           <Button
@@ -315,17 +334,26 @@ export function HrLifecyclePoliciesWorkspace() {
       {state === "ready" && companyId ? (
         <>
           <div className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card">
-            <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-policies-workspace:1" className="w-full table-fixed text-left text-sm">
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-lifecycle-policies-workspace:1" className="w-full text-left text-sm">
               <caption className="sr-only">Lifecycle policies</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
-                  <th scope="col" className={`${hrCell} w-[34%] font-semibold max-sm:w-auto`}>
-                    Policy
+                  <th scope="col" className={hrListHead}>
+                    Code
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>
+                  <th scope="col" className={hrListHead}>
+                    Name
+                  </th>
+                  <th scope="col" className={`${hrListHead} max-md:hidden`}>
                     Description
                   </th>
-                  <th scope="col" className={`${hrCell} w-36 font-semibold`}>
+                  <th scope="col" className={`${hrListHead} text-right max-lg:hidden`}>
+                    Version
+                  </th>
+                  <th scope="col" className={`${hrListHead} max-sm:hidden`}>
+                    Effective from
+                  </th>
+                  <th scope="col" className={hrListHead}>
                     Status
                   </th>
                 </tr>
@@ -342,21 +370,23 @@ export function HrLifecyclePoliciesWorkspace() {
                       setOpenedId(policy.id);
                     }}
                   >
-                    <td className={hrCell}>
-                      <span className="block truncate font-medium">{policy.name}</span>
-                      <span className="font-mono text-xs text-muted-foreground">{policy.code}</span>
+                    <td className={hrListCode}>{policy.code}</td>
+                    <td className={`${hrListText} font-medium`}>{policy.name}</td>
+                    <td className={`${hrListText} max-w-96 text-muted-foreground max-md:hidden`}>{policy.description}</td>
+                    <td className={`${hrListCell} text-right tabular-nums text-muted-foreground max-lg:hidden`}>
+                      {policy.version}
                     </td>
-                    <td className={`${hrCell} text-muted-foreground max-sm:hidden`}>
-                      <span className="line-clamp-2 wrap-anywhere">{policy.description}</span>
+                    <td className={`${hrListCell} text-muted-foreground max-sm:hidden`}>
+                      {hrDisplayDate(policy.effective_from)}
                     </td>
-                    <td className={hrCell}>
+                    <td className={hrListCell}>
                       <HrStatusPill status={policy.status} label={statusLabel[policy.status]} />
                     </td>
                   </HrClickableRow>
                 ))}
                 {!visible.length ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-10 text-center text-muted-foreground">
+                    <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
                       {search.trim() || filter !== "all" ? "No policies match." : "No lifecycle policies yet."}
                     </td>
                   </tr>
@@ -460,7 +490,7 @@ export function HrLifecyclePoliciesWorkspace() {
               <HrDetailTile label="Code" value={opened.code} mono />
               <HrDetailTile label="Status" value={statusLabel[opened.status]} />
             </HrDetailList>
-            {(opened.status === "pending_approval" || opened.status === "approved") &&
+            {(opened.status === "pending_approval" || opened.status === "approved" || opened.status === "rejected") &&
             opened.self_decision_requires_override &&
             opened.super_admin_override_allowed &&
             workflow.length ? (
@@ -475,7 +505,7 @@ export function HrLifecyclePoliciesWorkspace() {
             {decision ? (
               <WorkForm
                 className="grid min-w-0 gap-3"
-                aria-label={decisionLabel[decision]}
+                aria-label={actionLabel(decision)}
                 onSubmit={(event) => {
                   event.preventDefault();
                   void decide(opened, decision);
@@ -500,7 +530,7 @@ export function HrLifecyclePoliciesWorkspace() {
                     Back
                   </Button>
                   <Button type="submit" disabled={busy}>
-                    {busy ? "Saving…" : decisionLabel[decision]}
+                    {busy ? "Saving…" : actionLabel(decision)}
                   </Button>
                 </HrDrawerActions>
               </WorkForm>
@@ -541,6 +571,7 @@ export function HrLifecyclePoliciesWorkspace() {
                   <Button
                     key={action}
                     type="button"
+                    variant={action === "reject" ? "destructive" : "default"}
                     disabled={busy || blockedBySelfReview}
                     onClick={() => {
                       setError("");
@@ -548,7 +579,7 @@ export function HrLifecyclePoliciesWorkspace() {
                       setDecision(action);
                     }}
                   >
-                    {decisionLabel[action]}
+                    {actionLabel(action)}
                   </Button>
                 ))}
               </HrDrawerActions>

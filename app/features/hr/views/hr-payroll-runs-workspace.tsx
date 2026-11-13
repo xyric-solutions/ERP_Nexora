@@ -15,7 +15,7 @@ import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { HrClickableRow } from "../components/hr-clickable-row";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
-import { HrDetailGroup, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
+import { HrDetailGroup, HrDetailList, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
 import { Field, State, panel, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 import { HrPayrollRunComparison } from "../components/hr-payroll-run-comparison";
 
@@ -708,26 +708,12 @@ function EmployeeResult({ employee }: { employee: Employee }) {
           <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Applied employee jurisdiction overrides">
             <h4 className="font-semibold">Applied employee jurisdiction overrides</h4>
             {employee.statutory.jurisdiction_overrides.map((o) => (
-              <dl className="grid min-w-0 gap-1 rounded-md border border-border p-2 sm:grid-cols-2" key={o.id}>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Rule category</dt>
-                  <dd className="break-words">{o.rule_scope}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Jurisdiction</dt>
-                  <dd className="break-all">{o.jurisdiction_id}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Effective range</dt>
-                  <dd>
-                    {o.effective_from} – {o.effective_to ?? "Open ended"}
-                  </dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Approval reference</dt>
-                  <dd className="break-all font-mono">{o.id}</dd>
-                </div>
-              </dl>
+              <HrDetailList key={o.id}>
+                <HrDetailTile label="Rule category" value={o.rule_scope} />
+                <HrDetailTile label="Jurisdiction" value={o.jurisdiction_id} />
+                <HrDetailTile label="Effective range" value={`${o.effective_from} – ${o.effective_to ?? "Open ended"}`} />
+                <HrDetailTile label="Approval reference" value={o.id} mono />
+              </HrDetailList>
             ))}
           </div>
         )}
@@ -739,12 +725,12 @@ function EmployeeResult({ employee }: { employee: Employee }) {
                 <summary className="cursor-pointer">
                   {c.effective_from} – {c.effective_to} · {c.calendar_days} earned calendar day(s)
                 </summary>
-                <dl className="mt-2 grid min-w-0 gap-1 text-muted-foreground">
-                  <dt>Context input fingerprint</dt>
-                  <dd className="break-all font-mono">{c.input_hash}</dd>
-                  <dt>Resolved rule set</dt>
-                  <dd className="break-all font-mono">{c.resolved_set_hash}</dd>
-                </dl>
+                <div className="mt-2">
+                  <HrDetailList>
+                    <HrDetailTile label="Context input fingerprint" value={c.input_hash} mono />
+                    <HrDetailTile label="Resolved rule set" value={c.resolved_set_hash} mono />
+                  </HrDetailList>
+                </div>
               </details>
             ))}
           </div>
@@ -752,20 +738,21 @@ function EmployeeResult({ employee }: { employee: Employee }) {
         {employee.statutory?.state === "sealed" && (
           <details className="mt-3 min-w-0 text-xs">
             <summary className="cursor-pointer">Retained statutory fingerprints</summary>
-            <dl className="mt-2 grid min-w-0 gap-2">
-              <div>
-                <dt className="text-muted-foreground">Snapshot</dt>
-                <dd className="break-all font-mono">{employee.statutory.snapshot_id}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Input / resolved rule set</dt>
-                <dd className="break-all font-mono">
-                  {employee.statutory.input_hash}
-                  <br />
-                  {employee.statutory.resolved_set_hash}
-                </dd>
-              </div>
-            </dl>
+            <div className="mt-2">
+              <HrDetailList>
+                <HrDetailTile label="Snapshot" value={employee.statutory.snapshot_id} mono />
+                <HrDetailTile
+                  label="Input / resolved rule set"
+                  value={
+                    <span className="font-mono text-[12.5px]">
+                      {employee.statutory.input_hash}
+                      <br />
+                      {employee.statutory.resolved_set_hash}
+                    </span>
+                  }
+                />
+              </HrDetailList>
+            </div>
           </details>
         )}
       </section>

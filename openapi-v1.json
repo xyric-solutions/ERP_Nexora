@@ -111416,8 +111416,8 @@
                         "maxLength": 128
                       },
                       "justification": {
+                        "default": "No reason was entered.",
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 2000
                       },
                       "goal_id": {
@@ -112006,8 +112006,8 @@
                           "maxLength": 128
                         },
                         "justification": {
+                          "default": "No reason was entered.",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 2000
                         },
                         "goal_id": {
@@ -112602,8 +112602,8 @@
                             "maxLength": 128
                           },
                           "justification": {
+                            "default": "No reason was entered.",
                             "type": "string",
-                            "minLength": 1,
                             "maxLength": 2000
                           },
                           "goal_id": {
@@ -113188,8 +113188,8 @@
                           "maxLength": 128
                         },
                         "justification": {
+                          "default": "No reason was entered.",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 2000
                         },
                         "goal_id": {
@@ -113818,8 +113818,8 @@
                           "maxLength": 128
                         },
                         "justification": {
+                          "default": "No reason was entered.",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 2000
                         },
                         "goal_id": {
@@ -114400,8 +114400,8 @@
                           "maxLength": 128
                         },
                         "justification": {
+                          "default": "No reason was entered.",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 2000
                         },
                         "goal_id": {
@@ -114982,8 +114982,8 @@
                           "maxLength": 128
                         },
                         "justification": {
+                          "default": "No reason was entered.",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 2000
                         },
                         "goal_id": {
@@ -115703,8 +115703,8 @@
                         "maxLength": 128
                       },
                       "justification": {
+                        "default": "No reason was entered.",
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 2000
                       },
                       "goal_id": {
@@ -120788,8 +120788,8 @@
                         "maximum": 5
                       },
                       "summary": {
+                        "default": "",
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 4000
                       }
                     },
@@ -120830,8 +120830,8 @@
                         "maxLength": 500
                       },
                       "summary": {
+                        "default": "",
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 4000
                       }
                     },
@@ -121002,8 +121002,8 @@
                         }
                       },
                       "notes": {
+                        "default": "",
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 4000
                       }
                     },
@@ -121194,8 +121194,8 @@
                 "maximum": 5
               },
               "summary": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 4000
               }
             },
@@ -121236,8 +121236,8 @@
                 "maxLength": 500
               },
               "summary": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 4000
               }
             },
@@ -121408,8 +121408,8 @@
                 }
               },
               "notes": {
+                "default": "",
                 "type": "string",
-                "minLength": 1,
                 "maxLength": 4000
               }
             },
@@ -122195,6 +122195,10 @@
             "minLength": 1,
             "maxLength": 128
           },
+          "employee_number": {
+            "default": "",
+            "type": "string"
+          },
           "employee_name": {
             "type": "string"
           },
@@ -122316,8 +122320,8 @@
                     "maximum": 5
                   },
                   "summary": {
+                    "default": "",
                     "type": "string",
-                    "minLength": 1,
                     "maxLength": 4000
                   }
                 },
@@ -122358,8 +122362,8 @@
                     "maxLength": 500
                   },
                   "summary": {
+                    "default": "",
                     "type": "string",
-                    "minLength": 1,
                     "maxLength": 4000
                   }
                 },
@@ -122530,8 +122534,8 @@
                     }
                   },
                   "notes": {
+                    "default": "",
                     "type": "string",
-                    "minLength": 1,
                     "maxLength": 4000
                   }
                 },
@@ -122593,6 +122597,7 @@
           "kind",
           "relationship_id",
           "employee_id",
+          "employee_number",
           "employee_name",
           "state",
           "version",
@@ -123436,6 +123441,10 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "employee_number": {
+                  "default": "",
+                  "type": "string"
+                },
                 "employee_name": {
                   "type": "string"
                 },
@@ -123557,8 +123566,8 @@
                           "maximum": 5
                         },
                         "summary": {
+                          "default": "",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 4000
                         }
                       },
@@ -123599,8 +123608,8 @@
                           "maxLength": 500
                         },
                         "summary": {
+                          "default": "",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 4000
                         }
                       },
@@ -123771,8 +123780,8 @@
                           }
                         },
                         "notes": {
+                          "default": "",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 4000
                         }
                       },
@@ -123834,6 +123843,7 @@
                 "kind",
                 "relationship_id",
                 "employee_id",
+                "employee_number",
                 "employee_name",
                 "state",
                 "version",
@@ -124718,6 +124728,10 @@
                   "minLength": 1,
                   "maxLength": 128
                 },
+                "employee_number": {
+                  "default": "",
+                  "type": "string"
+                },
                 "employee_name": {
                   "type": "string"
                 },
@@ -124839,8 +124853,8 @@
                           "maximum": 5
                         },
                         "summary": {
+                          "default": "",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 4000
                         }
                       },
@@ -124881,8 +124895,8 @@
                           "maxLength": 500
                         },
                         "summary": {
+                          "default": "",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 4000
                         }
                       },
@@ -125053,8 +125067,8 @@
                           }
                         },
                         "notes": {
+                          "default": "",
                           "type": "string",
-                          "minLength": 1,
                           "maxLength": 4000
                         }
                       },
@@ -125116,6 +125130,7 @@
                 "kind",
                 "relationship_id",
                 "employee_id",
+                "employee_number",
                 "employee_name",
                 "state",
                 "version",
@@ -144054,7 +144069,8 @@
                     "pending_approval",
                     "approved",
                     "active",
-                    "inactive"
+                    "inactive",
+                    "rejected"
                   ]
                 },
                 "effective_from": {
@@ -144270,6 +144286,13 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approved",
+              "rejected"
+            ]
+          },
           "reason": {
             "default": "No reason was entered.",
             "type": "string",
@@ -144312,7 +144335,10 @@
           },
           "status": {
             "type": "string",
-            "const": "approved"
+            "enum": [
+              "approved",
+              "rejected"
+            ]
           },
           "audit_event_id": {
             "type": "string",
@@ -145549,6 +145575,55 @@
                     }
                   ]
                 },
+                "code": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rejected_by": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rejected_at": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rejection_reason": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "self_decision_requires_override": {
                   "type": "boolean"
                 },
@@ -145579,7 +145654,11 @@
                 "status",
                 "decided_by",
                 "decided_at",
-                "decision_reason"
+                "decision_reason",
+                "code",
+                "rejected_by",
+                "rejected_at",
+                "rejection_reason"
               ],
               "additionalProperties": false
             }
@@ -145728,6 +145807,55 @@
               }
             ]
           },
+          "code": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejected_by": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejected_at": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejection_reason": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "self_decision_requires_override": {
             "type": "boolean"
           },
@@ -145758,7 +145886,11 @@
           "status",
           "decided_by",
           "decided_at",
-          "decision_reason"
+          "decision_reason",
+          "code",
+          "rejected_by",
+          "rejected_at",
+          "rejection_reason"
         ],
         "additionalProperties": false
       },
@@ -146085,6 +146217,55 @@
                     }
                   ]
                 },
+                "code": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 32
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rejected_by": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rejected_at": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "rejection_reason": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "maxLength": 1000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "self_decision_requires_override": {
                   "type": "boolean"
                 },
@@ -146113,7 +146294,11 @@
                 "status",
                 "decided_by",
                 "decided_at",
-                "decision_reason"
+                "decision_reason",
+                "code",
+                "rejected_by",
+                "rejected_at",
+                "rejection_reason"
               ],
               "additionalProperties": false
             }
@@ -146256,6 +146441,55 @@
               }
             ]
           },
+          "code": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejected_by": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejected_at": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rejection_reason": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "self_decision_requires_override": {
             "type": "boolean"
           },
@@ -146284,7 +146518,11 @@
           "status",
           "decided_by",
           "decided_at",
-          "decision_reason"
+          "decision_reason",
+          "code",
+          "rejected_by",
+          "rejected_at",
+          "rejection_reason"
         ],
         "additionalProperties": false
       },

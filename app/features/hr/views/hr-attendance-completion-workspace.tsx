@@ -6,6 +6,7 @@ import { useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrDeleteButton, HrEditButton } from "../components/hr-icon-buttons";
 import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { HrPayrollOvertimeSetup } from "./hr-payroll-overtime-setup";
 import {
   AttendanceEmployeeDetails,
@@ -560,15 +561,11 @@ function Overtime({
               <State value={detail.status} />
             </div>
             <p className="break-words text-sm">{detail.reason}</p>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <Metric title="Requested" value={minutes(detail.requested_minutes)} hint={label(detail.category)} />
-              <Metric title="Approved" value={minutes(detail.approved_minutes ?? 0)} hint="Final HR decision" />
-              <Metric
-                title="Current eligible minutes"
-                value={minutes(detail.evidence?.eligible_minutes ?? 0)}
-                hint="Derived from source evidence"
-              />
-            </div>
+            <HrDetailList>
+              <HrDetailTile label="Requested" value={minutes(detail.requested_minutes)} hint={label(detail.category)} />
+              <HrDetailTile label="Approved" value={minutes(detail.approved_minutes ?? 0)} />
+              <HrDetailTile label="Current eligible minutes" value={minutes(detail.evidence?.eligible_minutes ?? 0)} />
+            </HrDetailList>
             {detail.evidence_unavailable && (
               <p className="text-sm text-[var(--nx-warning)]">{detail.evidence_unavailable}</p>
             )}

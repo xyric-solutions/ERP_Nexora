@@ -5,6 +5,7 @@ import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 import { HrClickableRow } from "./hr-clickable-row";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -118,8 +119,8 @@ export function HrHireApprovalsPanel({
   const decide = async () => {
     if (!detail || !decision || saving) return;
     const trimmed = reason.trim();
-    if (!trimmed || trimmed.length > 1000) {
-      setError("Enter a decision reason of 1 to 1000 characters.");
+    if (trimmed.length > 1000) {
+      setError("Keep the decision reason within 1000 characters.");
       setDecision(null);
       return;
     }
@@ -277,17 +278,17 @@ export function HrHireApprovalsPanel({
                     </div>
                     <Badge variant="secondary">Pending</Badge>
                   </div>
-                  <dl className="grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-1">
-                    <ReviewField label="Job" value={`${detail.job_name} (${detail.job_code})`} />
-                    <ReviewField label="Placement" value={`${detail.designation} · ${detail.work_location}`} />
-                    <ReviewField
+                  <HrDetailList>
+                    <HrDetailTile label="Job" value={`${detail.job_name} (${detail.job_code})`} />
+                    <HrDetailTile label="Placement" value={`${detail.designation} · ${detail.work_location}`} />
+                    <HrDetailTile
                       label="Employment context"
                       value={[detail.employment_setup, detail.job_grade].filter(Boolean).join(" · ")}
                     />
-                    <ReviewField label="Effective date" value={detail.effective_on} />
-                    <ReviewField label="Requested" value={new Date(detail.requested_at).toLocaleString()} />
-                    <ReviewField label="Business reason" value={detail.reason} />
-                  </dl>
+                    <HrDetailTile label="Effective date" value={detail.effective_on} />
+                    <HrDetailTile label="Requested" value={new Date(detail.requested_at).toLocaleString()} />
+                    <HrDetailTile label="Business reason" value={detail.reason} />
+                  </HrDetailList>
                   {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
                   {approvalOverride.independentApproverRequired ? (
                     <Alert>
@@ -370,14 +371,5 @@ export function HrHireApprovalsPanel({
         </DialogContent>
       </Dialog>
     </section>
-  );
-}
-
-function ReviewField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-foreground">{value}</dd>
-    </div>
   );
 }

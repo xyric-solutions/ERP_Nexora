@@ -5,6 +5,7 @@ import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 import { HrClickableRow } from "./hr-clickable-row";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -126,8 +127,8 @@ export function HrTransferApprovalsPanel({
   const decide = async () => {
     if (!detail || !decision || saving) return;
     const trimmed = reason.trim();
-    if (!trimmed || trimmed.length > 1000) {
-      setError("Enter a decision reason of 1 to 1000 characters.");
+    if (trimmed.length > 1000) {
+      setError("Keep the decision reason within 1000 characters.");
       setDecision(null);
       return;
     }
@@ -274,26 +275,26 @@ export function HrTransferApprovalsPanel({
                     </div>
                     <Badge variant="secondary">Pending</Badge>
                   </div>
-                  <dl className="grid gap-2 text-sm">
-                    <ReviewField
+                  <HrDetailList>
+                    <HrDetailTile
                       label="Current placement"
                       value={`${detail.source_branch || "No branch"} · ${detail.source_department || "No department"}`}
                     />
-                    <ReviewField
+                    <HrDetailTile
                       label="Proposed placement"
                       value={`${detail.proposed_branch || "No branch"} · ${detail.proposed_department || "No department"}`}
                     />
-                    <ReviewField
+                    <HrDetailTile
                       label="Job and designation"
                       value={`${detail.proposed_job} · ${detail.proposed_designation}`}
                     />
-                    <ReviewField
+                    <HrDetailTile
                       label="Grade and work location"
                       value={`${detail.proposed_job_grade} · ${detail.proposed_work_location}`}
                     />
-                    <ReviewField label="Effective date" value={detail.effective_on} />
-                    <ReviewField label="Business reason" value={detail.reason} />
-                  </dl>
+                    <HrDetailTile label="Effective date" value={detail.effective_on} />
+                    <HrDetailTile label="Business reason" value={detail.reason} />
+                  </HrDetailList>
                   {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
                   {approvalOverride.independentApproverRequired ? (
                     <Alert>
@@ -371,14 +372,5 @@ export function HrTransferApprovalsPanel({
         </DialogContent>
       </Dialog>
     </section>
-  );
-}
-
-function ReviewField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-foreground">{value}</dd>
-    </div>
   );
 }

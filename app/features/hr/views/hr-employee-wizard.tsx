@@ -26,6 +26,7 @@ import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrRecordCodeField } from "../components/hr-create-form";
 import { HrEditButton } from "../components/hr-icon-buttons";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 
 /** Who the drawer is for: a new draft, an unsubmitted draft, or an approved employee. */
 export type HrEmployeeWizardTarget =
@@ -866,7 +867,7 @@ export function HrEmployeeWizard({
             ) : (
               <div className="grid gap-3">
                 <HrRecordCodeField kind="employee" id="hr-wizard-employee-number" label="Employee number" companyId={basic.companyId || undefined} value={employeeNumber || null} />
-                <dl className="m-0! grid">
+                <HrDetailList>
                   {[
                     ["Name", [basic.firstName, basic.middleName, basic.lastName].filter(Boolean).join(" ")],
                     ["Preferred name", basic.preferredName],
@@ -876,12 +877,9 @@ export function HrEmployeeWizard({
                     ["Company", companies.find((company) => company.id === basic.companyId)?.name ?? ""],
                     ...(statusEditable ? [] : [["Status", savedStatus.replaceAll("_", " ")]]),
                   ].map(([label, value]) => (
-                    <div key={label} className="grid grid-cols-[minmax(7.5rem,36%)_minmax(0,1fr)] gap-3 py-2">
-                      <dt className="text-xs text-muted-foreground">{label}</dt>
-                      <dd className="m-0! text-sm font-medium">{value || "Not recorded"}</dd>
-                    </div>
+                    <HrDetailTile key={label} label={label} value={value} />
                   ))}
-                </dl>
+                </HrDetailList>
                 {statusEditable ? (
                   <Field label="Status">
                     <select className={selectClass} disabled={busy || !can("hr.employee.update")} value={status} onChange={(event) => setStatus(event.target.value)}>

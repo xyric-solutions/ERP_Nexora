@@ -4,7 +4,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 
 import { payrollNavigationContext } from "../components/payroll-navigation";
 import { HrClickableRow } from "../components/hr-clickable-row";
-import { HrStatusPill } from "../components/hr-detail-tile";
+import { HrDetailList, HrDetailTile, HrStatusPill } from "../components/hr-detail-tile";
 import { hrCell } from "../components/hr-table";
 import { HrPayrollLocalizationSetup } from "./hr-payroll-localization-setup";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -650,41 +650,31 @@ function RecordDetail({
           </div>
         </div>
       </header>
-      <dl className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Object.entries(record.details)
-          .filter(
-            ([k, v]) =>
-              v !== null && !k.endsWith("_id") && !k.endsWith("_hash") && !["company_id", "formula"].includes(k),
-          )
-          .map(([key, value]) => (
-            <div className="min-w-0" key={key}>
-              <dt className="text-xs text-muted-foreground">{name(key)}</dt>
-              <dd className="mt-1 break-words text-sm">{value}</dd>
-            </div>
-          ))}
-      </dl>
-      {section === "loans" && (
-        <div className="mt-5 grid min-w-0 grid-cols-1 gap-3 rounded-lg border border-border bg-muted/30 p-4 text-sm sm:grid-cols-2">
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Loan principal</p>
-            <p className="mt-1 font-semibold tabular-nums">
-              {record.amount} {record.currency_code}
-            </p>
-          </div>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">Employee document reference for Bank Payment</p>
-            <p className="mt-1 break-all font-mono text-xs">{record.employee_id}</p>
-          </div>
+      <div className="mt-5">
+        <HrDetailList>
           {Object.entries(record.details)
-            .filter(([key]) =>
-              ["bank_payment_line_id", "payment_id", "journal_id", "receivable_account_id"].includes(key),
+            .filter(
+              ([k, v]) =>
+                v !== null && !k.endsWith("_id") && !k.endsWith("_hash") && !["company_id", "formula"].includes(k),
             )
             .map(([key, value]) => (
-              <div className="min-w-0" key={key}>
-                <p className="text-xs text-muted-foreground">{name(key)}</p>
-                <p className="mt-1 break-all font-mono text-xs">{value}</p>
-              </div>
+              <HrDetailTile key={key} label={name(key)} value={value} />
             ))}
+        </HrDetailList>
+      </div>
+      {section === "loans" && (
+        <div className="mt-4">
+          <HrDetailList>
+            <HrDetailTile label="Loan principal" value={`${record.amount} ${record.currency_code}`} />
+            <HrDetailTile label="Employee document reference for Bank Payment" value={record.employee_id} mono />
+            {Object.entries(record.details)
+              .filter(([key]) =>
+                ["bank_payment_line_id", "payment_id", "journal_id", "receivable_account_id"].includes(key),
+              )
+              .map(([key, value]) => (
+                <HrDetailTile key={key} label={name(key)} value={value} mono />
+              ))}
+          </HrDetailList>
         </div>
       )}
       {record.details.formula && (

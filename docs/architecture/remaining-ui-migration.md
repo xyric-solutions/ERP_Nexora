@@ -7893,3 +7893,124 @@ Company Chart adoption/review checkpoint (2026-10-20):
   attendance completion, landing summaries, shell navigation), `npm run build:web`.
   No browser pass yet. Legacy `tests/*.test.mjs` HR suites fail before and after (they import
   retired `app/hr-*-data.ts` paths).
+
+## 2026-11-13 — HR & Payroll create-form standard and universal record codes (HR154)
+
+Standard for every Add / New / Create drawer (and the same form in edit mode):
+1. Auto-generated code, read-only (`HrRecordCodeField`, `app/features/hr/components/hr-create-form.tsx`).
+2. Name, or the record's primary identifying field (employee, contact name, title…).
+3. Remaining fields, **one field per full-width row** (`HrFormRows`); no `sm:/md:grid-cols-*`
+   or side-by-side inputs. A single option list (weekly off days, panel members) may stay inline.
+
+Codes are real, saved and unique:
+- Migration `hr/0154_universal_record_codes`: nullable `code` + format CHECK + unique index for
+  interviews, assessments, overtime rules, leave postings, the 5 movement requests, profile-draft
+  assignments, lifecycle cases, contacts, emergency contacts, documents, employment history,
+  salary assignments, payroll adjustments, OT arrangements, statutory setup requests, payroll
+  policies and periods. MRQ/JOP/CAN/APL/OFR reference CHECKs also accept `PREFIX-###`; overtime
+  request references gained a unique index. Historical rows keep NULL / their old references.
+- `record-codes.ts` gained 37 kinds (typed against the contract enum `hrRecordCodeKindSchema`);
+  every create path reserves its code inside the create transaction with `allocateNewHrCode`.
+  Edits that write a superseding row (contacts, emergency contacts, document replace) keep the
+  original code. The sequence regex is capped at 9 digits so legacy hex references never count.
+- New read-only endpoint `GET /api/v1/hr/record_code_preview?company_id&kind` (any `hr.*`
+  permission + company access) feeds the form preview from the same counter; the server still
+  allocates the final code on save. Contracts, OpenAPI and the generated client were updated.
+- Saved codes are now returned for contacts, emergency contacts, documents, employment history,
+  lifecycle cases and interviews, so their edit forms show the stored code ("Not assigned" for
+  pre-HR154 rows) instead of a preview.
+
+Forms converted (≈45): Organisation masters (cost centres, work locations, designations, jobs,
+job grades, org units), Recruitment (requisition, opening, application, interview, assessment,
+offer; candidate edit), People (Add Employee wizard + contact/emergency/document/history
+sub-forms, contacts, emergency contacts, transfers/promotions and the 5 maker panels,
+assignment + hire), Time & Leave (shift, shift allocation, leave type, leave request, leave
+posting, overtime request/rule, correction), Lifecycle (policies, onboarding/probation/
+resignation/termination/clearance cases), Payroll (component, structure, salary, adjustment,
+loan/advance, overtime policy/assignment, statutory setup, payroll policy/period). Drawer
+decision forms (disbursement/payment confirmation, approval action, allocation end, overtime
+decision) are single-column too.
+
+Verification: API + web `tsc`, `git diff --check`, eslint on new/rewritten files (other files keep
+their pre-existing set-state-in-effect/label findings, unchanged vs HEAD), theme audit `--write`/
+`--check` (0 exceptions), `npm run build:web`, migration applied to the test DB, integration
+`hr-record-codes` 65/65 (40 new). Affected HR integration suites pass apart from 9 pre-existing
+fixture failures (requisitions without project/hiring basis, branch directly under company,
+date/timezone attendance checks, draft-list status) that fail independently of codes.
+
+Remaining / resume point:
+- Apply migration 154 to the local DB (`db:migrate` with the migration role) before using the
+  local app — create actions will fail on the missing `code` columns until then.
+- Browser pass (light/dark, desktop/tablet/mobile) of the converted drawers.
+- Payroll policy edit has no code row (the workspace contract exposes no policy code yet);
+  lists do not yet show the new code columns for movement requests, salary, adjustments, etc.
+
+## HR155 — Employee Lifecycle list standard, statuses and rejected-record re-approval (2026-11-13)
+
+Scope: Employee Lifecycle (Lifecycle Policies, Onboarding, Probation Reviews, Resignations,
+Terminations, Exit Clearance), Transfers, Promotions, Loan Requests / Advance Requests.
+
+- List standard (`app/features/hr/components/hr-table.ts`: `hrListCell`, `hrListHead`, `hrListCode`,
+  `hrListText`): compact single-line rows, columns Code → Name (employee lists: Employee Code →
+  Employee Name) → details → Status last. No code is stacked under a name.
+  - Policies: Code | Name | Description | Version | Effective from | Status.
+  - Cases: Code | Employee Code | Employee Name | Checklist / Review date / Last working day |
+    (Outcome) | Updated | Status. Transfers/Promotions: Code | Employee Code | Employee Name |
+    Current | New | Effective | Status. Loans: Code | Employee Code | Employee Name | Amount |
+    Recovery component | Instalments | Outstanding | Status. Pre-HR154 rows show "—" for Code.
+- Statuses: Policies filter All records / Pending (draft + awaiting) / Approved (approved +
+  active) / Rejected; deactivated policies appear under All records. Every case section uses All /
+  Draft / Submitted / Approved / Rejected. "Cancelled" is no longer shown: deleting a draft
+  removes it from the list (stored as `cancelled` for the audit trail; the API excludes it from
+  `state=all`). The checklist "Open" pill is now "Not done".
+- Codes: `HrRecordCodeField` never shows "Generated on save"; it retries the preview and shows the
+  real next code ("Code unavailable" only after three failures). The local fallback was caused by
+  migration 154 not being applied locally.
+- Re-approval (server-enforced, migration `0155_rejected_record_reapproval`): rejected →
+  approved for lifecycle cases, lifecycle policies (new `rejected` status via the optional
+  `decision` on `approval_decision`), transfers, promotions and loans/advances. Normal validations
+  apply (independent approver, checklist complete, probation confirmation, clearance account
+  check, transfer/promotion effective date and active source assignment, loan period/component).
+  The officer who rejected may re-approve; the maker/submitter/employee may not. A duplicate live
+  case blocks re-approval. History: case events, `hr_payroll_workspace_event`, platform audit
+  (`hr.employment_lifecycle_policy.reject` / `.approve` with `reapproval`), and on transfers and
+  promotions the original rejection stays in `rejected_by/rejected_at/rejection_reason`.
+  Drawers show "Re-approve"; Delete/Edit stay visible (disabled when the workflow forbids them).
+
+Verification: `npm run typecheck`, `git diff --check`, eslint (no new findings vs HEAD), theme
+audit `--write`/`--check` (0 exceptions), `npm run build:web`, migrations applied to local and
+test DBs (hr=155), new integration tests (policy reject/re-approve, case re-approval + duplicate
+guard + history, transfer re-approval with preserved rejection, loan re-approval with fresh
+schedule) pass with lifecycle, settlement, transfer, promotion, policy-upgrade, approval-override
+and loan suites; HR unit tests 491/491 (stale wizard preview mock fixed). Still failing and not
+touched here: `hr-supplemental-settlement` (Finance exchange-rate snapshot), recruitment/master
+fixture failures listed above, OpenAPI path-list snapshot.
+
+Remaining / resume point:
+- Re-approval in the other HR & Payroll workflows (each needs its own guard migration): manager
+  change, work location change, organisation placement change, hire approvals, offers, leave,
+  overtime requests, attendance corrections, localization records, overtime pay setup, payroll
+  adjustments, settlement benefit/encashment rules, report export policy, policy upgrades,
+  personal corrections. Manpower requisitions need server/UI only (no DB guard). Payroll journal
+  replaces rejected proposals by design — decide before changing.
+- Browser pass (light/dark, desktop/tablet/mobile) of the updated lists and drawers.
+- Decide whether pre-HR154 lifecycle/transfer/promotion rows should be back-filled with codes.
+
+## 2026-11-13 — HR detail drawers match the create forms; reasons optional
+
+- `HrDetailTile` (`app/features/hr/components/hr-detail-tile.tsx`) now renders each saved field
+  like its create-form input: label above, value inside an Input-identical bordered box
+  (`hrFieldBoxClass` / `hrFieldLabelClass`), one field per row; `HrDetailList`/`HrDetailGroup`
+  stack rows with the form spacing (gap-4). `HrDetailSummary` (code + status), `HrDetailFigures`,
+  tables, history and the fixed bottom action bar are unchanged.
+- Custom `<dt>/<dd>` detail lists converted to tiles: the six approval panels, four change maker
+  panels, payroll record drawer, payslip, overtime policy review, payroll run results, attendance
+  corrections, daily attendance evidence, statutory setup review, approved-employee summary,
+  overtime request and interview scorecards. Page-level dashboards, KPI strips and comparison
+  tables keep their layouts; the employee record page and month-end panel use tiles too.
+- Reasons are optional everywhere in HR & Payroll: approval panels no longer block on an empty
+  decision reason; lifecycle summaries, learning justification and settlement notes accept blanks
+  (contracts store "No reason was entered." where the database needs text). The "Optional"
+  assessment badge was removed (only "Required" shows).
+- Verification: web `tsc`, `git diff --check`, theme audit (0 exceptions), HR unit tests
+  (39 files / 491 tests), `npm run build:web`. No browser pass yet.

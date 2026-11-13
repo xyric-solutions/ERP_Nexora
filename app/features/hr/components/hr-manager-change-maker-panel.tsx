@@ -1,6 +1,7 @@
 "use client";
 import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useRef, useState } from "react";
 
@@ -140,16 +141,16 @@ export function HrManagerChangeMakerPanel({
           </Alert>
         )}
         <HrRecordCodeField kind="manager_change" id="manager-change-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
-        <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
-          <ContextField
+        <HrDetailList>
+          <HrDetailTile
             label="Current reporting manager"
             value={currentManager?.display_name ?? "No reporting manager"}
           />
-          <ContextField
+          <HrDetailTile
             label="Employee"
             value={employees.find((employee) => employee.id === employeeId)?.display_name ?? employeeId}
           />
-        </dl>
+        </HrDetailList>
         <HrFormRows>
           <label
             htmlFor="manager-change-proposed-manager"
@@ -207,14 +208,5 @@ export function HrManagerChangeMakerPanel({
         </div>
       </section>
     </HrRecordDrawer>
-  );
-}
-
-function ContextField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 font-medium text-foreground">{value}</dd>
-    </div>
   );
 }

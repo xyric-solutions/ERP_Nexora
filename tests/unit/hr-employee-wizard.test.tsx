@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   listHrCompanies: vi.fn(),
   listHrJobGradeCurrencies: vi.fn(),
   getHrEmployeeNumberPreview: vi.fn(),
+  getHrRecordCodePreview: vi.fn(),
   listHrOrganizationUnits: vi.fn(),
   createHrEmployeeDraft: vi.fn(),
   createHrEmployeeContact: vi.fn(),
@@ -81,6 +82,10 @@ describe("HrEmployeeWizard", () => {
     api.listHrCompanies.mockResolvedValue({ items: [{ id: "company-1", code: "C1", name: "Company One" }] });
     api.listHrJobGradeCurrencies.mockResolvedValue({ items: [{ currency_code: "PKR", currency_name: "Rupee", is_base: true }] });
     api.getHrEmployeeNumberPreview.mockResolvedValue({ employee_number: "EMP-007" });
+    api.getHrRecordCodePreview.mockImplementation(async (query: unknown) => {
+      const kind = new URLSearchParams(query instanceof URLSearchParams ? query : (query as Record<string, string>)).get("kind");
+      return { kind, code: kind === "employee" ? "EMP-007" : "CON-001" };
+    });
     const unit = (id: string, type: string, parent_id: string, name: string) => ({ id, type, parent_id, name, code: id.toUpperCase(), status: "active", created_at: "2026-01-01T00:00:00.000Z", head_name: null, employee_count: 0 });
     api.listHrOrganizationUnits.mockResolvedValue({
       items: [unit("loc-1", "division", "company-1", "Lahore"), unit("prj-1", "branch", "loc-1", "Canal Road"), unit("prj-2", "branch", "company-1", "Head Office"), unit("dept-1", "department", "prj-1", "Finance")],
@@ -104,9 +109,10 @@ describe("HrEmployeeWizard", () => {
     await act(async () => root.render(<HrEmployeeWizard target={{ kind: "create" }} onClose={vi.fn()} onSaved={saved} />));
     await flush();
 
-    // The employee number is shown read-only beside its label, never as an editable field.
-    expect(document.body.textContent).toContain("Employee numberEMP-007");
-    expect(() => control("Employee number")).toThrow();
+    // The employee number is the generated code, shown in a read-only field (never editable).
+    const employeeNumber = document.getElementById("hr-wizard-employee-number") as HTMLInputElement;
+    expect(employeeNumber.value).toBe("EMP-007");
+    expect(employeeNumber.readOnly).toBe(true);
     expect(document.body.textContent).not.toContain("company-scoped draft only");
 
     // Steps are optional: Next always moves on, even before any field is filled.

@@ -14,6 +14,7 @@ import { HrApiClient } from "../api/hr-client";
 import { Field, State, panel, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 import { HrClickableRow } from "../components/hr-clickable-row";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { payslipHtml } from "../components/payslip-print";
 
 const tableWrap = "relative overflow-x-auto rounded-lg border border-border bg-card shadow-sm";
@@ -502,42 +503,31 @@ export function HrPayslipsWorkspace({
                 </tbody>
               </WorkTable>
             </div>
-            <dl className="grid gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">Net pay</dt>
-                <dd className="font-semibold tabular-nums">
-                  {d.document.result.net} {d.document.result.currency}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Employer contributions</dt>
-                <dd className="tabular-nums">{d.document.result.employer_contributions}</dd>
-              </div>
+            <HrDetailList>
+              <HrDetailTile
+                label="Net pay"
+                value={
+                  <span className="font-semibold">
+                    {d.document.result.net} {d.document.result.currency}
+                  </span>
+                }
+              />
+              <HrDetailTile label="Employer contributions" value={d.document.result.employer_contributions} />
               {d.release && (
                 <>
-                  <div>
-                    <dt className="text-muted-foreground">Release</dt>
-                    <dd className="break-all">{d.release.id}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Published by / at</dt>
-                    <dd className="break-all">
-                      {d.release.released_by} · {new Date(d.release.released_at).toLocaleString()}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Publication hash</dt>
-                    <dd className="break-all">{d.release.publication_hash ?? "Legacy release"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Accrual journal</dt>
-                    <dd className="break-all">
-                      {d.document.accrual?.entry_number ?? "Historical reference unavailable"}
-                    </dd>
-                  </div>
+                  <HrDetailTile label="Release" value={d.release.id} />
+                  <HrDetailTile
+                    label="Published by / at"
+                    value={`${d.release.released_by} · ${new Date(d.release.released_at).toLocaleString()}`}
+                  />
+                  <HrDetailTile label="Publication hash" value={d.release.publication_hash ?? "Legacy release"} />
+                  <HrDetailTile
+                    label="Accrual journal"
+                    value={d.document.accrual?.entry_number ?? "Historical reference unavailable"}
+                  />
                 </>
               )}
-            </dl>
+            </HrDetailList>
           </section>
         )}
       </HrRecordDrawer>

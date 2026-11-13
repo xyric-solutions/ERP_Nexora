@@ -20,7 +20,7 @@ import { HrApiClient } from "../api/hr-client";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { HrClickableRow } from "../components/hr-clickable-row";
-import { HrStatusPill } from "../components/hr-detail-tile";
+import { HrDetailList, HrDetailTile, HrStatusPill } from "../components/hr-detail-tile";
 import { hrCell } from "../components/hr-table";
 import { Field, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
 type Form = {
@@ -362,48 +362,34 @@ export function HrPayrollOvertimeSetup({ company, onDate }: { company: string; o
             )}
             {form.row ? (
               <>
-                <dl className="grid gap-3 rounded-lg border border-border p-3 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-muted-foreground">Record</dt>
-                    <dd className="mt-1 break-all">
-                      {form.row.reference} · {form.row.name}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-muted-foreground">Status / effective range</dt>
-                    <dd className="mt-1">
-                      {label(form.row.status)} · {form.row.effective_from} → {form.row.effective_to ?? "Open ended"}
-                    </dd>
-                  </div>
+                <HrDetailList>
+                  <HrDetailTile label="Record" value={`${form.row.reference} · ${form.row.name}`} />
+                  <HrDetailTile
+                    label="Status / effective range"
+                    value={`${label(form.row.status)} · ${form.row.effective_from} → ${form.row.effective_to ?? "Open ended"}`}
+                  />
                   {form.row.terms && (
                     <>
-                      <div>
-                        <dt className="text-muted-foreground">Rate / ordinary hours</dt>
-                        <dd className="mt-1 break-all">
-                          {form.row.direct_rate ?? form.row.terms.ordinary_hours ?? "Direct hourly"} · multiplier{" "}
-                          {form.row.terms.multiplier}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-muted-foreground">Currency / rounding</dt>
-                        <dd className="mt-1">
-                          {form.row.terms.currency_code} · {form.row.terms.money_scale} decimals ·{" "}
-                          {label(form.row.terms.rounding_stage)} · {label(form.row.terms.rounding_mode)}
-                        </dd>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <dt className="text-muted-foreground">Approved source reference</dt>
-                        <dd className="mt-1 break-words">{form.row.terms.source_reference}</dd>
-                      </div>
-                      <div className="sm:col-span-2">
-                        <dt className="text-muted-foreground">Basis component identifiers</dt>
-                        <dd className="mt-1 break-all font-mono text-xs">
-                          {form.row.terms.component_ids.join(", ") || "Explicit direct contractual rate"}
-                        </dd>
-                      </div>
+                      <HrDetailTile
+                        label="Rate / ordinary hours"
+                        value={`${form.row.direct_rate ?? form.row.terms.ordinary_hours ?? "Direct hourly"} · multiplier ${form.row.terms.multiplier}`}
+                      />
+                      <HrDetailTile
+                        label="Currency / rounding"
+                        value={`${form.row.terms.currency_code} · ${form.row.terms.money_scale} decimals · ${label(form.row.terms.rounding_stage)} · ${label(form.row.terms.rounding_mode)}`}
+                      />
+                      <HrDetailTile label="Approved source reference" value={form.row.terms.source_reference} />
+                      <HrDetailTile
+                        label="Basis component identifiers"
+                        value={
+                          <span className="font-mono text-xs">
+                            {form.row.terms.component_ids.join(", ") || "Explicit direct contractual rate"}
+                          </span>
+                        }
+                      />
                     </>
                   )}
-                </dl>
+                </HrDetailList>
                 <details className="text-xs text-muted-foreground">
                   <summary className="cursor-pointer">Source fingerprint</summary>
                   <p className="mt-2 break-all font-mono">{form.row.source_hash}</p>

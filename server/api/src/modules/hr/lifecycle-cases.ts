@@ -64,8 +64,10 @@ export class LifecycleCases {
     ).rowCount;
   }
   private async independent(client: PoolClient, c: HrActorContext, r: Row) {
+    // On a rejected case updated_by is the officer who rejected it; that officer may approve it again.
+    const makers = r.state === "rejected" ? [r.created_by, r.submitted_by] : [r.created_by, r.updated_by, r.submitted_by];
     if (
-      [r.created_by, r.updated_by, r.submitted_by].includes(c.actor.userId) ||
+      makers.includes(c.actor.userId) ||
       (await this.self(client, c, r.employee_id))
     )
       deny(
@@ -75,7 +77,7 @@ export class LifecycleCases {
   private async load(client: PoolClient, c: HrActorContext, company: string, id: string) {
     const r = (
       await client.query(
-        "select x.*,concat_ws(' · ',e.employee_number,concat_ws(' ',e.first_name,e.last_name)) as employee_name,x.updated_at::text from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where x.tenant_id=$1 and x.company_id=$2 and x.id=$3",
+        "select x.*,e.employee_number,concat_ws(' ',e.first_name,e.last_name) as employee_name,x.updated_at::text from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where x.tenant_id=$1 and x.company_id=$2 and x.id=$3",
         [c.tenantId, company, id],
       )
     ).rows[0];
@@ -112,11 +114,12 @@ export class LifecycleCases {
     } catch (e) {
       if (!(e instanceof HrApiError && e.status === 403)) throw e;
     }
-    if (r.state === "submitted")
+    if (r.state === "submitted" || r.state === "rejected")
       try {
         await this.permission(client, c, r.company_id, "hr.employment_lifecycle.approve");
         await this.independent(client, c, r);
-        a.push("approve", "reject", "return");
+        // A rejected case is not final: an approver can review it and approve it again.
+        a.push(...(r.state === "submitted" ? ["approve", "reject", "return"] : ["approve"]));
       } catch (e) {
         if (!(e instanceof HrApiError && e.status === 403)) throw e;
       }
@@ -169,6 +172,7 @@ export class LifecycleCases {
       kind: r.kind,
       relationship_id: r.relationship_id,
       employee_id: r.employee_id,
+      employee_number: r.employee_number ?? "",
       employee_name: r.employee_name,
       state: r.state,
       version: r.version,
@@ -545,7 +549,9 @@ export class LifecycleCases {
       if (q.state && q.state !== "all") {
         values.push(q.state);
         where += ` and x.state=$${values.length}`;
-      }
+      } else if (q.section !== "settlement" && q.section !== "offboarding")
+        // Deleting a draft stores it as cancelled for the audit trail; it no longer appears in the list.
+        where += " and x.state<>'cancelled'";
       const total = (
         await client.query(
           `select count(*)::int as total from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where ${where}`,
@@ -554,7 +560,7 @@ export class LifecycleCases {
       ).rows[0].total;
       const rows = (
         await client.query(
-          `select x.*,concat_ws(' · ',e.employee_number,concat_ws(' ',e.first_name,e.last_name)) as employee_name,x.updated_at::text from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where ${where} order by x.updated_at desc,x.id desc limit $${values.length + 1} offset $${values.length + 2}`,
+          `select x.*,e.employee_number,concat_ws(' ',e.first_name,e.last_name) as employee_name,x.updated_at::text from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where ${where} order by x.updated_at desc,x.id desc limit $${values.length + 1} offset $${values.length + 2}`,
           [...values, q.limit, q.offset],
         )
       ).rows as Row[];
@@ -566,7 +572,7 @@ export class LifecycleCases {
       ).rows;
       const exits = (
         await client.query(
-          "select x.*,concat_ws(' · ',e.employee_number,concat_ws(' ',e.first_name,e.last_name)) as employee_name,x.updated_at::text from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where x.tenant_id=$1 and x.company_id=$2 and x.kind in('resignation','termination') and x.state='approved' order by x.updated_at desc,x.id desc limit 201",
+          "select x.*,e.employee_number,concat_ws(' ',e.first_name,e.last_name) as employee_name,x.updated_at::text from hr_lifecycle_case x join employee e on e.tenant_id=x.tenant_id and e.id=x.employee_id where x.tenant_id=$1 and x.company_id=$2 and x.kind in('resignation','termination') and x.state='approved' order by x.updated_at desc,x.id desc limit 201",
           [c.tenantId, q.company_id],
         )
       ).rows as Row[];
@@ -952,6 +958,32 @@ export class LifecycleCases {
           if (activeAccount.rowCount)
             fail(
               "Deactivate the departing employee’s linked account through Security before approving exit clearance. Recording a checklist note does not revoke access.",
+            );
+        }
+        if (input.action === "approve" && old!.state === "rejected") {
+          // Re-approval must not create a second live case where only one is allowed.
+          const child = old!.kind === "clearance" || old!.kind === "settlement";
+          const single = old!.kind === "onboarding" || old!.kind === "resignation" || old!.kind === "termination";
+          const live =
+            child || single
+              ? (
+                  await client.query(
+                    child
+                      ? "select code from hr_lifecycle_case where tenant_id=$1 and company_id=$2 and id<>$3 and parent_id=$4 and kind = any($5::text[]) and state not in('cancelled','rejected') limit 1"
+                      : "select code from hr_lifecycle_case where tenant_id=$1 and company_id=$2 and id<>$3 and relationship_id=$4 and kind = any($5::text[]) and state not in('cancelled','rejected') limit 1",
+                    [
+                      c.tenantId,
+                      input.company_id,
+                      old!.id,
+                      child ? old!.parent_id : old!.relationship_id,
+                      child || old!.kind === "onboarding" ? [old!.kind] : ["resignation", "termination"],
+                    ],
+                  )
+                ).rows[0]
+              : undefined;
+          if (live)
+            fail(
+              `Another ${old!.kind} case${live.code ? ` (${live.code})` : ""} is already open for this employee. Resolve it before approving this rejected case again.`,
             );
         }
         const today = (await client.query("select current_date::text as today")).rows[0].today;

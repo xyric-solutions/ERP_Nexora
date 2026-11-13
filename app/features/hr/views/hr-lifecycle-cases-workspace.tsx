@@ -41,7 +41,7 @@ import { HrSearchField } from "../components/hr-list-controls";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
-import { hrCell } from "../components/hr-table";
+import { hrApproveLabel, hrListCell, hrListCode, hrListHead, hrListText } from "../components/hr-table";
 import { Field, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 
 export const lifecycleCasePages = {
@@ -74,45 +74,26 @@ const createLabel: Record<Section, string> = {
   clearance: "+ Create case",
 };
 
+/** HR & Payroll uses Rejected, never Cancelled; a deleted draft leaves the list (its audit trail stays). */
 const stateLabel: Record<string, string> = {
   draft: "Draft",
   submitted: "Submitted",
   approved: "Approved",
   rejected: "Rejected",
-  cancelled: "Cancelled",
+  cancelled: "Deleted",
   closed: "Closed",
   active: "Active",
   suspended: "Suspended",
 };
 
-const exitFilters: readonly { value: Filter; label: string }[] = [
+/** Every case section shares one set of statuses. There is no Open status: completed cases are Approved. */
+const caseFilters: readonly { value: Filter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "draft", label: "Draft" },
   { value: "submitted", label: "Submitted" },
   { value: "approved", label: "Approved" },
-  { value: "cancelled", label: "Cancelled" },
+  { value: "rejected", label: "Rejected" },
 ];
-/** Onboarding has no Cancelled outcome: a case that should not proceed is Rejected. */
-const sectionsWithoutCancel: readonly Section[] = ["onboarding"];
-const filters: Record<Section, readonly { value: Filter; label: string }[]> = {
-  onboarding: [
-    { value: "all", label: "All" },
-    { value: "draft", label: "Draft" },
-    { value: "submitted", label: "Submitted" },
-    { value: "approved", label: "Approved" },
-    { value: "rejected", label: "Rejected" },
-  ],
-  probation: [
-    { value: "all", label: "All" },
-    { value: "draft", label: "Draft" },
-    { value: "submitted", label: "Submitted" },
-    { value: "approved", label: "Approved" },
-    { value: "rejected", label: "Rejected" },
-  ],
-  resignation: exitFilters,
-  termination: exitFilters,
-  clearance: exitFilters,
-};
 
 /** Workflow decisions offered at the bottom of the record drawer. */
 const decisionLabels: Record<string, string> = {
@@ -128,7 +109,7 @@ const historyLabels: Record<string, string> = {
   approve: "Approved",
   reject: "Rejected",
   return: "Returned to draft",
-  cancel: "Cancelled",
+  cancel: "Draft deleted",
   apply_exit: "Exit completed",
 };
 
@@ -165,12 +146,13 @@ function taskProgress(terms: HrLifecycleCaseTerms) {
 }
 
 const exitLabel = (record: HrLifecycleCaseRecord) =>
-  `${record.employee_name} · ${record.kind === "termination" ? "Termination" : "Resignation"}` +
+  [record.code, record.employee_number, record.employee_name].filter(Boolean).join(" · ") +
+  ` · ${record.kind === "termination" ? "Termination" : "Resignation"}` +
   (record.terms.kind === "resignation" || record.terms.kind === "termination"
     ? ` · ${hrDisplayDate(record.terms.last_working_date)}`
     : "");
 
-/** Draft → Submitted → Approved, ending in Rejected or Cancelled when a case stopped there. */
+/** Draft → Submitted → Approved, ending in Rejected when a case stopped there (it can be approved again). */
 function CaseWorkflow({ state }: { state: string }) {
   const negative = state === "rejected" || state === "cancelled";
   const end = negative || state === "closed" ? state : "approved";
@@ -450,7 +432,6 @@ function LifecycleCaseForm({
         <Textarea
           value={notes}
           rows={3}
-          required={kind !== "onboarding" && kind !== "clearance"}
           maxLength={4000}
           disabled={busy}
           onChange={(event) => setNotes(event.target.value)}
@@ -479,7 +460,8 @@ function CaseDetail({ record, w }: { record: HrLifecycleCaseRecord; w: HrLifecyc
     <>
       <CaseWorkflow state={record.state} />
       <HrDetailGroup title="Employee">
-        <HrDetailTile label="Employee" value={record.employee_name} />
+        <HrDetailTile label="Employee code" value={record.employee_number} mono />
+        <HrDetailTile label="Employee name" value={record.employee_name} />
         {employment ? <HrDetailTile label="Employment" value={employment.label} /> : null}
         {employment ? (
           <HrDetailTile label="Employment status" value={stateLabel[employment.status] ?? employment.status} />
@@ -514,7 +496,7 @@ function CaseDetail({ record, w }: { record: HrLifecycleCaseRecord; w: HrLifecyc
             {terms.tasks.map((task) => (
               <li key={task.id} className="flex min-w-0 items-center justify-between gap-3 text-[13.5px]">
                 <span className="min-w-0 wrap-anywhere">{task.title}</span>
-                <HrStatusPill status={task.complete ? "completed" : "pending"} label={task.complete ? "Done" : "Open"} />
+                <HrStatusPill status={task.complete ? "completed" : "pending"} label={task.complete ? "Done" : "Not done"} />
               </li>
             ))}
           </ul>
@@ -535,7 +517,12 @@ function CaseDetail({ record, w }: { record: HrLifecycleCaseRecord; w: HrLifecyc
           <ol className="m-0! grid list-none gap-2 p-0!">
             {events.map((event, index) => (
               <li key={event.created_at + index} className="text-[13px]">
-                <span className="font-medium">{historyLabels[event.action] ?? "Updated"}</span>
+                <span className="font-medium">
+                  {event.action === "approve" &&
+                  events.some((other) => other.action === "reject" && other.created_at < event.created_at)
+                    ? "Approved again"
+                    : (historyLabels[event.action] ?? "Updated")}
+                </span>
                 <span className="text-muted-foreground"> · {hrDisplayDate(event.created_at, true)}</span>
                 {event.reason ? (
                   <span className="block text-xs text-muted-foreground wrap-anywhere">{event.reason}</span>
@@ -621,15 +608,18 @@ export function HrLifecycleCasesWorkspace({
       const saved = await client.actOnLifecycleCase(input, csrfToken(), retry.current.key);
       retry.current = null;
       const label = singular[section];
+      const reapproved = input.action === "approve" && record?.state === "rejected";
       setNotice(
         input.action === "save"
           ? `${label} saved as a draft.`
-          : `${label}: ${historyLabels[input.action]?.toLowerCase() ?? "updated"}.`,
+          : reapproved
+            ? `${label}: approved again.`
+            : `${label}: ${historyLabels[input.action]?.toLowerCase() ?? "updated"}.`,
       );
       // Keep the record in view under its new status.
       if (filter !== "all") {
         const next = saved.status as Filter;
-        setFilter(filters[section].some((item) => item.value === next) ? next : "all");
+        setFilter(caseFilters.some((item) => item.value === next) ? next : "all");
       }
       setOffset(0);
       setEditor(null);
@@ -658,9 +648,11 @@ export function HrLifecycleCasesWorkspace({
   const canCreate = !!w?.can_create;
   const decisions = record?.allowed_actions.filter((action) => action in decisionLabels) ?? [];
   const canEdit = record?.allowed_actions.includes("edit") ?? false;
-  const allowsCancel = !sectionsWithoutCancel.includes(section);
-  const canDelete = allowsCancel && (record?.allowed_actions.includes("cancel") ?? false);
-  const rows = (w?.items ?? []).filter((item) => allowsCancel || item.state !== "cancelled");
+  const canDelete = record?.allowed_actions.includes("cancel") ?? false;
+  // Deleted drafts are hidden by the API; this guards against an older API still returning them.
+  const rows = (w?.items ?? []).filter((item) => item.state !== "cancelled");
+  const decisionLabel = (action: string) =>
+    action === "approve" && record ? hrApproveLabel(record.state) : decisionLabels[action];
   const startCase = (relationship = "") => {
     setError("");
     setNotice("");
@@ -675,7 +667,7 @@ export function HrLifecycleCasesWorkspace({
           id={`hr-lifecycle-${section}-search`}
           value={search}
           onChange={setSearch}
-          placeholder="Search employee or status"
+          placeholder="Search code, employee or status"
         />
         {canCreate ? (
           <Button type="button" className="w-full md:w-auto" disabled={busy} onClick={() => startCase()}>
@@ -686,7 +678,7 @@ export function HrLifecycleCasesWorkspace({
       <HrMasterStatusFilter<Filter>
         label={`${singular[section]} status`}
         value={filter}
-        options={filters[section]}
+        options={caseFilters}
         onChange={(next) => {
           setFilter(next);
           setOffset(0);
@@ -719,10 +711,16 @@ export function HrLifecycleCasesWorkspace({
               <caption className="sr-only">{singular[section]} cases</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
-                  <th scope="col" className={`${hrCell} font-semibold`}>
-                    Employee
+                  <th scope="col" className={hrListHead}>
+                    Code
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>
+                  <th scope="col" className={`${hrListHead} max-sm:hidden`}>
+                    Employee Code
+                  </th>
+                  <th scope="col" className={hrListHead}>
+                    Employee Name
+                  </th>
+                  <th scope="col" className={`${hrListHead} max-sm:hidden`}>
                     {section === "clearance" || section === "onboarding"
                       ? "Checklist"
                       : section === "probation"
@@ -730,15 +728,15 @@ export function HrLifecycleCasesWorkspace({
                         : "Last working day"}
                   </th>
                   {section === "probation" ? (
-                    <th scope="col" className={`${hrCell} font-semibold max-md:hidden`}>
+                    <th scope="col" className={`${hrListHead} max-md:hidden`}>
                       Outcome
                     </th>
                   ) : null}
-                  <th scope="col" className={`${hrCell} font-semibold`}>
-                    Status
-                  </th>
-                  <th scope="col" className={`${hrCell} font-semibold max-md:hidden`}>
+                  <th scope="col" className={`${hrListHead} max-md:hidden`}>
                     Updated
+                  </th>
+                  <th scope="col" className={hrListHead}>
+                    Status
                   </th>
                 </tr>
               </thead>
@@ -757,12 +755,14 @@ export function HrLifecycleCasesWorkspace({
                         setOpened(item.id);
                       }}
                     >
-                      <td className={`${hrCell} font-medium wrap-anywhere`}>{item.employee_name}</td>
-                      <td className={`${hrCell} text-muted-foreground max-sm:hidden`}>
+                      <td className={hrListCode}>{item.code ?? "—"}</td>
+                      <td className={`${hrListCode} max-sm:hidden`}>{item.employee_number}</td>
+                      <td className={`${hrListText} font-medium`}>{item.employee_name}</td>
+                      <td className={`${hrListCell} text-muted-foreground max-sm:hidden`}>
                         {progress ? `${progress.done} of ${progress.total} done` : date ? hrDisplayDate(date.value) : ""}
                       </td>
                       {section === "probation" ? (
-                        <td className={`${hrCell} text-muted-foreground max-md:hidden`}>
+                        <td className={`${hrListCell} text-muted-foreground max-md:hidden`}>
                           {item.terms.kind === "probation"
                             ? item.terms.recommendation === "confirm"
                               ? "Confirm"
@@ -770,11 +770,11 @@ export function HrLifecycleCasesWorkspace({
                             : ""}
                         </td>
                       ) : null}
-                      <td className={hrCell}>
-                        <HrStatusPill status={item.state} label={stateLabel[item.state]} />
-                      </td>
-                      <td className={`${hrCell} text-muted-foreground max-md:hidden`}>
+                      <td className={`${hrListCell} text-muted-foreground max-md:hidden`}>
                         {hrDisplayDate(item.updated_at, false)}
+                      </td>
+                      <td className={hrListCell}>
+                        <HrStatusPill status={item.state} label={stateLabel[item.state]} />
                       </td>
                     </HrClickableRow>
                   );
@@ -782,7 +782,7 @@ export function HrLifecycleCasesWorkspace({
                 {!rows.length ? (
                   <tr>
                     <td
-                      colSpan={section === "probation" ? 5 : 4}
+                      colSpan={section === "probation" ? 7 : 6}
                       className="px-4 py-10 text-center text-muted-foreground"
                     >
                       {query || filter !== "all" ? "No cases match." : "No cases yet."}
@@ -859,7 +859,7 @@ export function HrLifecycleCasesWorkspace({
 
       {w ? (
         <HrRecordDrawer
-          title={record?.employee_name ?? singular[section]}
+          title={record ? [record.code, record.employee_name].filter(Boolean).join(" · ") : singular[section]}
           description={`${singular[section]} details`}
           open={!!record && editor === null}
           busy={busy}
@@ -876,7 +876,7 @@ export function HrLifecycleCasesWorkspace({
               {decision ? (
                 <WorkForm
                   className="grid min-w-0 gap-3"
-                  aria-label={decisionLabels[decision]}
+                  aria-label={decisionLabel(decision)}
                   onSubmit={(event) => {
                     event.preventDefault();
                     void command({
@@ -902,30 +902,28 @@ export function HrLifecycleCasesWorkspace({
                       Back
                     </Button>
                     <Button type="submit" disabled={busy}>
-                      {busy ? "Saving…" : decisionLabels[decision]}
+                      {busy ? "Saving…" : decisionLabel(decision)}
                     </Button>
                   </HrDrawerActions>
                 </WorkForm>
               ) : (
                 <HrDrawerActions>
-                  {allowsCancel ? (
-                    <HrConfirmDeleteButton
-                      label={canDelete ? `Delete ${singular[section].toLowerCase()}` : "Only drafts can be deleted"}
-                      title={`Delete this ${singular[section].toLowerCase()}?`}
-                      description="The draft is cancelled and kept in the history under Cancelled."
-                      variant="outline"
-                      disabled={busy || !canDelete}
-                      onConfirm={() =>
-                        command({
-                          action: "cancel",
-                          company_id: company,
-                          id: record.id,
-                          expected_version: record.version,
-                          reason: "",
-                        })
-                      }
-                    />
-                  ) : null}
+                  <HrConfirmDeleteButton
+                    label={canDelete ? `Delete ${singular[section].toLowerCase()}` : "Only drafts can be deleted"}
+                    title={`Delete this ${singular[section].toLowerCase()}?`}
+                    description="The draft is removed from the list. Its code is not reused and the deletion stays in the audit trail."
+                    variant="outline"
+                    disabled={busy || !canDelete}
+                    onConfirm={() =>
+                      command({
+                        action: "cancel",
+                        company_id: company,
+                        id: record.id,
+                        expected_version: record.version,
+                        reason: "",
+                      })
+                    }
+                  />
                   <HrEditButton
                     label={canEdit ? `Edit ${singular[section].toLowerCase()}` : "Only drafts can be edited"}
                     disabled={busy || !canEdit}
@@ -939,6 +937,7 @@ export function HrLifecycleCasesWorkspace({
                     <Button
                       key={action}
                       type="button"
+                      variant={action === "reject" ? "destructive" : action === "return" ? "outline" : "default"}
                       disabled={busy}
                       onClick={() => {
                         setError("");
@@ -946,7 +945,7 @@ export function HrLifecycleCasesWorkspace({
                         setDecision(action);
                       }}
                     >
-                      {decisionLabels[action]}
+                      {decisionLabel(action)}
                     </Button>
                   ))}
                 </HrDrawerActions>

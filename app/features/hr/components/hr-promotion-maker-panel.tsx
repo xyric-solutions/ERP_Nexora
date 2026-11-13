@@ -1,6 +1,7 @@
 "use client";
 import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -161,11 +162,11 @@ export function HrPromotionMakerPanel({
         {state === "ready" && (
           <div className="grid gap-4">
             <HrRecordCodeField kind="promotion" id="promotion-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
-            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-3">
-              <ContextField label="Current job" value={source.job || "Not assigned"} />
-              <ContextField label="Current designation" value={source.designation} />
-              <ContextField label="Current grade" value={source.job_grade} />
-            </dl>
+            <HrDetailList>
+              <HrDetailTile label="Current job" value={source.job || "Not assigned"} />
+              <HrDetailTile label="Current designation" value={source.designation} />
+              <HrDetailTile label="Current grade" value={source.job_grade} />
+            </HrDetailList>
             <HrFormRows>
               <MasterSelect
                 label="Proposed job"
@@ -257,14 +258,5 @@ function MasterSelect({
         ))}
       </select>
     </label>
-  );
-}
-
-function ContextField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 font-medium text-foreground">{value}</dd>
-    </div>
   );
 }

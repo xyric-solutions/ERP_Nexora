@@ -146,8 +146,18 @@ export function HrDetailFigures({
 }
 
 /**
- * One label/value row. Labels share one fixed column so values align across
- * every group; an empty value reads "Not recorded" in a quieter style.
+ * Field box shared by detail drawers: the same height, border, radius, surface and
+ * padding as the Input used by the matching Add / New / Create drawer.
+ */
+export const hrFieldBoxClass =
+  "flex min-h-10 w-full min-w-0 flex-col justify-center rounded-[var(--nx-radius-md)] border border-input bg-card px-3 py-2 text-sm text-foreground wrap-anywhere";
+
+/** Field label above its box, matching create-form labels. */
+export const hrFieldLabelClass = "m-0! text-sm font-medium leading-tight text-foreground";
+
+/**
+ * One saved field, laid out like the create form: label above, value inside a
+ * bordered box. An empty value reads "Not recorded" in a quieter style.
  */
 export function HrDetailTile({
   label,
@@ -164,11 +174,9 @@ export function HrDetailTile({
 }) {
   const empty = value === undefined || value === null || value === "";
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-0.5 py-[7px] sm:grid-cols-[9.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-4">
-      <dt className="m-0! text-[13px] text-muted-foreground">{label}</dt>
-      <dd
-        className={`m-0! min-w-0 wrap-anywhere text-[13.5px] tabular-nums ${empty ? "italic text-muted-foreground" : "font-medium text-foreground"}`}
-      >
+    <div className="grid min-w-0 gap-1.5">
+      <dt className={hrFieldLabelClass}>{label}</dt>
+      <dd className={`m-0! tabular-nums ${hrFieldBoxClass} ${empty ? "italic text-muted-foreground" : ""}`}>
         {empty ? "Not recorded" : mono ? <HrDetailCode>{value}</HrDetailCode> : value}
         {hint && !empty ? <span className="block text-xs font-normal text-muted-foreground">{hint}</span> : null}
       </dd>
@@ -197,16 +205,16 @@ export function HrDetailSection({ title, children }: { title: string; children: 
 /** Titled list of detail rows inside a drawer. */
 export function HrDetailGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="grid min-w-0 gap-1" aria-label={title}>
+    <section className="grid min-w-0 gap-3" aria-label={title}>
       <SectionTitle title={title} />
-      <dl className="m-0! grid">{children}</dl>
+      <dl className="m-0! grid gap-4">{children}</dl>
     </section>
   );
 }
 
 /** Untitled list of detail rows, for drawers that show one record's fields. */
 export function HrDetailList({ children }: { children: ReactNode }) {
-  return <dl className="m-0! grid min-w-0">{children}</dl>;
+  return <dl className="m-0! grid min-w-0 gap-4">{children}</dl>;
 }
 
 /** A short remark, e.g. the reason for the latest state change. */
