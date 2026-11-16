@@ -592,12 +592,6 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled={busy || loading} onClick={() => void load()}>
-            Refresh
-          </Button>
-          <Button variant="outline" onClick={() => goto("assets")}>
-            Asset register
-          </Button>
           {can("create") && !registration && <Button onClick={() => goto("add-asset")}>Register asset</Button>}
         </div>
       </header>

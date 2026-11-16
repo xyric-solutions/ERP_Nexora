@@ -1,5 +1,26 @@
 # Remaining UI migration checklist
 
+## 2026-11-16 — Fixed Assets header actions
+
+- Removed the redundant **Asset register** shortcut and **Refresh** button from
+  the shared Fixed Assets workspace header. The existing permission-controlled
+  **Register asset** action and sidebar navigation remain available. Browser
+  reload and automatic data reload after mutations are unchanged.
+- Preserved existing Tailwind/shadcn controls, global typography/colour tokens,
+  routes, registration and all accounting workflows. No stylesheet was changed.
+- Passed current-source `npm.cmd run build:web` with
+  `NEXT_DIST_DIR=tmp/asset-header-current-build`, touched-file ESLint, theme audit
+  `--write`/`--check` and `git diff --check`. The separate header-only release
+  also passed `npm.cmd run typecheck` and `npm.cmd run build:web`.
+- Live browser checks passed at 1440/768/390px in light and dark themes: one
+  create action, both redundant actions absent, no page overflow or header Axe
+  violations, browser reload fetched asset data, and the create action opened
+  registration. Evidence: `tmp/asset-header-release/evidence/` and
+  `tmp/asset-header-release/verification.json` (ignored local artifacts).
+- The running release received only this header change. The integrated extension
+  below retains its separate rollout requirements; its latest build includes
+  this cleanup.
+
 ## 2026-11-16 — Integrated Fixed Assets purchase and policy extension
 
 - Updated Purchase Bill entry with classified nominals, explicit automatic
