@@ -1,5 +1,46 @@
 # Remaining UI migration checklist
 
+## 2026-11-16 — Integrated Fixed Assets purchase and policy extension
+
+- Updated Purchase Bill entry with classified nominals, explicit automatic
+  registration and a shared per-unit asset dialog. Added typed category fields,
+  private staged files, editable category templates and company Asset Policies.
+- Extended the register columns and retained the `assets` route as Fixed Asset
+  Register. Added eight detail tabs, purchase provenance, current-basis valuation
+  and daily/monthly/quarterly/annual summaries, full linked-journal totals,
+  maintenance/assignment history, private attachments and paged audit evidence.
+- All new presentation uses Tailwind, central font/colour roles and existing
+  shared controls. Existing styles remain in use; no feature stylesheet was added
+  or retired. The shared WorkTable has an opt-in keyboard scroll region, enabled
+  by the asset adapter; narrow section grids constrain their own table scroll.
+- Preserved routes, table preferences/pagination/export, live company authority,
+  independent approvals, source allocations, immutable posting/reversal history,
+  legacy monthly policies and the independent API boundary. Purchase approval
+  remains non-posting; AP posting creates linked asset drafts atomically.
+- Verification: the focused six-file PostgreSQL/MinIO/Finance integration run
+  passed **55 tests**; scheduler rejection/retry and 401-asset batching were also
+  rerun successfully (**7 tests**). Calculation tests passed **23**, all contract
+  tests passed **23**, and Chromium acceptance passed **8**. Browser coverage
+  includes live API persistence, private vehicle uploads, maker/checker/posting,
+  keyboard access, light/dark at 1440/768/390px, Axe and page overflow.
+- `npm.cmd run typecheck`, `npm.cmd run build:web` with
+  `NEXT_DIST_DIR=tmp/integrated-assets-ready-build`, touched-file ESLint,
+  `npm.cmd run api:check`, `npm.cmd run catalogue:check`,
+  `node scripts/audit-ui-theme.mjs --write`, `--check` and `git diff --check`
+  passed. Feature-view audit: 0 font and 0 colour exceptions across 128 views.
+- Browser evidence: `tmp/fixed-assets/evidence/register-{theme}-{width}.png`,
+  `detail-{theme}-{width}.png`, `policies-{theme}-{width}.png`, and
+  `purchase-asset-details.png`. These are local test artifacts, excluded from Git.
+- Local rollout is **pending explicit backup approval**: automatic approval review
+  rejected copying the recovered business database into `tmp/backups` and a
+  disposable restore-verification database without that authorization. Current
+  localhost services and business data remain on the prior deployed version.
+  Prepared scripts and resume commands are in `docs/runbooks/local-startup.md`.
+  Dedicated worker startup/live acceptance will follow that approved rollout;
+  the full financial-posting worker remains separate.
+
+Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
+
 ## 2026-11-14 - PostgreSQL Fixed Assets implementation
 
 - Replaced generic owned-asset prototype routes with the connected workspace in

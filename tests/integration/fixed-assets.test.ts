@@ -18,6 +18,62 @@ run("PostgreSQL fixed assets and single-source accounting", () => {
     await close?.();
   });
   const query = () => assetQuerySchema.parse({ company_id: f.company });
+  it("atomically creates individual bill assets on AP posting and replays without duplicate capitalization", async () => {
+    const purchase = await f.purchase("100000", "5", true, "5000", true);
+    const origins = await f.pool.query(
+      `select a.id,a.code,a.status,a.cost::text,a.source_line_id,o.unit_id
+      from fixed_asset_purchase_origin o join fixed_asset_record a on a.tenant_id=o.tenant_id and a.company_id=o.company_id and a.id=o.asset_id
+      where o.tenant_id=$1 and o.company_id=$2 and o.document_id=$3`,
+      [f.tenant, f.company, purchase.source.id],
+    );
+    expect(origins.rows).toHaveLength(5);
+    expect(new Set(origins.rows.map((row) => row.code)).size).toBe(5);
+    expect(
+      origins.rows.every(
+        (row) => row.status === "draft" && row.cost === "100000.00000000" && row.source_line_id === purchase.line,
+      ),
+    ).toBe(true);
+    const replay = await f.repository.action(
+      f.poster,
+      purchase.posted.id,
+      {
+        company_id: f.company,
+        expected_version: purchase.posted.version - 1,
+        action: "post",
+        reason: "Governed source accounting test",
+      },
+      purchase.postingKey,
+    );
+    expect(replay.journal_id).toBe(purchase.posted.journal_id);
+    expect(
+      (
+        await f.pool.query(
+          "select count(*)::int as count from fixed_asset_purchase_origin where tenant_id=$1 and document_id=$2",
+          [f.tenant, purchase.source.id],
+        )
+      ).rows[0].count,
+    ).toBe(5);
+    await expect(f.register(purchase.line, "1", undefined, "0")).rejects.toBeDefined();
+    const journal = await f.pool.query(
+      "select sum(base_debit)::text as debit,sum(base_credit)::text as credit from journal_line where tenant_id=$1 and journal_id=$2",
+      [f.tenant, purchase.posted.journal_id],
+    );
+    expect(journal.rows[0].debit).toBe(journal.rows[0].credit);
+    expect(journal.rows[0].debit).toBe("505000.00000000");
+  });
+  it("rolls back the acquisition journal and all units when automatic registration fails", async () => {
+    const counts = async () =>
+      (
+        await f.pool.query(
+          "select (select count(*)::int from journal_entry) as journals,(select count(*)::int from fixed_asset_record) as assets",
+        )
+      ).rows[0];
+    const before = await counts();
+    await expect(f.purchase("12000", "2", true, "0", true, `duplicate-${crypto.randomUUID()}`)).rejects.toMatchObject({
+      code: "SUBLEDGER_CONFLICT",
+    });
+    expect(await counts()).toEqual(before);
+  });
   it("registers the posted bank acquisition without another journal and survives reload", async () => {
     const acquisition = await f.bankAcquisition(),
       count = await f.pool.query(

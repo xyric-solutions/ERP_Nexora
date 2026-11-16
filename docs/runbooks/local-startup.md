@@ -1,5 +1,35 @@
 # Local startup (Windows)
 
+## Integrated Fixed Assets rollout — pending local backup approval
+
+The integrated extension is implemented and verified on disposable test data.
+The running recovered service still uses the prior deployed version. The new API
+and asset-only worker require fixed-assets migrations **0003–0007** before restart.
+Automatic approval review requires the owner's explicit authorization to copy
+the business database into ignored `tmp/backups` and a disposable local database
+for restore verification. No such backup, migration or service replacement has
+been performed for this extension yet.
+
+After that approval, the prepared workstation-local steps are:
+
+```powershell
+powershell -NoProfile -File tmp/fixed-assets/backup-before-rollout.ps1
+powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Migrate
+powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Start -Restart
+powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Verify
+```
+
+The backup is restored briefly into a uniquely named disposable database and
+removed there after validation; the ignored archive remains on this workstation.
+Migration verifies that original credentials, permissions, asset snapshots and
+journal populations are unchanged. Protected configuration is reused without
+writing `.env`. The release build is `tmp/integrated-assets-ready-build`.
+The dedicated `nexora-asset-drafts` worker prepares drafts and cleans expired
+unbound uploads; it has no financial approval/post handlers. Company automation
+starts disabled. Verify API readiness, sign-in, worker readiness and asset options
+after restart. Preserve the earlier recovery helpers/configuration for reference;
+never reset the recovered database to deploy this extension.
+
 ## Recovered workstation environment (16 November 2026)
 
 The current workstation was recovered from

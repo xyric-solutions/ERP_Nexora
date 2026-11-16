@@ -31,7 +31,7 @@ export function Section({
         <h2 className="text-base font-semibold">{title}</h2>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </header>
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
     </section>
   );
 }
@@ -106,6 +106,11 @@ export function PhysicalFields({
       {(
         [
           ["brand", "Brand"],
+          ["manufacturer", "Manufacturer"],
+          ["subcategory", "Subcategory"],
+          ["asset_type", "Asset type"],
+          ["uom", "Unit of measurement"],
+          ["responsible_person", "Responsible person"],
           ["model", "Model"],
           ["barcode", "Barcode / QR reference"],
           ["warranty_provider", "Warranty provider"],
@@ -113,7 +118,11 @@ export function PhysicalFields({
         ] as const
       ).map(([field, label]) => (
         <LabeledField key={field} label={label}>
-          <Input value={value[field]} maxLength={500} onChange={(e) => set(field, e.target.value)} />
+          <Input
+            value={value[field] ?? ""}
+            maxLength={field === "uom" ? 32 : 500}
+            onChange={(e) => set(field, e.target.value)}
+          />
         </LabeledField>
       ))}
       <LabeledField label="Physical condition">
@@ -122,7 +131,7 @@ export function PhysicalFields({
           value={value.condition}
           onChange={(e) => onChange({ ...value, condition: e.target.value as FixedAsset["details"]["condition"] })}
         >
-          {["new", "good", "fair", "damaged", "missing"].map((value) => (
+          {["new", "used", "refurbished", "good", "fair", "damaged", "missing"].map((value) => (
             <option key={value} value={value}>
               {value.replace("_", " ")}
             </option>
@@ -142,6 +151,29 @@ export function PhysicalFields({
       ))}
       <LabeledField className="sm:col-span-2" label="Description">
         <Textarea value={value.description} maxLength={500} onChange={(e) => set("description", e.target.value)} />
+      </LabeledField>
+      <LabeledField label="Operational status">
+        <select
+          className={workSelectClass}
+          value={value.operational_status ?? "under_installation"}
+          onChange={(event) =>
+            onChange({
+              ...value,
+              operational_status: event.target.value as NonNullable<FixedAsset["details"]["operational_status"]>,
+            })
+          }
+        >
+          <option value="under_installation">Under installation</option>
+          <option value="in_service">In service</option>
+          <option value="under_maintenance">Under maintenance</option>
+        </select>
+      </LabeledField>
+      <LabeledField label="Remarks">
+        <Textarea
+          value={value.remarks ?? ""}
+          maxLength={500}
+          onChange={(event) => set("remarks", event.target.value)}
+        />
       </LabeledField>
       <LabeledField
         label="Supporting document references"

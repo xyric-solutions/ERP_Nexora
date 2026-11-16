@@ -12,7 +12,9 @@ export async function acquisitionSources(
   sourceId?: string,
 ): Promise<AssetSource[]> {
   const result = await client.query(
-    `select l.id as line_id,j.id as journal_id,j.entry_number,j.posting_date::text as date,
+    `select d.code as purchase_bill_reference,d.reference as vendor_invoice_reference,coalesce(d.bill_date,d.document_date)::text as invoice_date,d.document_date::text as purchase_date,
+    (select po.code from procurement_document po where po.tenant_id=d.tenant_id and po.company_id=d.company_id and po.id=d.source_id and po.kind='order') as purchase_order_reference,
+    l.id as line_id,j.id as journal_id,j.entry_number,j.posting_date::text as date,
     l.account_id,a.name as account_name,case when bp.id is not null then 'bank_payment' else 'purchase_invoice' end as source_type,
     coalesce(bp.id,i.id) as source_id,coalesce(bp.reference,d.code) as reference,p.source_supplier_id as supplier_id,p.name as supplier_name,
     d.id as purchase_document_id,bp.bank_account_id,l.currency,coalesce(l.fx_rate,1)::text as exchange_rate,profile.base_currency,

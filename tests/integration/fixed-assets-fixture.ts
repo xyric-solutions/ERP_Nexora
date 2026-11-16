@@ -6,6 +6,7 @@ import {
   savePurchaseRequestSchema,
   supplierInputSchema,
   type FixedAsset,
+  type AssetCategory,
   type AssetEventInput,
   type SubledgerRequest,
   type PurchaseDocument,
@@ -56,6 +57,7 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
       ].map((action) => `procurement.${action}`),
     ];
   for (const policy of ["r06-uat-policy-maker", "r06-uat-policy-checker", "r06-uat-policy-payment-poster"]) {
+    // The scheduled worker loads real normalized actors, including parity with the compatibility projection.
     await pool.query(
       "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
       [f.tenant, policy, permissions],
@@ -63,6 +65,10 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
     await pool.query(
       "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
       [f.tenant, policy, permissions, f.company],
+    );
+    await pool.query(
+      "update security_role_policy p set permissions=(select coalesce(jsonb_agg(g.permission_key order by g.permission_key),'[]'::jsonb) from security_role_permission_grant g where g.tenant_id=p.tenant_id and g.role_policy_id=p.id) where p.tenant_id=$1 and p.id=$2",
+      [f.tenant, policy],
     );
   }
   const actor = (id = "r06.maker") => {
@@ -263,7 +269,7 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
       );
     return event;
   }
-  async function postSubledger(input: SubledgerRequest) {
+  async function postSubledger(input: SubledgerRequest, postingKey = randomUUID()) {
     let event = await f.repository.create(maker, input, randomUUID());
     for (const [context, action] of [
       [maker, "submit"],
@@ -274,11 +280,30 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
         context,
         event.id,
         { company_id: f.company, expected_version: event.version, action, reason: "Governed source accounting test" },
-        randomUUID(),
+        action === "post" ? postingKey : randomUUID(),
       );
     return event;
   }
-  async function purchase(amount = "250000", quantity = "1", classified = false, expense = "0") {
+  async function purchase(
+    amount = "250000",
+    quantity = "1",
+    classified = false,
+    expense = "0",
+    autoRegister = false,
+    serial?: string,
+    options: {
+      groups?: {
+        category: AssetCategory;
+        amount: string;
+        quantity: string;
+        custom_fields?: Record<string, string | number>;
+      }[];
+      beforePost?: (document: PurchaseDocument) => Promise<void>;
+      beforeBillApproval?: (document: PurchaseDocument) => Promise<void>;
+      approver?: typeof checker;
+    } = {},
+  ) {
+    const groups = options.groups ?? [{ category, amount, quantity }];
     let source: PurchaseDocument | undefined, order: PurchaseDocument | undefined;
     for (const kind of ["request", "rfq", "order", "receipt", "bill"] as PurchaseKind[]) {
       const parent = kind === "bill" ? order : source;
@@ -297,20 +322,46 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
             currency: "PKR",
             reference: `ASSET-${kind}-${randomUUID()}`,
             lines: [
-              {
-                source_line_id: parent?.lines[0]?.id ?? null,
-                item_code: "LAPTOP",
-                description: "Computer equipment",
-                quantity,
+              ...groups.map((group, index) => ({
+                source_line_id: parent?.lines[index]?.id ?? null,
+                item_code: `ASSET-${index}`,
+                description: group.category.name,
+                quantity: group.quantity,
                 uom: "Each",
-                unit_price: amount,
+                unit_price: group.amount,
                 tax_percent: "0",
-                ...(classified ? { asset_category_id: category.id } : {}),
-              },
+                ...(classified ? { asset_category_id: group.category.id } : {}),
+                ...(kind === "bill" && autoRegister
+                  ? {
+                      nominal_account_id: group.category.asset_account_id,
+                      create_fixed_asset: true,
+                      asset_registration: {
+                        category_version: group.category.version,
+                        company_policy_version: group.category.company_policy_version,
+                        units: Array.from({ length: Number(group.quantity) }, () => ({
+                          details: {
+                            name: `Automatically registered ${group.category.name}`,
+                            condition: "new",
+                            serial_number: serial ?? randomUUID(),
+                            custom_fields: group.custom_fields ?? {},
+                          },
+                          cost: group.amount,
+                          residual_value: "0",
+                          useful_life_months: group.category.useful_life_months,
+                          method: group.category.method,
+                          annual_rate_percent: group.category.annual_rate_percent,
+                          in_service_date: "2026-09-01",
+                          depreciation_start: "2026-09-01",
+                          assignment: {},
+                        })),
+                      },
+                    }
+                  : {}),
+              })),
               ...(expense !== "0"
                 ? [
                     {
-                      source_line_id: parent?.lines[1]?.id ?? null,
+                      source_line_id: parent?.lines[groups.length]?.id ?? null,
                       item_code: "SERVICE",
                       description: "Ordinary service expense",
                       quantity: "1",
@@ -326,9 +377,10 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
           randomUUID(),
         )
       ).record;
+      if (kind === "bill") await options.beforeBillApproval?.(document);
       for (const [context, action] of [
         [maker, "submit"],
-        [checker, "approve"],
+        [options.approver ?? checker, "approve"],
       ] as const)
         document = (
           await procurement.action(
@@ -348,29 +400,34 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
       if (kind === "order") order = document;
     }
     if (!source) throw Error("Purchase source missing");
-    const posted = await postSubledger({
-      company_id: f.company,
-      date: "2026-09-01",
-      reference: source.code,
-      reason: "Recognize approved asset Purchase invoice",
-      type: "recognition",
-      side: "payable",
-      kind: "invoice",
-      party_id: party.id,
-      currency: "PKR",
-      amount: source.total_amount,
-      due_date: "2026-09-30",
-      monetary: true,
-      ...(classified ? {} : { counter_account_id: accounts.asset! }),
-      source_document_id: source.id,
-    });
+    await options.beforePost?.(source);
+    const postingKey = randomUUID();
+    const posted = await postSubledger(
+      {
+        company_id: f.company,
+        date: "2026-09-01",
+        reference: source.code,
+        reason: "Recognize approved asset Purchase invoice",
+        type: "recognition",
+        side: "payable",
+        kind: "invoice",
+        party_id: party.id,
+        currency: "PKR",
+        amount: source.total_amount,
+        due_date: "2026-09-30",
+        monetary: true,
+        ...(classified ? {} : { counter_account_id: accounts.asset! }),
+        source_document_id: source.id,
+      },
+      postingKey,
+    );
     const line = (
       await pool.query<{ id: string }>(
         "select id from journal_line where tenant_id=$1 and journal_id=$2 and account_id=$3",
         [f.tenant, posted.journal_id, accounts.asset],
       )
     ).rows[0]!.id;
-    return { source, posted, line };
+    return { source, posted, line, postingKey };
   }
   async function bankRefund(amount = "250000", date = "2026-11-01") {
     let record = await receipts.create(
@@ -470,6 +527,7 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
     postEvent,
     postSubledger,
     purchase,
+    procurement,
     event: (asset: FixedAsset, type: AssetEventInput["type"], rest: Record<string, unknown>) =>
       assetEventInputSchema.parse({
         company_id: f.company,

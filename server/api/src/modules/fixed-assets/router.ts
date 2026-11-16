@@ -11,6 +11,10 @@ import {
   assetEventActionSchema,
   assetDepreciationInputSchema,
   assetDepreciationActionSchema,
+  assetCompanyPolicyInputSchema,
+  assetNominalClassificationInputSchema,
+  assetValuationQuerySchema,
+  assetJournalQuerySchema,
 } from "@nexora/contracts";
 import { HttpError } from "../../http/errors.js";
 import { currentRequestContext } from "../../http/request-context.js";
@@ -65,6 +69,35 @@ export function createFixedAssetsRouter(
     const q = assetQuerySchema.parse(req.query);
     res.json(await handle(async () => s.workspace(await context(req), q)));
   });
+  router.post("/staged-documents", async (req, res) => {
+    const company = scope.parse(req.query),
+      key = guard(req),
+      actor = await context(req, true);
+    const { fields, file } = await parseSingleFileMultipart(req, {
+      maxFileBytes: assetFileMaxBytes,
+      allowedFields: new Set(["title"]),
+      label: "asset category document",
+    });
+    res
+      .status(201)
+      .json(
+        await handle(() => s.stagedDocuments.upload(actor, { ...fields, company_id: company.company_id }, file, key)),
+      );
+  });
+  router.post("/policies", async (req, res) => {
+    const input = assetCompanyPolicyInputSchema.parse(req.body),
+      key = guard(req, input.expected_version);
+    res.json(await handle(async () => s.repository.saveCompanyPolicy(await context(req, true), input, key)));
+  });
+  router.post("/nominals/:id/classification", async (req, res) => {
+    const input = assetNominalClassificationInputSchema.parse(req.body),
+      key = guard(req, input.expected_version);
+    res.json(
+      await handle(async () =>
+        s.repository.classifyNominal(await context(req, true), id.parse(req.params.id), input, key),
+      ),
+    );
+  });
   router.get("/dashboard", async (req, res) => {
     const q = assetQuerySchema.parse(req.query);
     res.json(await handle(async () => s.reports.dashboard(await context(req), q)));
@@ -88,6 +121,21 @@ export function createFixedAssetsRouter(
       );
     res.setHeader("etag", `"${result.asset.version}"`);
     res.json(result);
+  });
+  router.get("/records/:id/valuation", async (req, res) => {
+    const q = assetValuationQuerySchema.parse(req.query);
+    res.json(await handle(async () => s.valuation(await context(req), q.company_id, id.parse(req.params.id), q.as_of)));
+  });
+  router.get("/records/:id/accrual-schedule", async (req, res) => {
+    res.json(await handle(async () => s.accrualSchedule(await context(req), id.parse(req.params.id), req.query)));
+  });
+  router.get("/records/:id/journals", async (req, res) => {
+    const q = assetJournalQuerySchema.parse(req.query);
+    res.json(
+      await handle(async () =>
+        s.journals(await context(req), q.company_id, id.parse(req.params.id), q.offset, q.limit),
+      ),
+    );
   });
   router.post("/records/:id/attachments", async (req, res) => {
     const company = scope.parse(req.query);

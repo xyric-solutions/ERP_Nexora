@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
-import { assetUpdateSchema, type FixedAsset, type AssetUpdate } from "@nexora/contracts";
+import { assetUpdateSchema, assetPolicyStart, type FixedAsset, type AssetUpdate } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, Section, PhysicalFields, Select } from "./asset-fields";
+import { AssetCustomFields } from "./asset-custom-fields";
 export function AssetDetailEditor({
   asset,
   busy,
@@ -29,11 +30,13 @@ export function AssetDetailEditor({
     [reason, setReason] = useState(""),
     [key, setKey] = useState(() => crypto.randomUUID()),
     [error, setError] = useState("");
+  const [uploadBusy, setUploadBusy] = useState(false);
   const change = (key: keyof typeof values, value: string) => setValues((current) => ({ ...current, [key]: value }));
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     setError("");
     try {
+      if (uploadBusy) throw Error("Wait for the private document upload to finish.");
       const input = assetUpdateSchema.parse({
         company_id: asset.company_id,
         expected_version: asset.version,
@@ -70,9 +73,17 @@ export function AssetDetailEditor({
         onDirtyChange?.(true);
       }}
     >
-      <fieldset disabled={busy} className="min-w-0 space-y-4">
+      <fieldset disabled={busy || uploadBusy} className="min-w-0 space-y-4">
         <Section title="Edit asset details">
           <PhysicalFields value={details} onChange={setDetails} />
+          <AssetCustomFields
+            company={asset.company_id}
+            onUploadStateChange={setUploadBusy}
+            assetId={asset.id}
+            category={asset.category}
+            value={details}
+            onChange={setDetails}
+          />
           <Field label="Serial number">
             <Input
               maxLength={128}
@@ -111,6 +122,7 @@ export function AssetDetailEditor({
                 items={[
                   { id: "straight_line", name: "Straight line" },
                   { id: "reducing_balance", name: "Reducing balance" },
+                  { id: "double_declining", name: "Double declining balance" },
                 ]}
                 onChange={(e) => change("method", e.target.value)}
               />
@@ -132,7 +144,13 @@ export function AssetDetailEditor({
                 min={asset.acquisition_date}
                 required
                 value={values.in_service_date}
-                onChange={(e) => change("in_service_date", e.target.value)}
+                onChange={(e) =>
+                  setValues((current) => ({
+                    ...current,
+                    in_service_date: e.target.value,
+                    depreciation_start: assetPolicyStart(asset.category, e.target.value),
+                  }))
+                }
               />
             </Field>
             <Field label="Depreciation commencement">
@@ -141,6 +159,7 @@ export function AssetDetailEditor({
                 min={values.in_service_date}
                 required
                 value={values.depreciation_start}
+                readOnly={asset.category.allow_start_override === false}
                 onChange={(e) => change("depreciation_start", e.target.value)}
               />
             </Field>

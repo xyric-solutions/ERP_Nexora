@@ -2,6 +2,7 @@ import { z } from "zod";
 import { taxSnapshotSchema } from "../finance/taxes.js";
 import { supplierProfileSchema } from "./supplier-profile.js";
 import { billPaymentTermSchema } from "./bill-payment-terms.js";
+import { purchaseAssetRegistrationSchema } from "../fixed-assets/index.js";
 export { billPaymentTermSchema, billPaymentTerms, billPaymentSchedule } from "./bill-payment-terms.js";
 export type { BillPaymentTerm } from "./bill-payment-terms.js";
 export {
@@ -24,6 +25,9 @@ const quantity = z
 export const purchaseKindSchema = z.enum(["request", "rfq", "order", "receipt", "bill", "payment", "multi_payment"]);
 export const purchaseStateSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const purchaseLineSchema = z.strictObject({
+  nominal_account_id: identity.optional(),
+  create_fixed_asset: z.boolean().optional(),
+  asset_registration: purchaseAssetRegistrationSchema.optional(),
   asset_category_id: identity.optional(),
   tax_definition_id: identity.optional(),
   tax_snapshot: taxSnapshotSchema.optional(),
@@ -235,7 +239,22 @@ export const procurementCompaniesSchema = z.strictObject({
   items: z.array(z.strictObject({ id: identity, code: z.string(), name: z.string() })),
 });
 export const procurementOptionsSchema = z.strictObject({
-  asset_categories:z.array(z.strictObject({id:identity,code:z.string(),name:z.string()})).max(5000).optional(),
+  nominals: z
+    .array(
+      z.strictObject({
+        id: identity,
+        code: z.string(),
+        name: z.string(),
+        type: z.enum(["asset", "expense"]),
+        fixed_asset: z.boolean(),
+      }),
+    )
+    .max(5000)
+    .optional(),
+  asset_categories: z
+    .array(z.strictObject({ id: identity, code: z.string(), name: z.string() }))
+    .max(5000)
+    .optional(),
   currencies: z.array(z.strictObject({ code: z.string(), name: z.string() })),
   can_self_approve: z.boolean().optional(),
   bank_accounts: z

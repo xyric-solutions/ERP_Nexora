@@ -675,7 +675,8 @@ export const prototypeModules = [
       g("asset-register", "Asset Register", [
         p("assets-dashboard", "Assets Dashboard", "dashboard", "live"),
         p("asset-classes", "Asset Classes & Policies", "settings", "live"),
-        p("assets", "Asset Register", "list", "live"),
+        p("asset-policies", "Asset Policies", "settings", "live"),
+        p("assets", "Fixed Asset Register", "list", "live"),
         p("add-asset", "Add Asset", "form", "live"),
         p("asset-detail", "Asset Detail", "detail", "live"),
         p("asset-acquisition", "Register Posted Acquisitions", "form", "live"),

@@ -1,7 +1,8 @@
 # Integrated Fixed Assets extension
 
-Date: 16 November 2026. Status: proposed design for review; implementation has not
-started. This extends the existing module rather than replacing it.
+Date: 16 November 2026. Status: approved by the owner and implemented; final
+verification/rollout evidence is tracked in the implementation plan. This extends
+the existing module rather than replacing it.
 
 ## Request and scope
 

@@ -69,36 +69,55 @@ export class AssetDepreciationService {
     const input = assetDepreciationInputSchema.parse(raw),
       r = this.repository;
     return r.transaction(context, input.company_id, "depreciate", true, (client) =>
-      r.idempotent(client, context, input.company_id, key, input, assetDepreciationRunSchema, async () => {
-        const preview = await this.preview(
-            client,
-            context.tenantId,
-            input.company_id,
-            input.period_id,
-            input.asset_ids,
-          ),
-          id = randomUUID(),
-          code = await r.code(client, context.tenantId, input.company_id, "DEP");
-        await client.query(
-          `insert into fixed_asset_depreciation_run(tenant_id,company_id,id,code,period_id,period_start,period_end,state,maker_id,total,details) values($1,$2,$3,$4,$5,$6,$7,'draft',$8,$9,$10)`,
-          [
-            context.tenantId,
-            input.company_id,
-            id,
-            code,
-            input.period_id,
-            preview.period.start,
-            preview.period.end,
-            context.actor.userId,
-            preview.total,
-            JSON.stringify(preview.details),
-          ],
-        );
-        const result = await this.run(client, context.tenantId, input.company_id, id);
-        await r.audit(client, context, input.company_id, id, "depreciation_previewed", input.reason, null, result);
-        return result;
-      }),
+      this.createInTransaction(client, context, input, key),
     );
+  }
+  async createInTransaction(
+    client: PoolClient,
+    context: BankingActorContext,
+    input: AssetDepreciationInput,
+    key: string,
+  ) {
+    const r = this.repository;
+    return r.idempotent(client, context, input.company_id, key, input, assetDepreciationRunSchema, async () => {
+      const preview = await this.preview(client, context.tenantId, input.company_id, input.period_id, input.asset_ids),
+        id = randomUUID(),
+        code = await r.code(client, context.tenantId, input.company_id, "DEP");
+      const pending = await client.query(
+        `select 1 from fixed_asset_depreciation_run r cross join lateral jsonb_array_elements(r.details) d
+          where r.tenant_id=$1 and r.company_id=$2 and r.period_id=$3 and r.state in('draft','submitted','approved')
+            and d->>'asset_id'=any($4::text[]) and coalesce(d->>'skip_reason','')='' limit 1`,
+        [
+          context.tenantId,
+          input.company_id,
+          input.period_id,
+          preview.details.filter((d) => !d.skip_reason).map((d) => d.asset_id),
+        ],
+      );
+      if (pending.rowCount)
+        reject(
+          "An active depreciation draft already reserves one or more selected assets in this period.",
+          "ASSET_RUN_PENDING",
+        );
+      await client.query(
+        `insert into fixed_asset_depreciation_run(tenant_id,company_id,id,code,period_id,period_start,period_end,state,maker_id,total,details) values($1,$2,$3,$4,$5,$6,$7,'draft',$8,$9,$10)`,
+        [
+          context.tenantId,
+          input.company_id,
+          id,
+          code,
+          input.period_id,
+          preview.period.start,
+          preview.period.end,
+          context.actor.userId,
+          preview.total,
+          JSON.stringify(preview.details),
+        ],
+      );
+      const result = await this.run(client, context.tenantId, input.company_id, id);
+      await r.audit(client, context, input.company_id, id, "depreciation_previewed", input.reason, null, result);
+      return result;
+    });
   }
   async action(context: BankingActorContext, id: string, raw: AssetDepreciationAction, key: string) {
     const input = assetDepreciationActionSchema.parse(raw),
@@ -522,7 +541,14 @@ export class AssetDepreciationService {
       for (let month = 0; month < remainingRows; month++) {
         const end = monthEnd(start),
           detail = depreciationForPeriod(projection, start, end);
-        if (detail.skip_reason) break;
+        if (detail.skip_reason) {
+          if (detail.skip_reason.includes("zero") || detail.skip_reason.includes("round")) {
+            projection = { ...projection, last_depreciation_end: end };
+            start = nextDay(end);
+            continue;
+          }
+          break;
+        }
         const accumulated =
           minor(projection.accumulated_depreciation, asset.decimal_places) + minor(detail.amount, asset.decimal_places);
         rows.push({

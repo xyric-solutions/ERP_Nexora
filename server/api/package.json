@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./asset-preparation": {
+      "types": "./dist/modules/fixed-assets/preparation.d.ts",
+      "import": "./dist/modules/fixed-assets/preparation.js"
+    },
     "./finance-posting": {
       "types": "./dist/modules/finance/posting/index.d.ts",
       "import": "./dist/modules/finance/posting/index.js"

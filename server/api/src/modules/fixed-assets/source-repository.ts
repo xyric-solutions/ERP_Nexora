@@ -14,6 +14,13 @@ import {
   assetDirectorySchema,
   assetQuerySchema,
   assetSourcesSchema,
+  validateAssetCustomFields,
+  assetCompanyPolicyInputSchema,
+  assetCompanyPolicySchema,
+  assetNominalClassificationInputSchema,
+  assetPolicyStart,
+  type AssetCompanyPolicyInput,
+  type AssetCompanyPolicy,
   type AssetCategoryInput,
   type AssetCreate,
   type AssetUpdate,
@@ -30,6 +37,7 @@ import { FinancePostingService, hashFinanceValue } from "../finance/posting/serv
 import { FinancePostingError } from "../finance/posting/types.js";
 import { acquisitionSources } from "./sources.js";
 import { minor, money } from "./calculations.js";
+import { attachStagedDocuments } from "./staged-documents.js";
 
 export class AssetError extends Error {
   constructor(
@@ -46,10 +54,34 @@ export function reject(message: string, code = "ASSET_VALIDATION_FAILED", status
 export const digest = (value: unknown) => hashFinanceValue(JSON.parse(JSON.stringify(value ?? null)));
 export type AssetAuditEntry = { id: string; action: string; reason: string; before: unknown; after: unknown };
 export type AssetActorContext = BankingActorContext & { correlationId?: string };
-export const assetProjection = `id,company_id,code,category_id,category_snapshot as category,category_snapshot->>'name' as category_name,supplier_id,source_line_id,acquisition_date::text,base_currency,decimal_places,
+export const assetProjection = `(select s.name from procurement_supplier s where s.tenant_id=fixed_asset_record.tenant_id and s.company_id=fixed_asset_record.company_id and s.id=fixed_asset_record.supplier_id) as supplier_name,
+ (select d.code from journal_line l join finance_subledger_item i on i.tenant_id=l.tenant_id and i.journal_id=l.journal_id and i.kind='invoice' and i.side='payable'
+ join procurement_document d on d.tenant_id=i.tenant_id and d.company_id=i.company_id and d.id=i.source_document_id
+ where l.tenant_id=fixed_asset_record.tenant_id and l.id=fixed_asset_record.source_line_id limit 1) as purchase_reference,
+ accrual_basis,id,company_id,code,category_id,category_snapshot as category,category_snapshot->>'name' as category_name,supplier_id,source_line_id,acquisition_date::text,base_currency,decimal_places,
  cost::text,residual_value::text,accumulated_depreciation::text,impairment::text,(case when status in ('returned','disposed') then 0 else cost-accumulated_depreciation-impairment end)::text as net_book_value,
  useful_life_months,method,annual_rate_percent::float,in_service_date::text,depreciation_start::text,last_depreciation_end::text,last_financial_date::text,
  assignment,assignment_date::text,details,status,version,created_by,approved_by,created_at::text`;
+function effectiveCategory(category: AssetCategory, policy: AssetCompanyPolicy | null): AssetCategory {
+  if (!policy) {
+    if (category.inherit_company_policy) reject("Configure the company Asset Policy before inheriting it.");
+    return category;
+  }
+  if (!category.inherit_company_policy && policy.allow_category_overrides) return category;
+  return {
+    ...category,
+    inherit_company_policy: true,
+    method: policy.method,
+    useful_life_months: policy.useful_life_months,
+    annual_rate_percent: policy.annual_rate_percent,
+    residual_percent: policy.residual_percent,
+    calculation_basis: "actual_actual",
+    company_policy_version: policy.version,
+    start_rule: policy.start_rule,
+    allow_start_override: policy.allow_start_override,
+    allow_policy_override: policy.allow_category_overrides,
+  };
+}
 export class SourceAssetRepository {
   constructor(
     readonly pool: Pool,
@@ -286,7 +318,118 @@ export class SourceAssetRepository {
       )
     ).rows[0];
     if (!row) reject("The asset category was not found.", "ASSET_CATEGORY_NOT_FOUND", 404);
-    return assetCategorySchema.parse({ ...Object(row.policy), id: row.id, code: row.code, version: row.version });
+    const category = assetCategorySchema.parse({
+      ...Object(row.policy),
+      id: row.id,
+      code: row.code,
+      version: row.version,
+    });
+    const policy = await this.companyPolicy(client, tenant, company);
+    return effectiveCategory(category, policy);
+  }
+  async companyPolicy(client: PoolClient, tenant: string, company: string) {
+    const row = (
+      await client.query<{ version: number; policy: unknown }>(
+        "select version,policy from fixed_asset_company_policy where tenant_id=$1 and company_id=$2",
+        [tenant, company],
+      )
+    ).rows[0];
+    return row ? assetCompanyPolicySchema.parse({ ...Object(row.policy), version: row.version }) : null;
+  }
+  async saveCompanyPolicy(context: BankingActorContext, raw: AssetCompanyPolicyInput, key: string) {
+    const input = assetCompanyPolicyInputSchema.parse(raw);
+    return this.transaction(context, input.company_id, "categories", true, (client) =>
+      this.idempotent(client, context, input.company_id, key, input, assetCompanyPolicySchema, async () => {
+        const before = await this.companyPolicy(client, context.tenantId, input.company_id);
+        this.version(before?.version ?? 0, input.expected_version);
+        if (
+          input.auto_prepare_monthly &&
+          (!context.actor.permissions.includes("assets.asset.depreciate") ||
+            !(
+              await client.query(companyAuthoritySql, [
+                context.tenantId,
+                context.actor.userId,
+                input.company_id,
+                "assets.asset.depreciate",
+              ])
+            ).rowCount)
+        )
+          reject(
+            "Depreciation preparation authority is required to enable scheduled drafts.",
+            "PERMISSION_DENIED",
+            403,
+          );
+        const terms = Object.fromEntries(Object.entries(input).filter(([name]) => name !== "expected_version"));
+        const policy = { ...terms, scheduled_actor_id: context.actor.userId };
+        await client.query(
+          `insert into fixed_asset_company_policy(tenant_id,company_id,version,policy,updated_by) values($1,$2,1,$3,$4)
+        on conflict(tenant_id,company_id) do update set version=fixed_asset_company_policy.version+1,policy=excluded.policy,updated_by=excluded.updated_by,updated_at=clock_timestamp()`,
+          [context.tenantId, input.company_id, JSON.stringify(policy), context.actor.userId],
+        );
+        const after = (await this.companyPolicy(client, context.tenantId, input.company_id))!;
+        await this.audit(
+          client,
+          context,
+          input.company_id,
+          input.company_id,
+          "company_policy_saved",
+          "Configure company Asset Policies",
+          before,
+          after,
+        );
+        return after;
+      }),
+    );
+  }
+  async classifyNominal(
+    context: BankingActorContext,
+    account: string,
+    raw: z.infer<typeof assetNominalClassificationInputSchema>,
+    key: string,
+  ) {
+    const input = assetNominalClassificationInputSchema.parse(raw);
+    return this.transaction(context, input.company_id, "categories", true, async (client) => {
+      if (
+        !context.actor.permissions.includes("finance.nominal.update") ||
+        !(
+          await client.query(companyAuthoritySql, [
+            context.tenantId,
+            context.actor.userId,
+            input.company_id,
+            "finance.nominal.update",
+          ])
+        ).rowCount
+      )
+        reject("Chart of Accounts update permission is required.", "PERMISSION_DENIED", 403);
+      const nominal = (
+        await client.query(
+          `select id from account a where tenant_id=$1 and company_id=$2 and id=$3 and type='asset' and status='active' and not is_header and not reconciliation_required
+        and not exists(select 1 from bank_account b where b.tenant_id=a.tenant_id and b.company_id=a.company_id and b.account_id=a.id)
+        and not exists(select 1 from finance_subledger_policy p where p.tenant_id=a.tenant_id and p.company_id=a.company_id and a.id in(p.receivable_account_id,p.payable_account_id))
+        and not exists(select 1 from finance_tax_mapping_rule t where t.tenant_id=a.tenant_id and t.company_id=a.company_id and t.account_id=a.id)`,
+          [context.tenantId, input.company_id, account],
+        )
+      ).rows[0];
+      if (!nominal) reject("Only an active postable non-control asset nominal can be classified.");
+      const schema = z.strictObject({ account_id: z.string(), active: z.boolean(), version: z.number().int() });
+      return this.idempotent(client, context, input.company_id, key, { account, input }, schema, async () => {
+        const before = (
+          await client.query<{ active: boolean; version: number }>(
+            "select active,version from fixed_asset_nominal_classification where tenant_id=$1 and company_id=$2 and account_id=$3 for update",
+            [context.tenantId, input.company_id, account],
+          )
+        ).rows[0];
+        this.version(before?.version ?? 0, input.expected_version);
+        await client.query(
+          `insert into fixed_asset_nominal_classification(tenant_id,company_id,account_id,active,updated_by) values($1,$2,$3,$4,$5)
+          on conflict(tenant_id,company_id,account_id) do update set active=excluded.active,version=fixed_asset_nominal_classification.version+1,updated_by=excluded.updated_by,updated_at=clock_timestamp()`,
+          [context.tenantId, input.company_id, account, input.active, context.actor.userId],
+        );
+        const after = { account_id: account, active: input.active, version: (before?.version ?? 0) + 1 };
+        await this.audit(client, context, input.company_id, account, "nominal_classified", input.reason, before, after);
+        return after;
+      });
+    });
   }
   async categories(client: PoolClient, tenant: string, company: string) {
     const rows = (
@@ -295,15 +438,20 @@ export class SourceAssetRepository {
         [tenant, company],
       )
     ).rows;
-    return rows.map((row) =>
+    const categories = rows.map((row) =>
       assetCategorySchema.parse({ ...row.policy, id: row.id, code: row.code, version: row.version }),
     );
+    const policy = await this.companyPolicy(client, tenant, company);
+    return categories.map((category) => effectiveCategory(category, policy));
   }
   async saveCategory(context: BankingActorContext, id: string | null, raw: AssetCategoryInput, key: string) {
     const input = assetCategoryInputSchema.parse(raw);
     return this.transaction(context, input.company_id, "categories", true, (client) =>
       this.idempotent(client, context, input.company_id, key, { id, input }, assetCategorySchema, async () => {
         const base = await resolveCompanyBaseCurrency(client, context.tenantId, input.company_id);
+        const companyPolicy = await this.companyPolicy(client, context.tenantId, input.company_id);
+        if (companyPolicy && !companyPolicy.allow_category_overrides && !input.inherit_company_policy)
+          reject("Company Asset Policies require categories to inherit the company depreciation terms.");
         minor(input.capitalization_threshold, base.decimalPlaces);
         const roles = [
           ["asset", input.asset_account_id],
@@ -344,6 +492,11 @@ export class SourceAssetRepository {
             input.accumulated_account_id,
             context.actor.userId,
           ],
+        );
+        await client.query(
+          `insert into fixed_asset_nominal_classification(tenant_id,company_id,account_id,updated_by)
+          values($1,$2,$3,$4) on conflict(tenant_id,company_id,account_id) do nothing`,
+          [context.tenantId, input.company_id, input.asset_account_id, context.actor.userId],
         );
         const result = await this.category(client, context.tenantId, input.company_id, identifier);
         await this.audit(
@@ -455,96 +608,134 @@ export class SourceAssetRepository {
   async create(context: BankingActorContext, raw: AssetCreate, key: string) {
     const input = assetCreateSchema.parse(raw);
     return this.transaction(context, input.company_id, "create", true, (client) =>
-      this.idempotent(client, context, input.company_id, key, input, assetCreateResultSchema, async () => {
-        const category = await this.category(client, context.tenantId, input.company_id, input.category_id);
-        if (!category.active) reject("The category is inactive.");
-        const source = await this.source(client, context.tenantId, input.company_id, input.source_line_id, true),
-          base = await resolveCompanyBaseCurrency(client, context.tenantId, input.company_id);
-        if (source.account_id !== category.asset_account_id)
-          reject("The posted acquisition account does not match the selected category.");
-        const supplier = source.supplier_id ?? input.supplier_id ?? null;
-        if (source.supplier_id && input.supplier_id && source.supplier_id !== input.supplier_id)
-          reject("The supplier must match the original Purchase invoice.");
-        if (
-          !supplier ||
-          !(
-            await client.query(
-              "select 1 from procurement_supplier where tenant_id=$1 and company_id=$2 and id=$3 and status='active'",
-              [context.tenantId, input.company_id, supplier],
-            )
-          ).rowCount
-        )
-          reject("Select the original active company supplier.");
-        let total = 0n;
-        const items: FixedAsset[] = [];
-        for (const unit of input.units) {
-          const cost = minor(unit.cost, base.decimalPlaces),
-            residual = minor(unit.residual_value, base.decimalPlaces);
-          total += cost;
-          if (cost <= 0n || residual > cost || cost < minor(category.capitalization_threshold, base.decimalPlaces))
-            reject("Cost must be positive, meet the category threshold, and cover residual value.");
-          if (unit.in_service_date < source.date || unit.depreciation_start < unit.in_service_date)
-            reject("In-service and depreciation dates must follow the acquisition.");
-          if (unit.method === "reducing_balance" && unit.annual_rate_percent <= 0)
-            reject("Reducing balance requires a positive annual rate.");
-          if (
-            unit.details.warranty_start &&
-            unit.details.warranty_end &&
-            unit.details.warranty_start > unit.details.warranty_end
-          )
-            reject("Warranty end must follow its start.");
-          await this.assignment(client, context.tenantId, input.company_id, unit.assignment, unit.in_service_date);
-          const id = randomUUID(),
-            code = await this.code(client, context.tenantId, input.company_id, category.numbering_prefix);
-          await client.query(
-            `insert into fixed_asset_record(tenant_id,company_id,id,code,category_id,category_snapshot,supplier_id,source_line_id,acquisition_date,base_currency,decimal_places,cost,residual_value,useful_life_months,method,annual_rate_percent,in_service_date,depreciation_start,last_financial_date,assignment,assignment_date,details,status,created_by)
-    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$9,$19,$17,$20,'draft',$21)`,
-            [
-              context.tenantId,
-              input.company_id,
-              id,
-              code,
-              category.id,
-              JSON.stringify(category),
-              supplier,
-              source.line_id,
-              source.date,
-              base.code,
-              base.decimalPlaces,
-              money(cost, base.decimalPlaces),
-              money(residual, base.decimalPlaces),
-              unit.useful_life_months,
-              unit.method,
-              unit.annual_rate_percent,
-              unit.in_service_date,
-              unit.depreciation_start,
-              JSON.stringify(unit.assignment),
-              JSON.stringify(unit.details),
-              context.actor.userId,
-            ],
-          );
-          await client.query(
-            "insert into fixed_asset_acquisition(tenant_id,company_id,id,asset_id,source_line_id,amount) values($1,$2,$3,$4,$5,$6)",
-            [context.tenantId, input.company_id, randomUUID(), id, source.line_id, money(cost, base.decimalPlaces)],
-          );
-          const asset = await this.asset(client, context.tenantId, input.company_id, id);
-          await this.audit(client, context, input.company_id, id, "created", input.reason, null, { asset, source });
-          items.push(asset);
-        }
-        if (total > minor(source.available, base.decimalPlaces))
-          reject(
-            "The individual asset costs exceed the remaining posted acquisition amount.",
-            "ASSET_SOURCE_OVERALLOCATED",
-          );
-        return { items };
-      }),
+      this.idempotent(client, context, input.company_id, key, input, assetCreateResultSchema, () =>
+        this.createInTransaction(client, context, input),
+      ),
     );
+  }
+  async createInTransaction(
+    client: PoolClient,
+    context: BankingActorContext,
+    input: AssetCreate,
+    purchaseDocument?: string,
+  ) {
+    if (
+      context.tenantId !== context.actor.tenantId ||
+      !context.actor.permissions.includes("assets.asset.create") ||
+      context.realActorId ||
+      context.impersonationRequestId
+    )
+      reject("The required Fixed Assets creation permission is missing.", "PERMISSION_DENIED", 403);
+    if (
+      !(
+        await client.query(companyAuthoritySql, [
+          context.tenantId,
+          context.actor.userId,
+          input.company_id,
+          "assets.asset.create",
+        ])
+      ).rowCount
+    )
+      reject("Fixed Assets access is not available in this company.", "COMPANY_ACCESS_DENIED", 403);
+    await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+      `assets:${context.tenantId}:${input.company_id}`,
+    ]);
+    const category = await this.category(client, context.tenantId, input.company_id, input.category_id);
+    if (!category.active) reject("The category is inactive.");
+    const source = await this.source(client, context.tenantId, input.company_id, input.source_line_id, true),
+      base = await resolveCompanyBaseCurrency(client, context.tenantId, input.company_id);
+    if (source.account_id !== category.asset_account_id)
+      reject("The posted acquisition account does not match the selected category.");
+    const supplier = source.supplier_id ?? input.supplier_id ?? null;
+    if (source.supplier_id && input.supplier_id && source.supplier_id !== input.supplier_id)
+      reject("The supplier must match the original Purchase invoice.");
+    if (
+      !supplier ||
+      !(
+        await client.query(
+          "select 1 from procurement_supplier where tenant_id=$1 and company_id=$2 and id=$3 and status='active'",
+          [context.tenantId, input.company_id, supplier],
+        )
+      ).rowCount
+    )
+      reject("Select the original active company supplier.");
+    let total = 0n;
+    const items: FixedAsset[] = [];
+    for (const unit of input.units) {
+      const fieldError = validateAssetCustomFields(category.field_definitions ?? [], unit.details.custom_fields);
+      if (fieldError) reject(fieldError);
+      const cost = minor(unit.cost, base.decimalPlaces),
+        residual = minor(unit.residual_value, base.decimalPlaces);
+      total += cost;
+      if (cost <= 0n || residual > cost || cost < minor(category.capitalization_threshold, base.decimalPlaces))
+        reject("Cost must be positive, meet the category threshold, and cover residual value.");
+      if (unit.in_service_date < source.date || unit.depreciation_start < unit.in_service_date)
+        reject("In-service and depreciation dates must follow the acquisition.");
+      this.validateUnitPolicy(category, unit);
+      if (unit.method === "reducing_balance" && unit.annual_rate_percent <= 0)
+        reject("Reducing balance requires a positive annual rate.");
+      if (
+        unit.details.warranty_start &&
+        unit.details.warranty_end &&
+        unit.details.warranty_start > unit.details.warranty_end
+      )
+        reject("Warranty end must follow its start.");
+      await this.assignment(client, context.tenantId, input.company_id, unit.assignment, unit.in_service_date);
+      const id = randomUUID(),
+        code = await this.code(client, context.tenantId, input.company_id, category.numbering_prefix);
+      await client.query(
+        `insert into fixed_asset_record(tenant_id,company_id,id,code,category_id,category_snapshot,supplier_id,source_line_id,acquisition_date,base_currency,decimal_places,cost,residual_value,useful_life_months,method,annual_rate_percent,in_service_date,depreciation_start,last_financial_date,assignment,assignment_date,details,status,created_by)
+    values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$9,$19,$17,$20,'draft',$21)`,
+        [
+          context.tenantId,
+          input.company_id,
+          id,
+          code,
+          category.id,
+          JSON.stringify(category),
+          supplier,
+          source.line_id,
+          source.date,
+          base.code,
+          base.decimalPlaces,
+          money(cost, base.decimalPlaces),
+          money(residual, base.decimalPlaces),
+          unit.useful_life_months,
+          unit.method,
+          unit.annual_rate_percent,
+          unit.in_service_date,
+          unit.depreciation_start,
+          JSON.stringify(unit.assignment),
+          JSON.stringify(unit.details),
+          context.actor.userId,
+        ],
+      );
+      await client.query(
+        "insert into fixed_asset_acquisition(tenant_id,company_id,id,asset_id,source_line_id,amount) values($1,$2,$3,$4,$5,$6)",
+        [context.tenantId, input.company_id, randomUUID(), id, source.line_id, money(cost, base.decimalPlaces)],
+      );
+      const asset = await this.asset(client, context.tenantId, input.company_id, id);
+      await attachStagedDocuments(client, context, input.company_id, id, category, unit.details, purchaseDocument);
+      await this.audit(client, context, input.company_id, id, "created", input.reason, null, { asset, source });
+      items.push(asset);
+    }
+    if (total > minor(source.available, base.decimalPlaces))
+      reject(
+        "The individual asset costs exceed the remaining posted acquisition amount.",
+        "ASSET_SOURCE_OVERALLOCATED",
+      );
+    return { items };
   }
   async update(context: BankingActorContext, id: string, raw: AssetUpdate, key: string) {
     const input = assetUpdateSchema.parse(raw);
     return this.transaction(context, input.company_id, "edit", true, (client) =>
       this.idempotent(client, context, input.company_id, key, { id, input }, fixedAssetSchema, async () => {
         const before = await this.asset(client, context.tenantId, input.company_id, id, true);
+        const fieldError = validateAssetCustomFields(
+          before.category.field_definitions ?? [],
+          input.details.custom_fields,
+        );
+        if (fieldError) reject(fieldError);
         this.version(before.version, input.expected_version);
         if (!["draft", "active", "fully_depreciated"].includes(before.status))
           reject("Details can be edited only for drafts or assets in service.");
@@ -555,6 +746,23 @@ export class SourceAssetRepository {
         )
           reject("Warranty end must follow its start.");
         const policy = input.depreciation ?? before;
+        for (const field of before.category.field_definitions ?? []) {
+          if (field.type !== "document") continue;
+          const reference = input.details.custom_fields?.[field.key];
+          if (!reference || reference === before.details.custom_fields?.[field.key]) continue;
+          if (
+            typeof reference !== "string" ||
+            !reference.startsWith("attachment:") ||
+            !(
+              await client.query(
+                "select 1 from fixed_asset_attachment where tenant_id=$1 and company_id=$2 and asset_id=$3 and id=$4",
+                [context.tenantId, input.company_id, id, reference.slice(11)],
+              )
+            ).rowCount
+          )
+            reject("Select a private attachment belonging to this asset.");
+        }
+        if (input.depreciation) this.validateUnitPolicy(before.category, policy);
         if (input.depreciation && before.status !== "draft")
           reject("Depreciation policy can be corrected only before submission.");
         if (
@@ -589,6 +797,25 @@ export class SourceAssetRepository {
   }
   version(actual: number, expected: number) {
     if (actual !== expected) reject("The record changed. Refresh and retry.", "ASSET_VERSION_CONFLICT", 412);
+  }
+  validateUnitPolicy(
+    category: AssetCategory,
+    unit: Pick<
+      AssetCreate["units"][number],
+      "in_service_date" | "depreciation_start" | "method" | "annual_rate_percent" | "useful_life_months"
+    >,
+  ) {
+    if (
+      category.inherit_company_policy &&
+      category.allow_policy_override === false &&
+      (unit.method !== category.method ||
+        unit.annual_rate_percent !== category.annual_rate_percent ||
+        unit.useful_life_months !== category.useful_life_months)
+    )
+      reject("The company policy does not permit overriding depreciation method, rate or useful life.");
+    const start = assetPolicyStart(category, unit.in_service_date);
+    if (category.allow_start_override === false && unit.depreciation_start !== start)
+      reject("The depreciation start must follow the approved company start rule.");
   }
   async action(context: BankingActorContext, id: string, raw: AssetAction, key: string) {
     const input = assetActionSchema.parse(raw);
@@ -704,11 +931,19 @@ export class SourceAssetRepository {
         params = [context.tenantId, company];
       const read = async (sql: string) => (await client.query(sql, params)).rows;
       return assetOptionsSchema.parse({
+        preparation_result:
+          (
+            await client.query(
+              "select status,error_code,updated_at::text from fixed_asset_preparation_result where tenant_id=$1 and company_id=$2",
+              params,
+            )
+          ).rows[0] ?? null,
+        company_policy: await this.companyPolicy(client, context.tenantId, company),
         base_currency: base.code,
         decimal_places: base.decimalPlaces,
         categories: await this.categories(client, context.tenantId, company),
         accounts: await read(
-          "select id,code,name,type from account where tenant_id=$1 and company_id=$2 and status='active' and not is_header order by code limit 5000",
+          "select a.id,a.code,a.name,a.type,coalesce(c.active,false) as fixed_asset,coalesce(c.version,0) as classification_version from account a left join fixed_asset_nominal_classification c on c.tenant_id=a.tenant_id and c.company_id=a.company_id and c.account_id=a.id where a.tenant_id=$1 and a.company_id=$2 and a.status='active' and not a.is_header order by a.code limit 5000",
         ),
         suppliers: await read(
           "select id,code,name from procurement_supplier where tenant_id=$1 and company_id=$2 and status='active' order by code limit 5000",

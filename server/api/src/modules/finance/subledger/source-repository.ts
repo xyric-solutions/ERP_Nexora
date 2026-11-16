@@ -35,6 +35,8 @@ import {
 import type { BankingActorContext } from "../../banking/source-repository.js";
 import { companyAuthoritySql } from "../../security/company-authority.js";
 import { hasAssetJournalReferences } from "../../fixed-assets/sources.js";
+import { SourceAssetRepository, AssetError } from "../../fixed-assets/source-repository.js";
+import { registerPostedPurchase } from "../../fixed-assets/purchase-registration.js";
 import { resolveTax, recordTaxApplications, reverseTaxApplications, TaxError } from "../taxes/resolver.js";
 import { itemBalancesSql, itemBalanceParameters } from "./queries.js";
 import {
@@ -128,6 +130,7 @@ export class SourceSubledgerRepository {
     } catch (error) {
       await client.query("rollback");
       if (error instanceof SubledgerError) throw error;
+      if (error instanceof AssetError) throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof TaxError) throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof CompanyCurrencyAuthorityError || error instanceof FinancePostingError)
         throw new SubledgerError(error.status, error.code, error.message);
@@ -1015,7 +1018,7 @@ export class SourceSubledgerRepository {
       if (
         input.side === "payable" &&
         input.kind === "invoice" &&
-        sourceTaxLines.some((line) => line.asset_category_id)
+        sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id)
       ) {
         if (input.counter_account_id)
           reject("The approved bill resolves its asset categories. Clear the manual purchase accounting override.");
@@ -1040,12 +1043,14 @@ export class SourceSubledgerRepository {
             native = decimal(decimalText(unitsAtSource, 2), a.sourceDecimalPlaces);
           allocated += native;
           add(
-            category?.asset_account_id ?? counter,
+            line.nominal_account_id ?? category?.asset_account_id ?? counter,
             native,
             input.currency,
             a,
             `${code} ${line.item_code || line.description} ${line.asset_category_id ? "asset acquisition" : "purchase expense"}`,
           );
+          if (native > 0n && line.asset_category_id && line.id)
+            result.lines[result.lines.length - 1]!.dimensions = { purchase_line_id: line.id };
         }
         if (allocated !== (withholding ? signed + signedTax : signed - signedTax))
           reject("Approved bill acquisition allocations do not match its net accounting amount.");
@@ -1684,6 +1689,20 @@ export class SourceSubledgerRepository {
                   delta.unrealized,
                   journal,
                 ],
+              );
+            if (
+              payload.type === "recognition" &&
+              payload.side === "payable" &&
+              payload.kind === "invoice" &&
+              payload.source_document_id
+            )
+              await registerPostedPurchase(
+                new SourceAssetRepository(this.pool),
+                client,
+                context,
+                input.company_id,
+                payload.source_document_id,
+                journal!,
               );
             state = "posted";
           }

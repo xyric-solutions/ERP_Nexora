@@ -2,6 +2,7 @@
 import { useState } from "react";
 import {
   assetCreateSchema,
+  assetPolicyStart,
   assetAssignmentSchema,
   decimal,
   decimalText,
@@ -14,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, Section, Select, PhysicalFields, AssignmentFields, today, moneyLabel } from "./asset-fields";
+import { AssetCustomFields } from "./asset-custom-fields";
 
 export function AssetRegistrationForm({
   company,
@@ -85,9 +87,10 @@ export function AssetRegistrationForm({
         : "0",
     ]),
     [inService, setInService] = useState(today()),
-    [start, setStart] = useState(today()),
+    [start, setStart] = useState(assetPolicyStart(initialCategory ?? {}, today())),
     [reason, setReason] = useState(""),
     [validation, setValidation] = useState(""),
+    [uploadBusy, setUploadBusy] = useState(false),
     [key, setKey] = useState(() => crypto.randomUUID());
   const source = sources.find((row) => row.line_id === sourceId),
     category = options.categories.find((row) => row.id === categoryId),
@@ -111,6 +114,7 @@ export function AssetRegistrationForm({
     event.preventDefault();
     setValidation("");
     try {
+      if (uploadBusy) throw Error("Wait for the private document upload to finish.");
       const input = assetCreateSchema.parse({
         company_id: company,
         category_id: categoryId,
@@ -150,7 +154,7 @@ export function AssetRegistrationForm({
       }}
       className="space-y-4"
     >
-      <fieldset disabled={busy} className="min-w-0 space-y-4">
+      <fieldset disabled={busy || uploadBusy} className="min-w-0 space-y-4">
         <Section
           title="Acquisition source"
           description="Register the asset against an existing posted acquisition. Registration creates no acquisition journal."
@@ -189,6 +193,7 @@ export function AssetRegistrationForm({
                 const next = options.categories.find((row) => row.id === event.target.value);
                 setCategoryId(event.target.value);
                 if (next) {
+                  setStart(assetPolicyStart(next, inService));
                   setLife(String(next.useful_life_months));
                   setMethod(next.method);
                   setRate(String(next.annual_rate_percent));
@@ -241,6 +246,15 @@ export function AssetRegistrationForm({
         </Section>
         <Section title="Physical details">
           <PhysicalFields value={details} onChange={setDetails} />
+          {category && (
+            <AssetCustomFields
+              company={company}
+              onUploadStateChange={setUploadBusy}
+              category={category}
+              value={details}
+              onChange={setDetails}
+            />
+          )}
         </Section>
         <Section
           title="Individual assets"
@@ -314,6 +328,7 @@ export function AssetRegistrationForm({
               items={[
                 { id: "straight_line", name: "Straight line" },
                 { id: "reducing_balance", name: "Reducing balance" },
+                { id: "double_declining", name: "Double declining balance" },
               ]}
               value={method}
               onChange={(e) => setMethod(e.target.value as FixedAsset["method"])}
@@ -339,11 +354,21 @@ export function AssetRegistrationForm({
               min={source?.date}
               required
               value={inService}
-              onChange={(e) => setInService(e.target.value)}
+              onChange={(e) => {
+                setInService(e.target.value);
+                setStart(assetPolicyStart(category ?? {}, e.target.value));
+              }}
             />
           </Field>
           <Field label="Depreciation commencement">
-            <Input type="date" min={inService} required value={start} onChange={(e) => setStart(e.target.value)} />
+            <Input
+              type="date"
+              min={inService}
+              required
+              readOnly={category?.allow_start_override === false}
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+            />
           </Field>
           {category && (
             <p className="text-sm text-muted-foreground">

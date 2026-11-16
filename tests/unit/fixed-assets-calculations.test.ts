@@ -11,6 +11,7 @@ import {
   monthEnd,
   money,
   nextDay,
+  dailyEntitlement,
 } from "../../server/api/src/modules/fixed-assets/calculations.js";
 import { assetFileMediaType } from "../../server/api/src/modules/fixed-assets/attachments.js";
 
@@ -70,6 +71,65 @@ function asset() {
   });
 }
 describe("Exact governed asset depreciation", () => {
+  const dailyAsset = () => ({
+    ...asset(),
+    cost: "1000000",
+    residual_value: "0",
+    useful_life_months: 60,
+    in_service_date: "2027-01-01",
+    depreciation_start: "2027-01-01",
+    last_financial_date: "2027-01-01",
+    category: { ...asset().category, calculation_basis: "actual_actual" as const },
+    method: "reducing_balance" as const,
+    annual_rate_percent: 15,
+  });
+  it("accrues the requested 15% WDV example using actual days rather than a monthly percentage", () => {
+    const a = {
+      ...dailyAsset(),
+      depreciation_start: "2026-11-01",
+      in_service_date: "2026-11-01",
+      last_financial_date: "2026-11-01",
+    };
+    expect(dailyEntitlement(a, "2026-11-30")).toBe(1232877n);
+    expect(dailyEntitlement(a, "2026-12-31")).toBe(2506849n);
+  });
+  it("keeps the annual WDV basis stable and applies the rate to the following year's opening value", () => {
+    const a = dailyAsset();
+    expect(dailyEntitlement(a, "2027-12-31")).toBe(15000000n);
+    expect(dailyEntitlement(a, "2028-12-31")).toBe(27750000n);
+    expect(dailyEntitlement({ ...a, method: "double_declining" }, "2027-12-31")).toBe(40000000n);
+    expect(dailyEntitlement({ ...a, method: "double_declining" }, "2028-12-31")).toBe(64000000n);
+  });
+  it("uses 366 days in leap years and preserves the residual floor at useful-life end", () => {
+    const a = { ...dailyAsset(), depreciation_start: "2028-01-01" };
+    expect(dailyEntitlement(a, "2028-02-29")).toBe(2459016n);
+    expect(dailyEntitlement({ ...a, residual_value: "100000" }, "2040-01-01")).toBe(90000000n);
+  });
+  it("makes separately posted monthly accruals reconcile to the same cumulative daily entitlement", () => {
+    let a = { ...dailyAsset(), method: "double_declining" as const },
+      total = 0n,
+      start = "2027-01-01";
+    for (let month = 0; month < 24; month++) {
+      const end = monthEnd(start),
+        detail = depreciationForPeriod(a, start, end);
+      expect(detail.skip_reason).toBeNull();
+      total += minor(detail.amount, 2);
+      a = { ...a, accumulated_depreciation: money(total, 2), last_depreciation_end: end };
+      start = nextDay(end);
+    }
+    expect(total).toBe(64000000n);
+  });
+  it("rebases prospectively after a governed impairment without charging historical depreciation again", () => {
+    const a = {
+      ...dailyAsset(),
+      impairment: "400000",
+      accumulated_depreciation: "100000",
+      last_depreciation_end: "2027-06-30",
+      last_financial_date: "2027-06-30",
+      accrual_basis: { start: "2027-07-01", opening_carrying: "500000", opening_accumulated: "100000" },
+    };
+    expect(depreciationForPeriod(a, "2027-07-01", "2027-07-31").amount).toBe("6369.86");
+  });
   it("calculates the requested PKR 250,000 laptop over four years at PKR 5,000 per month", () => {
     const a = asset();
     expect(depreciationForPeriod(a, "2026-09-01", "2026-09-30")).toMatchObject({
@@ -194,5 +254,21 @@ describe("Asset document content validation", () => {
     expect(() => assetFileMediaType("invoice.pdf", Buffer.from("<script>"))).toThrow(/contents/);
     expect(() => assetFileMediaType("unsafe.html", Buffer.from("<script>"))).toThrow(/contents/);
     expect(() => assetFileMediaType("empty.pdf", Buffer.alloc(0))).toThrow(/non-empty/);
+  });
+});
+describe("Actual daily zero rounding", () => {
+  it("permits skipping only preceding intervals whose cumulative currency entitlement is zero", () => {
+    const a = {
+      ...asset(),
+      cost: "0.01",
+      residual_value: "0",
+      method: "straight_line" as const,
+      useful_life_months: 12,
+      category: { ...asset().category, calculation_basis: "actual_actual" as const },
+      accrual_basis: { start: "2026-09-01", opening_carrying: "0.01", opening_accumulated: "0" },
+    };
+    expect(depreciationForPeriod(a, "2026-09-01", "2026-09-30").skip_reason).toMatch(/rounds to zero/);
+    expect(depreciationForPeriod(a, "2027-03-01", "2027-03-31").amount).toBe("0.01");
+    expect(depreciationForPeriod(a, "2027-05-01", "2027-05-31").skip_reason).toMatch(/preceding/);
   });
 });

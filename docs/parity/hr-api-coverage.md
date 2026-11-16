@@ -2,7 +2,7 @@
 
 Generated from the active route renderer map. Regenerate with `npm run catalogue:generate`.
 
-Of 72 HR catalogue routes: 65 connect to API-backed views, 0 use read-only API views, 7 are navigation hubs, and 0 are mock or unlinked views.
+Of 71 HR catalogue routes: 64 connect to API-backed views, 0 use read-only API views, 7 are navigation hubs, and 0 are mock or unlinked views.
 
 Pages left to connect to an API: none in the current HR catalogue. Navigation hubs link to their connected child pages and do not need their own mutation API.
 
@@ -67,7 +67,6 @@ Source evidence: `app/shell/prototype-content.tsx` selects the renderers below; 
 | Payroll | Payroll Inputs | `/#/hr/payroll-inputs` | `HrPayrollWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payroll Runs | `/#/hr/payroll-runs` | `HrPayrollRunsWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payroll Review & Approval | `/#/hr/payroll-validation` | `HrPayrollRunsWorkspace` | API_CONNECTED_SOURCE |
-| Payroll | Loans & Advances | `/#/hr/employee-loans` | `HrPayrollWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payroll Journal | `/#/hr/payroll-journal` | `HrPayrollJournalWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payment Batch | `/#/hr/payment-batch` | `HrPayrollPaymentWorkspace` | API_CONNECTED_SOURCE |
 | Payroll | Payslips | `/#/hr/payslips` | `HrPayslipsWorkspace` | API_CONNECTED_SOURCE |

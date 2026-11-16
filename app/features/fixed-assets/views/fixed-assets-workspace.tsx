@@ -21,11 +21,21 @@ import { useSession } from "@/lib/session/session-provider";
 import { WorkTable } from "../components/asset-table";
 import { AssetRegistrationForm } from "../components/asset-registration-form";
 import { AssetCategoryForm } from "../components/asset-category-form";
+import { AssetCompanyPolicyForm, AssetNominalClassificationForm } from "../components/asset-company-policy-form";
 import { AssetAttachments } from "../components/asset-attachments";
 import { AssetDetailEditor } from "../components/asset-detail-editor";
 import { AssetGroupReport, assetGroupReports } from "../components/asset-group-report";
 import { AssetLifecycleForm, lifecycleLabels } from "../components/asset-lifecycle-form";
 import { Field, Select, Section, moneyLabel, today } from "../components/asset-fields";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  AssetPurchaseInformation,
+  AssetPhysicalInformation,
+  AssetValuationPanel,
+  AssetJournalPanel,
+  AssetLifecycleHistory,
+  AssetAccrualSchedulePanel,
+} from "../components/asset-detail-panels";
 
 type Props = {
   page: string;
@@ -387,11 +397,17 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
             {[
               "Asset",
               "Category",
+              "Asset ID",
+              "Purchase Bill",
+              "Vendor",
               "Acquisition date",
               "Cost",
+              "Method / annual rate",
+              "Useful life",
               "Accumulated depreciation",
               "Net book value",
               "Custodian / location",
+              "Department",
               "Condition",
               "Status",
               "Actions",
@@ -409,8 +425,26 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
                 <div className="text-xs text-muted-foreground">{row.details.serial_number || "No serial recorded"}</div>
               </td>
               <td>{row.category_name}</td>
+              <td className="max-w-44 break-all font-mono text-xs">{row.id}</td>
+              <td>{row.purchase_reference ?? "Direct acquisition"}</td>
+              <td>
+                {row.supplier_name ??
+                  options?.suppliers.find((value) => value.id === row.supplier_id)?.name ??
+                  "Not recorded"}
+              </td>
               <td>{row.acquisition_date}</td>
               <td>{moneyLabel(row.cost, dp)}</td>
+              <td>
+                {row.method.replaceAll("_", " ")}
+                <div className="text-xs text-muted-foreground">
+                  {row.method === "straight_line"
+                    ? "Cost ÷ useful life"
+                    : row.method === "double_declining"
+                      ? `${Math.min(100, 2400 / row.useful_life_months).toFixed(4)}%`
+                      : `${row.annual_rate_percent}%`}
+                </div>
+              </td>
+              <td>{row.useful_life_months} months</td>
               <td>{moneyLabel(row.accumulated_depreciation, dp)}</td>
               <td>{moneyLabel(row.net_book_value, dp)}</td>
               <td>
@@ -418,6 +452,9 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
                 <div className="text-xs text-muted-foreground">
                   {options?.locations.find((item) => item.id === row.assignment.location_id)?.name ?? "No location"}
                 </div>
+              </td>
+              <td>
+                {options?.departments.find((value) => value.id === row.assignment.department_id)?.name ?? "Unassigned"}
               </td>
               <td>{row.details.condition}</td>
               <td>
@@ -432,7 +469,7 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
           ))}
           {!rows.length && (
             <tr>
-              <td colSpan={10}>
+              <td colSpan={16}>
                 {loading
                   ? "Loading assets…"
                   : "No assets match these filters. Register an asset from a posted acquisition to begin."}
@@ -518,19 +555,21 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
       ? "Fixed Assets"
       : page === "asset-classes"
         ? "Asset categories & accounting policies"
-        : registration
-          ? "Register acquired assets"
-          : type
-            ? lifecycleLabels[type]
-            : page === "depreciation-run"
-              ? "Depreciation"
-              : page === "capitalisation"
-                ? "Asset approval & activation"
-                : isReport
-                  ? "Fixed Asset reports"
-                  : page === "asset-detail"
-                    ? "Asset details"
-                    : "Fixed Assets Register";
+        : page === "asset-policies"
+          ? "Asset Policies"
+          : registration
+            ? "Register acquired assets"
+            : type
+              ? lifecycleLabels[type]
+              : page === "depreciation-run"
+                ? "Depreciation"
+                : page === "capitalisation"
+                  ? "Asset approval & activation"
+                  : isReport
+                    ? "Fixed Asset reports"
+                    : page === "asset-detail"
+                      ? "Asset details"
+                      : "Fixed Assets Register";
   if (page.startsWith("lease-"))
     return (
       <Alert>
@@ -735,93 +774,145 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
           </WorkTable>
         </>
       )}
-      {options && !registration && page !== "asset-classes" && page !== "assets-dashboard" && (
-        <section aria-label="Asset filters" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Field label="Find asset">
-            <Input
-              value={search}
-              placeholder="Code, name or serial number"
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setOffset(0);
+      {options &&
+        page === "asset-policies" &&
+        (can("categories") ? (
+          <>
+            {options.preparation_result && (
+              <p role="status" className="text-sm text-muted-foreground">
+                Last scheduled preparation: {options.preparation_result.status.replaceAll("_", " ")} ·{" "}
+                {options.preparation_result.updated_at}
+                {options.preparation_result.error_code
+                  ? ` · ${options.preparation_result.error_code.replaceAll("_", " ")}. Review policy authority and due accounting periods, then allow the next hourly retry.`
+                  : ""}
+              </p>
+            )}
+            <AssetCompanyPolicyForm
+              key={options.company_policy?.version ?? 0}
+              company={company}
+              policy={options.company_policy ?? null}
+              busy={busy}
+              onDirtyChange={onDirtyChange}
+              onSave={async (value, key) => {
+                await perform(
+                  () => api.saveFixedAssetCompanyPolicy(value, csrfToken(), key),
+                  "Company Asset Policy saved.",
+                );
               }}
             />
-          </Field>
-          <Field label="Category">
-            <Select
-              value={categoryFilter}
-              items={options.categories}
-              placeholder="All categories"
-              onChange={(e) => {
-                setCategoryFilter(e.target.value);
-                setOffset(0);
-              }}
-            />
-          </Field>
-          <Field label="Status">
-            <Select
-              items={["draft", "submitted", "approved", "active", "fully_depreciated", "returned", "disposed"].map(
-                (id) => ({ id, name: id.replaceAll("_", " ") }),
-              )}
-              value={status}
-              placeholder="All statuses"
-              onChange={(e) => {
-                setStatus(e.target.value);
-                setOffset(0);
-              }}
-            />
-          </Field>
-          <Field label="Supplier">
-            <Select
-              value={supplierFilter}
-              placeholder="All suppliers"
-              items={options.suppliers}
-              onChange={(e) => {
-                setSupplierFilter(e.target.value);
-                setOffset(0);
-              }}
-            />
-          </Field>
-          <Field label="Sort register">
-            <Select
-              value={sort}
-              items={[
-                { id: "code", name: "Asset code" },
-                { id: "cost", name: "Acquisition cost" },
-                { id: "acquired", name: "Newest acquisition" },
-              ]}
-              onChange={(e) => {
-                setSort(e.target.value);
-                setOffset(0);
-              }}
-            />
-          </Field>
-          {eventType && (
-            <>
-              <Field label="Event date from">
-                <Input
-                  type="date"
-                  value={eventFrom}
-                  onChange={(e) => {
-                    setEventFrom(e.target.value);
-                    setOffset(0);
-                  }}
-                />
-              </Field>
-              <Field label="Event date to">
-                <Input
-                  type="date"
-                  value={eventTo}
-                  onChange={(e) => {
-                    setEventTo(e.target.value);
-                    setOffset(0);
-                  }}
-                />
-              </Field>
-            </>
-          )}
-        </section>
-      )}
+            {session?.user.permissions.includes("finance.nominal.update") && (
+              <AssetNominalClassificationForm
+                options={options}
+                busy={busy}
+                onSave={async (id, version, active, reason) => {
+                  await perform(
+                    () =>
+                      api.classifyFixedAssetNominal(
+                        id,
+                        { company_id: company, expected_version: version, active, reason },
+                        csrfToken(),
+                        crypto.randomUUID(),
+                      ),
+                    "Fixed Asset nominal classification updated.",
+                  );
+                }}
+              />
+            )}
+          </>
+        ) : (
+          <p>Asset policy administration permission is required.</p>
+        ))}
+      {options &&
+        !registration &&
+        page !== "asset-classes" &&
+        page !== "asset-policies" &&
+        page !== "assets-dashboard" && (
+          <section aria-label="Asset filters" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Field label="Find asset">
+              <Input
+                value={search}
+                placeholder="Code, name or serial number"
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setOffset(0);
+                }}
+              />
+            </Field>
+            <Field label="Category">
+              <Select
+                value={categoryFilter}
+                items={options.categories}
+                placeholder="All categories"
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setOffset(0);
+                }}
+              />
+            </Field>
+            <Field label="Status">
+              <Select
+                items={["draft", "submitted", "approved", "active", "fully_depreciated", "returned", "disposed"].map(
+                  (id) => ({ id, name: id.replaceAll("_", " ") }),
+                )}
+                value={status}
+                placeholder="All statuses"
+                onChange={(e) => {
+                  setStatus(e.target.value);
+                  setOffset(0);
+                }}
+              />
+            </Field>
+            <Field label="Supplier">
+              <Select
+                value={supplierFilter}
+                placeholder="All suppliers"
+                items={options.suppliers}
+                onChange={(e) => {
+                  setSupplierFilter(e.target.value);
+                  setOffset(0);
+                }}
+              />
+            </Field>
+            <Field label="Sort register">
+              <Select
+                value={sort}
+                items={[
+                  { id: "code", name: "Asset code" },
+                  { id: "cost", name: "Acquisition cost" },
+                  { id: "acquired", name: "Newest acquisition" },
+                ]}
+                onChange={(e) => {
+                  setSort(e.target.value);
+                  setOffset(0);
+                }}
+              />
+            </Field>
+            {eventType && (
+              <>
+                <Field label="Event date from">
+                  <Input
+                    type="date"
+                    value={eventFrom}
+                    onChange={(e) => {
+                      setEventFrom(e.target.value);
+                      setOffset(0);
+                    }}
+                  />
+                </Field>
+                <Field label="Event date to">
+                  <Input
+                    type="date"
+                    value={eventTo}
+                    onChange={(e) => {
+                      setEventTo(e.target.value);
+                      setOffset(0);
+                    }}
+                  />
+                </Field>
+              </>
+            )}
+          </section>
+        )}
       {options && type && (
         <>
           {can(
@@ -1031,330 +1122,374 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
           {!selected && registerTable()}
           {selected && !detail && !error && <p role="status">Loading asset details…</p>}
           {asset && options && (
-            <>
-              <Section
-                title={`${asset.code} · ${asset.details.name}`}
-                description={`${asset.status.replaceAll("_", " ")} · ${asset.category_name}`}
-              >
-                {[
-                  ["Acquisition", `${detail.source.reference} · ${detail.source.date}`],
-                  ["Acquisition cost", moneyLabel(asset.cost, dp)],
-                  ["Accumulated depreciation", moneyLabel(asset.accumulated_depreciation, dp)],
-                  ["Impairment", moneyLabel(asset.impairment, dp)],
-                  ["Net book value", moneyLabel(asset.net_book_value, dp)],
-                  ["Residual value", moneyLabel(asset.residual_value, dp)],
-                  ["Useful life", `${asset.useful_life_months} months`],
-                  [
-                    "Remaining useful life",
-                    detail.schedule.rows.some((row) => !row.posted)
-                      ? detail.schedule.rows.filter((row) => !row.posted).length +
-                        " scheduled monthly intervals through " +
-                        detail.schedule.rows.at(-1)!.end
-                      : "No remaining scheduled depreciation",
-                  ],
-                  ["Depreciation method", asset.method.replace("_", " ")],
-                  ["Available for use", asset.in_service_date],
-                  ["Depreciation commencement", asset.depreciation_start],
-                  ["Serial number", asset.details.serial_number || "Not recorded"],
-                  [
-                    "Supplier",
-                    options.suppliers.find((row) => row.id === asset.supplier_id)?.name ??
-                      detail.source.supplier_name ??
-                      "Original supplier",
-                  ],
-                  [
-                    "Custodian",
-                    options.employees.find((row) => row.id === asset.assignment.custodian_id)?.name ?? "Unassigned",
-                  ],
-                  [
-                    "Department",
-                    options.departments.find((row) => row.id === asset.assignment.department_id)?.name ?? "Unassigned",
-                  ],
-                  [
-                    "Location",
-                    options.locations.find((row) => row.id === asset.assignment.location_id)?.name ?? "Unassigned",
-                  ],
-                  [
-                    "Project",
-                    options.projects.find((row) => row.id === asset.assignment.project_id)?.name ?? "Unassigned",
-                  ],
-                  ["Created by", asset.created_by],
-                  ["Approved by", asset.approved_by ?? "Awaiting approval"],
-                ].map(([label, value]) => (
-                  <div key={label} className="min-w-0">
-                    <p className="text-xs text-muted-foreground">{label}</p>
-                    <p className="mt-1 break-words text-sm font-medium">{value}</p>
-                  </div>
-                ))}
-                <div className="col-span-full flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      onNavigate(
-                        detail.source.source_type === "bank_payment" ? "banking" : "purchases",
-                        detail.source.source_type === "bank_payment" ? "transaction-detail" : "add-purchase-bill",
-                        detail.source.source_type === "bank_payment"
-                          ? detail.source.source_id
-                          : (detail.source.purchase_document_id ?? undefined),
-                      )
-                    }
-                  >
-                    Open original acquisition
-                  </Button>
-                  {can("edit") && ["draft", "active", "fully_depreciated"].includes(asset.status) && (
-                    <Button variant="outline" onClick={() => setEditing(true)}>
-                      Edit physical details
-                    </Button>
-                  )}
-                  {["active", "fully_depreciated"].includes(asset.status) &&
-                    Object.entries(lifecyclePages)
-                      .filter(([, kind]) => kind !== "refund")
-                      .map(([target, kind]) => (
-                        <Button key={target} variant="outline" onClick={() => goto(target, asset.id)}>
-                          {lifecycleLabels[kind]}
-                        </Button>
-                      ))}
-                  {asset.status === "returned" && can("return") && (
-                    <Button variant="outline" onClick={() => goto("asset-refund", asset.id)}>
-                      Link vendor refund
-                    </Button>
-                  )}
-                  {["draft", "submitted", "approved"].includes(asset.status) && can("return") && (
-                    <Button variant="outline" onClick={() => goto("asset-return", asset.id)}>
-                      Return before activation
-                    </Button>
-                  )}
-                </div>
-                {["draft", "submitted", "approved"].includes(asset.status) && (
-                  <>
-                    {actionReason}
-                    <div className="col-span-full flex gap-2">
-                      {asset.status === "draft" && can("create") && (
-                        <Button disabled={busy || reason.trim().length < 3} onClick={() => assetAction("submit")}>
-                          Submit asset
-                        </Button>
-                      )}
-                      {asset.status === "submitted" && can("approve") && asset.created_by !== session?.user.id && (
-                        <>
-                          <Button disabled={busy || reason.trim().length < 3} onClick={() => assetAction("approve")}>
-                            Approve asset
-                          </Button>
-                          <Button
-                            variant="outline"
-                            disabled={busy || reason.trim().length < 3}
-                            onClick={() => assetAction("reject")}
-                          >
-                            Return to draft
-                          </Button>
-                        </>
-                      )}
-                      {asset.status === "approved" && can("approve") && asset.created_by !== session?.user.id && (
-                        <Button disabled={busy || reason.trim().length < 3} onClick={() => assetAction("activate")}>
-                          Activate available asset
-                        </Button>
-                      )}
+            <Tabs key={asset.id} defaultValue="general">
+              <div className="max-w-full overflow-x-auto">
+                <TabsList aria-label="Asset details">
+                  {(
+                    [
+                      ["general", "General Information"],
+                      ["purchase", "Purchase Information"],
+                      ["depreciation", "Depreciation Details"],
+                      ["accounting", "Accounting Transactions"],
+                      ["maintenance", "Maintenance History"],
+                      ["transfers", "Transfers and Assignments"],
+                      ["documents", "Documents and Attachments"],
+                      ["audit", "Audit History"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <TabsTrigger key={value} value={value}>
+                      {label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+              <TabsContent value="general" keepMounted className="flex flex-col gap-4 [&[hidden]]:hidden">
+                <Section
+                  title={`${asset.code} · ${asset.details.name}`}
+                  description={`${asset.status.replaceAll("_", " ")} · ${asset.category_name}`}
+                >
+                  {[
+                    ["Acquisition", `${detail.source.reference} · ${detail.source.date}`],
+                    ["Acquisition cost", moneyLabel(asset.cost, dp)],
+                    ["Accumulated depreciation", moneyLabel(asset.accumulated_depreciation, dp)],
+                    ["Impairment", moneyLabel(asset.impairment, dp)],
+                    ["Net book value", moneyLabel(asset.net_book_value, dp)],
+                    ["Residual value", moneyLabel(asset.residual_value, dp)],
+                    ["Useful life", `${asset.useful_life_months} months`],
+                    [
+                      "Remaining useful life",
+                      detail.schedule.rows.some((row) => !row.posted)
+                        ? detail.schedule.rows.filter((row) => !row.posted).length +
+                          " scheduled monthly intervals through " +
+                          detail.schedule.rows.at(-1)!.end
+                        : "No remaining scheduled depreciation",
+                    ],
+                    ["Depreciation method", asset.method.replace("_", " ")],
+                    ["Available for use", asset.in_service_date],
+                    ["Depreciation commencement", asset.depreciation_start],
+                    ["Serial number", asset.details.serial_number || "Not recorded"],
+                    [
+                      "Supplier",
+                      options.suppliers.find((row) => row.id === asset.supplier_id)?.name ??
+                        detail.source.supplier_name ??
+                        "Original supplier",
+                    ],
+                    [
+                      "Custodian",
+                      options.employees.find((row) => row.id === asset.assignment.custodian_id)?.name ?? "Unassigned",
+                    ],
+                    [
+                      "Department",
+                      options.departments.find((row) => row.id === asset.assignment.department_id)?.name ??
+                        "Unassigned",
+                    ],
+                    [
+                      "Location",
+                      options.locations.find((row) => row.id === asset.assignment.location_id)?.name ?? "Unassigned",
+                    ],
+                    [
+                      "Project",
+                      options.projects.find((row) => row.id === asset.assignment.project_id)?.name ?? "Unassigned",
+                    ],
+                    ["Created by", asset.created_by],
+                    ["Approved by", asset.approved_by ?? "Awaiting approval"],
+                  ].map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className="mt-1 break-words text-sm font-medium">{value}</p>
                     </div>
-                  </>
-                )}
-              </Section>
-              {editing && (
-                <AssetDetailEditor
-                  asset={asset}
-                  busy={busy}
-                  onDirtyChange={onDirtyChange}
-                  onCancel={() => {
-                    setEditing(false);
-                    onDirtyChange?.(false);
-                  }}
-                  onSave={async (input, key) => {
-                    await perform(
-                      () => api.updateFixedAsset(asset.id, input, csrfToken(), key),
-                      "Asset details updated.",
-                    );
-                    setEditing(false);
-                  }}
-                />
-              )}
-              <Section title="Depreciation schedule">
-                <div className="col-span-full">
-                  <WorkTable
-                    tableId="asset-annual-depreciation"
-                    label="Annual depreciation"
-                    aria-label="Annual depreciation"
-                    tools={false}
-                    paging={false}
-                  >
-                    <thead>
-                      <tr>
-                        <th>Year</th>
-                        <th>Scheduled depreciation</th>
-                        <th>Posted depreciation</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.schedule.annual.map((row) => (
-                        <tr key={row.year}>
-                          <td>{row.year}</td>
-                          <td>{moneyLabel(row.depreciation, dp)}</td>
-                          <td>{moneyLabel(row.posted, dp)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </WorkTable>
-                  <Button
-                    variant="outline"
-                    onClick={() =>
-                      exportCsv(`${asset.code}-depreciation.csv`, [
-                        ["Start", "End", "Amount", "Accumulated depreciation", "Net book value", "Posted"],
-                        ...detail.schedule.rows.map((row) => [
-                          row.start,
-                          row.end,
-                          row.amount,
-                          row.accumulated_depreciation,
-                          row.net_book_value,
-                          row.posted,
-                        ]),
-                      ])
-                    }
-                  >
-                    Export full schedule
-                  </Button>
-                  <WorkTable tableId="asset-schedule" label="Depreciation schedule">
-                    <thead>
-                      <tr>
-                        {["Period", "Depreciation", "Accumulated depreciation", "Net book value", "Status"].map(
-                          (label) => (
-                            <th key={label}>{label}</th>
-                          ),
+                  ))}
+                  <div className="col-span-full flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        onNavigate(
+                          detail.source.source_type === "bank_payment" ? "banking" : "purchases",
+                          detail.source.source_type === "bank_payment" ? "transaction-detail" : "add-purchase-bill",
+                          detail.source.source_type === "bank_payment"
+                            ? detail.source.source_id
+                            : (detail.source.purchase_document_id ?? undefined),
+                        )
+                      }
+                    >
+                      Open original acquisition
+                    </Button>
+                    {can("edit") && ["draft", "active", "fully_depreciated"].includes(asset.status) && (
+                      <Button variant="outline" onClick={() => setEditing(true)}>
+                        Edit physical details
+                      </Button>
+                    )}
+                    {["active", "fully_depreciated"].includes(asset.status) &&
+                      Object.entries(lifecyclePages)
+                        .filter(([, kind]) => kind !== "refund")
+                        .map(([target, kind]) => (
+                          <Button key={target} variant="outline" onClick={() => goto(target, asset.id)}>
+                            {lifecycleLabels[kind]}
+                          </Button>
+                        ))}
+                    {asset.status === "returned" && can("return") && (
+                      <Button variant="outline" onClick={() => goto("asset-refund", asset.id)}>
+                        Link vendor refund
+                      </Button>
+                    )}
+                    {["draft", "submitted", "approved"].includes(asset.status) && can("return") && (
+                      <Button variant="outline" onClick={() => goto("asset-return", asset.id)}>
+                        Return before activation
+                      </Button>
+                    )}
+                  </div>
+                  {["draft", "submitted", "approved"].includes(asset.status) && (
+                    <>
+                      {actionReason}
+                      <div className="col-span-full flex gap-2">
+                        {asset.status === "draft" && can("create") && (
+                          <Button disabled={busy || reason.trim().length < 3} onClick={() => assetAction("submit")}>
+                            Submit asset
+                          </Button>
                         )}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.schedule.rows.map((row) => (
-                        <tr key={row.start}>
-                          <td>
-                            {row.start} – {row.end}
-                          </td>
-                          <td>{moneyLabel(row.amount, dp)}</td>
-                          <td>{moneyLabel(row.accumulated_depreciation, dp)}</td>
-                          <td>{moneyLabel(row.net_book_value, dp)}</td>
-                          <td>{row.posted ? "Posted" : "Projected"}</td>
-                        </tr>
-                      ))}
-                      {!detail.schedule.rows.length && (
+                        {asset.status === "submitted" && can("approve") && asset.created_by !== session?.user.id && (
+                          <>
+                            <Button disabled={busy || reason.trim().length < 3} onClick={() => assetAction("approve")}>
+                              Approve asset
+                            </Button>
+                            <Button
+                              variant="outline"
+                              disabled={busy || reason.trim().length < 3}
+                              onClick={() => assetAction("reject")}
+                            >
+                              Return to draft
+                            </Button>
+                          </>
+                        )}
+                        {asset.status === "approved" && can("approve") && asset.created_by !== session?.user.id && (
+                          <Button disabled={busy || reason.trim().length < 3} onClick={() => assetAction("activate")}>
+                            Activate available asset
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </Section>
+                {editing && (
+                  <AssetDetailEditor
+                    asset={asset}
+                    busy={busy}
+                    onDirtyChange={onDirtyChange}
+                    onCancel={() => {
+                      setEditing(false);
+                      onDirtyChange?.(false);
+                    }}
+                    onSave={async (input, key) => {
+                      await perform(
+                        () => api.updateFixedAsset(asset.id, input, csrfToken(), key),
+                        "Asset details updated.",
+                      );
+                      setEditing(false);
+                    }}
+                  />
+                )}
+                <AssetPhysicalInformation detail={detail} />
+              </TabsContent>
+              <TabsContent value="purchase" keepMounted>
+                <AssetPurchaseInformation detail={detail} />
+              </TabsContent>
+              <TabsContent value="depreciation" keepMounted className="flex flex-col gap-4 [&[hidden]]:hidden">
+                <AssetValuationPanel key={`${asset.id}:${asset.version}`} detail={detail} />
+                <AssetAccrualSchedulePanel key={`${asset.id}:${asset.version}`} detail={detail} options={options} />
+                <Section title="Depreciation schedule">
+                  <div className="col-span-full min-w-0">
+                    <WorkTable
+                      tableId="asset-annual-depreciation"
+                      label="Annual depreciation"
+                      aria-label="Annual depreciation"
+                      tools={false}
+                      paging={false}
+                    >
+                      <thead>
                         <tr>
-                          <td colSpan={5}>No remaining depreciation schedule.</td>
+                          <th>Year</th>
+                          <th>Scheduled depreciation</th>
+                          <th>Posted depreciation</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </WorkTable>
-                </div>
-              </Section>
-              {asset.status === "returned" && (
-                <Section title="Vendor credit and refund balance">
-                  <div>
-                    <p className="text-xs text-muted-foreground">Outstanding net asset credit</p>
-                    <p className="mt-1 text-xl font-semibold">
-                      {moneyLabel(detail.refund_outstanding, dp)} {asset.base_currency}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Supplier invoice credits follow their Accounting offset and refund balances. Direct acquisition
-                      refunds follow linked posted Bank Receipts.
-                    </p>
+                      </thead>
+                      <tbody>
+                        {detail.schedule.annual.map((row) => (
+                          <tr key={row.year}>
+                            <td>{row.year}</td>
+                            <td>{moneyLabel(row.depreciation, dp)}</td>
+                            <td>{moneyLabel(row.posted, dp)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </WorkTable>
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        exportCsv(`${asset.code}-depreciation.csv`, [
+                          ["Start", "End", "Amount", "Accumulated depreciation", "Net book value", "Posted"],
+                          ...detail.schedule.rows.map((row) => [
+                            row.start,
+                            row.end,
+                            row.amount,
+                            row.accumulated_depreciation,
+                            row.net_book_value,
+                            row.posted,
+                          ]),
+                        ])
+                      }
+                    >
+                      Export full schedule
+                    </Button>
+                    <WorkTable tableId="asset-schedule" label="Depreciation schedule">
+                      <thead>
+                        <tr>
+                          {["Period", "Depreciation", "Accumulated depreciation", "Net book value", "Status"].map(
+                            (label) => (
+                              <th key={label}>{label}</th>
+                            ),
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detail.schedule.rows.map((row) => (
+                          <tr key={row.start}>
+                            <td>
+                              {row.start} – {row.end}
+                            </td>
+                            <td>{moneyLabel(row.amount, dp)}</td>
+                            <td>{moneyLabel(row.accumulated_depreciation, dp)}</td>
+                            <td>{moneyLabel(row.net_book_value, dp)}</td>
+                            <td>{row.posted ? "Posted" : "Projected"}</td>
+                          </tr>
+                        ))}
+                        {!detail.schedule.rows.length && (
+                          <tr>
+                            <td colSpan={5}>No remaining depreciation schedule.</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </WorkTable>
                   </div>
                 </Section>
-              )}
-              <AssetAttachments
-                detail={detail}
-                onUploaded={async () => {
-                  setDetail(await api.getFixedAsset(asset.id, company));
-                }}
-              />
-              <Section title="Asset history">
-                <div className="col-span-full">
-                  <p className="mb-2 text-sm text-muted-foreground">
-                    Newest evidence first. Page {Math.floor(detail.history_offset / 100) + 1}.
-                  </p>
-                  <div className="mb-3 flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || detail.history_offset === 0}
-                      onClick={() =>
-                        fire(
-                          async () =>
-                            setDetail(
-                              await api.getFixedAsset(asset.id, company, Math.max(0, detail.history_offset - 100)),
-                            ),
-                          "History page loaded.",
-                        )
-                      }
-                    >
-                      Newer evidence
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={busy || detail.history_next_offset === null}
-                      onClick={() =>
-                        fire(
-                          async () =>
-                            setDetail(await api.getFixedAsset(asset.id, company, detail.history_next_offset ?? 0)),
-                          "History page loaded.",
-                        )
-                      }
-                    >
-                      Older evidence
-                    </Button>
-                  </div>
-                  <WorkTable tableId="asset-history" label="Immutable asset history">
-                    <thead>
-                      <tr>
-                        <th>When</th>
-                        <th>Action</th>
-                        <th>Actor</th>
-                        <th>Reason</th>
-                        <th>Evidence</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.history.map((event) => (
-                        <tr key={event.id}>
-                          <td>{new Date(event.at).toLocaleString()}</td>
-                          <td>{event.action.replaceAll("_", " ")}</td>
-                          <td>{event.actor_id}</td>
-                          <td>{event.reason}</td>
-                          <td>
-                            <details>
-                              <summary className="cursor-pointer">Before / after</summary>
-                              <pre className="max-w-md overflow-auto whitespace-pre-wrap break-all text-xs">
-                                {JSON.stringify({ before: event.before, after: event.after }, null, 2)}
-                              </pre>
-                            </details>
-                          </td>
+              </TabsContent>
+              <TabsContent value="accounting" keepMounted className="flex flex-col gap-4 [&[hidden]]:hidden">
+                <AssetJournalPanel key={`${asset.id}:${asset.version}`} detail={detail} />
+                {asset.status === "returned" && (
+                  <Section title="Vendor credit and refund balance">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Outstanding net asset credit</p>
+                      <p className="mt-1 text-xl font-semibold">
+                        {moneyLabel(detail.refund_outstanding, dp)} {asset.base_currency}
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Supplier invoice credits follow their Accounting offset and refund balances. Direct acquisition
+                        refunds follow linked posted Bank Receipts.
+                      </p>
+                    </div>
+                  </Section>
+                )}
+              </TabsContent>
+              <TabsContent value="maintenance" keepMounted>
+                <AssetLifecycleHistory detail={detail} options={options} type="maintenance" onOpen={setReviewEvent} />
+              </TabsContent>
+              <TabsContent value="transfers" keepMounted>
+                <AssetLifecycleHistory detail={detail} options={options} type="transfer" onOpen={setReviewEvent} />
+              </TabsContent>
+              <TabsContent value="documents" keepMounted>
+                <AssetAttachments
+                  detail={detail}
+                  onUploaded={async () => {
+                    setDetail(await api.getFixedAsset(asset.id, company));
+                  }}
+                />
+              </TabsContent>
+              <TabsContent value="audit" keepMounted className="flex flex-col gap-4 [&[hidden]]:hidden">
+                <Section title="Asset history">
+                  <div className="col-span-full">
+                    <p className="mb-2 text-sm text-muted-foreground">
+                      Newest evidence first. Page {Math.floor(detail.history_offset / 100) + 1}.
+                    </p>
+                    <div className="mb-3 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy || detail.history_offset === 0}
+                        onClick={() =>
+                          fire(
+                            async () =>
+                              setDetail(
+                                await api.getFixedAsset(asset.id, company, Math.max(0, detail.history_offset - 100)),
+                              ),
+                            "History page loaded.",
+                          )
+                        }
+                      >
+                        Newer evidence
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={busy || detail.history_next_offset === null}
+                        onClick={() =>
+                          fire(
+                            async () =>
+                              setDetail(await api.getFixedAsset(asset.id, company, detail.history_next_offset ?? 0)),
+                            "History page loaded.",
+                          )
+                        }
+                      >
+                        Older evidence
+                      </Button>
+                    </div>
+                    <WorkTable tableId="asset-history" label="Immutable asset history">
+                      <thead>
+                        <tr>
+                          <th>When</th>
+                          <th>Action</th>
+                          <th>Actor</th>
+                          <th>Reason</th>
+                          <th>Evidence</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </WorkTable>
-                </div>
-              </Section>
-              <Section title="Lifecycle transactions">
-                <p className="col-span-full text-sm text-muted-foreground">
-                  Latest 1,000 transactions. The complete before/after evidence is available in the paginated asset
-                  history.
-                </p>
-                <div className="col-span-full flex flex-wrap gap-2">
-                  {detail.events.map((event) => (
-                    <Button key={event.id} variant="outline" onClick={() => setReviewEvent(event)}>
-                      {event.code} · {lifecycleLabels[event.type]} · {event.state}
-                    </Button>
-                  ))}
-                  {!detail.events.length && (
-                    <p className="text-sm text-muted-foreground">No lifecycle transactions recorded.</p>
-                  )}
-                </div>
-              </Section>
-            </>
+                      </thead>
+                      <tbody>
+                        {detail.history.map((event) => (
+                          <tr key={event.id}>
+                            <td>{new Date(event.at).toLocaleString()}</td>
+                            <td>{event.action.replaceAll("_", " ")}</td>
+                            <td>{event.actor_id}</td>
+                            <td>{event.reason}</td>
+                            <td>
+                              <details>
+                                <summary className="cursor-pointer">Before / after</summary>
+                                <pre className="max-w-md overflow-auto whitespace-pre-wrap break-all text-xs">
+                                  {JSON.stringify({ before: event.before, after: event.after }, null, 2)}
+                                </pre>
+                              </details>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </WorkTable>
+                  </div>
+                </Section>
+                <Section title="Lifecycle transactions">
+                  <p className="col-span-full text-sm text-muted-foreground">
+                    Latest 1,000 transactions. The complete before/after evidence is available in the paginated asset
+                    history.
+                  </p>
+                  <div className="col-span-full flex flex-wrap gap-2">
+                    {detail.events.map((event) => (
+                      <Button key={event.id} variant="outline" onClick={() => setReviewEvent(event)}>
+                        {event.code} · {lifecycleLabels[event.type]} · {event.state}
+                      </Button>
+                    ))}
+                    {!detail.events.length && (
+                      <p className="text-sm text-muted-foreground">No lifecycle transactions recorded.</p>
+                    )}
+                  </div>
+                </Section>
+              </TabsContent>
+            </Tabs>
           )}
         </>
       )}
@@ -1640,7 +1775,7 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
       {!registration &&
         !type &&
         !isReport &&
-        !["assets-dashboard", "asset-classes", "asset-detail", "depreciation-run"].includes(page) &&
+        !["assets-dashboard", "asset-classes", "asset-policies", "asset-detail", "depreciation-run"].includes(page) &&
         registerTable()}
     </div>
   );

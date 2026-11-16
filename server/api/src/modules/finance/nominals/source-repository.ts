@@ -69,6 +69,7 @@ interface NominalRow {
   approval_override_event_id: string | null;
   posting_classification: "review_required" | "ordinary" | "module_controlled" | null;
   chart_template_id: string | null;
+  fixed_asset: boolean;
 }
 type Command =
   | { action: "create"; input: CreateFinanceNominalRequest }
@@ -85,8 +86,9 @@ const projection = `select nominal.id,nominal.company_id,nominal.code,nominal.na
  coalesce(bank.status,general.state) as bank_status,coalesce(bank.row_version,general.row_version) as row_version,
  coalesce(bank.created_by,general.created_by) as created_by,coalesce(bank.submitted_by,general.submitted_by) as submitted_by,
  coalesce(bank.approval_override_event_id,general.approval_override_event_id) as approval_override_event_id,
- chart.posting_classification,chart.template_id as chart_template_id
+ chart.posting_classification,chart.template_id as chart_template_id,coalesce(asset_classification.active,false) as fixed_asset
  from account nominal
+ left join fixed_asset_nominal_classification asset_classification on asset_classification.tenant_id=nominal.tenant_id and asset_classification.company_id=nominal.company_id and asset_classification.account_id=nominal.id
  left join account section on section.tenant_id=nominal.tenant_id and section.company_id=nominal.company_id
   and section.id=nominal.parent_id and section.is_header
  left join account category on category.tenant_id=section.tenant_id and category.company_id=section.company_id
@@ -113,6 +115,7 @@ function summary(row: NominalRow): FinanceNominalSummary {
     state: row.bank_status,
     version: row.row_version === null ? null : Number(row.row_version),
     banking_available: row.bank_id !== null && row.bank_status === "active" && row.status === "active",
+    fixed_asset: row.fixed_asset,
     posting_classification: row.posting_classification,
     chart_template_id: row.chart_template_id,
   };

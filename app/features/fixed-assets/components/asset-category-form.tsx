@@ -5,10 +5,15 @@ import {
   type AssetCategory,
   type AssetCategoryInput,
   type AssetOptions,
+  type AssetFieldDefinition,
+  assetCategoryTemplates,
+  assetFieldTemplates,
 } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Field, Section, Select } from "./asset-fields";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AssetCategoryFieldEditor } from "./asset-category-field-editor";
 
 export function AssetCategoryForm({
   company,
@@ -32,6 +37,7 @@ export function AssetCategoryForm({
     ),
     [error, setError] = useState(""),
     [key, setKey] = useState(() => crypto.randomUUID());
+  const [fields, setFields] = useState<AssetFieldDefinition[]>(category?.field_definitions ?? []);
   const set = (name: string, value: string) => setValues((current) => ({ ...current, [name]: value }));
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -53,6 +59,10 @@ export function AssetCategoryForm({
         annual_rate_percent: Number(values.annual_rate_percent),
         residual_percent: Number(values.residual_percent),
         convention: values.convention,
+        calculation_basis: values.calculation_basis ?? (category ? "legacy_monthly" : "actual_actual"),
+        field_template: values.field_template ?? "general",
+        field_definitions: fields,
+        inherit_company_policy: values.inherit_company_policy === "true",
         capitalization_threshold: values.capitalization_threshold,
         numbering_prefix: values.numbering_prefix || "FA",
       });
@@ -77,6 +87,35 @@ export function AssetCategoryForm({
       className="space-y-4"
     >
       <fieldset disabled={busy} className="min-w-0 space-y-4">
+        {!category && (
+          <Field label="Start from an editable category template">
+            <Select
+              value=""
+              placeholder="Choose an optional template"
+              items={assetCategoryTemplates.map((template, index) => ({
+                id: String(index),
+                name: `${template.name} · ${template.annual_rate_percent}% declining rate`,
+              }))}
+              onChange={(event) => {
+                const template = assetCategoryTemplates[Number(event.target.value)];
+                if (!template) return;
+                setValues((current) => ({
+                  ...current,
+                  name: template.name,
+                  annual_rate_percent: String(template.annual_rate_percent),
+                  useful_life_months: String(template.useful_life_months),
+                  residual_percent: "0",
+                  field_template: template.key,
+                  method: options.company_policy?.method ?? "straight_line",
+                  calculation_basis: "actual_actual",
+                  convention: "actual_days",
+                  capitalization_threshold: "0",
+                }));
+                setFields(assetFieldTemplates[template.key]?.map((field) => ({ ...field })) ?? []);
+              }}
+            />
+          </Field>
+        )}
         <Section
           title={category ? `Edit ${category.code}` : "Add asset category"}
           description="Policies are configured by the company. Registered assets retain their approved policy snapshot."
@@ -144,6 +183,7 @@ export function AssetCategoryForm({
               items={[
                 { id: "straight_line", name: "Straight line" },
                 { id: "reducing_balance", name: "Reducing balance" },
+                { id: "double_declining", name: "Double declining balance" },
               ]}
               value={values.method ?? ""}
               onChange={(e) => set("method", e.target.value)}
@@ -182,6 +222,38 @@ export function AssetCategoryForm({
               onChange={(e) => set("convention", e.target.value)}
             />
           </Field>
+          <Field label="Calculation basis">
+            <Select
+              required
+              value={values.calculation_basis ?? (category ? "legacy_monthly" : "actual_actual")}
+              items={[
+                { id: "actual_actual", name: "Daily accrual · Actual/Actual 365/366" },
+                { id: "legacy_monthly", name: "Existing monthly convention" },
+              ]}
+              onChange={(event) => set("calculation_basis", event.target.value)}
+            />
+          </Field>
+          <Field label="Category-specific form">
+            <Select
+              value={values.field_template ?? "general"}
+              items={Object.keys(assetFieldTemplates).map((value) => ({ id: value, name: value.replaceAll("_", " ") }))}
+              onChange={(event) => {
+                if (fields.length && !window.confirm("Replace the additional fields with this category template?"))
+                  return;
+                set("field_template", event.target.value);
+                setFields(assetFieldTemplates[event.target.value]?.map((field) => ({ ...field })) ?? []);
+              }}
+            />
+          </Field>
+          <label htmlFor="asset-inherit-company" className="inline-flex items-center gap-2 text-sm">
+            <Checkbox
+              id="asset-inherit-company"
+              checked={values.inherit_company_policy === "true"}
+              disabled={!options.company_policy}
+              onCheckedChange={(value) => set("inherit_company_policy", value === true ? "true" : "false")}
+            />
+            Inherit the company Asset Policy
+          </label>
           <Field label={`Capitalization threshold (${options.base_currency})`}>
             <Input
               inputMode="decimal"
@@ -191,6 +263,14 @@ export function AssetCategoryForm({
             />
           </Field>
         </Section>
+        <AssetCategoryFieldEditor
+          fields={fields}
+          onChange={(next) => {
+            setFields(next);
+            setKey(crypto.randomUUID());
+            onDirtyChange?.(true);
+          }}
+        />
         {error && (
           <p role="alert" className="text-sm text-destructive">
             {error}

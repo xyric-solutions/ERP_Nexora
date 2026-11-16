@@ -11,13 +11,108 @@ The initial audit found generic asset prototype routes but no asset domain,
 repository or tables. The implementation design is in
 `docs/superpowers/specs/2026-11-13-fixed-assets-design.md`.
 
-**The business environment has not been migrated or deployed.** This checkout has
-no `.env` file, and `scripts/run-local.mjs` expects a PostgreSQL listener on port
-55435 that is unavailable. The available PostgreSQL/Redis/MinIO test stack was used
-for isolated acceptance. Existing business databases, running servers and stored
-business records were not reset or replaced. The target ERP configuration must be
-identified before applying migrations there. This is an environment blocker to
-live acceptance, not evidence of production deployment.
+The recovered localhost environment uses `nexora_local_recovery` on PostgreSQL
+port 55435, the independent API on 4000 and the web application on 3000. Protected
+local configuration and restart details are recorded in
+`docs/runbooks/local-startup.md`. Implementation acceptance uses disposable
+databases on 55433 and private test MinIO on 59000. Local rollout requires a fresh,
+validated backup and all extension checks below; no database reset, credential
+change or production deployment is part of this extension.
+
+## Integrated purchase and policy extension — 16 November 2026
+
+- The existing register route is now labelled **Fixed Asset Register**. **Asset
+  Policies** manages company defaults and nominal classification; direct
+  classification changes require asset-category administration and Chart of
+  Accounts update authority. Valid category cost mappings retain their existing
+  policy-admin authority and classify the mapped account. Existing valid category
+  cost accounts are classified on migration.
+- A Purchase Bill line can select a classified Fixed Asset nominal, enable
+  **Create Fixed Asset**, and save **Add Asset Details** for individual units.
+  Quantity must be whole, unit costs must reconcile to the net line amount, and
+  at most 100 units may be automatically registered per bill. Saved line/unit
+  identities, category versions, company-policy versions and custom fields survive
+  reload and approval. Category/nominal changes explicitly clear saved details.
+- Purchase save/submit/approval creates no assets or journals. Posting the linked
+  Accounting/AP invoice creates its acquisition journal and the linked **draft**
+  assets atomically. It uses explicit purchase-line dimensions and allocates the
+  actual posted base debit, including any final conversion rounding remainder.
+  Failed policy, permission, source, serial or unit validation rolls everything
+  back. Posting retries cannot duplicate records or acquisition journals.
+- Each draft still requires independent approval and activation. Manual
+  registration from a posted Purchase or Bank Payment remains supported and
+  shares the same source-allocation and company-authority checks.
+- Category templates include vehicles, machinery, equipment, furniture and
+  buildings. Typed custom fields support text, numbers, dates, choices and private
+  documents. Historical assets keep their category/field snapshots. Templates are
+  editable examples, not preconfigured live GL mappings or mandatory rates.
+- Company policies control inheritance, permitted overrides, useful life, method,
+  rate, residual defaults, summary frequency and commencement rules. Disabling
+  category overrides forces company defaults for new registrations, including
+  existing categories, while registered snapshots retain their original terms.
+- New Actual/Actual policies support straight line, annual opening written-down
+  value declining balance, and double declining balance (`2 / life in years`,
+  capped at 100%). Daily charges use actual calendar-year day counts, cumulative
+  minor-unit rounding, the residual floor, and a disclosed terminal useful-life
+  true-up. Existing monthly policy snapshots and posted history keep their prior
+  calculation behavior. Improvements and impairments rebase future accrual only.
+- Depreciation Details distinguishes calculated/unposted accrual from posted GL
+  depreciation. Current-basis daily, monthly, quarterly and annual summaries cover
+  a bounded window of up to 366 days; the complete monthly posted/projected life
+  schedule remains available below and through export. Historical cutoffs before
+  the latest financial basis use posted history rather than invented valuations.
+- Eight detail tabs expose general/physical data, purchase provenance,
+  depreciation, linked accounting journals, maintenance, transfers/assignments,
+  private attachments and paged immutable audit history. Accounting amounts are
+  full linked-journal totals; individual acquisition allocation is shown in
+  Purchase Information.
+- Category documents may be staged privately before an asset exists. Only their
+  creator can bind an unassigned upload to a company bill; an existing bill can
+  retain its bound files through another authorized editor. Posting attaches the
+  immutable private evidence in the same database transaction. Documents can be
+  deliberately shared by units on that bill. Unbound uploads expire for claiming
+  after 30 days; they require re-upload after expiry. Bound or attached evidence
+  is retained. This extension does not delete historical documents.
+
+## Draft-only monthly scheduler
+
+Run the dedicated entry point with the normal protected runtime database/Redis
+and private S3 configuration and explicit `ASSET_DRAFT_PREPARATION_ENABLED=true`:
+
+```powershell
+npm.cmd run start:assets --workspace @nexora/worker
+```
+
+This process only handles the `nexora-asset-drafts` queue. It does not load or
+enable bank revaluation, recurring journal posting or any approval/post command.
+Company **Automatically prepare monthly drafts** is off by default. Enabling it
+requires current depreciation-preparation authority; the saver becomes the
+scheduled preparer and that identity is reauthorized on every job.
+
+Hourly ticks scan tenants/companies fairly using durable cursors and prepare at
+most 400 due assets per company transaction. Further ticks process remaining
+units; a 401-asset register is verified as batches of 400 and 1. Pending manual
+and scheduled runs coordinate under the same company lock. Retries, rejected
+drafts, changed snapshots and existing posted intervals retain their guards.
+Preparation keys include the asset versions; an unchanged rejected preparation
+is flagged for review instead of being reported as a new draft.
+The same bounded job cleans unbound staged uploads after 30 days and abandoned
+storage writes after a one-day grace period. Bound/claimed evidence is retained;
+foreign keys protect adopted files independently of the cleanup actor's read
+visibility. Durable storage cursors prevent an ever-growing retained prefix from
+starving later objects.
+
+Zero-rounded periods store calculation progress only, with no zero-value GL
+entry. Closed due periods and revoked authority produce a persisted blocked
+result visible in Asset Policies and a worker log; review the period/permission
+and let the next tick retry. Review, independent approval and explicit posting
+remain necessary before any expense/accumulated-depreciation journal is written.
+
+Additive fixed-assets migrations 0003–0007 introduce classification, company
+policies, immutable purchase origins, stable accrual bases, preparation results,
+private staged document metadata and zero-accrual observations. They preserve
+existing codes, assets, journals and audit history. New business tables force
+tenant RLS; API queries additionally enforce company scope and live roles.
 
 ## Functional operation
 
@@ -159,7 +254,7 @@ metadata and object cleanup are coordinated on failure.
 - API/domain: `server/api/src/modules/fixed-assets`; shared bounded multipart parser
   moved from HR to `server/api/src/http` without duplicating it.
 - Contracts: `packages/contracts/src/fixed-assets`; generated client and OpenAPI.
-- Source migrations: security 0023, finance 0039, fixed_assets 0001/0002. Finance 0039
+- Source migrations: security 0023, finance 0039, fixed_assets 0001–0007. Finance 0039
   aligns existing bank triggers with company base-currency authority, preserving
   historical unchanged evidence. No existing migration was rewritten.
 - Runtime readiness requires those versions plus asset/file relations. Apply to

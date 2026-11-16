@@ -7,9 +7,19 @@ import { WorkTable as SharedWorkTable, WorkOffsetPagination } from "@/shared/ui/
 export function WorkTable({ tools = true, pagination, className, ...props }: ComponentProps<typeof SharedWorkTable>) {
   return (
     <div className="min-w-0 rounded-md border border-border bg-card">
-      <div className={tools ? undefined : "min-w-0 overflow-x-auto"}>
+      <div
+        tabIndex={tools ? undefined : 0}
+        role={tools ? undefined : "region"}
+        aria-label={tools ? undefined : `${props.label ?? "Asset records"} scroll area`}
+        className={
+          tools
+            ? undefined
+            : "min-w-0 overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        }
+      >
         <SharedWorkTable
           {...props}
+          keyboardScroll
           tools={tools}
           pagination={pagination}
           className={cn(

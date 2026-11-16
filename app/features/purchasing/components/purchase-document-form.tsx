@@ -14,6 +14,7 @@ import {
   type PurchaseLine,
   type ProcurementOptions,
   type Supplier,
+  type AssetOptions,
 } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import { PurchaseRfqSupplier } from "./purchase-rfq-supplier";
 import { purchaseStateLabels } from "../model/purchase-flow";
 import { paymentEntries, PurchasePaymentDetailsForm } from "./purchase-payment-details";
 import { PurchaseBillDetailsForm } from "./purchase-bill-details";
+import { PurchaseAssetDetailsDialog } from "@/features/fixed-assets/components/purchase-asset-details-dialog";
 
 const newLine = (): PurchaseLine => ({
   id: `line-${crypto.randomUUID()}`,
@@ -74,6 +76,27 @@ export function PurchaseDocumentForm({
     notify = useActionFeedback(),
     step = purchaseSteps.find((item) => item.kind === kind)!;
   const payment = kind === "payment" || kind === "multi_payment";
+  const [assetOptions, setAssetOptions] = useState<AssetOptions | null>(null),
+    [assetOptionsError, setAssetOptionsError] = useState(""),
+    [assetLineIndex, setAssetLineIndex] = useState<number | null>(null);
+  useEffect(() => {
+    if (kind !== "bill" || !session?.user.permissions.includes("assets.asset.read")) return;
+    let active = true;
+    api
+      .getFixedAssetOptions(company)
+      .then((value) => {
+        if (active) setAssetOptions(value);
+      })
+      .catch(() => {
+        if (active) {
+          setAssetOptions(null);
+          setAssetOptionsError("Asset Policies could not be loaded. Refresh the bill before entering asset details.");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, company, kind, session]);
   const [record, setRecord] = useState<PurchaseDocument | null>(null);
   const [manualAmounts, setManualAmounts] = useState<Set<string>>(new Set());
   const [selectedPaymentSupplier, setSelectedPaymentSupplier] = useState<Supplier | null>(null);
@@ -1535,9 +1558,22 @@ export function PurchaseDocumentForm({
                             className={`${purchaseSelectClass} mt-2`}
                             aria-label={`Line ${index + 1} asset category`}
                             value={line.asset_category_id ?? ""}
-                            onChange={(event) =>
-                              updateLine(index, { asset_category_id: event.target.value || undefined })
-                            }
+                            onChange={(event) => {
+                              if (
+                                line.asset_registration &&
+                                !window.confirm("Changing the category clears the saved asset details. Continue?")
+                              )
+                                return;
+                              const category = assetOptions?.categories.find(
+                                (value) => value.id === event.target.value,
+                              );
+                              updateLine(index, {
+                                asset_category_id: event.target.value || undefined,
+                                nominal_account_id: category?.asset_account_id,
+                                create_fixed_asset: false,
+                                asset_registration: undefined,
+                              });
+                            }}
                           >
                             <option value="">Expense / inventory purchase</option>
                             {options.asset_categories?.map((category) => (
@@ -1546,6 +1582,92 @@ export function PurchaseDocumentForm({
                               </option>
                             ))}
                           </select>
+                        ) : null}
+                        {kind === "bill" && options.nominals?.length ? (
+                          <select
+                            className={`${purchaseSelectClass} mt-2`}
+                            aria-label={`Line ${index + 1} nominal account`}
+                            value={line.nominal_account_id ?? ""}
+                            onChange={(event) => {
+                              if (
+                                line.asset_registration &&
+                                !window.confirm("Changing the nominal clears the saved asset details. Continue?")
+                              )
+                                return;
+                              const category = assetOptions?.categories.find(
+                                (value) => value.active && value.asset_account_id === event.target.value,
+                              );
+                              updateLine(index, {
+                                nominal_account_id: event.target.value || undefined,
+                                asset_category_id: category?.id,
+                                create_fixed_asset: false,
+                                asset_registration: undefined,
+                              });
+                            }}
+                          >
+                            <option value="">Default purchase accounting</option>
+                            {options.nominals.map((nominal) => (
+                              <option key={nominal.id} value={nominal.id}>
+                                {nominal.code} · {nominal.name}
+                                {nominal.fixed_asset ? " · Fixed Asset" : ""}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                        {kind === "bill" &&
+                        options.nominals?.some(
+                          (nominal) => nominal.id === line.nominal_account_id && nominal.fixed_asset,
+                        ) ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <label
+                              htmlFor={`purchase-create-asset-${line.id ?? index}`}
+                              className="inline-flex items-center gap-2 text-sm"
+                            >
+                              <Checkbox
+                                id={`purchase-create-asset-${line.id ?? index}`}
+                                checked={line.create_fixed_asset ?? false}
+                                onCheckedChange={(checked) => {
+                                  if (
+                                    !checked &&
+                                    line.asset_registration &&
+                                    !window.confirm("Remove the saved asset registration details?")
+                                  )
+                                    return;
+                                  updateLine(index, {
+                                    create_fixed_asset: checked === true,
+                                    ...(!checked ? { asset_registration: undefined } : {}),
+                                  });
+                                }}
+                              />
+                              Create Fixed Asset
+                            </label>
+                            {line.create_fixed_asset && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={!assetOptions || !line.asset_category_id}
+                                onClick={() => setAssetLineIndex(index)}
+                              >
+                                {line.asset_registration ? "Edit Asset Details" : "Add Asset Details"}
+                              </Button>
+                            )}
+                            {line.create_fixed_asset && !line.asset_category_id && (
+                              <span className="text-xs text-destructive">
+                                Configure an asset category for this nominal first.
+                              </span>
+                            )}
+                            {line.create_fixed_asset && assetOptionsError && (
+                              <span role="alert" className="text-xs text-destructive">
+                                {assetOptionsError}
+                              </span>
+                            )}
+                            {line.asset_registration && (
+                              <span className="text-xs text-muted-foreground">
+                                {line.asset_registration.units.length} individual asset details saved
+                              </span>
+                            )}
+                          </div>
                         ) : null}
                       </td>
                       <td className="p-2">
@@ -1734,6 +1856,29 @@ export function PurchaseDocumentForm({
           Open source {record.source_code}
         </Button>
       ) : null}
+      {assetLineIndex !== null &&
+        assetOptions &&
+        input.lines[assetLineIndex]?.asset_category_id &&
+        (() => {
+          const line = input.lines[assetLineIndex]!,
+            category = assetOptions.categories.find((value) => value.id === line.asset_category_id);
+          return category ? (
+            <PurchaseAssetDetailsDialog
+              key={line.id}
+              company={input.company_id}
+              line={line}
+              category={category}
+              options={assetOptions}
+              currency={input.currency}
+              date={input.bill_date ?? input.document_date}
+              onClose={() => setAssetLineIndex(null)}
+              onSave={(registration) => {
+                updateLine(assetLineIndex, { asset_registration: registration, create_fixed_asset: true });
+                setAssetLineIndex(null);
+              }}
+            />
+          ) : null;
+        })()}
     </WorkForm>
   );
 }

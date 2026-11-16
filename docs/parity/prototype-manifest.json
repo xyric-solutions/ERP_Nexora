@@ -2297,12 +2297,6 @@
               "status": "live"
             },
             {
-              "id": "employee-loans",
-              "label": "Loans & Advances",
-              "archetype": "list",
-              "status": "live"
-            },
-            {
               "id": "payroll-journal",
               "label": "Payroll Journal",
               "archetype": "report",
@@ -2424,8 +2418,14 @@
               "status": "live"
             },
             {
+              "id": "asset-policies",
+              "label": "Asset Policies",
+              "archetype": "settings",
+              "status": "live"
+            },
+            {
               "id": "assets",
-              "label": "Asset Register",
+              "label": "Fixed Asset Register",
               "archetype": "list",
               "status": "live"
             },

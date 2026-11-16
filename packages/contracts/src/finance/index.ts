@@ -112,6 +112,7 @@ export const financeNominalSummarySchema = z.strictObject({
   state: financeNominalStateSchema.nullable(),
   version: version.nullable(),
   banking_available: z.boolean(),
+  fixed_asset: z.boolean().optional(),
   posting_classification: z.enum(["review_required", "ordinary", "module_controlled"]).nullable().optional(),
   chart_template_id: identifier.nullable().optional(),
 });

@@ -18,8 +18,19 @@ import type {
   AssetDepreciationAction,
   AssetAttachment,
   AssetAttachmentInput,
+  AssetCompanyPolicyInput,
+  AssetCompanyPolicy,
+  AssetValuation,
 } from "@nexora/contracts";
-import type { TaxInput, TaxUpdate, TaxStatus, TaxDirectory, TaxDetail, TaxOptions } from "@nexora/contracts";
+import type {
+  AssetJournalDirectory,
+  TaxInput,
+  TaxUpdate,
+  TaxStatus,
+  TaxDirectory,
+  TaxDetail,
+  TaxOptions,
+} from "@nexora/contracts";
 import type {
   SubledgerWorkspace,
   SubledgerReport,
@@ -712,6 +723,49 @@ export class NexoraApiClient {
   getFixedAssetOptions(company: string): Promise<AssetOptions> {
     return this.request(`/api/v1/assets/options?company_id=${encodeURIComponent(company)}`);
   }
+  saveFixedAssetCompanyPolicy(
+    payload: AssetCompanyPolicyInput,
+    csrf: string,
+    key: string,
+  ): Promise<AssetCompanyPolicy> {
+    return this.request("/api/v1/assets/policies", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + payload.expected_version + '"' },
+      body: JSON.stringify(payload),
+    });
+  }
+  classifyFixedAssetNominal(
+    id: string,
+    payload: { company_id: string; expected_version: number; active: boolean; reason: string },
+    csrf: string,
+    key: string,
+  ): Promise<{ account_id: string; active: boolean; version: number }> {
+    return this.request("/api/v1/assets/nominals/" + encodeURIComponent(id) + "/classification", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + payload.expected_version + '"' },
+      body: JSON.stringify(payload),
+    });
+  }
+  getFixedAssetValuation(id: string, company: string, date: string): Promise<AssetValuation> {
+    return this.request(
+      "/api/v1/assets/records/" +
+        encodeURIComponent(id) +
+        "/valuation?company_id=" +
+        encodeURIComponent(company) +
+        "&as_of=" +
+        encodeURIComponent(date),
+    );
+  }
+  getFixedAssetJournals(id: string, company: string, offset = 0): Promise<AssetJournalDirectory> {
+    return this.request(
+      "/api/v1/assets/records/" +
+        encodeURIComponent(id) +
+        "/journals?company_id=" +
+        encodeURIComponent(company) +
+        "&offset=" +
+        offset,
+    );
+  }
   uploadFixedAssetAttachment(
     id: string,
     payload: AssetAttachmentInput,
@@ -725,6 +779,29 @@ export class NexoraApiClient {
     return this.request(
       `/api/v1/assets/records/${encodeURIComponent(id)}/attachments?company_id=${encodeURIComponent(payload.company_id)}`,
       { method: "POST", headers: { "x-csrf-token": csrf, "idempotency-key": key }, body },
+    );
+  }
+  stageFixedAssetDocument(
+    payload: AssetAttachmentInput,
+    file: File,
+    csrf: string,
+    key: string,
+  ): Promise<import("@nexora/contracts").AssetStagedDocument> {
+    const body = new FormData();
+    body.set("title", payload.title);
+    body.set("file", file);
+    return this.request(`/api/v1/assets/staged-documents?company_id=${encodeURIComponent(payload.company_id)}`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body,
+    });
+  }
+  getFixedAssetAccrualSchedule(
+    id: string,
+    query: import("@nexora/contracts").AssetAccrualQuery,
+  ): Promise<import("@nexora/contracts").AssetAccrualSchedule> {
+    return this.request(
+      `/api/v1/assets/records/${encodeURIComponent(id)}/accrual-schedule?${new URLSearchParams(query).toString()}`,
     );
   }
   downloadFixedAssetAttachment(id: string, attachment: string, company: string): Promise<Blob> {
