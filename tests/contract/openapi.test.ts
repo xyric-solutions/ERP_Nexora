@@ -364,6 +364,7 @@ describe("OpenAPI contract", () => {
       "/hr/candidates/{recordId}/delete",
       "/hr/employees/{employeeId}/status",
       "/hr/employees/{employeeId}/remove",
+      "/hr/record_code_preview",
       "/hr/employee_number_preview",
       "/hr/employee_drafts/{employeeId}/withdraw",
       "/hr/employees/{employeeId}/contacts/{contactId}",

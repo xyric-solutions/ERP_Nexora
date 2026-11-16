@@ -23,6 +23,7 @@ import { ApiError } from "@/lib/api/generated";
 import { useSession } from "@/lib/session/session-provider";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { HrEditButton } from "../components/hr-icon-buttons";
 const localDate = () => {
   const d = new Date();
@@ -358,7 +359,7 @@ export function HrDailyAttendanceWorkspace({
             <div>
               <Status row={detail} />
             </div>
-            <dl className="m-0 grid gap-3 sm:grid-cols-2">
+            <HrDetailList>
               {[
                 [
                   "Scheduled window",
@@ -374,12 +375,9 @@ export function HrDailyAttendanceWorkspace({
                   `${minutes(detail.potential_overtime_minutes)} / ${minutes(detail.approved_overtime_minutes)}`,
                 ],
               ].map(([name, value]) => (
-                <div key={name} className="min-w-0 rounded-lg border border-border bg-background p-3">
-                  <dt className="text-xs text-muted-foreground">{name}</dt>
-                  <dd className="m-0 mt-2 break-words text-sm font-medium">{value}</dd>
-                </div>
+                <HrDetailTile key={name} label={name} value={value} />
               ))}
-            </dl>
+            </HrDetailList>
             {detail.issues.length > 0 && (
               <ul className="m-0 grid gap-2 rounded-lg border border-[var(--nx-warning-border)]/30 bg-[var(--nx-warning-soft)]/5 p-4 pl-8 text-sm">
                 {detail.issues.map((issue) => (

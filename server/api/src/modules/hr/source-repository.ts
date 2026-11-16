@@ -1,4 +1,5 @@
-import { allocateHrCode, isHrCodeKind, retireHrCode } from "./record-codes.js";
+import { allocateHrCode, allocateNewHrCode, isHrCodeKind, previewHrCode, retireHrCode } from "./record-codes.js";
+import type { HrRecordCodePreview, HrRecordCodePreviewQuery } from "@nexora/contracts";
 import {
   HrEmployeeRecords,
   requireEmployeeRecordScope,
@@ -275,19 +276,21 @@ type EmployeeHireRequestReviewRow = Omit<
 };
 type EmployeeTransferRequestReviewRow = Omit<
   HrEmployeeTransferRequestReview,
-  "effective_on" | "requested_at" | "decided_at"
+  "effective_on" | "requested_at" | "decided_at" | "rejected_at"
 > & {
   effective_on: string | Date;
   requested_at: string | Date;
   decided_at: string | Date | null;
+  rejected_at: string | Date | null;
 };
 type EmployeePromotionRequestReviewRow = Omit<
   HrEmployeePromotionRequestReview,
-  "effective_on" | "requested_at" | "decided_at"
+  "effective_on" | "requested_at" | "decided_at" | "rejected_at"
 > & {
   effective_on: string | Date;
   requested_at: string | Date;
   decided_at: string | Date | null;
+  rejected_at: string | Date | null;
 };
 type EmployeeManagerChangeRequestReviewRow = Omit<
   HrEmployeeManagerChangeRequestReview,
@@ -380,6 +383,7 @@ function employeeTransferRequestReview(
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    rejected_at: row.rejected_at === null ? null : new Date(row.rejected_at).toISOString(),
     ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
@@ -393,6 +397,7 @@ function employeePromotionRequestReview(
     effective_on: dateOnly(row.effective_on),
     requested_at: new Date(row.requested_at).toISOString(),
     decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+    rejected_at: row.rejected_at === null ? null : new Date(row.rejected_at).toISOString(),
     ...approvalOverrideReviewMetadata(context, [row.requested_by], "hr.employee_assignment.change"),
   };
 }
@@ -553,6 +558,14 @@ export class SourceHrRepository {
   }
   async employeeNumberPreview(c: HrActorContext, companyId: string) {
     return this.employeeRecords().employeeNumberPreview(c, companyId);
+  }
+  /** Next automatic code for any HR record kind (HR154). Read-only: the final code is reserved on create. */
+  async previewRecordCode(context: HrActorContext, query: HrRecordCodePreviewQuery): Promise<HrRecordCodePreview> {
+    const hrPermissions = context.actor.permissions.filter((permission) => permission.startsWith("hr."));
+    return this.read(context, hrPermissions, async (client) => {
+      await this.requireCompanyAccess(client, context, query.company_id);
+      return { kind: query.kind, code: await previewHrCode(client, context.tenantId, query.company_id, query.kind) };
+    });
   }
   async withdrawEmployeeDraft(c: HrActorContext, employeeId: string, input: Parameters<HrEmployeeRecords["withdrawDraft"]>[2], key: string, corr: string) {
     return this.employeeRecords().withdrawDraft(c, employeeId, input, key, corr);
@@ -1420,7 +1433,7 @@ export class SourceHrRepository {
       const path = "/api/v1/hr/manpower_requisitions", fingerprint = stateHash(input);
       const replay = await client.query<{request_fingerprint:string;response_body:HrManpowerRequisitionResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update", [context.tenantId,context.actor.userId,path,idempotencyKey]);
       if (replay.rows[0]) { if (replay.rows[0].request_fingerprint!==fingerprint) throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request."); await client.query("commit"); return {...replay.rows[0].response_body,replayed:true}; }
-      const id=`manpower-requisition-${randomUUID()}`, reference=`MRQ-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;
+      const id=`manpower-requisition-${randomUUID()}`, reference=await allocateNewHrCode(client,context.tenantId,input.company_id,"requisition");
       await client.query(`insert into hr_manpower_requisition (id,tenant_id,company_id,reference,job_title,designation_id,job_grade_id,cost_center_id,branch_id,department_id,positions_requested,position_type,replacement_employee_id,salary_minimum,salary_maximum,currency_code,target_start_date,reason,required_skills,created_by,project_id,hiring_basis,work_arrangement,work_location_id) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20,$21,$22,$23,$24)`, [id,context.tenantId,input.company_id,reference,input.job_title,input.designation_id,input.job_grade_id,input.cost_center_id,input.branch_id??null,input.department_id,input.positions_requested,input.position_type,input.replacement_employee_id??null,input.salary_minimum,input.salary_maximum,input.currency_code,input.target_start_date,input.reason,JSON.stringify(input.required_skills),context.actor.userId,input.project_id,input.hiring_basis,input.work_arrangement,input.work_location_id??null]);
       const audit = await this.appendPlatformAudit(client,context,correlationId,"hr.manpower_requisition.create",{entityId:id,entityType:"hr_manpower_requisition",before:null,after:{reference,...input,state:"draft"}});
       const result:HrManpowerRequisitionResult={id,reference,state:"draft",company_id:input.company_id,audit_event_id:audit,replayed:false};
@@ -1465,7 +1478,7 @@ export class SourceHrRepository {
   }
   async createJobOpening(context: HrActorContext,input:CreateHrJobOpeningRequest,idempotencyKey:string,correlationId:string):Promise<HrJobOpeningResult>{
     if(!validIdempotencyKey(idempotencyKey)) throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid."); if(!context.actor.permissions.includes("hr.employee.create")) throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to create job openings."); const client=await this.pool.connect();
-    try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path="/api/v1/hr/job_openings",fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const id=`job-opening-${randomUUID()}`,reference=`JOP-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,6).toUpperCase()}`;await client.query("insert into hr_job_opening (id,tenant_id,company_id,reference,requisition_id,title,positions_requested,channels,closing_on,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)",[id,context.tenantId,input.company_id,reference,input.requisition_id,input.title,input.positions_requested,JSON.stringify(input.channels),input.closing_on??null,context.actor.userId]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.create",{entityId:id,entityType:"hr_job_opening",before:null,after:{reference,...input,state:"open"}});const result:HrJobOpeningResult={id,reference,state:"open",company_id:input.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
+    try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path="/api/v1/hr/job_openings",fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const id=`job-opening-${randomUUID()}`,reference=await allocateNewHrCode(client,context.tenantId,input.company_id,"opening");await client.query("insert into hr_job_opening (id,tenant_id,company_id,reference,requisition_id,title,positions_requested,channels,closing_on,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10)",[id,context.tenantId,input.company_id,reference,input.requisition_id,input.title,input.positions_requested,JSON.stringify(input.channels),input.closing_on??null,context.actor.userId]);const audit=await this.appendPlatformAudit(client,context,correlationId,"hr.job_opening.create",{entityId:id,entityType:"hr_job_opening",before:null,after:{reference,...input,state:"open"}});const result:HrJobOpeningResult={id,reference,state:"open",company_id:input.company_id,audit_event_id:audit,replayed:false};await client.query("insert into platform_admin_idempotency (tenant_id,actor_id,method,path,idempotency_key,request_fingerprint,response_status,response_body,response_etag) values ($1,$2,'POST',$3,$4,$5,201,$6,$7)",[context.tenantId,context.actor.userId,path,idempotencyKey,fingerprint,result,stateHash(result)]);await client.query("commit");return result;}catch(error){await client.query("rollback").catch(()=>undefined);throw error;}finally{client.release();}
   }
   async changeJobOpeningState(context:HrActorContext,id:string,input:ChangeHrJobOpeningStateRequest,idempotencyKey:string,correlationId:string):Promise<HrJobOpeningResult>{
     if(!validIdempotencyKey(idempotencyKey))throw new HrApiError(400,"INVALID_IDEMPOTENCY_KEY","The idempotency key is invalid.");if(!context.actor.permissions.includes("hr.employee.update"))throw new HrApiError(403,"PERMISSION_DENIED","You are not permitted to change job opening state.");const client=await this.pool.connect();try{await client.query("begin");await client.query("select set_config('nexora.tenant_id',$1,true)",[context.tenantId]);await this.requireCompanyAccess(client,context,input.company_id);const path=`/api/v1/hr/job_openings/${id}/state`,fingerprint=stateHash(input);const replay=await client.query<{request_fingerprint:string;response_body:HrJobOpeningResult}>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update",[context.tenantId,context.actor.userId,path,idempotencyKey]);if(replay.rows[0]){if(replay.rows[0].request_fingerprint!==fingerprint)throw new HrApiError(409,"IDEMPOTENCY_CONFLICT","The idempotency key was already used for another request.");await client.query("commit");return {...replay.rows[0].response_body,replayed:true};}const record=await client.query<{reference:string;company_id:string;state:HrJobOpeningResult["state"]}>("select reference,company_id,state from hr_job_opening where tenant_id=$1 and id=$2 and company_id=$3 for update",[context.tenantId,id,input.company_id]);const before=record.rows[0];if(!before)throw new HrApiError(404,"HR_JOB_OPENING_NOT_FOUND","The job opening is unavailable in your company scope.");// A cancelled opening may be reopened; the opening trigger re-checks approved headcount.
@@ -1495,7 +1508,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const path = "/api/v1/hr/candidates", fingerprint = stateHash(input);
       const replay = await client.query<{ request_fingerprint: string; response_body: HrCandidateResult }>("select request_fingerprint,response_body from platform_admin_idempotency where tenant_id=$1 and actor_id=$2 and method='POST' and path=$3 and idempotency_key=$4 for update", [context.tenantId, context.actor.userId, path, idempotencyKey]);
       if (replay.rows[0]) { if (replay.rows[0].request_fingerprint !== fingerprint) throw new HrApiError(409, "IDEMPOTENCY_CONFLICT", "The idempotency key was already used for another request."); await client.query("commit"); return { ...replay.rows[0].response_body, replayed: true }; }
-      const id = `candidate-${randomUUID()}`, reference = `CAN-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 6).toUpperCase()}`;
+      const id = `candidate-${randomUUID()}`, reference = await allocateNewHrCode(client, context.tenantId, input.company_id, "candidate");
       try { await client.query("insert into hr_candidate (id,tenant_id,company_id,reference,first_name,last_name,email,phone,source,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", [id, context.tenantId, input.company_id, reference, input.first_name, input.last_name, input.email.toLowerCase(), input.phone, input.source, context.actor.userId]); }
       catch (error: unknown) { if (typeof error === "object" && error !== null && "code" in error && error.code === "23505") throw new HrApiError(409, "HR_CANDIDATE_ALREADY_EXISTS", "An active candidate with this email already exists in the selected company."); throw error; }
       const audit = await this.appendPlatformAudit(client, context, correlationId, "hr.candidate.create", { entityId: id, entityType: "hr_candidate", before: null, after: { reference, ...input, status: "active" } });
@@ -1580,7 +1593,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         if (!candidate.rowCount) throw new HrApiError(409,"HR_CANDIDATE_UNAVAILABLE","Select an active candidate in this company.");
         const opening = await client.query("select id from hr_job_opening where tenant_id=$1 and company_id=$2 and id=$3 and state='open' and (closing_on is null or closing_on>=current_date) for share", [context.tenantId,input.company_id,input.opening_id]);
         if (!opening.rowCount) throw new HrApiError(409,"HR_OPENING_UNAVAILABLE","Select an open job opening whose closing date has not passed.");
-        reference = `APL-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,12).toUpperCase()}`;
+        reference = await allocateNewHrCode(client, context.tenantId, input.company_id, "application");
         await client.query("insert into hr_recruitment_application (id,tenant_id,company_id,candidate_id,opening_id,reference,created_by) values ($1,$2,$3,$4,$5,$6,$7)", [id,context.tenantId,input.company_id,input.candidate_id,input.opening_id,reference,context.actor.userId]);
       } else {
         const record = await client.query<{reference:string; stage:HrApplicationStage; opening_id:string; candidate_id:string}>("select reference,stage,opening_id,candidate_id from hr_recruitment_application where tenant_id=$1 and company_id=$2 and id=$3 for update", [context.tenantId,input.company_id,id]);
@@ -1638,7 +1651,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
   private async readInterviewEvidence(client: PoolClient, context: HrActorContext, companyId: string, applicationId: string): Promise<HrInterviewWorkspace> {
     const application=await client.query<HrInterviewWorkspace["application"]>(`select a.id,a.reference,concat_ws(' ',c.first_name,c.last_name) as candidate_name,o.title as opening_title,a.stage from hr_recruitment_application a join hr_candidate c on c.tenant_id=a.tenant_id and c.id=a.candidate_id join hr_job_opening o on o.tenant_id=a.tenant_id and o.id=a.opening_id where a.tenant_id=$1 and a.company_id=$2 and a.id=$3`,[context.tenantId,companyId,applicationId]);
     if(!application.rows[0]) throw new HrApiError(404,"HR_APPLICATION_NOT_FOUND","The application is unavailable in your company scope.");
-    const interviews=await client.query<Omit<HrInterviewWorkspace["interviews"][number],"starts_at"> & {starts_at:Date}>(`select i.id,i.kind,i.round,i.starts_at,i.duration_minutes,i.mode,i.location,i.status,i.version,i.template,
+    const interviews=await client.query<Omit<HrInterviewWorkspace["interviews"][number],"starts_at"> & {starts_at:Date}>(`select i.id,i.code,i.kind,i.round,i.starts_at,i.duration_minutes,i.mode,i.location,i.status,i.version,i.template,
       coalesce((select jsonb_agg(jsonb_build_object('user_id',p.user_id,'name',coalesce(u.display_name,u.email)) order by p.user_id) from hr_recruitment_interview_panel p join security_user_account u on u.tenant_id=p.tenant_id and u.id=p.user_id where p.tenant_id=i.tenant_id and p.interview_id=i.id),'[]'::jsonb) as panel,
       coalesce((select jsonb_agg(jsonb_build_object('id',e.id,'user_id',e.user_id,'scores',e.scores,'weighted_score',e.weighted_score,'recommendation',e.recommendation,'strengths',e.strengths,'concerns',e.concerns,'submitted_at',e.submitted_at) order by e.submitted_at,e.id) from hr_recruitment_interview_evaluation e where e.tenant_id=i.tenant_id and e.interview_id=i.id),'[]'::jsonb) as evaluations
       from hr_recruitment_interview i where i.tenant_id=$1 and i.application_id=$2 order by i.round`,[context.tenantId,applicationId]);
@@ -1689,13 +1702,13 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         const round=await client.query<{round:number}>("select coalesce(max(round),0)::int+1 as round from hr_recruitment_interview where tenant_id=$1 and application_id=$2",[context.tenantId,input.application_id]);
         if(round.rows[0]!.round>20)throw new HrApiError(409,"HR_INTERVIEW_LIMIT","An application supports at most 20 interview rounds.");
         entityId=`interview-${randomUUID()}`;
-        await client.query("insert into hr_recruitment_interview (tenant_id,id,application_id,round,kind,starts_at,duration_minutes,mode,location,template,created_by) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)",[context.tenantId,entityId,input.application_id,round.rows[0]!.round,input.kind,input.starts_at,input.duration_minutes,input.mode,input.location,JSON.stringify(hrInterviewTemplates[input.kind]),context.actor.userId]);
+        await client.query("insert into hr_recruitment_interview (tenant_id,id,application_id,round,kind,starts_at,duration_minutes,mode,location,template,created_by,code) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11,$12)",[context.tenantId,entityId,input.application_id,round.rows[0]!.round,input.kind,input.starts_at,input.duration_minutes,input.mode,input.location,JSON.stringify(hrInterviewTemplates[input.kind]),context.actor.userId,await allocateNewHrCode(client,context.tenantId,input.company_id,"interview")]);
         for(const userId of input.panel_user_ids)await client.query("insert into hr_recruitment_interview_panel (tenant_id,interview_id,user_id) values ($1,$2,$3)",[context.tenantId,entityId,userId]);
       } else if(input.action==="assessment_add") {
         const count=await client.query<{count:number}>("select count(*)::int as count from hr_recruitment_assessment where tenant_id=$1 and application_id=$2",[context.tenantId,input.application_id]);
         if(count.rows[0]!.count>=30)throw new HrApiError(409,"HR_ASSESSMENT_LIMIT","An application supports at most 30 assessments.");
         entityId=`assessment-${randomUUID()}`;
-        await client.query("insert into hr_recruitment_assessment (tenant_id,id,application_id,title,mandatory,reason,created_by) values ($1,$2,$3,$4,$5,$6,$7)",[context.tenantId,entityId,input.application_id,input.title,input.mandatory,input.reason,context.actor.userId]);
+        await client.query("insert into hr_recruitment_assessment (tenant_id,id,application_id,title,mandatory,reason,created_by,code) values ($1,$2,$3,$4,$5,$6,$7,$8)",[context.tenantId,entityId,input.application_id,input.title,input.mandatory,input.reason,context.actor.userId,await allocateNewHrCode(client,context.tenantId,input.company_id,"assessment")]);
       } else if(input.action==="assessment_decide") {
         entityId=input.assessment_id;
         const changed=await client.query("update hr_recruitment_assessment set status=$4,reason=$5,decided_by=$6,decided_at=now() where tenant_id=$1 and application_id=$2 and id=$3 and status='pending' returning id",[context.tenantId,input.application_id,entityId,input.outcome,input.reason,context.actor.userId]);
@@ -1836,7 +1849,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       if(before&&"expected_version" in input&&before.version!==input.expected_version)throw new HrApiError(409,"HR_OFFER_STALE","This offer changed. Refresh before making another decision.");
       const closing=["withdraw","expire","decline","reject_approval"].includes(action);
       if(!closing&&ctx.blockers.length)throw new HrApiError(409,"HR_OFFER_AUTHORITY_INVALID",ctx.blockers.join(" "));
-      const id=offerId??`offer-${randomUUID()}`,reference=before?.reference??`OFR-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-","").slice(0,12).toUpperCase()}`;
+      const id=offerId??`offer-${randomUUID()}`,reference=before?.reference??await allocateNewHrCode(client,context.tenantId,input.company_id,"offer");
       let state:HrOfferResult["state"]=before?.state??"draft",version=before?.version??1;
       let reason="Offer draft prepared.",evidence="";
       if(create && ctx.positions_reserved>=ctx.positions_authorized)throw new HrApiError(409,"HR_OFFER_HEADCOUNT_EXCEEDED","All authorized positions are already reserved.");
@@ -2312,7 +2325,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           );
         if(create.scope!=="employee")await client.query("select id from organization_unit where tenant_id=$1 and id=$2 for share",[context.tenantId,create.scope_id]);
         id = `shift-assignment-${randomUUID()}`;
-        reference = `SAS-${new Date().getUTCFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase()}`;
+        reference = await allocateNewHrCode(client, context.tenantId, create.company_id, "shift_allocation");
         if (create.replace_assignment_id) {
           await client.query(
             "select id from hr_shift_assignment where tenant_id=$1 and company_id=$2 and id=$3 for update",
@@ -2576,7 +2589,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       if(needsEvidence){evidence=await this.correctionEvidence(client,context,input.company_id,employeeId,onDate,id);const deciding=action==="submit"||action.endsWith("_approve");/* Drafts save freely; blockers apply when the correction is submitted or approved. */if(deciding&&evidence.blockers.length)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_BLOCKED",evidence.blockers.join(" "));if(input.expected_evidence_hash!==evidence.hash)throw new HrApiError(409,"HR_CORRECTION_EVIDENCE_STALE","Attendance evidence changed. Refresh it and review before continuing.");await this.validateCorrectionTerms(client,"kind" in input?input:before!,deciding);if(action==="submit"||action.endsWith("_approve"))await this.validateCorrectionCandidate(client,context,input.company_id,"kind" in input?input:before!,evidence);}
       if(action==="create"){
         id=`attendance-correction-${randomUUID()}`;const terms=input as CreateHrCorrectionRequest;
-        await client.query("insert into hr_attendance_correction (tenant_id,id,company_id,employee_id,work_date,kind,stated_in,stated_out,reason,requested_by,workflow_managed) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true)",[context.tenantId,id,input.company_id,employeeId,onDate,terms.kind,terms.stated_in,terms.stated_out,terms.reason,context.actor.userId]);
+        await client.query("insert into hr_attendance_correction (tenant_id,id,company_id,employee_id,work_date,kind,stated_in,stated_out,reason,requested_by,workflow_managed,reference) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true,$11)",[context.tenantId,id,input.company_id,employeeId,onDate,terms.kind,terms.stated_in,terms.stated_out,terms.reason,context.actor.userId,await allocateNewHrCode(client,context.tenantId,input.company_id,"correction")]);
       }else if(action==="update"){
         const terms=input as UpdateHrCorrectionRequest;await client.query("update hr_attendance_correction set kind=$3,stated_in=$4,stated_out=$5,reason=$6,version=version+1 where tenant_id=$1 and id=$2",[context.tenantId,id,terms.kind,terms.stated_in,terms.stated_out,terms.reason]);
       }else{
@@ -3944,7 +3957,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       await this.requireOfferAssignmentMatch(client, context, employeeId, input);
       const id = `employee-assignment-${randomUUID()}`;
       await client.query(
-        `insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_setup_id,reporting_manager_id,effective_from,change_reason,created_by,assignment_status,source_reference) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'initial_appointment',$14,'profile_draft','hr:profile-draft-assignment')`,
+        `insert into employee_assignment (id,tenant_id,employee_id,company_id,branch_id,department_id,designation_id,job_grade_id,cost_center_id,work_location_id,employment_setup_id,reporting_manager_id,effective_from,change_reason,created_by,assignment_status,source_reference,code) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'initial_appointment',$14,'profile_draft','hr:profile-draft-assignment',$15)`,
         [
           id,
           context.tenantId,
@@ -3960,6 +3973,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.reporting_manager_id ?? null,
           input.effective_from,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, input.company_id, "assignment"),
         ],
       );
       const audit = await this.appendPlatformAudit(client, context, correlationId, "hr.employee_assignment.create", {
@@ -3995,6 +4009,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const result = await client.query<{
         id: string;
         employee_id: string;
+        code: string | null;
         channel: "email" | "phone";
         contact_usage: "work" | "personal" | "other";
         contact_value: string;
@@ -4003,7 +4018,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         effective_from: string | Date;
         created_at: string | Date;
       }>(
-        `select id,employee_id,channel,contact_usage,contact_value,label,is_primary,effective_from,created_at
+        `select id,employee_id,code,channel,contact_usage,contact_value,label,is_primary,effective_from,created_at
            from employee_contact
           where tenant_id=$1 and employee_id=$2 and channel in ('email','phone')
             and status='active' and effective_from<=current_date
@@ -4073,8 +4088,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const id = `employee-contact-${randomUUID()}`;
       await client.query(
         `insert into employee_contact
-          (id,tenant_id,employee_id,channel,contact_usage,contact_value,label,is_primary,status,effective_from,created_by,source_reference)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,'active',current_date,$9,'hr:employee-contact-create')`,
+          (id,tenant_id,employee_id,channel,contact_usage,contact_value,label,is_primary,status,effective_from,created_by,source_reference,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,'active',current_date,$9,'hr:employee-contact-create',$10)`,
         [
           id,
           context.tenantId,
@@ -4085,6 +4100,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.label ?? "",
           input.is_primary,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, context.tenantId, "contact"),
         ],
       );
       const audit = await this.appendPlatformAudit(client, context, correlationId, "hr.employee_contact.create", {
@@ -4122,6 +4138,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const result = await client.query<{
         id: string;
         employee_id: string;
+        code: string | null;
         name: string;
         relationship: string;
         phone: string;
@@ -4131,7 +4148,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         effective_from: string | Date;
         created_at: string | Date;
       }>(
-        `select id,employee_id,name,relationship,phone,email,priority,is_primary,effective_from,created_at
+        `select id,employee_id,code,name,relationship,phone,email,priority,is_primary,effective_from,created_at
            from employee_emergency_contact
           where tenant_id=$1 and employee_id=$2 and status='active' and effective_from<=current_date
             and (effective_to is null or effective_to>=current_date)
@@ -4203,8 +4220,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       const id = `employee-emergency-contact-${randomUUID()}`;
       await client.query(
         `insert into employee_emergency_contact
-          (id,tenant_id,employee_id,name,relationship,phone,email,priority,is_primary,status,effective_from,created_by,source_reference)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',current_date,$10,'hr:employee-emergency-contact-create')`,
+          (id,tenant_id,employee_id,name,relationship,phone,email,priority,is_primary,status,effective_from,created_by,source_reference,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',current_date,$10,'hr:employee-emergency-contact-create',$11)`,
         [
           id,
           context.tenantId,
@@ -4216,6 +4233,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.priority,
           input.is_primary,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, context.tenantId, "emergency_contact"),
         ],
       );
       const audit = await this.appendPlatformAudit(
@@ -4953,57 +4971,77 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         await client.query("commit");
         return { ...replay.rows[0].response_body, replayed: true };
       }
+      // A pending policy can be approved or rejected; a rejected policy can be approved again.
+      const decision = input.decision ?? "approved";
       const policy = await client.query<{
         company_id: string;
         code: string;
         name: string;
         version: number;
+        status: "pending_approval" | "rejected";
         created_by: string;
         submitted_by: string | null;
       }>(
-        `select legal_employer_id as company_id,code,name,version,created_by,submitted_by
+        `select legal_employer_id as company_id,code,name,version,status,created_by,submitted_by
            from hr_employment_lifecycle_policy
-          where tenant_id=$1 and id=$2 and status='pending_approval'
+          where tenant_id=$1 and id=$2 and status = any($4::text[])
             and exists (select 1 from security_user_company_access access where access.tenant_id=hr_employment_lifecycle_policy.tenant_id and access.user_id=$3 and access.company_id=hr_employment_lifecycle_policy.legal_employer_id and access.revoked_at is null)
           for update`,
-        [context.tenantId, policyId, context.actor.userId],
+        [
+          context.tenantId,
+          policyId,
+          context.actor.userId,
+          decision === "rejected" ? ["pending_approval"] : ["pending_approval", "rejected"],
+        ],
       );
       const before = policy.rows[0];
       if (!before)
         throw new HrApiError(
           409,
           "HR_LIFECYCLE_POLICY_NOT_PENDING",
-          "The lifecycle policy is not pending in your company scope.",
+          decision === "rejected"
+            ? "Only a pending lifecycle policy in your company scope can be rejected."
+            : "The lifecycle policy is not pending or rejected in your company scope.",
         );
       const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
         normalDecisionPermission: "hr.employment_lifecycle_policy.approve",
         makerActorIds: [before.created_by, before.submitted_by ?? ""],
         resourceType: "hr.employment_lifecycle_policy",
         resourceId: policyId,
-        decisionAction: "approve",
+        decisionAction: decision === "rejected" ? "reject" : "approve",
         reason: input.reason,
         correlationId,
         idempotencyKey,
       });
-      await client.query(
-        `update hr_employment_lifecycle_policy
-            set status='approved',approved_by=$3,approved_at=now(),updated_at=now(),
-                approval_override_event_id=$4
-          where tenant_id=$1 and id=$2`,
-        [context.tenantId, policyId, context.actor.userId, approvalOverrideEventId],
-      );
+      if (decision === "rejected")
+        // A rejection keeps no approval evidence on the row; any override event stays in its own ledger.
+        await client.query(
+          `update hr_employment_lifecycle_policy
+              set status='rejected',rejected_by=$3,rejected_at=now(),updated_at=now()
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, policyId, context.actor.userId],
+        );
+      else
+        await client.query(
+          `update hr_employment_lifecycle_policy
+              set status='approved',approved_by=$3,approved_at=now(),updated_at=now(),
+                  approval_override_event_id=$4
+            where tenant_id=$1 and id=$2`,
+          [context.tenantId, policyId, context.actor.userId, approvalOverrideEventId],
+        );
       const audit = await this.appendPlatformAudit(
         client,
         context,
         correlationId,
-        "hr.employment_lifecycle_policy.approve",
+        decision === "rejected" ? "hr.employment_lifecycle_policy.reject" : "hr.employment_lifecycle_policy.approve",
         {
           entityId: policyId,
           entityType: "employment_lifecycle_policy",
-          before: { ...before, status: "pending_approval" },
+          before,
           after: {
             ...before,
-            status: "approved",
+            status: decision,
+            reapproval: before.status === "rejected",
             reason: input.reason,
             super_admin_override: approvalOverrideEventId !== null,
           },
@@ -5015,7 +5053,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         code: before.code,
         name: before.name,
         version: before.version,
-        status: "approved",
+        status: decision,
         audit_event_id: audit,
         replayed: false,
       };
@@ -5346,7 +5384,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           context.tenantId,
           employeeId,
           input.company_id,
-          `HIRE-${randomUUID()}`,
+          await allocateNewHrCode(client, context.tenantId, input.company_id, "hire"),
           input.effective_on,
           governing.policy_id,
           context.actor.userId,
@@ -5794,8 +5832,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
            proposed_branch_id,proposed_department_id,proposed_job_id,proposed_designation_id,
            proposed_job_grade_id,proposed_cost_center_id,proposed_work_location_id,
            proposed_employment_setup_id,proposed_reporting_manager_id,
-           effective_on,reason,requested_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+           effective_on,reason,requested_by,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
         [
           context.tenantId,
           id,
@@ -5815,6 +5853,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.effective_on,
           input.reason,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, input.company_id, "transfer"),
         ],
       );
       const audit = await this.appendPlatformAudit(
@@ -5903,6 +5942,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         relationship_id: string;
         source_assignment_id: string;
         requested_by: string;
+        request_state: "pending" | "rejected";
+        rejected_by: string | null;
+        rejection_reason: string | null;
         effective_on: string;
         proposed_branch_id: string | null;
         proposed_department_id: string | null;
@@ -5915,7 +5957,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         proposed_reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
-                request.requested_by,request.effective_on::text,request.proposed_branch_id,
+                request.requested_by,request.request_state,request.rejected_by,request.rejection_reason,request.effective_on::text,request.proposed_branch_id,
                 request.proposed_department_id,request.proposed_job_id,request.proposed_designation_id,
                 request.proposed_job_grade_id,request.proposed_cost_center_id,
                 request.proposed_work_location_id,request.proposed_employment_setup_id,request.proposed_reporting_manager_id
@@ -5923,7 +5965,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
            join employee_assignment assignment
              on assignment.tenant_id=request.tenant_id and assignment.id=request.source_assignment_id
           where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
-            and request.request_state='pending' and assignment.assignment_status='active'
+            and request.request_state = any($5::text[]) and assignment.assignment_status='active'
             and assignment.effective_to is null
             and exists (
               select 1 from security_user_company_access access
@@ -5931,14 +5973,23 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                  and access.company_id=request.company_id and access.revoked_at is null
             )
           for update of request,assignment`,
-        [context.tenantId, requestId, employeeId, context.actor.userId],
+        [
+          context.tenantId,
+          requestId,
+          employeeId,
+          context.actor.userId,
+          // A rejected request can be approved again (re-approval); only pending requests can be rejected.
+          input.decision === "approved" ? ["pending", "rejected"] : ["pending"],
+        ],
       );
       const row = pending.rows[0];
       if (!row)
         throw new HrApiError(
           409,
           "HR_TRANSFER_NOT_PENDING",
-          "The transfer request is not pending in your company scope.",
+          input.decision === "approved"
+            ? "The transfer request is not pending or rejected in your company scope, or its source assignment has changed."
+            : "The transfer request is not pending in your company scope.",
         );
       const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
         normalDecisionPermission: "hr.employee_assignment.change",
@@ -6008,7 +6059,10 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       await client.query(
         `update hr_employee_transfer_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1,
+                rejected_by=case when $3='rejected' then $4 else rejected_by end,
+                rejected_at=case when $3='rejected' then now() else rejected_at end,
+                rejection_reason=case when $3='rejected' then $5 else rejection_reason end
           where tenant_id=$1 and id=$2`,
         [
           context.tenantId,
@@ -6027,9 +6081,16 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         "hr.employee_assignment.transfer.decide",
         {
           entityId: requestId,
-          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          before: {
+            status: row.request_state,
+            source_assignment_id: row.source_assignment_id,
+            ...(row.request_state === "rejected"
+              ? { rejected_by: row.rejected_by, rejection_reason: row.rejection_reason }
+              : {}),
+          },
           after: {
             status: input.decision,
+            reapproval: row.request_state === "rejected",
             assignment_id: assignmentId,
             super_admin_override: approvalOverrideEventId !== null,
           },
@@ -6214,8 +6275,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       await client.query(
         `insert into hr_employee_promotion_request
           (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
-           proposed_job_id,proposed_designation_id,proposed_job_grade_id,effective_on,reason,requested_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+           proposed_job_id,proposed_designation_id,proposed_job_grade_id,effective_on,reason,requested_by,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
         [
           context.tenantId,
           id,
@@ -6229,6 +6290,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.effective_on,
           input.reason,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, input.company_id, "promotion"),
         ],
       );
       const audit = await this.appendPlatformAudit(
@@ -6330,6 +6392,9 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         relationship_id: string;
         source_assignment_id: string;
         requested_by: string;
+        request_state: "pending" | "rejected";
+        rejected_by: string | null;
+        rejection_reason: string | null;
         effective_on: string;
         proposed_job_id: string;
         proposed_designation_id: string;
@@ -6342,7 +6407,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         reporting_manager_id: string | null;
       }>(
         `select request.company_id,request.relationship_id,request.source_assignment_id,
-                request.requested_by,request.effective_on::text,request.proposed_job_id,
+                request.requested_by,request.request_state,request.rejected_by,request.rejection_reason,request.effective_on::text,request.proposed_job_id,
                 request.proposed_designation_id,request.proposed_job_grade_id,
                 assignment.branch_id,assignment.department_id,assignment.cost_center_id,
                 assignment.work_location_id,assignment.employment_setup_id,assignment.reporting_manager_id
@@ -6352,7 +6417,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
            join hr_employment_relationship relationship
              on relationship.tenant_id=request.tenant_id and relationship.id=request.relationship_id
           where request.tenant_id=$1 and request.id=$2 and request.employee_id=$3
-            and request.request_state='pending' and assignment.assignment_status='active'
+            and request.request_state = any($5::text[]) and assignment.assignment_status='active'
             and assignment.effective_to is null and relationship.status='active'
             and exists (
               select 1 from security_user_company_access access
@@ -6360,14 +6425,23 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                  and access.company_id=request.company_id and access.revoked_at is null
             )
           for update of request,assignment,relationship`,
-        [context.tenantId, requestId, employeeId, context.actor.userId],
+        [
+          context.tenantId,
+          requestId,
+          employeeId,
+          context.actor.userId,
+          // A rejected request can be approved again (re-approval); only pending requests can be rejected.
+          input.decision === "approved" ? ["pending", "rejected"] : ["pending"],
+        ],
       );
       const row = pending.rows[0];
       if (!row)
         throw new HrApiError(
           409,
           "HR_PROMOTION_NOT_PENDING",
-          "The promotion request is not pending in your company scope.",
+          input.decision === "approved"
+            ? "The promotion request is not pending or rejected in your company scope, or its source assignment has changed."
+            : "The promotion request is not pending in your company scope.",
         );
       const approvalOverrideEventId = await this.resolveApprovalOverride(client, context, {
         normalDecisionPermission: "hr.employee_assignment.change",
@@ -6427,7 +6501,10 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       await client.query(
         `update hr_employee_promotion_request
             set request_state=$3,decided_by=$4,decided_at=now(),decision_reason=$5,
-                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1
+                projected_assignment_id=$6,approval_override_event_id=$7,row_version=row_version+1,
+                rejected_by=case when $3='rejected' then $4 else rejected_by end,
+                rejected_at=case when $3='rejected' then now() else rejected_at end,
+                rejection_reason=case when $3='rejected' then $5 else rejection_reason end
           where tenant_id=$1 and id=$2`,
         [
           context.tenantId,
@@ -6446,9 +6523,16 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         "hr.employee_assignment.promotion.decide",
         {
           entityId: requestId,
-          before: { status: "pending", source_assignment_id: row.source_assignment_id },
+          before: {
+            status: row.request_state,
+            source_assignment_id: row.source_assignment_id,
+            ...(row.request_state === "rejected"
+              ? { rejected_by: row.rejected_by, rejection_reason: row.rejection_reason }
+              : {}),
+          },
           after: {
             status: input.decision,
+            reapproval: row.request_state === "rejected",
             assignment_id: assignmentId,
             super_admin_override: approvalOverrideEventId !== null,
           },
@@ -6682,8 +6766,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       await client.query(
         `insert into hr_employee_manager_change_request
           (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
-           proposed_reporting_manager_id,clear_reporting_manager,effective_on,reason,requested_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+           proposed_reporting_manager_id,clear_reporting_manager,effective_on,reason,requested_by,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
         [
           context.tenantId,
           id,
@@ -6696,6 +6780,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.effective_on,
           input.reason,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, input.company_id, "manager_change"),
         ],
       );
       const audit = await this.appendPlatformAudit(
@@ -7126,8 +7211,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
         `insert into hr_employee_work_location_change_request
           (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
            current_work_location_id,proposed_work_location_id,proposed_work_location_profile_id,
-           effective_on,reason,requested_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+           effective_on,reason,requested_by,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
         [
           context.tenantId,
           id,
@@ -7141,6 +7226,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.effective_on,
           input.reason,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, input.company_id, "work_location_change"),
         ],
       );
       const audit = await this.appendPlatformAudit(
@@ -7624,8 +7710,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           (tenant_id,id,employee_id,company_id,relationship_id,source_assignment_id,
            current_business_unit_id,current_division_id,current_branch_id,current_department_id,current_warehouse_id,
            proposed_business_unit_id,proposed_division_id,proposed_branch_id,proposed_department_id,proposed_warehouse_id,
-           effective_on,reason,requested_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+           effective_on,reason,requested_by,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`,
         [
           context.tenantId,
           id,
@@ -7646,6 +7732,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
           input.effective_on,
           input.reason,
           context.actor.userId,
+          await allocateNewHrCode(client, context.tenantId, input.company_id, "placement_change"),
         ],
       );
       const audit = await this.appendPlatformAudit(
@@ -8675,7 +8762,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeTransferRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    coalesce(source_branch.name,'') as source_branch,
                    coalesce(source_department.name,'') as source_department,
@@ -8687,7 +8774,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                    proposed_work_location.name as proposed_work_location,
                    request.effective_on,request.requested_by,request.requested_at,
                    request.reason,request.request_state as status,request.decided_by,
-                   request.decided_at,request.decision_reason
+                   request.decided_at,request.decision_reason,request.code,
+                   request.rejected_by,request.rejected_at,request.rejection_reason
               from hr_employee_transfer_request request
               join employee
                 on employee.tenant_id=request.tenant_id and employee.id=request.employee_id
@@ -8713,7 +8801,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeePromotionRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    source_job.name as source_job,source_designation.name as source_designation,
                    source_job_grade.name as source_job_grade,proposed_job.name as proposed_job,
@@ -8721,7 +8809,8 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
                    proposed_job_grade.name as proposed_job_grade,request.effective_on,
                    request.requested_by,request.requested_at,request.reason,
                    request.request_state as status,request.decided_by,
-                   request.decided_at,request.decision_reason
+                   request.decided_at,request.decision_reason,request.code,
+                   request.rejected_by,request.rejected_at,request.rejection_reason
               from hr_employee_promotion_request request
               join employee
                 on employee.tenant_id=request.tenant_id and employee.id=request.employee_id
@@ -8743,7 +8832,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeManagerChangeRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    source_assignment.reporting_manager_id as current_reporting_manager_id,
                    case when current_manager.id is null then null
@@ -8771,7 +8860,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeWorkLocationChangeRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    request.current_work_location_id,current_location.name as current_work_location_name,
                    request.proposed_work_location_id,proposed_location.name as proposed_work_location_name,
@@ -8801,7 +8890,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
 
   private employeeOrganizationPlacementChangeRequestReviewSelect(): string {
     return `select request.id,request.employee_id,employee.employee_number,
-                   concat_ws(' ',employee.first_name,employee.middle_name,employee.last_name) as employee_name,
+                   concat_ws(' ',employee.first_name,nullif(employee.middle_name,''),employee.last_name) as employee_name,
                    request.company_id,request.relationship_id,request.source_assignment_id,
                    jsonb_build_object(
                      'business_unit_id',request.current_business_unit_id,
@@ -9077,6 +9166,7 @@ await client.query("update hr_job_opening set state=$3,state_reason=$4,updated_a
       | "hr.employment_lifecycle_policy.create"
       | "hr.employment_lifecycle_policy.submit"
       | "hr.employment_lifecycle_policy.approve"
+      | "hr.employment_lifecycle_policy.reject"
       | "hr.employment_lifecycle_policy.activate"
       | "hr.employment_lifecycle_policy.update"
       | "hr.employment_lifecycle_policy.delete"

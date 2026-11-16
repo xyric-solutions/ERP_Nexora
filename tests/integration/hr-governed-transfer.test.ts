@@ -374,4 +374,60 @@ run("governed employee Transfer repository", () => {
       { request_state: "rejected", projected_assignment_id: null, assignment_status: "active", effective_to: null },
     ]);
   });
+
+  it("approves a rejected Transfer again and keeps the original rejection evidence", async () => {
+    const fixture = await createActiveEmployee("Reapproved");
+    await repository.decideEmployeeTransferRequest(
+      transferApprover(),
+      fixture.employee.id,
+      fixture.transfer.id,
+      { decision: "rejected", reason: "Placement needs a second review." },
+      `transfer-reject-again-${fixture.suffix}`,
+      "hr-transfer-integration",
+    );
+    // A rejected request cannot be rejected twice, but it can be approved again.
+    await expect(
+      repository.decideEmployeeTransferRequest(
+        transferApprover(),
+        fixture.employee.id,
+        fixture.transfer.id,
+        { decision: "rejected", reason: "Second rejection attempt." },
+        `transfer-reject-twice-${fixture.suffix}`,
+        "hr-transfer-integration",
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    const decision = await repository.decideEmployeeTransferRequest(
+      transferApprover(),
+      fixture.employee.id,
+      fixture.transfer.id,
+      { decision: "approved", reason: "Placement confirmed on second review." },
+      `transfer-reapprove-${fixture.suffix}`,
+      "hr-transfer-integration",
+    );
+    expect(decision).toMatchObject({ status: "approved" });
+    expect(decision.assignment_id).toBeTruthy();
+    const review = await repository.getEmployeeTransferRequest(
+      transferApprover(),
+      fixture.employee.id,
+      fixture.transfer.id,
+    );
+    expect(review).toMatchObject({
+      status: "approved",
+      decision_reason: "Placement confirmed on second review.",
+      rejection_reason: "Placement needs a second review.",
+    });
+    expect(review.rejected_at).toBeTruthy();
+    expect(review.code).toMatch(/^TRF-\d{3,}$/);
+    // The approved request is final again.
+    await expect(
+      repository.decideEmployeeTransferRequest(
+        transferApprover(),
+        fixture.employee.id,
+        fixture.transfer.id,
+        { decision: "rejected", reason: "Late rejection attempt." },
+        `transfer-late-reject-${fixture.suffix}`,
+        "hr-transfer-integration",
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+  });
 });

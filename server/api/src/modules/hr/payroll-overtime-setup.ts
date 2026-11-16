@@ -1,4 +1,4 @@
-import { allocateHrCode } from "./record-codes.js";
+import { allocateHrCode, allocateNewHrCode } from "./record-codes.js";
 import { randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { evaluateApprovalActor } from "@nexora/auth";
@@ -310,7 +310,7 @@ export class PayrollOvertimeSetup {
           await this.unfrozen(client, c, input.company_id, input.effective_from, input.effective_to);
           id = "ot-arrangement-" + randomUUID();
           await client.query(
-            `insert into hr_employee_ot_arrangement(id,tenant_id,company_id,employee_id,category,policy_version_id,policy_option_id,effective_from,effective_to,direct_rate,currency_code,reason,created_by,workflow_managed) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true)`,
+            `insert into hr_employee_ot_arrangement(id,tenant_id,company_id,employee_id,category,policy_version_id,policy_option_id,effective_from,effective_to,direct_rate,currency_code,reason,created_by,workflow_managed,code) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,true,$14)`,
             [
               id,
               c.tenantId,
@@ -325,6 +325,7 @@ export class PayrollOvertimeSetup {
               t.currency_code,
               input.reason,
               c.actor.userId,
+              await allocateNewHrCode(client, c.tenantId, input.company_id, "ot_arrangement"),
             ],
           );
           for (const [index, component] of t.component_ids.entries())

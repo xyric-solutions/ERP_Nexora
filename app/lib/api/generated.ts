@@ -418,6 +418,7 @@ import type {
   HrEmployeeEmploymentHistoryDirectory,
   HrEmployeeEmploymentHistoryRequest,
   HrEmployeeNumberPreview,
+  HrRecordCodePreview,
   WithdrawHrEmployeeDraftRequest,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
@@ -3580,6 +3581,9 @@ export class NexoraApiClient {
   }
   getHrEmployeeNumberPreview(query: string): Promise<HrEmployeeNumberPreview> {
     return this.request(`/api/v1/hr/employee_number_preview${query}`);
+  }
+  getHrRecordCodePreview(query: string): Promise<HrRecordCodePreview> {
+    return this.request(`/api/v1/hr/record_code_preview${query}`);
   }
   withdrawHrEmployeeDraft(
     employeeId: string,

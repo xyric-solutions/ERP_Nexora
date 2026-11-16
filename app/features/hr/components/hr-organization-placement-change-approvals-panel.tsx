@@ -4,6 +4,7 @@ import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 import { HrClickableRow } from "./hr-clickable-row";
+import { HrDetailGroup, HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -134,8 +135,8 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
   const decide = async () => {
     if (!detail || !decision || saving) return;
     const trimmed = reason.trim();
-    if (!trimmed || trimmed.length > 1000) {
-      setError("Enter a decision reason of 1 to 1000 characters.");
+    if (trimmed.length > 1000) {
+      setError("Keep the decision reason within 1000 characters.");
       setDecision(null);
       return;
     }
@@ -274,10 +275,8 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
       >
         {detail && detailId === selectedId && (
           <>
-            <div className="grid gap-3 md:grid-cols-2">
-              <PlacementCard title="Current hierarchy" names={detail.current_names} />
-              <PlacementCard title="Proposed hierarchy" names={detail.proposed_names} />
-            </div>
+            <PlacementCard title="Current hierarchy" names={detail.current_names} />
+            <PlacementCard title="Proposed hierarchy" names={detail.proposed_names} />
             <Alert variant={detail.hierarchy_ready ? "default" : "destructive"}>
               <AlertTitle>{detail.hierarchy_ready ? "Hierarchy ready" : "Approval blocked"}</AlertTitle>
               <AlertDescription>
@@ -286,20 +285,11 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
                   : "The hierarchy became inactive or incoherent. Rejection remains available."}
               </AlertDescription>
             </Alert>
-            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">Requested by</dt>
-                <dd className="font-medium">{detail.requested_by}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Effective date</dt>
-                <dd className="font-medium">{detail.effective_on}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-muted-foreground">Maker reason</dt>
-                <dd className="font-medium">{detail.reason}</dd>
-              </div>
-            </dl>
+            <HrDetailList>
+              <HrDetailTile label="Requested by" value={detail.requested_by} />
+              <HrDetailTile label="Effective date" value={detail.effective_on} />
+              <HrDetailTile label="Maker reason" value={detail.reason} />
+            </HrDetailList>
             {approvalOverride.overrideAllowed ? <SuperAdminOverrideWarning /> : null}
             {approvalOverride.independentApproverRequired && (
               <Alert variant="destructive">
@@ -381,19 +371,13 @@ export function HrOrganizationPlacementChangeApprovalsPanel({
 
 function PlacementCard({ title, names }: { title: string; names: Record<string, string> }) {
   return (
-    <div className="rounded-md border border-border p-3">
-      <h3 className="font-semibold">{title}</h3>
-      <dl className="mt-2 grid gap-1 text-sm">
-        {organizationHierarchyOrder
-          // Legacy business-unit and warehouse rows appear only when the request names one.
-          .filter((type) => (selectableOrganizationUnitTypes as readonly string[]).includes(type) || names[type])
-          .map((type) => (
-          <div key={type} className="flex justify-between gap-3">
-            <dt className="text-muted-foreground">{organizationUnitTypeLabels[type]}</dt>
-            <dd className="text-right font-medium">{names[type] ?? "Not assigned"}</dd>
-          </div>
+    <HrDetailGroup title={title}>
+      {organizationHierarchyOrder
+        // Legacy business-unit and warehouse rows appear only when the request names one.
+        .filter((type) => (selectableOrganizationUnitTypes as readonly string[]).includes(type) || names[type])
+        .map((type) => (
+          <HrDetailTile key={type} label={organizationUnitTypeLabels[type]} value={names[type] ?? "Not assigned"} />
         ))}
-      </dl>
-    </div>
+    </HrDetailGroup>
   );
 }

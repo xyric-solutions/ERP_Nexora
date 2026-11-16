@@ -1,4 +1,5 @@
 "use client";
+import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -211,7 +212,8 @@ export function HrHireMakerPanel({
         {state === "ready" && !profileAssignment && canCreateAssignment && (
           <div className="grid min-w-0 gap-3">
             <h3 className="m-0! text-sm font-semibold text-foreground">Profile assignment</h3>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <HrFormRows>
+              <HrRecordCodeField kind="assignment" id="hire-assignment-code" companyId={companyId || undefined} value={null} />
               <SelectField
                 label="Project"
                 value={branchId}
@@ -271,7 +273,7 @@ export function HrHireMakerPanel({
                   disabled={savingAssignment}
                 />
               </label>
-            </div>
+            </HrFormRows>
             <div>
               <Button type="button" onClick={createAssignment} disabled={savingAssignment}>
                 {savingAssignment ? "Saving profile context..." : "Save profile context"}
@@ -292,7 +294,8 @@ export function HrHireMakerPanel({
               </Alert>
             ) : (
               <>
-                <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+                <HrFormRows>
+                  <HrRecordCodeField kind="hire" id="hire-request-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
                   <MasterSelect
                     label="Approved job"
                     value={jobId}
@@ -319,7 +322,7 @@ export function HrHireMakerPanel({
                       disabled={submitting}
                     />
                   </label>
-                </div>
+                </HrFormRows>
                 <label
                   htmlFor="hire-request-reason"
                   className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"

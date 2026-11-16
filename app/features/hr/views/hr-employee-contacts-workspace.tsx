@@ -1,6 +1,7 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
+import { HrRecordCodeField, HrFormRows } from "../components/hr-create-form";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
 
 import { useEffect, useMemo, useState } from "react";
@@ -261,7 +262,17 @@ export function HrEmployeeContactsWorkspace({
           >
             <aside className="rounded-lg border border-border bg-card p-4 shadow-sm">
               {canManageContacts ? (
-                <div className="grid gap-3">
+                <HrFormRows>
+                  <HrRecordCodeField kind="contact" companyId={companyId || undefined} value={null} refreshKey={refreshKey} />
+                  <label htmlFor="hr-contact-value" className="grid content-start gap-1.5 text-sm font-medium">
+                    Value
+                    <Input
+                      id="hr-contact-value"
+                      value={value}
+                      onChange={(event) => setValue(event.target.value)}
+                      type={channel === "email" ? "email" : "tel"}
+                    />
+                  </label>
                   <label className="grid content-start gap-1.5 text-sm font-medium">
                     Channel
                     <select
@@ -285,26 +296,18 @@ export function HrEmployeeContactsWorkspace({
                       <option value="other">Other</option>
                     </select>
                   </label>
-                  <label className="grid content-start gap-1.5 text-sm font-medium">
-                    Value
-                    <Input
-                      value={value}
-                      onChange={(event) => setValue(event.target.value)}
-                      type={channel === "email" ? "email" : "tel"}
-                    />
-                  </label>
-                  <label className="grid content-start gap-1.5 text-sm font-medium">
+                  <label htmlFor="hr-contact-label" className="grid content-start gap-1.5 text-sm font-medium">
                     Label
-                    <Input value={label} onChange={(event) => setLabel(event.target.value)} />
+                    <Input id="hr-contact-label" value={label} onChange={(event) => setLabel(event.target.value)} />
                   </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={primary} onCheckedChange={setPrimary} />
+                  <label htmlFor="hr-contact-primary" className="flex items-center gap-2 text-sm">
+                    <Checkbox id="hr-contact-primary" checked={primary} onCheckedChange={setPrimary} />
                     Primary for this channel and usage
                   </label>
                   <Button type="button" disabled={saving} onClick={save}>
                     {saving ? "Saving..." : "Add contact"}
                   </Button>
-                </div>
+                </HrFormRows>
               ) : (
                 <Alert>
                   <AlertTitle>Manage permission required</AlertTitle>

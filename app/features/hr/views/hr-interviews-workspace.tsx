@@ -4,6 +4,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -27,6 +28,7 @@ import { HrMasterSheet } from "../components/hr-master-sheet";
 import {
   HrDetailFigures,
   HrDetailGroup,
+  HrDetailList,
   HrDetailSection,
   HrDetailSummary,
   HrDetailTile,
@@ -116,7 +118,8 @@ function ScheduleForm({
         </Button>
       </div>
       <HrDetailSection title="Interview">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <HrFormRows className="gap-3">
+          <HrRecordCodeField kind="interview" companyId={scope.company_id || undefined} value={interview?.code ?? null} existing={Boolean(interview)} />
           {!interview ? (
             <label className="grid content-start gap-1.5 text-sm">
               Interview type
@@ -154,7 +157,7 @@ function ScheduleForm({
               ))}
             </select>
           </label>
-          <label className="grid content-start gap-1.5 text-sm sm:col-span-2">
+          <label className="grid content-start gap-1.5 text-sm">
             Location or meeting reference
             <Input
               required
@@ -164,7 +167,7 @@ function ScheduleForm({
               onChange={(e) => setLocation(e.target.value)}
             />
           </label>
-        </div>
+        </HrFormRows>
       </HrDetailSection>
       {!interview ? (
         <HrDetailSection title="Panel members · choose 2–8">
@@ -396,7 +399,7 @@ function AssessmentDecision({
       }}
     >
       <HrDetailSummary status={assessment.status}>
-        {assessment.title} · {assessment.mandatory ? "Required" : "Optional"}
+        {assessment.title}{assessment.mandatory ? " · Required" : ""}
       </HrDetailSummary>
       <HrDetailSection title="Decision">
         <label className="grid content-start gap-1 text-sm">
@@ -716,18 +719,18 @@ export function HrInterviewsWorkspace() {
                   {item.panel.find((person) => person.user_id === evaluation.user_id)?.name ?? evaluation.user_id} ·{" "}
                   {evaluation.weighted_score}% · {label(evaluation.recommendation)}
                 </summary>
-                <div className="mt-3 grid gap-2 text-sm">
-                  <p>
-                    <strong>Strengths:</strong> {evaluation.strengths}
-                  </p>
-                  <p>
-                    <strong>Concerns:</strong> {evaluation.concerns}
-                  </p>
-                  {item.template.map((criterion) => (
-                    <p key={criterion.id} className="text-muted-foreground">
-                      {criterion.label}: {evaluation.scores[criterion.id]} / 5 · {criterion.weight}% weight
-                    </p>
-                  ))}
+                <div className="mt-3 grid gap-3 text-sm">
+                  <HrDetailList>
+                    <HrDetailTile label="Strengths" value={evaluation.strengths} />
+                    <HrDetailTile label="Concerns" value={evaluation.concerns} />
+                    {item.template.map((criterion) => (
+                      <HrDetailTile
+                        key={criterion.id}
+                        label={criterion.label}
+                        value={`${evaluation.scores[criterion.id]} / 5 · ${criterion.weight}% weight`}
+                      />
+                    ))}
+                  </HrDetailList>
                   <span className="text-xs text-muted-foreground">Submitted {time(evaluation.submitted_at)}</span>
                 </div>
               </details>
@@ -965,7 +968,7 @@ export function HrInterviewsWorkspace() {
                   <div className="flex flex-wrap justify-between gap-2">
                     <span className="text-sm font-semibold">{item.title}</span>
                     <span className="flex flex-wrap items-center gap-1.5">
-                      <Badge variant="outline">{item.mandatory ? "Required" : "Optional"}</Badge>
+                      {item.mandatory ? <Badge variant="outline">Required</Badge> : null}
                       <HrStatusPill status={item.status} label={label(item.status)} />
                     </span>
                   </div>
@@ -1015,6 +1018,12 @@ export function HrInterviewsWorkspace() {
                     }}
                   >
                     <HrDetailSection title="Assessment">
+                      <HrRecordCodeField
+                        kind="assessment"
+                        companyId={scope.company_id || undefined}
+                        value={null}
+                        refreshKey={workspace.assessments.length}
+                      />
                       <label className="grid content-start gap-1.5 text-sm">
                         Assessment title
                         <Input

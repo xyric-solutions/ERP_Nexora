@@ -282,8 +282,8 @@ export function HrEmployeeApprovalsWorkspace({ onAction }: { onAction: (action: 
   const decide = async () => {
     if (!detail || !decision || saving) return;
     const trimmed = reason.trim();
-    if (!trimmed || trimmed.length > 1000) {
-      setError("Enter a decision reason of 1 to 1000 characters.");
+    if (trimmed.length > 1000) {
+      setError("Keep the decision reason within 1000 characters.");
       setDecision(null);
       return;
     }

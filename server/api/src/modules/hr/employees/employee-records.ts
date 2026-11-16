@@ -1,3 +1,4 @@
+import { allocateNewHrCode } from "../record-codes.js";
 import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 
@@ -316,9 +317,9 @@ export class HrEmployeeRecords {
       const id = `employee-contact-${randomUUID()}`;
       await client.query(
         `insert into employee_contact
-          (id,tenant_id,employee_id,channel,contact_usage,contact_value,label,is_primary,status,effective_from,created_by,source_reference)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,'active',current_date,$9,$10)`,
-        [id, context.tenantId, employeeId, input.channel, input.contact_usage, input.contact_value, input.label ?? "", input.is_primary, context.actor.userId, `hr:employee-contact-update:${contactId}`],
+          (id,tenant_id,employee_id,channel,contact_usage,contact_value,label,is_primary,status,effective_from,created_by,source_reference,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,'active',current_date,$9,$10,(select code from employee_contact where tenant_id=$2 and id=$11))`,
+        [id, context.tenantId, employeeId, input.channel, input.contact_usage, input.contact_value, input.label ?? "", input.is_primary, context.actor.userId, `hr:employee-contact-update:${contactId}`, contactId],
       );
       const audit = await this.dependencies.audit(client, context, correlationId, "hr.employee_contact.update", "employee_contact", id, before, { channel: input.channel, contact_usage: input.contact_usage, is_primary: input.is_primary, replaces: contactId });
       return { id, employee_id: employeeId, audit_event_id: audit, replayed: false };
@@ -364,8 +365,8 @@ export class HrEmployeeRecords {
       const id = `employee-emergency-contact-${randomUUID()}`;
       await client.query(
         `insert into employee_emergency_contact
-          (id,tenant_id,employee_id,name,relationship,phone,email,priority,is_primary,status,effective_from,created_by,source_reference,supersedes_contact_id)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',current_date,$10,'hr:employee-emergency-contact-update',$11)`,
+          (id,tenant_id,employee_id,name,relationship,phone,email,priority,is_primary,status,effective_from,created_by,source_reference,supersedes_contact_id,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,'active',current_date,$10,'hr:employee-emergency-contact-update',$11,(select code from employee_emergency_contact where tenant_id=$2 and id=$11))`,
         [id, context.tenantId, employeeId, input.name, input.relationship, input.phone, input.email ?? "", input.priority, input.is_primary, context.actor.userId, contactId],
       );
       const audit = await this.dependencies.audit(client, context, correlationId, "hr.employee_emergency_contact.update", "employee_emergency_contact", id, before, { priority: input.priority, is_primary: input.is_primary, replaces: contactId });
@@ -403,7 +404,7 @@ export class HrEmployeeRecords {
     return this.read(context, "hr.employee_document.read", async (client) => {
       await requireEmployeeRecordScope(client, context, employeeId, "read");
       const result = await client.query<HrEmployeeDocumentDirectory["items"][number] & { issued_on: string | Date | null; expires_on: string | Date | null; created_at: Date; size_bytes: string | number | null }>(
-        `select id,employee_id,document_type,title,reference,issued_on,expires_on,restricted,issuing_authority,
+        `select id,employee_id,code,document_type,title,reference,issued_on,expires_on,restricted,issuing_authority,
                 verification_status,status,created_at,notes,(storage_key is not null and file_name is not null) as has_file,
                 file_name,content_type,size_bytes,supersedes_document_id
            from employee_document
@@ -474,9 +475,12 @@ export class HrEmployeeRecords {
         await client.query(
           `insert into employee_document
             (id,tenant_id,employee_id,document_type,title,reference,storage_key,issued_on,expires_on,restricted,created_by,
-             notes,status,supersedes_document_id,source_reference,file_name,content_type,size_bytes,checksum_sha256)
-           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10,$11,'active',$12,$13,$14,$15,$16,$17)`,
-          [id, context.tenantId, employeeId, fields.document_type, fields.title, fields.reference, objectKey, fields.issued_on ?? null, fields.expires_on ?? null, context.actor.userId, fields.notes, replaces ?? null, replaces ? "hr:employee-document-replace" : "hr:employee-document-upload", fileName, contentType, file.body.length, checksum],
+             notes,status,supersedes_document_id,source_reference,file_name,content_type,size_bytes,checksum_sha256,code)
+           values ($1,$2,$3,$4,$5,$6,$7,$8,$9,true,$10,$11,'active',$12,$13,$14,$15,$16,$17,$18)`,
+          [id, context.tenantId, employeeId, fields.document_type, fields.title, fields.reference, objectKey, fields.issued_on ?? null, fields.expires_on ?? null, context.actor.userId, fields.notes, replaces ?? null, replaces ? "hr:employee-document-replace" : "hr:employee-document-upload", fileName, contentType, file.body.length, checksum,
+            replaces
+              ? ((await client.query<{ code: string | null }>("select code from employee_document where tenant_id=$1 and id=$2", [context.tenantId, replaces])).rows[0]?.code ?? (await allocateNewHrCode(client, context.tenantId, context.tenantId, "document")))
+              : await allocateNewHrCode(client, context.tenantId, context.tenantId, "document")],
         );
         const audit = await this.dependencies.audit(client, context, correlationId, replaces ? "hr.employee_document.replace" : "hr.employee_document.upload", "employee_document", id, before, { document_type: fields.document_type, file_name: fileName, content_type: contentType, size_bytes: file.body.length, checksum_sha256: checksum, replaces: replaces ?? null });
         return { id, employee_id: employeeId, audit_event_id: audit, replayed: false };
@@ -538,11 +542,11 @@ export class HrEmployeeRecords {
     return this.read(context, "hr.employee.read", async (client) => {
       await requireEmployeeRecordScope(client, context, employeeId, "read");
       const result = await client.query<{
-        id: string; employee_id: string; company_name: string; job_title: string; start_on: string | Date; end_on: string | Date | null;
+        id: string; employee_id: string; code: string | null; company_name: string; job_title: string; start_on: string | Date; end_on: string | Date | null;
         skills: string[]; last_salary: string | null; salary_currency: string | null; responsibilities: string; reason_for_leaving: string;
         created_at: Date; updated_at: Date;
       }>(
-        `select id,employee_id,company_name,job_title,start_on,end_on,skills,last_salary::text as last_salary,salary_currency,
+        `select id,employee_id,code,company_name,job_title,start_on,end_on,skills,last_salary::text as last_salary,salary_currency,
                 responsibilities,reason_for_leaving,created_at,updated_at
            from hr_employee_employment_history
           where tenant_id=$1 and employee_id=$2 and status='active'
@@ -586,9 +590,9 @@ export class HrEmployeeRecords {
       const id = `employee-history-${randomUUID()}`;
       await client.query(
         `insert into hr_employee_employment_history
-          (tenant_id,id,employee_id,company_name,job_title,start_on,end_on,skills,last_salary,salary_currency,responsibilities,reason_for_leaving,created_by,updated_by)
-         values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13,$13)`,
-        [context.tenantId, id, employeeId, ...values, context.actor.userId],
+          (tenant_id,id,employee_id,company_name,job_title,start_on,end_on,skills,last_salary,salary_currency,responsibilities,reason_for_leaving,created_by,updated_by,code)
+         values ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13,$13,$14)`,
+        [context.tenantId, id, employeeId, ...values, context.actor.userId, await allocateNewHrCode(client, context.tenantId, context.tenantId, "employment_history")],
       );
       const audit = await this.dependencies.audit(client, context, correlationId, "hr.employee_history.create", "hr_employee_employment_history", id, null, { company_name: input.company_name, job_title: input.job_title, start_on: input.start_on, end_on: input.end_on ?? null });
       return { id, employee_id: employeeId, audit_event_id: audit, replayed: false };

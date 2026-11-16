@@ -5,6 +5,7 @@ import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 import { HrClickableRow } from "./hr-clickable-row";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -135,8 +136,8 @@ export function HrPromotionApprovalsPanel({
   const decide = async () => {
     if (!detail || !decision || saving) return;
     const trimmed = reason.trim();
-    if (!trimmed || trimmed.length > 1000) {
-      setError("Enter a decision reason of 1 to 1000 characters.");
+    if (trimmed.length > 1000) {
+      setError("Keep the decision reason within 1000 characters.");
       setDecision(null);
       return;
     }
@@ -273,18 +274,18 @@ export function HrPromotionApprovalsPanel({
                     </div>
                     <Badge variant="secondary">Pending</Badge>
                   </div>
-                  <dl className="grid gap-2 text-sm">
-                    <ReviewField
+                  <HrDetailList>
+                    <HrDetailTile
                       label="Current role"
                       value={`${detail.source_job} · ${detail.source_designation} · ${detail.source_job_grade}`}
                     />
-                    <ReviewField
+                    <HrDetailTile
                       label="Proposed role"
                       value={`${detail.proposed_job} · ${detail.proposed_designation} · ${detail.proposed_job_grade}`}
                     />
-                    <ReviewField label="Effective date" value={detail.effective_on} />
-                    <ReviewField label="Business reason" value={detail.reason} />
-                  </dl>
+                    <HrDetailTile label="Effective date" value={detail.effective_on} />
+                    <HrDetailTile label="Business reason" value={detail.reason} />
+                  </HrDetailList>
                   <Alert>
                     <AlertTitle>Compensation unchanged</AlertTitle>
                     <AlertDescription>
@@ -367,14 +368,5 @@ export function HrPromotionApprovalsPanel({
         </DialogContent>
       </Dialog>
     </section>
-  );
-}
-
-function ReviewField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-foreground">{value}</dd>
-    </div>
   );
 }

@@ -1,5 +1,7 @@
 "use client";
+import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -159,12 +161,13 @@ export function HrPromotionMakerPanel({
         )}
         {state === "ready" && (
           <div className="grid gap-4">
-            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-3">
-              <ContextField label="Current job" value={source.job || "Not assigned"} />
-              <ContextField label="Current designation" value={source.designation} />
-              <ContextField label="Current grade" value={source.job_grade} />
-            </dl>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <HrRecordCodeField kind="promotion" id="promotion-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
+            <HrDetailList>
+              <HrDetailTile label="Current job" value={source.job || "Not assigned"} />
+              <HrDetailTile label="Current designation" value={source.designation} />
+              <HrDetailTile label="Current grade" value={source.job_grade} />
+            </HrDetailList>
+            <HrFormRows>
               <MasterSelect
                 label="Proposed job"
                 value={jobId}
@@ -193,7 +196,7 @@ export function HrPromotionMakerPanel({
                 Effective date
                 <Input id="promotion-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
-            </div>
+            </HrFormRows>
             <label
               htmlFor="promotion-request-reason"
               className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
@@ -255,14 +258,5 @@ function MasterSelect({
         ))}
       </select>
     </label>
-  );
-}
-
-function ContextField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 font-medium text-foreground">{value}</dd>
-    </div>
   );
 }

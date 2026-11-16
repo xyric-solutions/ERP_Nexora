@@ -25,6 +25,7 @@ import { SuperAdminOverrideWarning } from "@/shared/ui/super-admin-override-warn
 import { HrApiClient } from "../api/hr-client";
 import { approvalOverrideReviewState } from "../approval-override-ui";
 import { HrClickableRow } from "../components/hr-clickable-row";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import {
   HrDetailGroup,
   HrDetailNote,
@@ -38,7 +39,7 @@ import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrPagination, HrSearchField, matchesSearch, useHrPage } from "../components/hr-list-controls";
 import { HrMasterStatusFilter } from "../components/hr-master-status-filter";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
-import { hrCell } from "../components/hr-table";
+import { hrApproveLabel, hrListCell, hrListCode, hrListHead, hrListText } from "../components/hr-table";
 import { isWithinUnit } from "../model/organization-hierarchy";
 
 type Kind = "transfer" | "promotion";
@@ -146,7 +147,14 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
 
   const visible = items.filter((item) => {
     const change = changeSummary(item);
-    return matchesSearch(search, [item.employee_name, item.employee_number, change.from, change.to, item.status]);
+    return matchesSearch(search, [
+      item.code ?? "",
+      item.employee_name,
+      item.employee_number,
+      change.from,
+      change.to,
+      item.status,
+    ]);
   });
   const listPage = useHrPage(visible, `${status}:${search.trim()}`);
   const opened = items.find((item) => item.id === openedId) ?? null;
@@ -160,10 +168,6 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
   const decide = async (decision: "approved" | "rejected") => {
     if (!opened || busy) return;
     const trimmed = reason.trim();
-    if (!trimmed) {
-      setError("Enter the decision reason.");
-      return;
-    }
     const fingerprint = `${opened.id}:${decision}:${trimmed}`;
     if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, key: crypto.randomUUID() };
     setBusy(true);
@@ -174,7 +178,11 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
         await client.decideTransferRequest(opened.employee_id, opened.id, input, csrfToken(), retry.current.key);
       else await client.decidePromotionRequest(opened.employee_id, opened.id, input, csrfToken(), retry.current.key);
       retry.current = null;
-      setNotice(`${text.singular} for ${opened.employee_name} ${decision}.`);
+      setNotice(
+        `${text.singular} for ${opened.employee_name} ${
+          decision === "approved" && opened.status === "rejected" ? "approved again" : decision
+        }.`,
+      );
       setReason("");
       reload();
     } catch (cause) {
@@ -199,7 +207,7 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
           id={`hr-${kind}-search`}
           value={search}
           onChange={setSearch}
-          placeholder="Search employee name or number"
+          placeholder="Search code, employee name or number"
         />
         {canRequest ? (
           <Button
@@ -253,16 +261,25 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
               <caption className="sr-only">{text.singular} requests</caption>
               <thead className="border-b border-border bg-muted/60">
                 <tr>
-                  <th scope="col" className={`${hrCell} font-semibold`}>
-                    Employee
+                  <th scope="col" className={hrListHead}>
+                    Code
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold max-sm:hidden`}>
-                    {kind === "transfer" ? "Placement" : "Designation"}
+                  <th scope="col" className={`${hrListHead} max-sm:hidden`}>
+                    Employee Code
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold max-md:hidden`}>
+                  <th scope="col" className={hrListHead}>
+                    Employee Name
+                  </th>
+                  <th scope="col" className={`${hrListHead} max-md:hidden`}>
+                    {kind === "transfer" ? "Current placement" : "Current designation"}
+                  </th>
+                  <th scope="col" className={`${hrListHead} max-sm:hidden`}>
+                    {kind === "transfer" ? "New placement" : "New designation"}
+                  </th>
+                  <th scope="col" className={`${hrListHead} max-md:hidden`}>
                     Effective
                   </th>
-                  <th scope="col" className={`${hrCell} font-semibold`}>
+                  <th scope="col" className={hrListHead}>
                     Status
                   </th>
                 </tr>
@@ -280,19 +297,15 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
                         setOpenedId(item.id);
                       }}
                     >
-                      <td className={hrCell}>
-                        <span className="block font-medium wrap-anywhere">{item.employee_name}</span>
-                        <span className="font-mono text-xs text-muted-foreground">{item.employee_number}</span>
-                      </td>
-                      <td className={`${hrCell} text-muted-foreground max-sm:hidden`}>
-                        <span className="wrap-anywhere">
-                          {change.from} → <span className="text-foreground">{change.to}</span>
-                        </span>
-                      </td>
-                      <td className={`${hrCell} text-muted-foreground max-md:hidden`}>
+                      <td className={hrListCode}>{item.code ?? "—"}</td>
+                      <td className={`${hrListCode} max-sm:hidden`}>{item.employee_number}</td>
+                      <td className={`${hrListText} font-medium`}>{item.employee_name}</td>
+                      <td className={`${hrListText} text-muted-foreground max-md:hidden`}>{change.from}</td>
+                      <td className={`${hrListText} max-sm:hidden`}>{change.to}</td>
+                      <td className={`${hrListCell} text-muted-foreground max-md:hidden`}>
                         {hrDisplayDate(item.effective_on)}
                       </td>
-                      <td className={hrCell}>
+                      <td className={hrListCell}>
                         <HrStatusPill status={item.status} />
                       </td>
                     </HrClickableRow>
@@ -300,7 +313,7 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
                 })}
                 {!visible.length ? (
                   <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
+                    <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
                       {search.trim() ? "No requests match this search." : `No ${text.plural} yet.`}
                     </td>
                   </tr>
@@ -319,7 +332,7 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
       ) : null}
 
       <HrRecordDrawer
-        title={opened?.employee_name ?? text.singular}
+        title={opened ? [opened.code, opened.employee_name].filter(Boolean).join(" · ") : text.singular}
         description={`${text.singular} request details`}
         open={!!opened}
         busy={busy}
@@ -329,12 +342,12 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
       >
         {opened ? (
           <div className="grid min-w-0 gap-4">
-            <HrDetailSummary code={opened.employee_number} status={opened.status}>
+            <HrDetailSummary code={opened.code ?? opened.employee_number} status={opened.status}>
               {text.singular} · effective {hrDisplayDate(opened.effective_on)}
             </HrDetailSummary>
             <HrDetailGroup title="Employee">
-              <HrDetailTile label="Name" value={opened.employee_name} />
-              <HrDetailTile label="Employee number" value={opened.employee_number} mono />
+              <HrDetailTile label="Employee code" value={opened.employee_number} mono />
+              <HrDetailTile label="Employee name" value={opened.employee_name} />
             </HrDetailGroup>
             {isTransfer(opened) ? (
               <HrDetailGroup title="Transfer">
@@ -379,7 +392,23 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
                 <HrDetailNote>{opened.decision_reason}</HrDetailNote>
               </HrDetailSection>
             ) : null}
-            {opened.status === "pending" && canApprove ? (
+            {opened.rejection_reason && opened.status !== "rejected" ? (
+              <HrDetailSection title="Earlier rejection">
+                <HrDetailNote>
+                  {opened.rejection_reason}
+                  {opened.rejected_at ? ` · ${hrDisplayDate(opened.rejected_at, true)}` : ""}
+                </HrDetailNote>
+              </HrDetailSection>
+            ) : null}
+            {opened.status === "rejected" && canApprove && opened.effective_on !== today() ? (
+              <Alert>
+                <AlertDescription>
+                  A {text.lower} takes effect when it is approved, so it can be approved again only on its effective
+                  date ({hrDisplayDate(opened.effective_on)}). Create a new {text.lower} for a later date.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {(opened.status === "pending" || opened.status === "rejected") && canApprove ? (
               override.independentApproverRequired ? (
                 <Alert>
                   <AlertDescription>
@@ -404,11 +433,22 @@ export function HrEmployeeChangesWorkspace({ kind }: { kind: Kind }) {
                     />
                   </label>
                   <HrDrawerActions>
-                    <Button type="button" variant="destructive" disabled={busy} onClick={() => void decide("rejected")}>
-                      Reject
-                    </Button>
-                    <Button type="button" disabled={busy} onClick={() => void decide("approved")}>
-                      {busy ? "Saving…" : "Approve"}
+                    {opened.status === "pending" ? (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={busy}
+                        onClick={() => void decide("rejected")}
+                      >
+                        Reject
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      disabled={busy || (opened.status === "rejected" && opened.effective_on !== today())}
+                      onClick={() => void decide("approved")}
+                    >
+                      {busy ? "Saving…" : hrApproveLabel(opened.status)}
                     </Button>
                   </HrDrawerActions>
                 </>
@@ -575,10 +615,6 @@ function NewChangeForm({
       );
       return;
     }
-    if (!trimmed) {
-      setError("Enter the reason.");
-      return;
-    }
     if (kind === "transfer" && (!branchId || !departmentId)) {
       setError("Choose the new project and department.");
       return;
@@ -654,6 +690,7 @@ function NewChangeForm({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       ) : null}
+      <HrRecordCodeField kind={kind} id={`${kind}-code`} companyId={companyId || undefined} value={null} />
       <div className={labelClass}>
         <span id={`${kind}-employee-label`}>Employee</span>
         <SearchableSelect
@@ -691,7 +728,7 @@ function NewChangeForm({
             <HrDetailTile label="Job" value={source.job} />
             <HrDetailTile label="Job grade" value={source.job_grade} />
           </HrDetailGroup>
-          <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <HrFormRows>
             {kind === "transfer" ? (
               <>
                 <label htmlFor="transfer-new-project" className={labelClass}>
@@ -759,7 +796,7 @@ function NewChangeForm({
               Effective date
               <Input id={`${kind}-effective-on`} type="date" value={effectiveOn} readOnly disabled />
             </label>
-          </div>
+          </HrFormRows>
           <label htmlFor={`${kind}-reason`} className={labelClass}>
             Reason
             <Textarea
