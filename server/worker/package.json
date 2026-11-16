@@ -7,7 +7,8 @@
     "dev": "tsx watch src/worker.ts",
     "build": "tsc -b",
     "healthcheck": "node dist/healthcheck.js",
-    "start": "node dist/worker.js"
+    "start": "node dist/worker.js",
+    "start:assets": "node dist/asset-worker.js"
   },
   "dependencies": {
     "@nexora/api": "0.1.0",

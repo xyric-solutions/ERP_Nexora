@@ -1069,6 +1069,7 @@ export function FinanceNominalDetail({
                 ["Currency", detail.currency ?? "—"],
                 ["Status", (detail.state ?? detail.account_status).replaceAll("_", " ")],
                 ["Description", detail.description || "—"],
+                ["Fixed Asset classification", detail.fixed_asset ? "Fixed Asset — managed in Asset Policies" : "Ordinary nominal"],
                 [
                   "Banking",
                   detail.bank_account_id

@@ -72,6 +72,20 @@ function financeError(
 
 function mappedFinanceError(error: unknown): FinancePostingError {
   if (error instanceof FinancePostingError) return error;
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "23514" &&
+    "constraint" in error &&
+    error.constraint === "registered_asset_acquisition"
+  )
+    return new FinancePostingError(
+      409,
+      "FINANCE_SOURCE_DERECOGNITION_REQUIRED",
+      "This journal is referenced by Fixed Assets. Use its owning governed lifecycle workflow.",
+      { cause: error },
+    );
   if (error instanceof CompanyCurrencyAuthorityError)
     return new FinancePostingError(
       error.status,
@@ -795,10 +809,7 @@ export class FinancePostingService {
         "A multi-currency journal must use the base currency as its reporting currency.",
       );
 
-    const authorities = new Map<
-      string,
-      Awaited<ReturnType<FinancePostingRepository["resolveCompanyCurrency"]>>
-    >();
+    const authorities = new Map<string, Awaited<ReturnType<FinancePostingRepository["resolveCompanyCurrency"]>>>();
     for (const line of normalized) {
       const lookupKey = `${line.currency}:${line.exchangeRateDate ?? command.postingDate}`;
       if (authorities.has(lookupKey)) continue;

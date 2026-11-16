@@ -56,7 +56,6 @@ hr,payroll,Payroll,salary-revisions,Salary Revisions,approval,live,HrPayrollWork
 hr,payroll,Payroll,payroll-inputs,Payroll Inputs,form,live,HrPayrollWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory
 hr,payroll,Payroll,payroll-runs,Payroll Runs,list,live,HrPayrollRunsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory
 hr,payroll,Payroll,payroll-validation,Payroll Review & Approval,approval,live,HrPayrollRunsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory
-hr,payroll,Payroll,employee-loans,Loans & Advances,list,live,HrPayrollWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory
 hr,payroll,Payroll,payroll-journal,Payroll Journal,report,live,HrPayrollJournalWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M15 Payments & Finance
 hr,payroll,Payroll,payment-batch,Payment Batch,workflow,live,HrPayrollPaymentWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M15 Payments & Finance
 hr,payroll,Payroll,payslips,Payslips,workflow,live,HrPayslipsWorkspace,API_CONNECTED_SOURCE,API_SOURCE_LINK_VERIFIED,M13 Payroll & Statutory

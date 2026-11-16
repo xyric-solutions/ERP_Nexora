@@ -1,10 +1,10 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import {
-  updatePurchaseRequestSchema,
+  updatePurchaseInputSchema,
   updateSupplierInputSchema,
   purchaseQuerySchema,
-  savePurchaseRequestSchema,
+  savePurchaseInputSchema,
   purchaseActionRequestSchema,
   supplierInputSchema,
   procurementLookupQuerySchema,
@@ -132,7 +132,7 @@ export function createProcurementRouter(
     res.json(await handle(() => dependencies.repository.flow(context, identity.parse(req.params.id), query)));
   });
   router.post("/documents", async (req, res) => {
-    const input = savePurchaseRequestSchema.parse(req.body),
+    const input = savePurchaseInputSchema.parse(req.body),
       key = mutation(req),
       context = await loadBankingSessionContext(req, dependencies, true);
     const result = await handle(() =>
@@ -142,7 +142,7 @@ export function createProcurementRouter(
     res.json(result);
   });
   router.patch("/documents/:id", async (req, res) => {
-    const input = updatePurchaseRequestSchema.parse(req.body);
+    const input = updatePurchaseInputSchema.parse(req.body);
     if (!input.expected_version)
       throw new HttpError(400, "PURCHASE_VERSION_REQUIRED", "The current Purchase version is required.");
     const key = mutation(req, input.expected_version),

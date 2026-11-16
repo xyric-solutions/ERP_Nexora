@@ -1,4 +1,4 @@
-import { allocateHrCode } from "./record-codes.js";
+import { allocateHrCode, allocateNewHrCode } from "./record-codes.js";
 import { requirePersonalLeaveEmployee, canManagePersonalLeave } from "./self-leave-authority.js";
 import type { CreateHrSelfLeaveRequest } from "@nexora/contracts";
 import { readLeaveBalances, leaveUnits, leaveDecimal } from "./leave-balances.js";
@@ -565,7 +565,7 @@ export class TimeLeave {
                 ? `${input.kind}:${input.employee_id}:${input.leave_type_id}:${input.period_start}:${input.period_end}`
                 : id;
         await client.query(
-          `insert into hr_leave_transaction(tenant_id,id,company_id,employee_id,leave_type_id,effective_on,kind,days,source_type,source_id,reason,created_by,policy_version_id,period_start,period_end,evidence_hash,evidence_json) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb)`,
+          `insert into hr_leave_transaction(tenant_id,id,company_id,employee_id,leave_type_id,effective_on,kind,days,source_type,source_id,reason,created_by,policy_version_id,period_start,period_end,evidence_hash,evidence_json,code) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17::jsonb,$18)`,
           [
             c.tenantId,
             id,
@@ -584,6 +584,7 @@ export class TimeLeave {
             input.period_end,
             attendanceHash(input),
             JSON.stringify({ input, before_hash: before.hash, policy: p }),
+            await allocateNewHrCode(client, c.tenantId, input.company_id, "leave_posting"),
           ],
         );
         const after = await this.balance(
@@ -1039,7 +1040,7 @@ export class TimeLeave {
             (d) => context.days.find((x) => x.on_date === d.on_date)?.policy?.requires_hr_approval,
           );
         await client.query(
-          `insert into hr_leave_request(tenant_id,id,company_id,employee_id,leave_type_id,document_id,from_date,to_date,requested_days,reason,requested_by,workflow_managed,requires_hr_approval,review_source_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12,$13)`,
+          `insert into hr_leave_request(tenant_id,id,company_id,employee_id,leave_type_id,document_id,from_date,to_date,requested_days,reason,requested_by,workflow_managed,requires_hr_approval,review_source_hash,reference) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12,$13,$14)`,
           [
             c.tenantId,
             id,
@@ -1054,6 +1055,7 @@ export class TimeLeave {
             c.actor.userId,
             requiresHR,
             context.hash,
+            await allocateNewHrCode(client, c.tenantId, input.company_id, "leave_request"),
           ],
         );
         const paid = context.types.find((t) => t.id === input.leave_type_id)!.paid;

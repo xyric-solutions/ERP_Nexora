@@ -37,6 +37,7 @@ export const permissionActionTiers: Readonly<Record<string, PermissionActionTier
   download: "view",
   drilldown: "view",
   audit_read: "view",
+  report: "view",
 
   // user — normal work
   create: "user",
@@ -60,6 +61,12 @@ export const permissionActionTiers: Readonly<Record<string, PermissionActionTier
   allocate: "user",
   // Manufacturing: turning a production plan into a draft Manufacturing Order (not an approval).
   convert: "user",
+  maintain: "user",
+  return: "admin",
+  impair: "admin",
+  dispose: "admin",
+  depreciate: "admin",
+  categories: "admin",
 
   // admin — Module Admin: approvals, posting and lifecycle decisions in its module
   approve: "admin",

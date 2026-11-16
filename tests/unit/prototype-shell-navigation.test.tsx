@@ -44,6 +44,9 @@ afterEach(() => {
 });
 
 describe("Prototype shell module navigation", () => {
+  it("keeps the assistant trigger named when responsive styles hide its text", () => {
+    expect(container.querySelector("button.nx-intelligence-trigger--ai")?.getAttribute("aria-label")).toBe("Nexora AI");
+  });
   it("removes ledger and group-reporting groups while keeping Reports and company setup destinations", () => {
     const accounting = prototypeModules.find((module) => module.id === "finance");
     const groups = accounting?.groups.filter((group) => !group.hiddenFromNavigation).map((group) => group.id);
@@ -69,6 +72,16 @@ describe("Prototype shell module navigation", () => {
     expect(valuation.redirectRecordRef).toBe("revaluation");
   });
 
+  it("hides Purchase/Sales currency menus while retaining their deep links", () => {
+    for (const [moduleId, pageId] of [
+      ["sales", "currency-balances"],
+      ["purchases", "supplier-currency-accounts"],
+    ]) {
+      const target = findPrototypePage(moduleId!, pageId!);
+      expect(target.page.id).toBe(pageId);
+      expect(target.page.hiddenFromNavigation).toBe(true);
+    }
+  });
   it("has one currency submenu and redirects old multicurrency links into it", () => {
     const finance = prototypeModules.find((module) => module.id === "finance");
     const currencyPages = finance?.groups

@@ -22,6 +22,7 @@ import {
   manufacturingOrderActionSchema,
 } from "./manufacturing/index.js";
 import { inventoryPaths } from "./inventory/openapi.js";
+import { fixedAssetPaths } from "./fixed-assets/openapi.js";
 import {
   warehouseInputSchema,
   updateWarehouseInputSchema,
@@ -210,7 +211,7 @@ import {
 import { referenceMasterPaths } from "./master-data/openapi.js";
 import { procurementPaths } from "./procurement/openapi.js";
 import {
-  updatePurchaseRequestSchema,
+  updatePurchaseInputSchema as updatePurchaseRequestSchema,
   updateSupplierInputSchema,
   procurementCompaniesSchema,
   procurementOptionsSchema,
@@ -219,7 +220,7 @@ import {
   purchaseFlowSchema,
   purchaseDocumentSchema,
   purchaseDirectorySchema,
-  savePurchaseRequestSchema,
+  savePurchaseInputSchema as savePurchaseRequestSchema,
   purchaseActionRequestSchema,
   purchaseMutationSchema,
   supplierInputSchema,
@@ -446,6 +447,8 @@ import {
   hrEmployeeEmploymentHistoryDirectorySchema,
   hrEmployeeEmploymentHistoryRequestSchema,
   hrEmployeeNumberPreviewSchema,
+  hrRecordCodePreviewSchema,
+  hrRecordCodeKindSchema,
   withdrawHrEmployeeDraftRequestSchema,
   hrCostCentreNominalDirectorySchema,
   createHrJobGradeRequestSchema,
@@ -1160,6 +1163,7 @@ export function buildOpenApiDocument() {
       ...procurementPaths(),
       ...inventoryPaths(),
       ...manufacturingPaths(),
+      ...fixedAssetPaths(),
       "/auth/login": {
         post: {
           operationId: "loginWithPassword",
@@ -6467,6 +6471,21 @@ export function buildOpenApiDocument() {
           },
         },
       },
+      "/hr/record_code_preview": {
+        get: {
+          operationId: "getHrRecordCodePreview",
+          description: "Next automatic code for an HR & Payroll record kind, shown read-only at the top of Add / New / Create forms. The server reserves the final unique code inside the create transaction. Requires any hr.* permission and company access.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            { in: "query", name: "kind", required: true, schema: { $ref: "#/components/schemas/HrRecordCodeKind" } },
+          ],
+          responses: {
+            "200": { description: "Next record code", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecordCodePreview" } } } },
+            ...securityErrors,
+          },
+        },
+      },
       "/hr/employee_number_preview": {
         get: {
           operationId: "getHrEmployeeNumberPreview",
@@ -8420,6 +8439,8 @@ export function buildOpenApiDocument() {
         HrEmployeeEmploymentHistoryDirectory: schema(hrEmployeeEmploymentHistoryDirectorySchema),
         HrEmployeeEmploymentHistoryRequest: schema(hrEmployeeEmploymentHistoryRequestSchema),
         HrEmployeeNumberPreview: schema(hrEmployeeNumberPreviewSchema),
+        HrRecordCodeKind: schema(hrRecordCodeKindSchema),
+        HrRecordCodePreview: schema(hrRecordCodePreviewSchema),
         WithdrawHrEmployeeDraftRequest: schema(withdrawHrEmployeeDraftRequestSchema),
         HrEmployeeAssignmentDirectory: schema(hrEmployeeAssignmentDirectorySchema),
         HrEmployeeStatusHistoryDirectory: schema(hrEmployeeStatusHistoryDirectorySchema),

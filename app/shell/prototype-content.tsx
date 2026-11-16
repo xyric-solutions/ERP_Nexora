@@ -154,6 +154,7 @@ import { InventoryOperationsWorkspace } from "@prototype/features/inventory/view
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
 import { ManufacturingLiveWorkspace } from "@prototype/features/manufacturing/views/manufacturing-live-workspace";
 import { isManufacturingLivePage } from "@prototype/features/manufacturing/model/manufacturing";
+import { FixedAssetsWorkspace } from "@/features/fixed-assets/views/fixed-assets-workspace";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
@@ -3157,9 +3158,12 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     return <MultiCurrencyWorkspace key={context.pageId} initialTab={context.pageId.includes("ageing") ? "balances" : "reports"} initialSide={context.pageId.startsWith("supplier") ? "payable" : "receivable"} initialReport={currencyReport} />;
   }
   if ((["sales", "customers"].includes(context.moduleId) && context.pageId === "currency-balances") || (context.moduleId === "purchases" && context.pageId === "supplier-currency-accounts")) {
-    return <MultiCurrencyWorkspace key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" ? context.recordRef : undefined} />;
+    return <MultiCurrencyWorkspace operational key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" ? context.recordRef : undefined} />;
   }
 
+  if (context.moduleId === "assets" || (context.moduleId === "reports" && ["asset-register-report","asset-depreciation-report"].includes(context.pageId))) {
+    return <FixedAssetsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+  }
   if (context.moduleId === "reports" && isReportsWorkspacePage(context.pageId)) {
     return <ReportsWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
@@ -3608,6 +3612,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
             paymentId={context.recordRef}
             onBack={() => props.onNavigate("banking", "bank-payments")}
             onEdit={(paymentId) => props.onNavigate("banking", "add-bank-payment", paymentId)}
+            onRegisterAssets={(paymentId)=>props.onNavigate("assets","add-asset",paymentId)}
           />
         );
       }

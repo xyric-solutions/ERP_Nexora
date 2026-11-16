@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { hasAssetJournalReferences } from "../../fixed-assets/sources.js";
 
 import { evaluateApprovalActor } from "@nexora/auth";
 import type {
@@ -1110,11 +1111,32 @@ export class SourceBankPaymentRepository {
         );
       const financeClient = await createFinanceTransactionClient(client);
       let reversed;
-      if ((await client.query(
-        "select 1 from hr_payroll_payment_settlement where tenant_id=$1 and company_id=$2 and bank_payment_id=$3 limit 1",
-        [context.tenantId, previous.company_id, paymentId],
-      )).rowCount)
-        throw new BankingApiError(409, "PAYMENT_SETTLES_EMPLOYEE_SALARY", "This payment settles an employee salary. Resolve its governed Payroll correction before reversing the Bank Payment.");
+      if (
+        await hasAssetJournalReferences(
+          client,
+          context.tenantId,
+          previous.company_id,
+          previous.original_journal_entry_id,
+        )
+      )
+        throw new BankingApiError(
+          409,
+          "PAYMENT_REGISTERED_ASSET_SOURCE",
+          "This payment has registered assets. Use their governed vendor return workflow.",
+        );
+      if (
+        (
+          await client.query(
+            "select 1 from hr_payroll_payment_settlement where tenant_id=$1 and company_id=$2 and bank_payment_id=$3 limit 1",
+            [context.tenantId, previous.company_id, paymentId],
+          )
+        ).rowCount
+      )
+        throw new BankingApiError(
+          409,
+          "PAYMENT_SETTLES_EMPLOYEE_SALARY",
+          "This payment settles an employee salary. Resolve its governed Payroll correction before reversing the Bank Payment.",
+        );
       try {
         reversed = await this.finance.reverse(financeClient, {
           tenantId: context.tenantId,

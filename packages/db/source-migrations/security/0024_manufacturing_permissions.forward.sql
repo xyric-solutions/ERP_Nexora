@@ -12,4 +12,4 @@ VALUES
  ('manufacturing.order.create','manufacturing','order','create','Create and edit draft or returned Manufacturing Orders.','password',true,false,'standard'),
  ('manufacturing.order.submit','manufacturing','order','submit','Submit a Manufacturing Order to its assigned approver.','password',false,true,'standard'),
  ('manufacturing.order.approve','manufacturing','order','approve','Approve or return a submitted Manufacturing Order.','password',false,true,'restricted');
-INSERT INTO nexora_schema_migration(module_name,version,name) VALUES('security',23,'manufacturing_permissions');
+INSERT INTO nexora_schema_migration(module_name,version,name) VALUES('security',24,'manufacturing_permissions');

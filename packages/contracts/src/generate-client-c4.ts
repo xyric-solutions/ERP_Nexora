@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, readFile, writeFile, rename, rm } from "node:fs/promises";
+import { dirname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { format, resolveConfig } from "prettier";
@@ -13,8 +13,9 @@ const prettierConfig = await resolveConfig(clientPath);
 
 const openApi = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
 const client = await format(
-  `import type {TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions} from "@nexora/contracts";
-import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPolicy,SubledgerPolicyInput,SubledgerInput,SubledgerOperation,SubledgerAction} from "@nexora/contracts";
+  `import type {AssetOptions,AssetWorkspace,AssetDashboard,AssetSources,AssetDetail,AssetCategoryInput,AssetCategory,AssetCreate,FixedAsset,AssetUpdate,AssetAction,AssetEventInput,AssetEvent,AssetEventAction,AssetDepreciationInput,AssetDepreciationRun,AssetDepreciationAction,AssetAttachment,AssetAttachmentInput,AssetCompanyPolicyInput,AssetCompanyPolicy,AssetValuation} from "@nexora/contracts";
+import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions} from "@nexora/contracts";
+import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction} from "@nexora/contracts";
 import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
 import type {CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrPersonalCorrectionWorkspace,HrReportGovernanceAction,HrReportGovernanceWorkspace,HrReportGovernanceResult} from '@nexora/contracts';
 import type {CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -30,7 +31,7 @@ import type {
   WarehouseInput,Warehouse,WarehouseDirectory,WarehouseMutation,StockTransferInput,StockTransfer,StockTransferDirectory,StockTransferMutation,InventorySurface,
   Product,ProductInput,ProductDirectory,ProductMutation,InventoryCompanies,InventoryOptions,ProductLookupDirectory,
   ManufacturingSurface,ManufacturingCompanies,ManufacturingLookupDirectory,BomInput,Bom,BomDirectory,BomMutation,ProductionPlanInput,ProductionPlan,ProductionPlanDirectory,ProductionPlanMutation,ConvertProductionPlanInput,ConvertProductionPlanResult,ManufacturingOrderInput,ManufacturingOrder,ManufacturingOrderDirectory,ManufacturingOrderMutation,ManufacturingOrderAction,
-  ProcurementCompanies, ProcurementOptions, PurchaseProductDirectory, PurchaseApproverDirectory, PurchaseFlow, PurchaseDocument, PurchaseDirectory, SavePurchaseRequest, PurchaseActionRequest, PurchaseMutation, SupplierInput, SupplierDirectory, SupplierMutation,
+  ProcurementCompanies, ProcurementOptions, PurchaseProductDirectory, PurchaseApproverDirectory, PurchaseFlow, PurchaseDocument, PurchaseDirectory, SavePurchaseInput, PurchaseActionRequest, PurchaseMutation, SupplierInput, SupplierDirectory, SupplierMutation,
   BankWorkflowOptions,
   BankSelfApprovalDirectory,BankSelfApprovalOptions,BankSelfApprovalMutation,ChangeBankSelfApprovalRequest,ReassignBankApproverRequest,
   ReferenceMasterKind, ReferenceMaster, ReferenceMasterDirectory, ReferenceMasterMutation,
@@ -261,6 +262,7 @@ CreateHrLocalization,HrLocalizationDecision,HrLocalizationWorkspace,CreateHrOver
   HrEmployeeEmploymentHistoryDirectory,
   HrEmployeeEmploymentHistoryRequest,
   HrEmployeeNumberPreview,
+  HrRecordCodePreview,
   WithdrawHrEmployeeDraftRequest,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
@@ -471,6 +473,28 @@ export class NexoraApiClient {
   getWarehouse(id:string,company:string):Promise<Warehouse>{return this.request(\`/api/v1/inventory/warehouses/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
   saveWarehouse(id:string|null,payload:WarehouseInput,csrf:string,key:string):Promise<WarehouseMutation>{return this.request(\`/api/v1/inventory/warehouses\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
   listStockTransfers(query:string):Promise<StockTransferDirectory>{return this.request(\`/api/v1/inventory/transfers\${query}\`);}
+  getFixedAssetOptions(company:string):Promise<AssetOptions>{return this.request(\`/api/v1/assets/options?company_id=\${encodeURIComponent(company)}\`);}
+  saveFixedAssetCompanyPolicy(payload:AssetCompanyPolicyInput,csrf:string,key:string):Promise<AssetCompanyPolicy>{return this.request('/api/v1/assets/policies',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  classifyFixedAssetNominal(id:string,payload:{company_id:string;expected_version:number;active:boolean;reason:string},csrf:string,key:string):Promise<{account_id:string;active:boolean;version:number}>{return this.request('/api/v1/assets/nominals/'+encodeURIComponent(id)+'/classification',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  getFixedAssetValuation(id:string,company:string,date:string):Promise<AssetValuation>{return this.request('/api/v1/assets/records/'+encodeURIComponent(id)+'/valuation?company_id='+encodeURIComponent(company)+'&as_of='+encodeURIComponent(date));}
+  getFixedAssetJournals(id:string,company:string,offset=0):Promise<AssetJournalDirectory>{return this.request('/api/v1/assets/records/'+encodeURIComponent(id)+'/journals?company_id='+encodeURIComponent(company)+'&offset='+offset);}
+  uploadFixedAssetAttachment(id:string,payload:AssetAttachmentInput,file:File,csrf:string,key:string):Promise<AssetAttachment>{const body=new FormData();body.set('title',payload.title);body.set('file',file);return this.request(\`/api/v1/assets/records/\${encodeURIComponent(id)}/attachments?company_id=\${encodeURIComponent(payload.company_id)}\`,{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body});}
+  stageFixedAssetDocument(payload:AssetAttachmentInput,file:File,csrf:string,key:string):Promise<import("@nexora/contracts").AssetStagedDocument>{const body=new FormData();body.set('title',payload.title);body.set('file',file);return this.request(\`/api/v1/assets/staged-documents?company_id=\${encodeURIComponent(payload.company_id)}\`,{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body});}
+  getFixedAssetAccrualSchedule(id:string,query:import("@nexora/contracts").AssetAccrualQuery):Promise<import("@nexora/contracts").AssetAccrualSchedule>{return this.request(\`/api/v1/assets/records/\${encodeURIComponent(id)}/accrual-schedule?\${new URLSearchParams(query).toString()}\`);}
+  downloadFixedAssetAttachment(id:string,attachment:string,company:string):Promise<Blob>{return this.request(\`/api/v1/assets/records/\${encodeURIComponent(id)}/attachments/\${encodeURIComponent(attachment)}/content?company_id=\${encodeURIComponent(company)}\`,undefined,'blob');}
+  getFixedAssetWorkspace(query:string):Promise<AssetWorkspace>{return this.request(\`/api/v1/assets/workspace\${query}\`);}
+  getFixedAssetDashboard(query:string):Promise<AssetDashboard>{return this.request(\`/api/v1/assets/dashboard\${query}\`);}
+  getFixedAssetReports(query:string):Promise<AssetDashboard>{return this.request(\`/api/v1/assets/reports\${query}\`);}
+  getFixedAssetSources(query:string):Promise<AssetSources>{return this.request(\`/api/v1/assets/sources\${query}\`);}
+  getFixedAsset(id:string,company:string,historyOffset=0):Promise<AssetDetail>{return this.request('/api/v1/assets/records/'+encodeURIComponent(id)+'?company_id='+encodeURIComponent(company)+'&history_offset='+historyOffset);}
+  createFixedAssets(payload:AssetCreate,csrf:string,key:string):Promise<{items:FixedAsset[]}>{return this.request('/api/v1/assets/records',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body:JSON.stringify(payload)});}
+  updateFixedAsset(id:string,payload:AssetUpdate,csrf:string,key:string):Promise<FixedAsset>{return this.request(\`/api/v1/assets/records/\${encodeURIComponent(id)}\`,{method:'PATCH',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':\`"\${payload.expected_version}"\`},body:JSON.stringify(payload)});}
+  actOnFixedAsset(id:string,payload:AssetAction,csrf:string,key:string):Promise<FixedAsset>{return this.request(\`/api/v1/assets/records/\${encodeURIComponent(id)}/actions\`,{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':\`"\${payload.expected_version}"\`},body:JSON.stringify(payload)});}
+  saveFixedAssetCategory(id:string|null,payload:AssetCategoryInput,csrf:string,key:string):Promise<AssetCategory>{return this.request(\`/api/v1/assets/categories\${id?'/'+encodeURIComponent(id):''}\`,{method:id?'PATCH':'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':\`"\${payload.expected_version}"\`},body:JSON.stringify(payload)});}
+  createFixedAssetEvent(payload:AssetEventInput,csrf:string,key:string):Promise<AssetEvent>{return this.request('/api/v1/assets/events',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body:JSON.stringify(payload)});}
+  actOnFixedAssetEvent(id:string,payload:AssetEventAction,csrf:string,key:string):Promise<AssetEvent>{return this.request(\`/api/v1/assets/events/\${encodeURIComponent(id)}/actions\`,{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':\`"\${payload.expected_version}"\`},body:JSON.stringify(payload)});}
+  previewFixedAssetDepreciation(payload:AssetDepreciationInput,csrf:string,key:string):Promise<AssetDepreciationRun>{return this.request('/api/v1/assets/depreciation',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body:JSON.stringify(payload)});}
+  actOnFixedAssetDepreciation(id:string,payload:AssetDepreciationAction,csrf:string,key:string):Promise<AssetDepreciationRun>{return this.request(\`/api/v1/assets/depreciation/\${encodeURIComponent(id)}/actions\`,{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':\`"\${payload.expected_version}"\`},body:JSON.stringify(payload)});}
   getStockTransfer(id:string,company:string):Promise<StockTransfer>{return this.request(\`/api/v1/inventory/transfers/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
   saveStockTransfer(id:string|null,payload:StockTransferInput,csrf:string,key:string):Promise<StockTransferMutation>{return this.request(\`/api/v1/inventory/transfers\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
   getInventoryOptions(company:string):Promise<InventoryOptions> {return this.request(\`/api/v1/inventory/options?company_id=\${encodeURIComponent(company)}\`);}
@@ -503,7 +527,7 @@ export class NexoraApiClient {
   }
   listPurchaseDocuments(query:string):Promise<PurchaseDirectory> { return this.request(\`/api/v1/procurement/documents\${query}\`); }
   getPurchaseDocument(id:string,company:string):Promise<PurchaseDocument> { return this.request(\`/api/v1/procurement/documents/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`); }
-  savePurchaseDocument(id:string|null,payload:SavePurchaseRequest,csrf:string,key:string):Promise<PurchaseMutation> {
+  savePurchaseDocument(id:string|null,payload:SavePurchaseInput,csrf:string,key:string):Promise<PurchaseMutation> {
     return this.request(\`/api/v1/procurement/documents\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});
   }
   actOnPurchaseDocument(id:string,payload:PurchaseActionRequest,csrf:string,key:string):Promise<PurchaseMutation> {
@@ -1053,6 +1077,7 @@ export class NexoraApiClient {
     return this.request(\`/api/v1/hr/employees/\${encodeURIComponent(id)}/remove\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   getHrEmployeeNumberPreview(query: string): Promise<HrEmployeeNumberPreview> { return this.request(\`/api/v1/hr/employee_number_preview\${query}\`); }
+  getHrRecordCodePreview(query: string): Promise<HrRecordCodePreview> { return this.request(\`/api/v1/hr/record_code_preview\${query}\`); }
   withdrawHrEmployeeDraft(employeeId: string, payload: WithdrawHrEmployeeDraftRequest, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
     return this.request(\`/api/v1/hr/employee_drafts/\${encodeURIComponent(employeeId)}/withdraw\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
@@ -1285,7 +1310,7 @@ export class NexoraApiClient {
   configureSubledgerPolicy(payload: SubledgerPolicyInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerPolicy> {
     return this.request("/api/v1/finance/subledger/policy", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": '"' + payload.expected_version + '"' }, body: JSON.stringify(payload) });
   }
-  createSubledgerOperation(payload: SubledgerInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerOperation> {
+  createSubledgerOperation(payload: SubledgerRequest, csrfToken: string, idempotencyKey: string): Promise<SubledgerOperation> {
     return this.request("/api/v1/finance/subledger/operations", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
   }
   actOnSubledgerOperation(id: string, payload: SubledgerAction, csrfToken: string, idempotencyKey: string): Promise<SubledgerOperation> {
@@ -1311,5 +1336,16 @@ if (process.argv.includes("--check")) {
   }
 } else {
   await mkdir(dirname(clientPath), { recursive: true });
-  await Promise.all([writeFile(openApiPath, openApi, "utf8"), writeFile(clientPath, client, "utf8")]);
+  const temporaryDirectory = resolve(packageRoot, "tmp/api-generation");
+  await mkdir(temporaryDirectory, { recursive: true });
+  const atomicWrite = async (path: string, content: string) => {
+    const temporary = resolve(temporaryDirectory, `${basename(path)}.${process.pid}.tmp`);
+    try {
+      await writeFile(temporary, content, "utf8");
+      await rename(temporary, path);
+    } finally {
+      await rm(temporary, { force: true });
+    }
+  };
+  await Promise.all([atomicWrite(openApiPath, openApi), atomicWrite(clientPath, client)]);
 }

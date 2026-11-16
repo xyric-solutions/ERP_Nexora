@@ -13,6 +13,7 @@ import {
   subledgerActionSchema,
   subledgerItemSchema,
   subledgerOperationInputSchema,
+  subledgerOperationRequestSchema,
   subledgerOperationSchema,
   subledgerPartyInputSchema,
   subledgerPartySchema,
@@ -22,6 +23,7 @@ import {
   subledgerPreviewSchema,
   type SubledgerAction,
   type SubledgerInput,
+  type SubledgerRequest,
   type SubledgerItem,
   type SubledgerOperation,
   type SubledgerPartyInput,
@@ -32,6 +34,9 @@ import {
 } from "@nexora/contracts";
 import type { BankingActorContext } from "../../banking/source-repository.js";
 import { companyAuthoritySql } from "../../security/company-authority.js";
+import { hasAssetJournalReferences } from "../../fixed-assets/sources.js";
+import { SourceAssetRepository, AssetError } from "../../fixed-assets/source-repository.js";
+import { registerPostedPurchase } from "../../fixed-assets/purchase-registration.js";
 import { resolveTax, recordTaxApplications, reverseTaxApplications, TaxError } from "../taxes/resolver.js";
 import { itemBalancesSql, itemBalanceParameters } from "./queries.js";
 import {
@@ -125,6 +130,7 @@ export class SourceSubledgerRepository {
     } catch (error) {
       await client.query("rollback");
       if (error instanceof SubledgerError) throw error;
+      if (error instanceof AssetError) throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof TaxError) throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof CompanyCurrencyAuthorityError || error instanceof FinancePostingError)
         throw new SubledgerError(error.status, error.code, error.message);
@@ -684,6 +690,14 @@ export class SourceSubledgerRepository {
       if (original.state !== "posted" || original.type === "reversal" || original.date > input.date)
         reject("Choose a posted original operation dated on or before the reversal.");
       if (
+        original.journal_id &&
+        (await hasAssetJournalReferences(client, context.tenantId, input.company_id, original.journal_id))
+      )
+        reject(
+          "This financial source is referenced by Fixed Assets. Use the asset lifecycle workflow.",
+          "SUBLEDGER_ASSET_SOURCE_LOCKED",
+        );
+      if (
         (
           await client.query(
             "select 1 from finance_subledger_operation where tenant_id=$1 and company_id=$2 and state='posted' and type='reversal' and payload->>'operation_id'=$3",
@@ -783,7 +797,7 @@ export class SourceSubledgerRepository {
       const sourceTaxDocument = input.source_document_id
         ? (
             await client.query<{ lines: unknown; date: string }>(
-              "select lines,coalesce(bill_date,document_date)::text as date from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved'",
+              "select lines,coalesce(bill_date,document_date)::text as date from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved' for share",
               [context.tenantId, input.company_id, input.source_document_id],
             )
           ).rows[0]
@@ -905,8 +919,20 @@ export class SourceSubledgerRepository {
             [context.tenantId, input.company_id, counter],
           )
         ).rows[0];
-        if (account?.type !== (input.side === "receivable" ? "revenue" : "expense"))
-          reject("Select a matching revenue or expense account.");
+        const assetAcquisition =
+          input.side === "payable" &&
+          account?.type === "asset" &&
+          (input.kind === "credit_note" || (input.kind === "invoice" && !!input.source_document_id)) &&
+          (
+            await client.query(
+              `select 1 where exists(select 1 from fixed_asset_category where tenant_id=$1 and company_id=$2 and asset_account_id=$3 and active) or exists(select 1 from fixed_asset_record where tenant_id=$1 and company_id=$2 and category_snapshot->>'asset_account_id'=$3)`,
+              [context.tenantId, input.company_id, counter],
+            )
+          ).rowCount;
+        if (account?.type !== (input.side === "receivable" ? "revenue" : "expense") && !assetAcquisition)
+          reject(
+            "Select a matching revenue/expense account, or a configured asset account for a linked supplier acquisition or credit note.",
+          );
       }
       if (input.source_document_id) {
         const source = (
@@ -929,6 +955,33 @@ export class SourceSubledgerRepository {
             decimal(decimalText(withholding ? 0n : tax, a.sourceDecimalPlaces), 8)
         )
           reject("The source must be this supplier's approved bill with matching currency and amount.");
+      }
+      if (input.original_item_id) {
+        if (input.kind !== "credit_note") reject("An original invoice link belongs only to a credit note.");
+        const original = (
+          await client.query<{ amount: string; control_account_id: string }>(
+            `select i.original_amount::text as amount,i.control_account_id from finance_subledger_item i where i.tenant_id=$1 and i.company_id=$2 and i.id=$3 and i.party_id=$4 and i.side=$5 and i.currency=$6 and i.kind='invoice' and i.document_date<=$7 and not exists(select 1 from finance_subledger_operation r where r.tenant_id=i.tenant_id and r.company_id=i.company_id and r.state='posted' and r.type='reversal' and r.payload->>'operation_id'=i.operation_id)`,
+            [
+              context.tenantId,
+              input.company_id,
+              input.original_item_id,
+              input.party_id,
+              input.side,
+              input.currency,
+              input.date,
+            ],
+          )
+        ).rows[0];
+        if (!original || original.control_account_id !== control)
+          reject("Select this party’s unreversed original invoice in the same currency and control account.");
+        const used = (
+          await client.query<{ amount: string }>(
+            `select coalesce(sum(abs(i.original_amount)),0)::text as amount from finance_subledger_item i join finance_subledger_operation o on o.tenant_id=i.tenant_id and o.company_id=i.company_id and o.id=i.operation_id where i.tenant_id=$1 and i.company_id=$2 and i.kind='credit_note' and o.payload->>'original_item_id'=$3 and not exists(select 1 from finance_subledger_operation r where r.tenant_id=o.tenant_id and r.company_id=o.company_id and r.state='posted' and r.type='reversal' and r.payload->>'operation_id'=o.id)`,
+            [context.tenantId, input.company_id, input.original_item_id],
+          )
+        ).rows[0]!.amount;
+        if (dbMinor(used, a.sourceDecimalPlaces) + positive > dbMinor(original.amount, a.sourceDecimalPlaces))
+          reject("Credit notes exceed the original invoice amount.");
       }
       const partyName = (
         await client.query<{ name: string }>(
@@ -962,13 +1015,53 @@ export class SourceSubledgerRepository {
       };
       add(control, signed * orientation, input.currency, a, `${code} control`);
       const signedTax = signed > 0n ? tax : -tax;
-      add(
-        counter,
-        -(withholding ? signed + signedTax : signed - signedTax) * orientation,
-        input.currency,
-        a,
-        `${code} recognition`,
-      );
+      if (
+        input.side === "payable" &&
+        input.kind === "invoice" &&
+        sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id)
+      ) {
+        if (input.counter_account_id)
+          reject("The approved bill resolves its asset categories. Clear the manual purchase accounting override.");
+        const categories = (
+          await client.query<{ id: string; asset_account_id: string }>(
+            `select c.id,c.asset_account_id from fixed_asset_category c join account a on a.tenant_id=c.tenant_id and a.company_id=c.company_id and a.id=c.asset_account_id and a.status='active' and a.type='asset' and not a.is_header and not a.reconciliation_required where c.tenant_id=$1 and c.company_id=$2 and c.active and c.id=any($3::text[]) for share of c,a`,
+            [
+              context.tenantId,
+              input.company_id,
+              [...new Set(sourceTaxLines.flatMap((line) => (line.asset_category_id ? [line.asset_category_id] : [])))],
+            ],
+          )
+        ).rows;
+        let allocated = 0n;
+        for (const line of sourceTaxLines) {
+          const category = line.asset_category_id
+            ? categories.find((item) => item.id === line.asset_category_id)
+            : undefined;
+          if (line.asset_category_id && !category)
+            reject("An approved asset category or its accounting account is no longer active.");
+          const unitsAtSource = divideRounded(decimal(line.quantity, 4) * decimal(line.unit_price, 2), 10000n),
+            native = decimal(decimalText(unitsAtSource, 2), a.sourceDecimalPlaces);
+          allocated += native;
+          add(
+            line.nominal_account_id ?? category?.asset_account_id ?? counter,
+            native,
+            input.currency,
+            a,
+            `${code} ${line.item_code || line.description} ${line.asset_category_id ? "asset acquisition" : "purchase expense"}`,
+          );
+          if (native > 0n && line.asset_category_id && line.id)
+            result.lines[result.lines.length - 1]!.dimensions = { purchase_line_id: line.id };
+        }
+        if (allocated !== (withholding ? signed + signedTax : signed - signedTax))
+          reject("Approved bill acquisition allocations do not match its net accounting amount.");
+      } else
+        add(
+          counter,
+          -(withholding ? signed + signedTax : signed - signedTax) * orientation,
+          input.currency,
+          a,
+          `${code} recognition`,
+        );
       if (tax > 0n) {
         const postings = governedTaxes.length
           ? governedTaxes
@@ -988,6 +1081,8 @@ export class SourceSubledgerRepository {
           const units = decimal(posting.amount, a.sourceDecimalPlaces, true);
           add(taxAccountId, withholding ? -units : -units * orientation, input.currency, a, `${code} tax control`);
         }
+      }
+      {
         const residual = result.lines.reduce(
           (sum, line) =>
             sum +
@@ -1330,17 +1425,39 @@ export class SourceSubledgerRepository {
     return result;
   }
 
-  async create(context: BankingActorContext, raw: SubledgerInput, key: string): Promise<SubledgerOperation> {
-    const input = subledgerOperationInputSchema.parse(raw);
-    return this.transaction(context, input.company_id, "finance.subledger.manage", true, (client) =>
+  async create(context: BankingActorContext, raw: SubledgerRequest, key: string): Promise<SubledgerOperation> {
+    const request = subledgerOperationRequestSchema.parse(raw);
+    return this.transaction(context, request.company_id, "finance.subledger.manage", true, (client) =>
       this.idempotent(
         client,
         context,
-        input.company_id,
+        request.company_id,
         key,
-        { action: "create", input },
+        { action: "create", input: request },
         (value) => subledgerOperationSchema.parse(value),
         async () => {
+          let normalized = request;
+          if (request.type === "settlement" || (request.type === "recognition" && request.kind === "advance")) {
+            const bank = (
+              await client.query<{ currency: string }>(
+                `select bank.currency from bank_account bank
+                 join account ledger on ledger.tenant_id=bank.tenant_id and ledger.company_id=bank.company_id and ledger.id=bank.account_id
+                 where bank.tenant_id=$1 and bank.company_id=$2 and bank.id=$3 and bank.status='active'
+                  and ledger.status='active' and not ledger.is_header and ledger.reconciliation_required
+                 for share of bank,ledger`,
+                [context.tenantId, request.company_id, request.bank_account_id],
+              )
+            ).rows[0];
+            if (!bank) reject("Select an active bank account in this company.");
+            const supplied = request.type === "settlement" ? request.payment_currency : request.currency;
+            if (supplied && supplied !== bank.currency)
+              reject("The transaction currency must match the selected bank account.");
+            normalized =
+              request.type === "settlement"
+                ? { ...request, payment_currency: bank.currency }
+                : { ...request, currency: bank.currency };
+          }
+          const input = subledgerOperationInputSchema.parse(normalized);
           const id = randomUUID();
           const prefix =
             input.type === "recognition"
@@ -1572,6 +1689,20 @@ export class SourceSubledgerRepository {
                   delta.unrealized,
                   journal,
                 ],
+              );
+            if (
+              payload.type === "recognition" &&
+              payload.side === "payable" &&
+              payload.kind === "invoice" &&
+              payload.source_document_id
+            )
+              await registerPostedPurchase(
+                new SourceAssetRepository(this.pool),
+                client,
+                context,
+                input.company_id,
+                payload.source_document_id,
+                journal!,
               );
             state = "posted";
           }

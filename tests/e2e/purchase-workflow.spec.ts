@@ -13,6 +13,7 @@ import { productInputSchema } from "../../packages/contracts/src/index.js";
 import { readFile } from "node:fs/promises";
 import { purchasePaymentBankFixture } from "../integration/purchase-payment-fixture.js";
 import type { TenantAuthApiService, TenantSessionApiService } from "../../server/api/src/modules/auth/tenant-router.js";
+import { SourceTenantAuthenticationRepository } from "../../server/api/src/modules/auth/source-repository.js";
 import {
   ensureSourceAuthorizationFixture,
   sourceTestTenantId as tenant,
@@ -70,6 +71,7 @@ test.describe("Persisted unified Purchase workflow", () => {
             tenantId: tenant,
             userId: token === "purchase-maker" ? "r06.maker" : "r06.checker",
             sessionId: token,
+            activeCompanyId: company,
             csrfToken: "c".repeat(43),
             idleExpiresAt: new Date("2099-01-01T00:00:00Z"),
             absoluteExpiresAt: new Date("2099-01-01T00:00:00Z"),
@@ -99,6 +101,7 @@ test.describe("Persisted unified Purchase workflow", () => {
       readiness: {},
       authService: authentication,
       sessionService: sessions,
+      sessionCompanies: new SourceTenantAuthenticationRepository(pool),
       procurementRepository: new SourceProcurementRepository(
         pool,
         new SupplierProfileCrypto(randomBytes(32).toString("base64"), "test-v1"),
@@ -124,7 +127,17 @@ test.describe("Persisted unified Purchase workflow", () => {
     await page.route("**/api/v1/**", async (route) => {
       const url = new URL(route.request().url());
       const response = await route.fetch({ url: new URL(url.pathname + url.search, apiUrl).toString() });
-      await route.fulfill({ response });
+      try {
+        await route.fulfill({ response });
+      } catch (error) {
+        // Moving between stages may cancel a lookup while the proxy response is arriving.
+        if (!(
+          error instanceof Error &&
+          error.message.includes("Route is already handled") &&
+          route.request().failure()?.errorText === "net::ERR_ABORTED"
+        ))
+          throw error;
+      }
     });
   });
   test.afterEach(async ({ page }) => {
@@ -252,10 +265,17 @@ test.describe("Persisted unified Purchase workflow", () => {
       .filter({ hasText: "BILL-001" })
       .getByRole("button", { name: "Payment", exact: true })
       .click();
+    for (const currency of ["PKR", "AED", "USD"]) {
+      await page.getByLabel("Bank *", { exact: true }).click();
+      await page
+        .getByRole("option", { name: `Purchase ${currency} account · •••• 1234 · ${currency}`, exact: true })
+        .click();
+      await expect(page.getByLabel("Payment currency", { exact: true })).toHaveValue(currency);
+      await expect(page.getByLabel("Payment currency", { exact: true })).toHaveAttribute("readonly", "");
+    }
+    await page.getByRole("checkbox", { name: "Include BILL-001", exact: true }).check();
     await page.getByLabel("Allocate BILL-001", { exact: true }).fill("10.00");
     await expect(page.getByLabel("Mailing address", { exact: true })).toHaveValue("Karachi");
-    await page.getByLabel("Bank *", { exact: true }).click();
-    await page.getByRole("option", { name: "Purchase USD account · •••• 1234 · USD", exact: true }).click();
     await page.getByLabel("WHT rate 1", { exact: true }).fill("2.5");
     await page.getByLabel("Additional WHT 1", { exact: true }).fill("0.25");
     await expect(page.getByText("Net bank amount: 9.50 USD", { exact: true })).toBeVisible();
@@ -265,6 +285,9 @@ test.describe("Persisted unified Purchase workflow", () => {
     await expect(page.getByLabel("WHT rate 1", { exact: true })).toHaveValue("2.5");
     await expect(page.getByLabel("Additional WHT 1", { exact: true })).toHaveValue("0.25");
     await expect(page.getByLabel("Mailing address", { exact: true })).toHaveValue("Karachi");
+    await expect(page.getByLabel("Accounting currency conversion", { exact: true })).toContainText(
+      "Net bank amount in base currency: USD 9.50",
+    );
     await submit(page);
     await approve(page, baseURL!);
     const second = await requestToOrder(page, baseURL!, "B");
@@ -284,11 +307,11 @@ test.describe("Persisted unified Purchase workflow", () => {
     await submit(page);
     await approve(page, baseURL!);
     await page.goto("/#/purchases/add-multi-vendor-payment");
+    await page.getByLabel("Bank *", { exact: true }).click();
+    await page.getByRole("option", { name: "Purchase USD account · •••• 1234 · USD", exact: true }).click();
     await page.getByRole("checkbox", { name: "Include BILL-001", exact: true }).check();
     await page.getByRole("checkbox", { name: "Include BILL-002", exact: true }).check();
     await expect(page.getByLabel("Allocate BILL-001", { exact: true })).toHaveValue("30.00");
-    await page.getByLabel("Bank *", { exact: true }).click();
-    await page.getByRole("option", { name: "Purchase USD account · •••• 1234 · USD", exact: true }).click();
     await page.getByLabel("WHT rate 2", { exact: true }).fill("1");
     await expect(page.getByText("Net bank amount: 99.00 USD", { exact: true })).toBeVisible();
     await submit(page);
@@ -481,6 +504,38 @@ test.describe("Persisted unified Purchase workflow", () => {
   });
   for (const theme of ["light", "dark"] as const)
     for (const width of [1440, 768, 390]) {
+      test(`Bank currency payment form: ${theme}, ${width}px`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.goto("/#/purchases/add-payment");
+        await page.evaluate((value) => {
+          document.documentElement.dataset.theme = value;
+        }, theme);
+        for (const currency of ["PKR", "AED", "USD"]) {
+          await page.getByLabel("Bank *", { exact: true }).click();
+          await page
+            .getByRole("option", { name: `Purchase ${currency} account · •••• 1234 · ${currency}`, exact: true })
+            .click();
+          await expect(page.getByLabel("Payment currency", { exact: true })).toHaveValue(currency);
+          await expect(page.getByLabel("Payment currency", { exact: true })).toHaveAttribute("readonly", "");
+        }
+        await expect(
+          page.locator(".nx-submenu-link span").filter({ hasText: /^Supplier Currency Accounts$/ }),
+        ).toHaveCount(0);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(
+          1,
+        );
+        expect(
+          (await new AxeBuilder({ page }).include('form[aria-label="Payment form"]').analyze()).violations,
+        ).toEqual([]);
+        await page.screenshot({
+          path: `tmp/purchase-workflow-evidence/bank-currency-payment-${theme}-${width}.png`,
+          fullPage: true,
+        });
+      });
+    }
+
+  for (const theme of ["light", "dark"] as const)
+    for (const width of [1440, 768, 390]) {
       test(`Purchase workflow and forms: ${theme}, ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 1000 });
         await page.addInitScript((theme) => localStorage.setItem("nexora-theme-preference-v1", theme), theme);
@@ -585,6 +640,8 @@ test.describe("Persisted unified Purchase workflow", () => {
         page.once("dialog", (dialog) => dialog.accept());
         await page.goto(`/#/purchases/add-multi-vendor-payment/${paymentId}`);
         await expect(page.getByLabel("Bank *", { exact: true })).toContainText("Purchase USD account");
+        await expect(page.getByLabel("Payment currency", { exact: true })).toHaveValue("USD");
+        await expect(page.getByLabel("Payment currency", { exact: true })).toHaveAttribute("readonly", "");
         await expect(page.getByLabel("WHT rate 2", { exact: true })).toHaveValue("1");
         await expect(page.getByLabel("WHT rate 2", { exact: true })).toBeDisabled();
         expect(

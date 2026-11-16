@@ -18,6 +18,8 @@ import {
 } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
+import { HrDetailList, HrDetailTile } from "../components/hr-detail-tile";
 import { Field, State, panel, selectClass, useAttendanceRead } from "../components/hr-workspace-controls";
 type Kind = HrLocalizationQuery["kind"];
 const titles: Record<Kind, string> = {
@@ -457,7 +459,9 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                         value={JSON.stringify(form.row.terms, null, 2)}
                       />
                     </Field>
-                    <p className="break-all font-mono text-xs">Artifact: {form.row.bundle_hash}</p>
+                    <HrDetailList>
+                      <HrDetailTile label="Artifact" value={form.row.bundle_hash} mono />
+                    </HrDetailList>
                     <p className="min-w-0 break-all text-sm text-muted-foreground">
                       {form.row.publication
                         ? "Published · " + form.row.publication.pack_version_id
@@ -467,7 +471,7 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                     </p>
                   </>
                 )}
-                <dl className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+                <HrDetailList>
                   {Object.entries(form.row.terms)
                     .filter(
                       ([key]) =>
@@ -477,14 +481,15 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                       const def = definitions[form.kind].find((d) => d.key === key),
                         option = def?.options ? form.options[def.options].find((o) => o.id === value) : null;
                       return (
-                        <div key={key} className="min-w-0">
-                          <dt className="text-xs text-muted-foreground">{def?.title ?? key.replaceAll("_", " ")}</dt>
-                          <dd className="mt-1 break-words text-sm">{option?.label ?? String(value ?? "Open ended")}</dd>
-                        </div>
+                        <HrDetailTile
+                          key={key}
+                          label={def?.title ?? key.replaceAll("_", " ")}
+                          value={option?.label ?? String(value ?? "Open ended")}
+                        />
                       );
                     })}
-                </dl>
-                <p className="break-words text-sm text-muted-foreground">Source: {form.row.source_reference}</p>
+                  <HrDetailTile label="Source" value={form.row.source_reference} />
+                </HrDetailList>
                 {form.row.materialized_state === "revoked" && (
                   <p className="rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed">
                     This override was revoked through a separately approved request. Its original approval and frozen
@@ -495,6 +500,12 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
               </>
             ) : form.kind === "pack_release" ? (
               <>
+                <HrRecordCodeField
+                  kind="statutory_setup"
+                  companyId={company || undefined}
+                  value={null}
+                  id="hr-statutory-setup-code"
+                />
                 <aside className="rounded-lg border border-border bg-muted/30 p-3 text-sm leading-relaxed text-muted-foreground">
                   <p className="font-medium text-foreground">Rules that change during a Payroll month</p>
                   <p className="mt-2">
@@ -530,7 +541,14 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                 </Field>
               </>
             ) : (
-              <fieldset disabled={busy} className="m-0! grid min-w-0 grid-cols-1 gap-4 border-0! p-0! sm:grid-cols-2">
+              <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0!">
+                <HrFormRows>
+                <HrRecordCodeField
+                  kind="statutory_setup"
+                  companyId={company || undefined}
+                  value={null}
+                  id="hr-statutory-setup-code"
+                />
                 {definitions[form.kind].map((d) => {
                   let options = d.options ? form.options[d.options] : [];
                   if (d.options === "jurisdictions" || d.options === "entity_types")
@@ -598,16 +616,15 @@ export function HrPayrollLocalizationSetup({ company, onDate }: { company: strin
                 {form.kind === "payroll_configuration" && (
                   <p className="text-sm text-muted-foreground">Supported payroll frequency: monthly.</p>
                 )}
-                <div className="sm:col-span-2">
-                  <Field title="Statutory source reference">
-                    <Textarea
-                      required
-                      maxLength={500}
-                      value={form.values.source_reference ?? ""}
-                      onChange={(e) => change("source_reference", e.target.value)}
-                    />
-                  </Field>
-                </div>
+                <Field title="Statutory source reference">
+                  <Textarea
+                    required
+                    maxLength={500}
+                    value={form.values.source_reference ?? ""}
+                    onChange={(e) => change("source_reference", e.target.value)}
+                  />
+                </Field>
+                </HrFormRows>
               </fieldset>
             )}
             {form.kind === "activation" && !form.options.packs.length && (

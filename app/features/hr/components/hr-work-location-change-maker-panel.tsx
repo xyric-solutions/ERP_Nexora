@@ -1,5 +1,7 @@
 "use client";
+import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -164,11 +166,12 @@ export function HrWorkLocationChangeMakerPanel({
         )}
         {effectiveLoadState === "ready" && (
           <>
-            <dl className="grid gap-3 rounded-md bg-muted/45 p-3 text-sm sm:grid-cols-2">
-              <ContextField label="Current work location" value={source.work_location} />
-              <ContextField label="Current assignment" value={source.id} />
-            </dl>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <HrRecordCodeField kind="work_location_change" id="work-location-change-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
+            <HrDetailList>
+              <HrDetailTile label="Current work location" value={source.work_location} />
+              <HrDetailTile label="Current assignment" value={source.id} />
+            </HrDetailList>
+            <HrFormRows>
               <label
                 htmlFor="work-location-change-proposed-location"
                 className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
@@ -187,7 +190,7 @@ export function HrWorkLocationChangeMakerPanel({
                   <option value="">Select a work location</option>
                   {locations.map((location) => (
                     <option key={location.id} value={location.id} disabled={location.id === source.work_location_id}>
-                      {location.code} â€” {location.name}
+                      {location.code} — {location.name}
                     </option>
                   ))}
                 </select>
@@ -199,7 +202,7 @@ export function HrWorkLocationChangeMakerPanel({
                 Effective date
                 <Input id="work-location-change-effective-on" type="date" value={effectiveOn} disabled readOnly />
               </label>
-            </div>
+            </HrFormRows>
             <label
               htmlFor="work-location-change-request-reason"
               className="grid min-w-0 content-start gap-1.5 text-sm font-medium text-foreground"
@@ -226,14 +229,5 @@ export function HrWorkLocationChangeMakerPanel({
         )}
       </section>
     </HrRecordDrawer>
-  );
-}
-
-function ContextField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 font-medium text-foreground">{value}</dd>
-    </div>
   );
 }

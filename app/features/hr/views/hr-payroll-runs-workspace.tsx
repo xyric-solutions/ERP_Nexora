@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useSession } from "@/lib/session/session-provider";
-import { hrPayrollRunActionSchema, type HrPayrollRunWorkspace, type HrPayrollRunAction } from "@nexora/contracts";
+import { HR_DEFAULT_REASON, hrPayrollRunActionSchema, type HrPayrollRunWorkspace, type HrPayrollRunAction } from "@nexora/contracts";
 import { HrApiClient } from "../api/hr-client";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { HrClickableRow } from "../components/hr-clickable-row";
 import { HrConfirmDeleteButton } from "../components/hr-confirm-delete-button";
 import { HrEditButton } from "../components/hr-icon-buttons";
-import { HrDetailGroup, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
+import { HrDetailGroup, HrDetailList, HrDetailSummary, HrDetailTile } from "../components/hr-detail-tile";
 import { Field, State, panel, selectClass, useAttendanceRead, localDate } from "../components/hr-workspace-controls";
 import { HrPayrollRunComparison } from "../components/hr-payroll-run-comparison";
 
@@ -27,6 +28,17 @@ const actionTitle = {
   submit: "Submit for review",
   return: "Return for corrections",
   approve: "Approve payroll",
+};
+/** Optional note on each run action, worded for that action. Review decisions keep their wording. */
+const actionNote: Record<keyof typeof actionTitle, string> = {
+  policy: "Why is this policy needed?",
+  policy_update: "What changed in this policy?",
+  policy_delete: "Note",
+  open: "Note on this period",
+  calculate: "Note on this calculation",
+  submit: "Note for the reviewer",
+  return: "Reason",
+  approve: "Reason",
 };
 const roundingLabels: Record<string, string> = {
   half_up: "Half up",
@@ -204,20 +216,14 @@ export function HrPayrollRunsWorkspace({
               }}
             />
           </Field>
-          <Field title="Search records">
+          <Field title={review ? "Search records" : "Search policies"}>
             <Input
               value={search}
               maxLength={120}
-              placeholder={review ? "Employee name or number" : "Policy, employee name or number"}
+              placeholder={review ? "Employee name or number" : "Currency, rounding or account"}
               onChange={(e) => setSearch(e.target.value)}
             />
           </Field>
-          {canManagePolicy && (
-            <Button className="w-full text-primary-foreground! md:w-auto" disabled={locked} onClick={() => begin("policy")}>
-              <Plus className="h-4 w-4" />
-              Payroll policy
-            </Button>
-          )}
         </div>
       </section>
       {companies.data && !companies.data.items.length && (
@@ -235,6 +241,69 @@ export function HrPayrollRunsWorkspace({
         >
           {notice}
         </div>
+      )}
+      {/* Payroll policy comes first: a period can only be opened against one of these policies. */}
+      {!review && (
+        <section aria-label="Payroll policies" className="grid gap-2">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-sm font-semibold">Payroll policy</h3>
+              <p className="text-sm text-muted-foreground">
+                Payroll currency, rounding and the net pay liability account used when a period is opened.
+              </p>
+            </div>
+            {canManagePolicy && (
+              <Button className="w-full text-primary-foreground! sm:w-auto" disabled={locked} onClick={() => begin("policy")}>
+                <Plus className="h-4 w-4" />
+                New payroll policy
+              </Button>
+            )}
+          </div>
+          <div className={tableWrap}>
+            <WorkTable paging={false} tableId="app/features/hr/views/hr-payroll-runs-workspace:1" className={tableClass}>
+              <thead className={headClass}>
+                <tr>
+                  <th className={th}>Payroll currency</th>
+                  <th className={th}>Precision</th>
+                  <th className={th}>Rounding</th>
+                  <th className={th}>Net payable liability account</th>
+                  <th className={th}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {policies.map((p) => (
+                  <HrClickableRow
+                    key={p.id}
+                    disabled={locked}
+                    onOpen={() => {
+                      setError("");
+                      setPolicyId(p.id);
+                    }}
+                  >
+                    <td className={td + " font-medium"}>{currencyLabel(data, p.currency_code)}</td>
+                    <td className={td + " text-muted-foreground"}>{p.money_scale} decimals</td>
+                    <td className={td + " text-muted-foreground"}>{roundingLabels[p.rounding_mode] ?? p.rounding_mode}</td>
+                    <td className={td + " text-muted-foreground"}>{accountLabel(data, p.net_payable_account_id)}</td>
+                    <td className={td}>
+                      <State value={p.in_use ? "in_use" : "active"} />
+                    </td>
+                  </HrClickableRow>
+                ))}
+                {!policies.length && (
+                  <tr>
+                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
+                      {state.loading
+                        ? "Loading payroll policies…"
+                        : term
+                          ? "No payroll policies match this search."
+                          : "No payroll policy yet. Create one before opening a payroll period."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </WorkTable>
+          </div>
+        </section>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
@@ -293,7 +362,8 @@ export function HrPayrollRunsWorkspace({
           Independent Payroll reviewer required
         </p>
       )}
-      {!!data?.blocked.length && (
+      {/* Approval gates are shown to the reviewer only; Payroll Runs does not repeat them. */}
+      {review && !!data?.blocked.length && (
         <section
           className="rounded-lg border border-[var(--nx-warning-border)] bg-card p-3"
           aria-label="Payroll approval gates"
@@ -309,54 +379,11 @@ export function HrPayrollRunsWorkspace({
           </ul>
         </section>
       )}
-      {!review && (
-        <section aria-label="Payroll policies" className="grid gap-2">
-          <h3 className="text-sm font-semibold">Payroll policies</h3>
-          <div className={tableWrap}>
-            <WorkTable paging={false} tableId="app/features/hr/views/hr-payroll-runs-workspace:1" className={tableClass}>
-              <thead className={headClass}>
-                <tr>
-                  <th className={th}>Payroll currency</th>
-                  <th className={th}>Precision</th>
-                  <th className={th}>Rounding</th>
-                  <th className={th}>Net payable liability account</th>
-                  <th className={th}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {policies.map((p) => (
-                  <HrClickableRow
-                    key={p.id}
-                    disabled={locked}
-                    onOpen={() => {
-                      setError("");
-                      setPolicyId(p.id);
-                    }}
-                  >
-                    <td className={td + " font-medium"}>{currencyLabel(data, p.currency_code)}</td>
-                    <td className={td + " text-muted-foreground"}>{p.money_scale} decimals</td>
-                    <td className={td + " text-muted-foreground"}>{roundingLabels[p.rounding_mode] ?? p.rounding_mode}</td>
-                    <td className={td + " text-muted-foreground"}>{accountLabel(data, p.net_payable_account_id)}</td>
-                    <td className={td}>
-                      <State value={p.in_use ? "in_use" : "active"} />
-                    </td>
-                  </HrClickableRow>
-                ))}
-                {!policies.length && (
-                  <tr>
-                    <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
-                      {state.loading ? "Loading payroll policies…" : "No payroll policies match this company and search."}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </WorkTable>
-          </div>
-        </section>
-      )}
       {data?.period && data.period.run_number > 0 && permissions.includes("hr.payroll.result.read") && (
         <HrPayrollRunComparison key={company + month} client={client} data={data} revision={revision} disabled={locked} />
       )}
+      {/* Employee results are inspected on Payroll Review & Approval, not on Payroll Runs. */}
+      {review && (
       <section aria-label="Employee results" className="grid gap-2">
         <h3 className="text-sm font-semibold">Employee results</h3>
         <div className={tableWrap}>
@@ -401,7 +428,8 @@ export function HrPayrollRunsWorkspace({
           </WorkTable>
         </div>
       </section>
-      {data && (
+      )}
+      {review && data && (
         <WorkOffsetPagination
           busy={state.loading || locked}
           total={data.total}
@@ -427,7 +455,9 @@ export function HrPayrollRunsWorkspace({
                   <strong>{item.action.replaceAll("_", " ")}</strong>
                   <span className="text-xs text-muted-foreground">{new Date(item.occurred_at).toLocaleString()}</span>
                 </div>
-                <p className="mt-1 break-words text-muted-foreground">{item.reason}</p>
+                {item.reason && item.reason !== HR_DEFAULT_REASON ? (
+                  <p className="mt-1 break-words text-muted-foreground">{item.reason}</p>
+                ) : null}
                 <p className="mt-1 break-all text-xs text-muted-foreground">
                   {item.actor_id}
                   {item.override ? " · Audited administrator override" : ""}
@@ -530,7 +560,16 @@ export function HrPayrollRunsWorkspace({
           }
         >
           <WorkForm id="payroll-run-action" onSubmit={save} className="grid gap-4">
-            <fieldset disabled={busy} className="m-0! grid min-w-0 gap-4 border-0! p-0!">
+            <fieldset disabled={busy} className="m-0! min-w-0 border-0! p-0!">
+              <HrFormRows>
+              {(draft.action === "policy" || draft.action === "open") && (
+                <HrRecordCodeField
+                  kind={draft.action === "policy" ? "payroll_policy" : "payroll_period"}
+                  companyId={draft.snapshot.company_id || undefined}
+                  value={null}
+                  id={draft.action === "policy" ? "hr-payroll-policy-code" : "hr-payroll-period-code"}
+                />
+              )}
               {(draft.action === "policy" || draft.action === "policy_update") && (
                 <>
                   <Field title="Payroll currency">
@@ -609,8 +648,9 @@ export function HrPayrollRunsWorkspace({
                     </select>
                   </Field>
                 )}
+              </HrFormRows>
             </fieldset>
-            <Field title="Reason">
+            <Field title={actionNote[draft.action]}>
               <Textarea
                 maxLength={500}
                 value={draft.reason}
@@ -668,26 +708,12 @@ function EmployeeResult({ employee }: { employee: Employee }) {
           <div className="mt-3 grid min-w-0 gap-2 text-xs" aria-label="Applied employee jurisdiction overrides">
             <h4 className="font-semibold">Applied employee jurisdiction overrides</h4>
             {employee.statutory.jurisdiction_overrides.map((o) => (
-              <dl className="grid min-w-0 gap-1 rounded-md border border-border p-2 sm:grid-cols-2" key={o.id}>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Rule category</dt>
-                  <dd className="break-words">{o.rule_scope}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Jurisdiction</dt>
-                  <dd className="break-all">{o.jurisdiction_id}</dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Effective range</dt>
-                  <dd>
-                    {o.effective_from} – {o.effective_to ?? "Open ended"}
-                  </dd>
-                </div>
-                <div className="min-w-0">
-                  <dt className="text-muted-foreground">Approval reference</dt>
-                  <dd className="break-all font-mono">{o.id}</dd>
-                </div>
-              </dl>
+              <HrDetailList key={o.id}>
+                <HrDetailTile label="Rule category" value={o.rule_scope} />
+                <HrDetailTile label="Jurisdiction" value={o.jurisdiction_id} />
+                <HrDetailTile label="Effective range" value={`${o.effective_from} – ${o.effective_to ?? "Open ended"}`} />
+                <HrDetailTile label="Approval reference" value={o.id} mono />
+              </HrDetailList>
             ))}
           </div>
         )}
@@ -699,12 +725,12 @@ function EmployeeResult({ employee }: { employee: Employee }) {
                 <summary className="cursor-pointer">
                   {c.effective_from} – {c.effective_to} · {c.calendar_days} earned calendar day(s)
                 </summary>
-                <dl className="mt-2 grid min-w-0 gap-1 text-muted-foreground">
-                  <dt>Context input fingerprint</dt>
-                  <dd className="break-all font-mono">{c.input_hash}</dd>
-                  <dt>Resolved rule set</dt>
-                  <dd className="break-all font-mono">{c.resolved_set_hash}</dd>
-                </dl>
+                <div className="mt-2">
+                  <HrDetailList>
+                    <HrDetailTile label="Context input fingerprint" value={c.input_hash} mono />
+                    <HrDetailTile label="Resolved rule set" value={c.resolved_set_hash} mono />
+                  </HrDetailList>
+                </div>
               </details>
             ))}
           </div>
@@ -712,20 +738,21 @@ function EmployeeResult({ employee }: { employee: Employee }) {
         {employee.statutory?.state === "sealed" && (
           <details className="mt-3 min-w-0 text-xs">
             <summary className="cursor-pointer">Retained statutory fingerprints</summary>
-            <dl className="mt-2 grid min-w-0 gap-2">
-              <div>
-                <dt className="text-muted-foreground">Snapshot</dt>
-                <dd className="break-all font-mono">{employee.statutory.snapshot_id}</dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Input / resolved rule set</dt>
-                <dd className="break-all font-mono">
-                  {employee.statutory.input_hash}
-                  <br />
-                  {employee.statutory.resolved_set_hash}
-                </dd>
-              </div>
-            </dl>
+            <div className="mt-2">
+              <HrDetailList>
+                <HrDetailTile label="Snapshot" value={employee.statutory.snapshot_id} mono />
+                <HrDetailTile
+                  label="Input / resolved rule set"
+                  value={
+                    <span className="font-mono text-[12.5px]">
+                      {employee.statutory.input_hash}
+                      <br />
+                      {employee.statutory.resolved_set_hash}
+                    </span>
+                  }
+                />
+              </HrDetailList>
+            </div>
           </details>
         )}
       </section>

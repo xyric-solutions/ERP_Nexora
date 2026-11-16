@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { hasAssetJournalReferences } from "../../fixed-assets/sources.js";
 
 import { evaluateApprovalActor } from "@nexora/auth";
 import type {
@@ -1113,6 +1114,19 @@ export class SourceBankReceiptRepository {
         throw new BankingApiError(409, "RECEIPT_NOT_REVERSIBLE", "Only a posted Bank Receipt can be reversed.");
       const financeClient = await createFinanceTransactionClient(client);
       let reversed;
+      if (
+        await hasAssetJournalReferences(
+          client,
+          context.tenantId,
+          previous.company_id,
+          previous.original_journal_entry_id,
+        )
+      )
+        throw new BankingApiError(
+          409,
+          "RECEIPT_REGISTERED_ASSET_REFUND",
+          "This receipt is linked to an asset refund. Resolve its governed asset correction before reversal.",
+        );
       try {
         reversed = await this.finance.reverse(financeClient, {
           tenantId: context.tenantId,

@@ -4,6 +4,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type {
   CreateHrOfferRequest,
@@ -129,7 +130,7 @@ function OfferEditor({
         />
       </HrDetailGroup>
       <HrDetailSection title="Terms">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <HrFormRows className="gap-3">
           <label className="grid content-start gap-1.5 text-sm">
             Proposed monthly gross ({context.currency_code})
             <AmountInput
@@ -182,10 +183,10 @@ function OfferEditor({
               onChange={(e) => field("notice_days", Number(e.target.value))}
             />
           </label>
-        </div>
+        </HrFormRows>
       </HrDetailSection>
       <HrDetailSection title="Placement">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <HrFormRows className="gap-3">
           {(
             [
               ["cost_center_id", "cost_center", "Cost centre"],
@@ -206,7 +207,7 @@ function OfferEditor({
               </select>
             </label>
           ))}
-          <label className="grid content-start gap-1.5 text-sm sm:col-span-2">
+          <label className="grid content-start gap-1.5 text-sm">
             Reporting manager
             <select
               className={selectClass}
@@ -221,7 +222,7 @@ function OfferEditor({
               ))}
             </select>
           </label>
-        </div>
+        </HrFormRows>
       </HrDetailSection>
       <HrDetailSection title="Exceptions & notes">
         {outside ? (
@@ -645,6 +646,13 @@ export function HrOfferManagementWorkspace({ onNavigate }: { onNavigate?: Naviga
         error={error}
         notice={notice}
       >
+        {editor === "new" || (editor === "edit" && detail) ? (
+          <HrRecordCodeField
+            kind="offer"
+            companyId={companyId || undefined}
+            value={editor === "edit" ? (detail?.reference ?? null) : null}
+          />
+        ) : null}
         {editor === "new" ? (
           <HrDetailSection title="Candidate">
             <label className="grid content-start gap-1.5 text-sm" htmlFor="offer-application">

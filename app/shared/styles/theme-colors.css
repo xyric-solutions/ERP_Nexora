@@ -20,7 +20,7 @@
   --nx-text: #252721;
   --nx-text-strong: #252721;
   --nx-text-muted: #65695c;
-  --nx-text-subtle: #74796a;
+  --nx-text-subtle: var(--nx-text-muted);
   --nx-text-inverse: #ffffff;
   --nx-action-text: #252721;
 

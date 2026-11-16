@@ -1,3 +1,4 @@
+import { allocateNewHrCode } from "./record-codes.js";
 import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { evaluateApprovalActor } from "@nexora/auth";
@@ -589,7 +590,7 @@ export class AttendanceCompletion {
             [context.tenantId, previous.id, input.effective_from],
           );
         await client.query(
-          `insert into hr_overtime_rule(tenant_id,id,company_id,category,multiplier,minimum_minutes,daily_cap_minutes,created_by,version_number,effective_from,effective_to,evidence_hash) values($1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11)`,
+          `insert into hr_overtime_rule(tenant_id,id,company_id,category,multiplier,minimum_minutes,daily_cap_minutes,created_by,version_number,effective_from,effective_to,evidence_hash,code) values($1,$2,$3,$4,1,$5,$6,$7,$8,$9,$10,$11,$12)`,
           [
             context.tenantId,
             id,
@@ -602,6 +603,7 @@ export class AttendanceCompletion {
             input.effective_from,
             input.effective_to,
             hash,
+            await allocateNewHrCode(client, context.tenantId, input.company_id, "overtime_rule"),
           ],
         );
         return {
@@ -634,7 +636,7 @@ export class AttendanceCompletion {
         this.validateEvidence(evidence, input.expected_evidence_hash, input.requested_minutes, true);
         const id = `overtime-${randomUUID()}`;
         await client.query(
-          `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12)`,
+          `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash,reference) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12,$13)`,
           [
             context.tenantId,
             id,
@@ -648,6 +650,7 @@ export class AttendanceCompletion {
             evidence.rule!.id,
             evidence.rule!.evidence_hash,
             evidence.hash,
+            await allocateNewHrCode(client, context.tenantId, input.company_id, "overtime_request"),
           ],
         );
         const after = await this.overtimeRow(client, context, input.company_id, id);
@@ -711,7 +714,7 @@ export class AttendanceCompletion {
         );
         const replacementId = `overtime-${randomUUID()}`;
         await client.query(
-          `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12)`,
+          `insert into hr_overtime_request(tenant_id,id,company_id,employee_id,work_date,category,requested_minutes,reason,requested_by,operational_rule_id,operational_rule_evidence_hash,workflow_managed,review_source_hash,reference) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12,$13)`,
           [
             context.tenantId,
             replacementId,
@@ -725,6 +728,7 @@ export class AttendanceCompletion {
             evidence.rule!.id,
             evidence.rule!.evidence_hash,
             evidence.hash,
+            await allocateNewHrCode(client, context.tenantId, input.company_id, "overtime_request"),
           ],
         );
         const after = await this.overtimeRow(client, context, input.company_id, replacementId);

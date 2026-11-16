@@ -1,4 +1,36 @@
-import type { TaxInput, TaxUpdate, TaxStatus, TaxDirectory, TaxDetail, TaxOptions } from "@nexora/contracts";
+import type {
+  AssetOptions,
+  AssetWorkspace,
+  AssetDashboard,
+  AssetSources,
+  AssetDetail,
+  AssetCategoryInput,
+  AssetCategory,
+  AssetCreate,
+  FixedAsset,
+  AssetUpdate,
+  AssetAction,
+  AssetEventInput,
+  AssetEvent,
+  AssetEventAction,
+  AssetDepreciationInput,
+  AssetDepreciationRun,
+  AssetDepreciationAction,
+  AssetAttachment,
+  AssetAttachmentInput,
+  AssetCompanyPolicyInput,
+  AssetCompanyPolicy,
+  AssetValuation,
+} from "@nexora/contracts";
+import type {
+  AssetJournalDirectory,
+  TaxInput,
+  TaxUpdate,
+  TaxStatus,
+  TaxDirectory,
+  TaxDetail,
+  TaxOptions,
+} from "@nexora/contracts";
 import type {
   SubledgerWorkspace,
   SubledgerReport,
@@ -6,7 +38,7 @@ import type {
   SubledgerPartyInput,
   SubledgerPolicy,
   SubledgerPolicyInput,
-  SubledgerInput,
+  SubledgerRequest,
   SubledgerOperation,
   SubledgerAction,
 } from "@nexora/contracts";
@@ -70,7 +102,7 @@ import type {
   PurchaseFlow,
   PurchaseDocument,
   PurchaseDirectory,
-  SavePurchaseRequest,
+  SavePurchaseInput,
   PurchaseActionRequest,
   PurchaseMutation,
   SupplierInput,
@@ -415,6 +447,7 @@ import type {
   HrEmployeeEmploymentHistoryDirectory,
   HrEmployeeEmploymentHistoryRequest,
   HrEmployeeNumberPreview,
+  HrRecordCodePreview,
   WithdrawHrEmployeeDraftRequest,
   HrEmployeeAssignmentDirectory,
   HrEmployeeStatusHistoryDirectory,
@@ -705,6 +738,189 @@ export class NexoraApiClient {
   listStockTransfers(query: string): Promise<StockTransferDirectory> {
     return this.request(`/api/v1/inventory/transfers${query}`);
   }
+  getFixedAssetOptions(company: string): Promise<AssetOptions> {
+    return this.request(`/api/v1/assets/options?company_id=${encodeURIComponent(company)}`);
+  }
+  saveFixedAssetCompanyPolicy(
+    payload: AssetCompanyPolicyInput,
+    csrf: string,
+    key: string,
+  ): Promise<AssetCompanyPolicy> {
+    return this.request("/api/v1/assets/policies", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + payload.expected_version + '"' },
+      body: JSON.stringify(payload),
+    });
+  }
+  classifyFixedAssetNominal(
+    id: string,
+    payload: { company_id: string; expected_version: number; active: boolean; reason: string },
+    csrf: string,
+    key: string,
+  ): Promise<{ account_id: string; active: boolean; version: number }> {
+    return this.request("/api/v1/assets/nominals/" + encodeURIComponent(id) + "/classification", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + payload.expected_version + '"' },
+      body: JSON.stringify(payload),
+    });
+  }
+  getFixedAssetValuation(id: string, company: string, date: string): Promise<AssetValuation> {
+    return this.request(
+      "/api/v1/assets/records/" +
+        encodeURIComponent(id) +
+        "/valuation?company_id=" +
+        encodeURIComponent(company) +
+        "&as_of=" +
+        encodeURIComponent(date),
+    );
+  }
+  getFixedAssetJournals(id: string, company: string, offset = 0): Promise<AssetJournalDirectory> {
+    return this.request(
+      "/api/v1/assets/records/" +
+        encodeURIComponent(id) +
+        "/journals?company_id=" +
+        encodeURIComponent(company) +
+        "&offset=" +
+        offset,
+    );
+  }
+  uploadFixedAssetAttachment(
+    id: string,
+    payload: AssetAttachmentInput,
+    file: File,
+    csrf: string,
+    key: string,
+  ): Promise<AssetAttachment> {
+    const body = new FormData();
+    body.set("title", payload.title);
+    body.set("file", file);
+    return this.request(
+      `/api/v1/assets/records/${encodeURIComponent(id)}/attachments?company_id=${encodeURIComponent(payload.company_id)}`,
+      { method: "POST", headers: { "x-csrf-token": csrf, "idempotency-key": key }, body },
+    );
+  }
+  stageFixedAssetDocument(
+    payload: AssetAttachmentInput,
+    file: File,
+    csrf: string,
+    key: string,
+  ): Promise<import("@nexora/contracts").AssetStagedDocument> {
+    const body = new FormData();
+    body.set("title", payload.title);
+    body.set("file", file);
+    return this.request(`/api/v1/assets/staged-documents?company_id=${encodeURIComponent(payload.company_id)}`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body,
+    });
+  }
+  getFixedAssetAccrualSchedule(
+    id: string,
+    query: import("@nexora/contracts").AssetAccrualQuery,
+  ): Promise<import("@nexora/contracts").AssetAccrualSchedule> {
+    return this.request(
+      `/api/v1/assets/records/${encodeURIComponent(id)}/accrual-schedule?${new URLSearchParams(query).toString()}`,
+    );
+  }
+  downloadFixedAssetAttachment(id: string, attachment: string, company: string): Promise<Blob> {
+    return this.request(
+      `/api/v1/assets/records/${encodeURIComponent(id)}/attachments/${encodeURIComponent(attachment)}/content?company_id=${encodeURIComponent(company)}`,
+      undefined,
+      "blob",
+    );
+  }
+  getFixedAssetWorkspace(query: string): Promise<AssetWorkspace> {
+    return this.request(`/api/v1/assets/workspace${query}`);
+  }
+  getFixedAssetDashboard(query: string): Promise<AssetDashboard> {
+    return this.request(`/api/v1/assets/dashboard${query}`);
+  }
+  getFixedAssetReports(query: string): Promise<AssetDashboard> {
+    return this.request(`/api/v1/assets/reports${query}`);
+  }
+  getFixedAssetSources(query: string): Promise<AssetSources> {
+    return this.request(`/api/v1/assets/sources${query}`);
+  }
+  getFixedAsset(id: string, company: string, historyOffset = 0): Promise<AssetDetail> {
+    return this.request(
+      "/api/v1/assets/records/" +
+        encodeURIComponent(id) +
+        "?company_id=" +
+        encodeURIComponent(company) +
+        "&history_offset=" +
+        historyOffset,
+    );
+  }
+  createFixedAssets(payload: AssetCreate, csrf: string, key: string): Promise<{ items: FixedAsset[] }> {
+    return this.request("/api/v1/assets/records", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(payload),
+    });
+  }
+  updateFixedAsset(id: string, payload: AssetUpdate, csrf: string, key: string): Promise<FixedAsset> {
+    return this.request(`/api/v1/assets/records/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
+      body: JSON.stringify(payload),
+    });
+  }
+  actOnFixedAsset(id: string, payload: AssetAction, csrf: string, key: string): Promise<FixedAsset> {
+    return this.request(`/api/v1/assets/records/${encodeURIComponent(id)}/actions`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
+      body: JSON.stringify(payload),
+    });
+  }
+  saveFixedAssetCategory(
+    id: string | null,
+    payload: AssetCategoryInput,
+    csrf: string,
+    key: string,
+  ): Promise<AssetCategory> {
+    return this.request(`/api/v1/assets/categories${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
+      body: JSON.stringify(payload),
+    });
+  }
+  createFixedAssetEvent(payload: AssetEventInput, csrf: string, key: string): Promise<AssetEvent> {
+    return this.request("/api/v1/assets/events", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(payload),
+    });
+  }
+  actOnFixedAssetEvent(id: string, payload: AssetEventAction, csrf: string, key: string): Promise<AssetEvent> {
+    return this.request(`/api/v1/assets/events/${encodeURIComponent(id)}/actions`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
+      body: JSON.stringify(payload),
+    });
+  }
+  previewFixedAssetDepreciation(
+    payload: AssetDepreciationInput,
+    csrf: string,
+    key: string,
+  ): Promise<AssetDepreciationRun> {
+    return this.request("/api/v1/assets/depreciation", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(payload),
+    });
+  }
+  actOnFixedAssetDepreciation(
+    id: string,
+    payload: AssetDepreciationAction,
+    csrf: string,
+    key: string,
+  ): Promise<AssetDepreciationRun> {
+    return this.request(`/api/v1/assets/depreciation/${encodeURIComponent(id)}/actions`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
+      body: JSON.stringify(payload),
+    });
+  }
   getStockTransfer(id: string, company: string): Promise<StockTransfer> {
     return this.request(
       `/api/v1/inventory/transfers/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`,
@@ -897,7 +1113,7 @@ export class NexoraApiClient {
   }
   savePurchaseDocument(
     id: string | null,
-    payload: SavePurchaseRequest,
+    payload: SavePurchaseInput,
     csrf: string,
     key: string,
   ): Promise<PurchaseMutation> {
@@ -3563,6 +3779,9 @@ export class NexoraApiClient {
   getHrEmployeeNumberPreview(query: string): Promise<HrEmployeeNumberPreview> {
     return this.request(`/api/v1/hr/employee_number_preview${query}`);
   }
+  getHrRecordCodePreview(query: string): Promise<HrRecordCodePreview> {
+    return this.request(`/api/v1/hr/record_code_preview${query}`);
+  }
   withdrawHrEmployeeDraft(
     employeeId: string,
     payload: WithdrawHrEmployeeDraftRequest,
@@ -4448,7 +4667,7 @@ export class NexoraApiClient {
     });
   }
   createSubledgerOperation(
-    payload: SubledgerInput,
+    payload: SubledgerRequest,
     csrfToken: string,
     idempotencyKey: string,
   ): Promise<SubledgerOperation> {

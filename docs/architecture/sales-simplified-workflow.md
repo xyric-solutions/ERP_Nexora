@@ -265,9 +265,26 @@ server-side lifecycle states (draft/posted), approval and permission checks,
 audit history and idempotency before going live. Customer receipts and
 payments should hand over to the existing live Banking receipt and payment flows.
 
-### Currencies
+### Live bank currency integration
 
-Every quotation, sales order, invoice and Receipts document has a
+The normal Invoices, Receipts and Customers routes use the shared, persistent
+Accounting subledger. Receipt/settlement and bank-funded advance requests may omit
+currency: the server derives it from the authorized active company bank and rejects
+a conflicting explicit value. The form shows read-only bank currency and clears
+payment amount, fee and bank-deal state when the bank changes. Operational receipts
+need no original-currency selector or manual FX input; invoice allocations retain
+their original currencies and use Accounting's date-effective cross-currency rates.
+
+Currency/rate configuration, accounting setup and valuation stay in Accounting.
+The Sales Currency Accounts menu entry is hidden while compatible deep links,
+balances and reports remain accessible. Accounting retains its advanced evidenced
+bank-deal workflow. Strict canonical currency values remain in saved operations,
+with existing independent approval, audit, idempotency, revalidation and exact
+balanced GL posting. No new Sales ledger or currency service is introduced.
+
+### Prototype document currencies
+
+The explicitly labelled sample workflow's quotation, sales order, invoice and Receipts documents have a
 **Currency** (any active ISO 4217 code, searchable; defaults to the customer's
 preferred currency) and, when it is not PKR, a required **Exchange rate · PKR
 per 1 unit**. Amounts, PDFs, vouchers and amount-in-words use the document

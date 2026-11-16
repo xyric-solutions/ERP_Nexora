@@ -1,7 +1,7 @@
 import type { Request } from "express";
 import busboy from "busboy";
 
-import { HttpError } from "../../../http/errors.js";
+import { HttpError } from "./errors.js";
 
 /** Buffers one uploaded file plus a bounded set of text fields from a multipart request. */
 export async function parseSingleFileMultipart(
@@ -25,7 +25,10 @@ export async function parseSingleFileMultipart(
           fileSize: options.maxFileBytes,
           files: 1,
           fields: options.allowedFields.size,
-          parts: options.allowedFields.size + 1,
+          // Busboy emits partsLimit when the count reaches the limit, even if
+          // that last part is valid. Reserve one sentinel; field/file handlers
+          // still reject every unexpected field and additional file.
+          parts: options.allowedFields.size + 2,
           fieldSize: 4_096,
         },
       });
@@ -42,7 +45,12 @@ export async function parseSingleFileMultipart(
       failure ??= error;
     };
     parser.on("field", (name, value, information) => {
-      if (!options.allowedFields.has(name) || name in fields || information.nameTruncated || information.valueTruncated) {
+      if (
+        !options.allowedFields.has(name) ||
+        name in fields ||
+        information.nameTruncated ||
+        information.valueTruncated
+      ) {
         fail(new HttpError(400, "MULTIPART_INVALID", "The multipart fields are invalid."));
         return;
       }
@@ -57,12 +65,20 @@ export async function parseSingleFileMultipart(
       fileSeen = true;
       fileName = information.filename;
       file.on("data", (chunk: Buffer) => chunks.push(chunk));
-      file.on("limit", () => fail(new HttpError(413, "UPLOAD_TOO_LARGE", `The ${options.label} exceeds the upload size limit.`)));
+      file.on("limit", () =>
+        fail(new HttpError(413, "UPLOAD_TOO_LARGE", `The ${options.label} exceeds the upload size limit.`)),
+      );
       file.on("error", () => fail(new HttpError(400, "MULTIPART_INVALID", "The uploaded file stream is invalid.")));
     });
-    parser.on("filesLimit", () => fail(new HttpError(400, "MULTIPART_INVALID", `Exactly one ${options.label} is required.`)));
-    parser.on("fieldsLimit", () => fail(new HttpError(400, "MULTIPART_INVALID", "Too many multipart fields were supplied.")));
-    parser.on("partsLimit", () => fail(new HttpError(400, "MULTIPART_INVALID", "Too many multipart parts were supplied.")));
+    parser.on("filesLimit", () =>
+      fail(new HttpError(400, "MULTIPART_INVALID", `Exactly one ${options.label} is required.`)),
+    );
+    parser.on("fieldsLimit", () =>
+      fail(new HttpError(400, "MULTIPART_INVALID", "Too many multipart fields were supplied.")),
+    );
+    parser.on("partsLimit", () =>
+      fail(new HttpError(400, "MULTIPART_INVALID", "Too many multipart parts were supplied.")),
+    );
     parser.on("error", () => fail(new HttpError(400, "MULTIPART_INVALID", "The multipart request is invalid.")));
     parser.on("close", () => {
       if (failure) {

@@ -6,6 +6,22 @@
  */
 export const hrCell = "px-4 py-3";
 
+/**
+ * Compact record-list standard (Employee Lifecycle and its approval lists): every cell stays on one
+ * line, so all sections share the same row height. Column order is Code, Name (or the primary
+ * identifying field; employee lists use Employee Code then Employee Name), remaining details, and
+ * Status last. Never stack a code underneath a name.
+ */
+export const hrListCell = "px-4 py-2.5 whitespace-nowrap align-middle";
+export const hrListHead = `${hrListCell} font-semibold`;
+/** A record or employee code cell. */
+export const hrListCode = `${hrListCell} font-mono text-[13px]`;
+/** A long text cell (name, description) that truncates instead of wrapping. */
+export const hrListText = `${hrListCell} max-w-72 truncate`;
+
+/** "Re-approve" for a rejected record, otherwise "Approve": rejected records can be approved again. */
+export const hrApproveLabel = (status: string) => (status === "rejected" ? "Re-approve" : "Approve");
+
 export const hrDataTableClass = [
   "w-full min-w-210 border-separate border-spacing-0 text-left text-sm",
   "[&_th]:whitespace-nowrap [&_th]:border-b [&_th]:border-border [&_th]:bg-muted/60 [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold",

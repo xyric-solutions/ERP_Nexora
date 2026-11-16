@@ -21,6 +21,7 @@ import {
 } from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { nextMasterCode } from "../model/hr-master-code";
 import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
@@ -492,13 +493,15 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
         {editor ? (
           <div className="grid gap-5">
             <HrDetailSection title="Details">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-code`}>
-                  Auto-generated code
-                  <Input id={`configured-${sectionKey}-code`} value={editor.code} disabled />
-                </label>
+              <HrFormRows>
+                <HrRecordCodeField
+                  id={`configured-${sectionKey}-code`}
+                  kind={definition.type}
+                  companyId={companyId}
+                  value={editor.mode === "edit" ? editor.code : null}
+                />
                 <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`configured-${sectionKey}-name`}>
-                  Name
+                  {`${sectionSingular} name`}
                   <Input
                     id={`configured-${sectionKey}-name`}
                     maxLength={160}
@@ -506,11 +509,11 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                     onChange={(event) => setEditor({ ...editor, name: event.target.value })}
                   />
                 </label>
-              </div>
+              </HrFormRows>
             </HrDetailSection>
             {definition.fields.length ? (
               <HrDetailSection title="Configuration">
-                <div className="grid gap-3 sm:grid-cols-2">
+                <HrFormRows>
                   {definition.fields.map((field) => {
                     const isConfiguration = field.key === "default_nominal" || field.key === "working_pattern";
                     const id = `configured-${sectionKey}-${isConfiguration ? "configuration" : field.key}`;
@@ -554,7 +557,7 @@ export function HrConfiguredMasterSheetWorkspace({ definition }: { definition: H
                       </label>
                     );
                   })}
-                </div>
+                </HrFormRows>
               </HrDetailSection>
             ) : null}
             <HrDetailSection title="Description">

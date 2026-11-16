@@ -60,7 +60,7 @@ export const administrationModuleCatalogue = [
     sharedAdminKeys: ["workflow.approval.approve", "workflow.approval.reject"],
     live: true,
   },
-  { id: "assets", label: "Fixed Assets & Leases", permissionPrefixes: [], live: false },
+  { id: "assets", label: "Fixed Assets", permissionPrefixes: ["assets."], live: true },
   { id: "expenses", label: "Expense Management", permissionPrefixes: [], live: false },
   { id: "documents", label: "Document Management", permissionPrefixes: [], live: false },
   { id: "budget", label: "Budget & Planning", permissionPrefixes: [], live: false },

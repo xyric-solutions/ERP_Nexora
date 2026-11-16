@@ -178,6 +178,7 @@ export function WorkTable({
   pagination,
   continuation,
   paging = true,
+  keyboardScroll = false,
   ...props
 }: ComponentProps<"table"> & {
   tableId: string;
@@ -186,6 +187,7 @@ export function WorkTable({
   pagination?: WorkRemotePagination;
   continuation?: WorkContinuation;
   paging?: boolean;
+  keyboardScroll?: boolean;
 }) {
   const inForm = useContext(WorkFormContext),
     surface = useContext(WorkSurfaceContext),
@@ -549,7 +551,15 @@ export function WorkTable({
           ) : null}
         </div>
       ) : null}
-      <div className="min-w-0 overflow-x-auto">
+      <div
+        tabIndex={keyboardScroll ? 0 : undefined}
+        role={keyboardScroll ? "region" : undefined}
+        aria-label={keyboardScroll ? `${label} scroll area` : undefined}
+        className={cn(
+          "min-w-0 overflow-x-auto",
+          keyboardScroll && "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+        )}
+      >
         <table {...props} className={cn(className)}>
           {parts.map((part, partIndex) => {
             if (part.type === "thead")

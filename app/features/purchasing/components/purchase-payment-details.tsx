@@ -200,6 +200,9 @@ export function PurchasePaymentDetailsForm({
                 ) : null}
               </div>
             ) : null}
+            <LabeledField label="Payment currency">
+              <Input readOnly value={input.currency} placeholder="Selected automatically from the bank" />
+            </LabeledField>
           </div>
           {value.entries.length ? (
             value.entries.map((entry, index) => {
@@ -342,6 +345,21 @@ export function PurchasePaymentDetailsForm({
               deducted separately.
             </p>
           ) : null}
+          {value.fx_snapshot ? (
+            <div role="group" className="grid gap-1 text-sm tabular-nums" aria-label="Accounting currency conversion">
+              <p className="m-0 text-muted-foreground">
+                Accounting rate: 1 {value.fx_snapshot.currency} = {value.fx_snapshot.rate} {value.fx_snapshot.base_currency}
+                {value.fx_snapshot.rate_effective_date ? ` · ${value.fx_snapshot.rate_effective_date}` : ""}
+              </p>
+              <p className="m-0 font-medium">
+                Net bank amount in base currency: {value.fx_snapshot.base_currency} {value.fx_snapshot.net_base}
+              </p>
+            </div>
+          ) : (
+            <p className="m-0 text-xs text-muted-foreground">
+              Save the instruction to retrieve its Accounting exchange rate and base-currency amounts.
+            </p>
+          )}
         </fieldset>
       </div>
     </section></WorkFormLayout>

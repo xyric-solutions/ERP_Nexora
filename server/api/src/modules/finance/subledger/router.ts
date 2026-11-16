@@ -1,7 +1,7 @@
 import { Router, type Request } from "express";
 import {
   subledgerActionSchema,
-  subledgerOperationInputSchema,
+  subledgerOperationRequestSchema,
   subledgerPartyInputSchema,
   subledgerPolicyInputSchema,
   subledgerQuerySchema,
@@ -74,7 +74,7 @@ export function createSubledgerRouter(
     );
   });
   router.post("/operations", async (req, res) => {
-    const input = subledgerOperationInputSchema.parse(req.body),
+    const input = subledgerOperationRequestSchema.parse(req.body),
       key = guard(req);
     res
       .status(201)

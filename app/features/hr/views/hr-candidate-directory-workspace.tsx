@@ -3,6 +3,7 @@ import { WorkTable } from "@/shared/ui/work-table";
 import { WorkForm } from "@/shared/ui/work-form";
 
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrRecordCodeField } from "../components/hr-create-form";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { HrCandidateDirectory } from "@nexora/contracts";
@@ -311,8 +312,15 @@ export function HrCandidateDirectoryWorkspace() {
               void save(selected, editor);
             }}
           >
+            <HrRecordCodeField
+              id="candidate-code"
+              kind="candidate"
+              companyId={companyId}
+              value={selected.reference}
+              existing
+            />
             <HrDetailSection title="Name">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4">
                 <label htmlFor="candidate-firstName" className="grid content-start gap-1 text-sm font-medium">
                   First name
                   <Input
@@ -336,7 +344,7 @@ export function HrCandidateDirectoryWorkspace() {
               </div>
             </HrDetailSection>
             <HrDetailSection title="Contact">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4">
                 <label htmlFor="candidate-email" className="grid content-start gap-1 text-sm font-medium">
                   Email
                   <Input
@@ -360,7 +368,7 @@ export function HrCandidateDirectoryWorkspace() {
               </div>
             </HrDetailSection>
             <HrDetailSection title="Sourcing">
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-4">
                 <label className="grid content-start gap-1 text-sm font-medium">
                   Source
                   <select

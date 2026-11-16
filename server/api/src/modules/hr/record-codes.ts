@@ -1,4 +1,5 @@
 import type { PoolClient } from "pg";
+import type { HrRecordCodeKind } from "@nexora/contracts";
 
 // Sources are internal constants; callers cannot supply SQL identifiers.
 const sources = {
@@ -28,8 +29,52 @@ const sources = {
   branch: ["PRJ", "organization_unit", "code", null],
   department: ["DEPT", "organization_unit", "code", null],
   warehouse: ["WH", "organization_unit", "code", null],
-} as const;
+  // HR154: every Add / New / Create form allocates a code. Recruitment and attendance records keep
+  // their historical year-random references; new records use the sequential PREFIX-### form.
+  requisition: ["MRQ", "hr_manpower_requisition", "reference", "company_id"],
+  opening: ["JOP", "hr_job_opening", "reference", "company_id"],
+  candidate: ["CAN", "hr_candidate", "reference", "company_id"],
+  application: ["APL", "hr_recruitment_application", "reference", "company_id"],
+  offer: ["OFR", "hr_recruitment_offer", "reference", "company_id"],
+  interview: ["INT", "hr_recruitment_interview", "code", null],
+  assessment: ["ASM", "hr_recruitment_assessment", "code", null],
+  shift_allocation: ["SAS", "hr_shift_assignment", "reference", "company_id"],
+  leave_request: ["LVR", "hr_leave_request", "reference", "company_id"],
+  leave_posting: ["LBP", "hr_leave_transaction", "code", "company_id"],
+  correction: ["ACR", "hr_attendance_correction", "reference", "company_id"],
+  overtime_request: ["OT", "hr_overtime_request", "reference", "company_id"],
+  overtime_rule: ["OTR", "hr_overtime_rule", "code", "company_id"],
+  transfer: ["TRF", "hr_employee_transfer_request", "code", "company_id"],
+  promotion: ["PRM", "hr_employee_promotion_request", "code", "company_id"],
+  manager_change: ["RMC", "hr_employee_manager_change_request", "code", "company_id"],
+  work_location_change: ["WLC", "hr_employee_work_location_change_request", "code", "company_id"],
+  placement_change: ["OPC", "hr_employee_organization_placement_change_request", "code", "company_id"],
+  assignment: ["ASG", "employee_assignment", "code", "company_id"],
+  hire: ["HIR", "hr_employment_relationship", "relationship_number", "legal_employer_id"],
+  onboarding: ["ONB", "hr_lifecycle_case", "code", "company_id"],
+  probation: ["PRB", "hr_lifecycle_case", "code", "company_id"],
+  resignation: ["RSG", "hr_lifecycle_case", "code", "company_id"],
+  termination: ["TRM", "hr_lifecycle_case", "code", "company_id"],
+  clearance: ["CLR", "hr_lifecycle_case", "code", "company_id"],
+  settlement: ["STL", "hr_lifecycle_case", "code", "company_id"],
+  contact: ["CON", "employee_contact", "code", null],
+  emergency_contact: ["EMC", "employee_emergency_contact", "code", null],
+  document: ["DOC", "employee_document", "code", null],
+  employment_history: ["EMH", "hr_employee_employment_history", "code", null],
+  salary: ["SLA", "hr_salary_assignment", "code", "company_id"],
+  adjustment: ["ADJ", "hr_payroll_adjustment", "code", "company_id"],
+  ot_arrangement: ["OTA", "hr_employee_ot_arrangement", "code", "company_id"],
+  statutory_setup: ["STS", "hr_payroll_localization_request", "code", "company_id"],
+  payroll_policy: ["PPL", "hr_payroll_policy", "code", "company_id"],
+  payroll_period: ["PRD", "hr_payroll_period", "code", "company_id"],
+} as const satisfies Record<HrRecordCodeKind, readonly [string, string, string, string | null]>;
 export type HrCodeKind = keyof typeof sources;
+export const hrCodeKinds = Object.keys(sources) as HrCodeKind[];
+
+/** Allocates a fresh code for a record created from an Add / New / Create form. */
+export function allocateNewHrCode(client: PoolClient, tenant: string, company: string, kind: HrCodeKind): Promise<string> {
+  return allocateHrCode(client, tenant, company, kind, "AUTO");
+}
 
 /** Call inside the authorized mutation transaction, after idempotency replay.
  * AUTO opts into allocation; explicit legacy API/import codes remain compatible.
@@ -47,7 +92,7 @@ export async function allocateHrCode(
   await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
     JSON.stringify(["hr-record-code", tenant, scope, kind]),
   ]);
-  const params: string[] = [tenant, `^${prefix}-([0-9]+)$`];
+  const params: string[] = [tenant, `^${prefix}-([0-9]{1,9})$`];
   let where = "tenant_id=$1";
   if (companyColumn) {
     params.push(company);
@@ -82,7 +127,7 @@ export async function previewHrCode(
 ): Promise<string> {
   const [prefix, table, column, companyColumn] = sources[kind];
   const scope = companyColumn ? company : tenant;
-  const params: string[] = [tenant, `^${prefix}-([0-9]+)$`];
+  const params: string[] = [tenant, `^${prefix}-([0-9]{1,9})$`];
   let where = "tenant_id=$1";
   if (companyColumn) {
     params.push(company);
@@ -115,7 +160,7 @@ export async function retireHrCode(
   code: string,
 ): Promise<void> {
   const [prefix, , , companyColumn] = sources[kind];
-  const match = new RegExp(`^${prefix}-([0-9]+)$`).exec(code);
+  const match = new RegExp(`^${prefix}-([0-9]{1,9})$`).exec(code);
   if (!match) return;
   const scope = companyColumn ? company : tenant;
   await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [

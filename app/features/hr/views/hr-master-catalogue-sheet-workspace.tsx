@@ -21,6 +21,7 @@ import {
 } from "../components/hr-detail-tile";
 import { HrApiClient } from "../api/hr-client";
 import { HrMasterSheet } from "../components/hr-master-sheet";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { nextMasterCode } from "../model/hr-master-code";
 import { HrMasterStatusBadge } from "../components/hr-master-status-badge";
 import { HrMasterDeleteButton } from "../components/hr-master-delete-button";
@@ -390,11 +391,13 @@ export function HrMasterCatalogueSheetWorkspace({
         {editor ? (
           <div className="grid gap-5">
             <HrDetailSection title="Details">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-code`}>
-                  Auto-generated code
-                  <Input id={`master-${type}-code`} value={editor.code} disabled />
-                </label>
+              <HrFormRows>
+                <HrRecordCodeField
+                  id={`master-${type}-code`}
+                  kind={type}
+                  companyId={companyId}
+                  value={editor.mode === "edit" ? editor.code : null}
+                />
                 <label className="grid content-start gap-1.5 text-sm font-medium" htmlFor={`master-${type}-name`}>
                   {nameLabel}
                   <Input
@@ -405,7 +408,7 @@ export function HrMasterCatalogueSheetWorkspace({
                     onChange={(event) => setEditor({ ...editor, name: event.target.value })}
                   />
                 </label>
-              </div>
+              </HrFormRows>
             </HrDetailSection>
             {withDepartment ? (
               <HrDetailSection title="Assignment">

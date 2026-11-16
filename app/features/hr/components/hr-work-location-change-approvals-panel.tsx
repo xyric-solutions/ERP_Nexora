@@ -5,6 +5,7 @@ import { HrPagination, matchesSearch, useHrPage } from "./hr-list-controls";
 import { HrDrawerActions } from "./hr-drawer-context";
 import { HrRecordDrawer } from "./hr-record-drawer";
 import { HrClickableRow } from "./hr-clickable-row";
+import { HrDetailList, HrDetailTile } from "./hr-detail-tile";
 
 import { useEffect, useRef, useState } from "react";
 
@@ -138,8 +139,8 @@ export function HrWorkLocationChangeApprovalsPanel({
   const decide = async () => {
     if (!detail || !decision || saving) return;
     const trimmed = reason.trim();
-    if (!trimmed || trimmed.length > 1000) {
-      setError("Enter a decision reason of 1 to 1000 characters.");
+    if (trimmed.length > 1000) {
+      setError("Keep the decision reason within 1000 characters.");
       setDecision(null);
       return;
     }
@@ -281,16 +282,16 @@ export function HrWorkLocationChangeApprovalsPanel({
                     </div>
                     <Badge variant="secondary">Pending</Badge>
                   </div>
-                  <dl className="grid gap-2 text-sm">
-                    <ReviewField label="Current work location" value={detail.current_work_location_name} />
-                    <ReviewField label="Proposed work location" value={detail.proposed_work_location_name} />
-                    <ReviewField
+                  <HrDetailList>
+                    <HrDetailTile label="Current work location" value={detail.current_work_location_name} />
+                    <HrDetailTile label="Proposed work location" value={detail.proposed_work_location_name} />
+                    <HrDetailTile
                       label="Jurisdiction"
                       value={`${detail.jurisdiction_country_code} / ${detail.jurisdiction_id}`}
                     />
-                    <ReviewField label="Effective date" value={detail.effective_on} />
-                    <ReviewField label="Business reason" value={detail.reason} />
-                  </dl>
+                    <HrDetailTile label="Effective date" value={detail.effective_on} />
+                    <HrDetailTile label="Business reason" value={detail.reason} />
+                  </HrDetailList>
                   <Alert variant={detail.jurisdiction_ready ? "default" : "destructive"}>
                     <AlertTitle>
                       {detail.jurisdiction_ready ? "Jurisdiction evidence ready" : "Jurisdiction evidence unavailable"}
@@ -383,14 +384,5 @@ export function HrWorkLocationChangeApprovalsPanel({
         </DialogContent>
       </Dialog>
     </section>
-  );
-}
-
-function ReviewField({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-foreground">{value}</dd>
-    </div>
   );
 }

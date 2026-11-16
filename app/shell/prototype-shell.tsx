@@ -929,6 +929,7 @@ export function PrototypeShell({
               <button
                 className="nx-intelligence-trigger nx-intelligence-trigger--ai"
                 type="button"
+                aria-label="Nexora AI"
                 onClick={() => setIntelligenceSurface({ kind: "assistant" })}
               >
                 <Sparkles className="h-[1em] w-[1em] shrink-0 text-[var(--nx-sidebar-text)]!" aria-hidden="true" />

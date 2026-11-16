@@ -7,7 +7,7 @@ select permission_key, module, resource, action, status from security_permission
 ```
 
 Total: 348 keys, all `active`; plus the 10 `manufacturing.` keys added by
-`security/0023_manufacturing_permissions` on 2026-11-13 (358). The list below is also read by
+`security/0024_manufacturing_permissions` on 2026-11-13 (358). The list below is also read by
 `tests/unit/administration-contracts.test.ts` to prove every action is classified
 by `packages/contracts/src/administration/access-levels.ts`. Refresh it when a
 migration adds permission keys.
@@ -429,4 +429,17 @@ security.user_account.revoke_sessions
 security.user_account.submit
 workflow.approval.approve
 workflow.approval.reject
+assets.asset.read
+assets.asset.create
+assets.asset.edit
+assets.asset.approve
+assets.asset.transfer
+assets.asset.return
+assets.asset.depreciate
+assets.asset.reverse
+assets.asset.maintain
+assets.asset.impair
+assets.asset.dispose
+assets.asset.categories
+assets.asset.report
 ```

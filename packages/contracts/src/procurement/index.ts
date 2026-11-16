@@ -2,6 +2,7 @@ import { z } from "zod";
 import { taxSnapshotSchema } from "../finance/taxes.js";
 import { supplierProfileSchema } from "./supplier-profile.js";
 import { billPaymentTermSchema } from "./bill-payment-terms.js";
+import { purchaseAssetRegistrationSchema } from "../fixed-assets/index.js";
 export { billPaymentTermSchema, billPaymentTerms, billPaymentSchedule } from "./bill-payment-terms.js";
 export type { BillPaymentTerm } from "./bill-payment-terms.js";
 export {
@@ -24,6 +25,10 @@ const quantity = z
 export const purchaseKindSchema = z.enum(["request", "rfq", "order", "receipt", "bill", "payment", "multi_payment"]);
 export const purchaseStateSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const purchaseLineSchema = z.strictObject({
+  nominal_account_id: identity.optional(),
+  create_fixed_asset: z.boolean().optional(),
+  asset_registration: purchaseAssetRegistrationSchema.optional(),
+  asset_category_id: identity.optional(),
   tax_definition_id: identity.optional(),
   tax_snapshot: taxSnapshotSchema.optional(),
   id: identity.optional(),
@@ -59,11 +64,23 @@ export const purchasePaymentEntrySchema = z.strictObject({
   additional_wht: amount,
   mailing_address: z.string().max(1500).optional(),
 });
+export const purchasePaymentFxSnapshotSchema = z.strictObject({
+  currency: z.string().regex(/^[A-Z]{3}$/),
+  base_currency: z.string().regex(/^[A-Z]{3}$/),
+  rate_id: identity.nullable(),
+  rate: z.string().regex(/^\d+(\.\d{1,18})?$/),
+  rate_effective_date: date.nullable(),
+  gross_base: z.string().regex(/^\d+(\.\d{1,8})?$/),
+  withholding_base: z.string().regex(/^\d+(\.\d{1,8})?$/),
+  additional_withholding_base: z.string().regex(/^\d+(\.\d{1,8})?$/),
+  net_base: z.string().regex(/^\d+(\.\d{1,8})?$/),
+});
 export const purchasePaymentDetailsSchema = z.strictObject({
   bank_account_id: identity,
   bank_account_name: z.string().max(200).optional(),
   account_number_masked: z.string().max(128).nullable().optional(),
   entries: z.array(purchasePaymentEntrySchema).min(1).max(100),
+  fx_snapshot: purchasePaymentFxSnapshotSchema.optional(),
 });
 export type PurchasePaymentDetails = z.infer<typeof purchasePaymentDetailsSchema>;
 export type PurchasePaymentEntry = z.infer<typeof purchasePaymentEntrySchema>;
@@ -94,6 +111,22 @@ export const savePurchaseRequestSchema = purchaseTermsSchema.extend({
   expected_version: z.number().int().positive().optional(),
 });
 export const updatePurchaseRequestSchema = savePurchaseRequestSchema.required({ expected_version: true });
+const purchaseInputTermsSchema = purchaseTermsSchema.partial({ currency: true });
+function requireDocumentCurrency(input: z.infer<typeof purchaseInputTermsSchema>, context: z.RefinementCtx) {
+  if (!input.currency && (!["payment", "multi_payment"].includes(input.kind) || !input.payment_details))
+    context.addIssue({
+      code: "custom",
+      path: ["currency"],
+      message: "A document currency or payment bank is required.",
+    });
+}
+export const savePurchaseInputSchema = purchaseInputTermsSchema
+  .extend({ expected_version: z.number().int().positive().optional() })
+  .superRefine(requireDocumentCurrency);
+export const updatePurchaseInputSchema = purchaseInputTermsSchema
+  .extend({ expected_version: z.number().int().positive() })
+  .superRefine(requireDocumentCurrency);
+export type SavePurchaseInput = z.infer<typeof savePurchaseInputSchema>;
 export const purchaseActionRequestSchema = z
   .strictObject({
     company_id: identity,
@@ -206,6 +239,22 @@ export const procurementCompaniesSchema = z.strictObject({
   items: z.array(z.strictObject({ id: identity, code: z.string(), name: z.string() })),
 });
 export const procurementOptionsSchema = z.strictObject({
+  nominals: z
+    .array(
+      z.strictObject({
+        id: identity,
+        code: z.string(),
+        name: z.string(),
+        type: z.enum(["asset", "expense"]),
+        fixed_asset: z.boolean(),
+      }),
+    )
+    .max(5000)
+    .optional(),
+  asset_categories: z
+    .array(z.strictObject({ id: identity, code: z.string(), name: z.string() }))
+    .max(5000)
+    .optional(),
   currencies: z.array(z.strictObject({ code: z.string(), name: z.string() })),
   can_self_approve: z.boolean().optional(),
   bank_accounts: z

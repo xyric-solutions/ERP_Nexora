@@ -4,6 +4,7 @@ import {
   subledgerQuerySchema,
   subledgerReportQuerySchema,
   type SubledgerInput,
+  type SubledgerRequest,
   type SubledgerOperation,
   savePurchaseRequestSchema,
   supplierInputSchema,
@@ -32,7 +33,7 @@ run("persistent multi-currency customer/vendor accounting", () => {
   const maker = subledgerActor(),
     checker = subledgerActor("r06.checker"),
     poster = subledgerActor("r06.target");
-  async function post(input: SubledgerInput, repository = fixture.repository) {
+  async function post(input: SubledgerRequest, repository = fixture.repository) {
     let op = await repository.create(maker, input, randomUUID());
     op = await repository.action(
       maker,
@@ -1087,6 +1088,63 @@ run("persistent multi-currency customer/vendor accounting", () => {
     await expect(post(input)).rejects.toMatchObject({ code: "SUBLEDGER_CONFLICT" });
     expect((await workspace("2026-11-30", vendorAccount.id)).total_items).toBe(1);
   });
+  it.each(["PKR", "AED", "USD"])(
+    "derives %s settlements and advances from the bank, rejects spoofing, and posts balanced GL",
+    async (currency) => {
+      const customer = await party();
+      const document = await post(recognize(customer.id, currency, "100", "2026-11-29"));
+      const input: SubledgerRequest = {
+        company_id: fixture.company,
+        type: "settlement",
+        party_id: customer.id,
+        side: "receivable",
+        date: "2026-11-29",
+        reason: "Bank currency integration",
+        reference: "",
+        bank_account_id: fixture.banks[currency]!,
+        payment_amount: "100",
+        bank_fee: "0",
+        allocations: [{ item_id: document.id, amount: "100" }],
+      };
+      await expect(
+        fixture.repository.create(maker, { ...input, payment_currency: "ZZZ" }, randomUUID()),
+      ).rejects.toThrow("must match");
+      await expect(
+        fixture.repository.create(maker, { ...input, bank_account_id: "other-company-bank" }, randomUUID()),
+      ).rejects.toThrow("active bank account");
+      const key = randomUUID();
+      const draft = await fixture.repository.create(maker, input, key);
+      expect(await fixture.repository.create(maker, input, key)).toEqual(draft);
+      expect(draft.input).toMatchObject({ payment_currency: currency });
+      const settled = await post(input);
+      expect(settled.state).toBe("posted");
+      expect(
+        settled.preview?.lines.some(
+          (line) => line.currency === currency && line.description.includes("bank settlement"),
+        ),
+      ).toBe(true);
+      expect((await workspace("2026-11-30", customer.id)).items[0]?.outstanding).toBe("0.00");
+      const advance: SubledgerRequest = {
+        company_id: fixture.company,
+        type: "recognition",
+        party_id: customer.id,
+        side: "receivable",
+        kind: "advance",
+        date: "2026-11-29",
+        due_date: "2026-11-29",
+        reason: "Bank-funded advance integration",
+        reference: "",
+        bank_account_id: fixture.banks[currency]!,
+        amount: "10",
+        monetary: true,
+      };
+      const funded = await post(advance);
+      expect(funded.input).toMatchObject({ currency });
+      const trial = await report("trial_balance", "2026-11-30");
+      expect(trial.debit).toBe(trial.credit);
+      expect(trial.reconciliation.every((row) => row.difference === "0.00")).toBe(true);
+    },
+  );
   it("uses company functional currency and produces balanced translated financial statements", async () => {
     const second = await setupSubledgerFixture(fixture.pool, `mc-usd-${randomUUID()}`, "USD");
     const customer = await second.repository.createParty(

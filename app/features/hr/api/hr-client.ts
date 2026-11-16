@@ -1,6 +1,7 @@
 import { readWorkPage } from "./read-work-page";
 import { inActiveCompany } from "@/lib/session/active-company";
 import type {HrLearningQuery,HrLearningAction} from "@nexora/contracts";
+import type {HrRecordCodeKind,HrRecordCodePreview} from "@nexora/contracts";
 import type {DeleteHrMasterRequest,HrMasterDeleteResult} from "@nexora/contracts";
 import type {HrPersonalCorrectionQuery,CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrReportGovernanceQuery,HrReportGovernanceAction,HrReportGovernanceResult} from '@nexora/contracts';
 import type {HrSelfLeaveContextQuery,CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -483,6 +484,10 @@ export class HrApiClient {
   // Employee record satellites (HR139): drafts and active employees in company scope.
   employeeNumberPreview(companyId: string): Promise<HrEmployeeNumberPreview> {
     return this.api.getHrEmployeeNumberPreview(query({ company_id: companyId }));
+  }
+  /** Next automatic code for an Add / New / Create form (HR154); the server reserves the final code on save. */
+  recordCodePreview(companyId: string, kind: HrRecordCodeKind): Promise<HrRecordCodePreview> {
+    return this.api.getHrRecordCodePreview(query({ company_id: companyId, kind }));
   }
   withdrawEmployeeDraft(employeeId: string, csrfToken: string, idempotencyKey: string): Promise<HrEmployeeRecordMutationResult> {
     return this.api.withdrawHrEmployeeDraft(employeeId, {}, csrfToken, idempotencyKey);

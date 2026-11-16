@@ -183,6 +183,8 @@ export const prototypeModules = [
           p("receipts", "Receipts"),
           // Moved from the retired Customers module (12 Nov 2026).
           p("customers", "Customers"),
+          // Hidden: keeps the upstream Sales currency deep link working without a menu entry.
+          p("currency-balances", "Currency Accounts", "list", "live", true),
         ],
         false,
         true,
@@ -207,7 +209,7 @@ export const prototypeModules = [
         p("payments", "Payment", "list", "live"),
         p("multi-vendor-payments", "Multi-vendor Payment", "list", "live"),
         p("suppliers", "Suppliers", "list", "live"),
-        p("supplier-currency-accounts", "Supplier Currency Accounts", "list", "live"),
+        p("supplier-currency-accounts", "Supplier Currency Accounts", "list", "live", true),
       ]),
       g(
         "purchase-records",
@@ -655,7 +657,6 @@ export const prototypeModules = [
         p("payroll-inputs", "Payroll Inputs", "form", "live"),
         p("payroll-runs", "Payroll Runs", "list", "live"),
         p("payroll-validation", "Payroll Review & Approval", "approval", "live"),
-        p("employee-loans", "Loans & Advances", "list", "live"),
         p("payroll-journal", "Payroll Journal", "report", "live"),
         p("payment-batch", "Payment Batch", "workflow", "live"),
         p("payslips", "Payslips", "workflow", "live"),
@@ -678,26 +679,32 @@ export const prototypeModules = [
   {
     id: "assets",
     code: "FA",
-    label: "Fixed Assets & Leases",
+    label: "Fixed Assets",
     shortLabel: "Assets",
-    description: "Asset and lease lifecycle from acquisition and capitalisation through depreciation and disposal.",
+    description: "Posted acquisitions, asset registration, responsibility, depreciation, returns and disposal.",
     category: "Finance & trade",
     modes: allModes,
     groups: [
       g("asset-register", "Asset Register", [
-        p("assets-dashboard", "Assets Dashboard", "dashboard"),
-        p("asset-classes", "Asset Classes & Policies", "settings"),
-        p("assets", "Asset Register"),
-        p("add-asset", "Add Asset", "form"),
-        p("asset-detail", "Asset Detail", "detail"),
-        p("asset-acquisition", "Acquisition & CWIP", "form"),
-        p("capitalisation", "Capitalisation", "approval"),
-        p("asset-transfer", "Transfer & Assignment", "form"),
+        p("assets-dashboard", "Assets Dashboard", "dashboard", "live"),
+        p("asset-classes", "Asset Classes & Policies", "settings", "live"),
+        p("asset-policies", "Asset Policies", "settings", "live"),
+        p("assets", "Fixed Asset Register", "list", "live"),
+        p("add-asset", "Add Asset", "form", "live"),
+        p("asset-detail", "Asset Detail", "detail", "live"),
+        p("asset-acquisition", "Register Posted Acquisitions", "form", "live"),
+        p("capitalisation", "Asset Approval & Activation", "approval", "live"),
+        p("asset-transfer", "Transfer & Assignment", "form", "live"),
+        p("asset-return", "Vendor Returns", "form", "live"),
+        p("asset-refund", "Vendor Refunds", "form", "live"),
+        p("asset-maintenance", "Maintenance", "form", "live"),
+        p("asset-verification", "Physical Verification", "form", "live"),
+        p("asset-reports", "Asset Reports", "report", "live"),
       ]),
       g("measurement", "Measurement", [
-        p("depreciation-run", "Depreciation Run", "workflow"),
-        p("asset-revaluation", "Revaluation & Impairment", "approval"),
-        p("asset-disposal", "Asset Disposal", "form"),
+        p("depreciation-run", "Depreciation Run", "workflow", "live"),
+        p("asset-revaluation", "Impairment Assessments", "approval", "live"),
+        p("asset-disposal", "Asset Disposal", "form", "live"),
       ]),
       g("leases", "Leases", [
         p("lease-register", "Lease Register"),
@@ -976,8 +983,8 @@ export const prototypeModules = [
         p("cost-centre-expenses-report", "Cost Center Expenses", "report"),
       ]),
       g("asset-reports", "Asset Reports", [
-        p("asset-register-report", "Fixed Asset Register", "report"),
-        p("asset-depreciation-report", "Depreciation Schedule", "report"),
+        p("asset-register-report", "Fixed Asset Register", "report", "live"),
+        p("asset-depreciation-report", "Depreciation Schedule", "report", "live"),
         p("asset-movement-report", "Asset Movement & Custody", "report"),
         p("asset-disposal-report", "Asset Disposal & Gain/Loss", "report"),
         p("asset-maintenance-report", "Asset Maintenance & Downtime", "report"),
@@ -1386,6 +1393,8 @@ export function findPrototypeModule(moduleId: string) {
  * instead of silently falling back to a module's first page.
  */
 const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: string, recordRef?: string]> = {
+  // Payroll › Loans & Advances retired 13 Nov 2026: Employee Lifecycle › Loan Requests is the single place.
+  "hr:employee-loans": ["hr", "loans-benefits"],
   "finance:accounting-events": ["reports", "journal-register-report"],
   "finance:general-ledger": ["reports", "general-ledger-detail-report"],
   "finance:trial-balance": ["reports", "trial-balance-report"],
