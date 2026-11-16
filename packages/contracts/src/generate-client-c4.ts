@@ -29,6 +29,7 @@ import type {HrPerformanceParticipationAction,HrPerformanceParticipation} from '
 import type {
   WarehouseInput,Warehouse,WarehouseDirectory,WarehouseMutation,StockTransferInput,StockTransfer,StockTransferDirectory,StockTransferMutation,InventorySurface,
   Product,ProductInput,ProductDirectory,ProductMutation,InventoryCompanies,InventoryOptions,ProductLookupDirectory,
+  ManufacturingSurface,ManufacturingCompanies,ManufacturingLookupDirectory,BomInput,Bom,BomDirectory,BomMutation,ProductionPlanInput,ProductionPlan,ProductionPlanDirectory,ProductionPlanMutation,ConvertProductionPlanInput,ConvertProductionPlanResult,ManufacturingOrderInput,ManufacturingOrder,ManufacturingOrderDirectory,ManufacturingOrderMutation,ManufacturingOrderAction,
   ProcurementCompanies, ProcurementOptions, PurchaseProductDirectory, PurchaseApproverDirectory, PurchaseFlow, PurchaseDocument, PurchaseDirectory, SavePurchaseRequest, PurchaseActionRequest, PurchaseMutation, SupplierInput, SupplierDirectory, SupplierMutation,
   BankWorkflowOptions,
   BankSelfApprovalDirectory,BankSelfApprovalOptions,BankSelfApprovalMutation,ChangeBankSelfApprovalRequest,ReassignBankApproverRequest,
@@ -477,6 +478,20 @@ export class NexoraApiClient {
   getProduct(id:string,company:string):Promise<Product> {return this.request(\`/api/v1/inventory/products/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
   listProductLookups(query:string):Promise<ProductLookupDirectory> {return this.request(\`/api/v1/inventory/lookups\${query}\`);}
   saveProduct(id:string|null,payload:ProductInput,csrf:string,key:string):Promise<ProductMutation> {return this.request(\`/api/v1/inventory/products\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
+  listManufacturingCompanies(surface:ManufacturingSurface):Promise<ManufacturingCompanies>{return this.request(\`/api/v1/manufacturing/companies?surface=\${encodeURIComponent(surface)}\`);}
+  listManufacturingLookups(query:string):Promise<ManufacturingLookupDirectory>{return this.request(\`/api/v1/manufacturing/lookups\${query}\`);}
+  listBoms(query:string):Promise<BomDirectory>{return this.request(\`/api/v1/manufacturing/boms\${query}\`);}
+  getBom(id:string,company:string):Promise<Bom>{return this.request(\`/api/v1/manufacturing/boms/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
+  getBomByProduct(productId:string,company:string,surface:ManufacturingSurface):Promise<Bom>{return this.request(\`/api/v1/manufacturing/boms/by-product/\${encodeURIComponent(productId)}?company_id=\${encodeURIComponent(company)}&surface=\${encodeURIComponent(surface)}\`);}
+  saveBom(id:string|null,payload:BomInput,csrf:string,key:string):Promise<BomMutation>{return this.request(\`/api/v1/manufacturing/boms\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
+  listProductionPlans(query:string):Promise<ProductionPlanDirectory>{return this.request(\`/api/v1/manufacturing/plans\${query}\`);}
+  getProductionPlan(id:string,company:string):Promise<ProductionPlan>{return this.request(\`/api/v1/manufacturing/plans/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
+  saveProductionPlan(id:string|null,payload:ProductionPlanInput,csrf:string,key:string):Promise<ProductionPlanMutation>{return this.request(\`/api/v1/manufacturing/plans\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
+  convertProductionPlan(id:string,payload:ConvertProductionPlanInput,csrf:string,key:string):Promise<ConvertProductionPlanResult>{return this.request(\`/api/v1/manufacturing/plans/\${encodeURIComponent(id)}/convert\`,{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":\`"\${payload.expected_version}"\`},body:JSON.stringify(payload)});}
+  listManufacturingOrders(query:string):Promise<ManufacturingOrderDirectory>{return this.request(\`/api/v1/manufacturing/orders\${query}\`);}
+  getManufacturingOrder(id:string,company:string):Promise<ManufacturingOrder>{return this.request(\`/api/v1/manufacturing/orders/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
+  saveManufacturingOrder(id:string|null,payload:ManufacturingOrderInput,csrf:string,key:string):Promise<ManufacturingOrderMutation>{return this.request(\`/api/v1/manufacturing/orders\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
+  actOnManufacturingOrder(id:string,payload:ManufacturingOrderAction,csrf:string,key:string):Promise<ManufacturingOrderMutation>{return this.request(\`/api/v1/manufacturing/orders/\${encodeURIComponent(id)}/actions\`,{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":\`"\${payload.expected_version}"\`},body:JSON.stringify(payload)});}
   listProcurementCompanies():Promise<ProcurementCompanies> { return this.request("/api/v1/procurement/companies"); }
   getPurchaseFlow(id:string,query:string):Promise<PurchaseFlow> { return this.request(\`/api/v1/procurement/documents/\${encodeURIComponent(id)}/flow\${query}\`); }
   listPurchaseProducts(query:string):Promise<PurchaseProductDirectory> { return this.request(\`/api/v1/procurement/products\${query}\`); }

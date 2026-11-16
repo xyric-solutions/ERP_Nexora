@@ -152,6 +152,8 @@ import { HrLoanBenefitsWorkspace } from "@prototype/features/hr/views/hr-benefit
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
 import { InventoryOperationsWorkspace } from "@prototype/features/inventory/views/inventory-operations-workspace";
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
+import { ManufacturingLiveWorkspace } from "@prototype/features/manufacturing/views/manufacturing-live-workspace";
+import { isManufacturingLivePage } from "@prototype/features/manufacturing/model/manufacturing";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
@@ -3307,6 +3309,18 @@ function PrototypeContentBody(props: PrototypeContentProps) {
         </>
       );
     }
+  }
+
+  // Live Manufacturing pages (Bill of Materials, Production Planning, Manufacturing Orders) come before the prototypes.
+  if (context.moduleId === "manufacturing" && isManufacturingLivePage(context.pageId)) {
+    return (
+      <ManufacturingLiveWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
   }
 
   if (context.moduleId === "manufacturing" && isManufacturingMaturityPage(context.pageId)) {

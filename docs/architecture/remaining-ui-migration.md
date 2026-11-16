@@ -7870,3 +7870,18 @@ Company Chart adoption/review checkpoint (2026-10-20):
   parse/undeclared-name check of changed files, `git diff --check`, theme audit `--check`,
   prototype manifest `--check`, OpenAPI JSON validity. Not yet run: `npm run typecheck`,
   unit/integration tests, `npm run build:web`, browser pass.
+
+## Manufacturing live pages (2026-11-13)
+
+- Live: Bill of Materials (`boms`, `bom-editor`), Production Planning (`production-plans`, `production-plan`),
+  Manufacturing Orders (`production-orders`, `add-production-order`, `production-order-detail`) in
+  `app/features/manufacturing/views/manufacturing-live-workspace.tsx`, Tailwind + shared primitives only, no new stylesheet.
+- Still prototype (legacy `manufacturing-workspace.tsx` + its CSS): `release-production-order`, `production-variance`
+  and every other Manufacturing menu page. The CSS stays until those pages migrate.
+- Simplified flow (requested later on 2026-11-13, migration `manufacturing/0004`): Production Planning takes a
+  finished product + production quantity (no BOM required), Save Production Planning, then one-click Convert to
+  Manufacturing Order; a draft order is confirmed and approved in one step (Confirm & Approve, needs
+  `manufacturing.order.approve`). Plan/order BOM and ingredient integration is deferred; Bill of Materials stays a
+  standalone screen.
+- Evidence: `tests/e2e/manufacturing-workflow.spec.ts` (plan -> save -> convert -> confirm & approve) passing on
+  2026-11-13; theme audit 0 exceptions.

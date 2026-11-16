@@ -177,13 +177,12 @@ export const prototypeModules = [
           p("quotations", "Quotations"),
           p("sales-orders", "Sales Orders"),
           p("pick-pack-delivery", "Delivery"),
-          p("invoices", "Invoices", "list", "live"),
+          p("invoices", "Invoices"),
           // Moved from the retired Revenue module (12 Nov 2026).
           p("recurring-bills", "Recurring Bills"),
-          p("receipts", "Receipts", "list", "live"),
+          p("receipts", "Receipts"),
           // Moved from the retired Customers module (12 Nov 2026).
-          p("customers", "Customers", "list", "live"),
-          p("currency-balances", "Currency Accounts", "list", "live"),
+          p("customers", "Customers"),
         ],
         false,
         true,
@@ -395,10 +394,25 @@ export const prototypeModules = [
     category: "Operations & people",
     modes: ["manufacturing"],
     groups: [
+      // Live (meeting decision 13 Nov 2026): the three working sections sit first, directly under the
+      // module, in flow order; the module opens on Bill of Materials. Everything below stays prototype.
+      g(
+        "manufacturing-live",
+        "Manufacturing",
+        [
+          p("boms", "Bill of Materials", "list", "live"),
+          p("production-plans", "Production Planning", "list", "live"),
+          p("production-orders", "Manufacturing Orders", "list", "live"),
+          p("bom-editor", "Add Bill of Materials", "form", "live", true),
+          p("production-plan", "Production Planning", "form", "live", true),
+          p("add-production-order", "Add Manufacturing Order", "form", "live", true),
+          p("production-order-detail", "Manufacturing Order", "detail", "live", true),
+        ],
+        false,
+        true,
+      ),
       g("engineering", "Product Engineering", [
         p("manufacturing-overview", "Production Overview", "dashboard"),
-        p("boms", "BOM Catalogue"),
-        p("bom-editor", "BOM Editor", "form"),
         p("routings", "Routings"),
         p("routing-editor", "Routing Editor", "form"),
         p("work-centres", "Work Centres & Machines"),
@@ -410,9 +424,6 @@ export const prototypeModules = [
         p("capacity-planner", "Capacity Planner", "dashboard"),
       ]),
       g("production", "Production", [
-        p("production-orders", "Production Orders"),
-        p("add-production-order", "Add Production Order", "form"),
-        p("production-order-detail", "Production Order Detail", "detail"),
         p("release-production-order", "Release Production Order", "approval"),
         p("material-issue", "Material Issue", "form"),
         p("wip-tracking", "WIP Tracking", "workflow"),

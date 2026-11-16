@@ -6,7 +6,8 @@ Captured 2026-11-12 from the local dev database (`nexora` on the `nexora-postgre
 select permission_key, module, resource, action, status from security_permission_definition order by 1;
 ```
 
-Total: 348 keys, all `active`. The list below is also read by
+Total: 348 keys, all `active`; plus the 10 `manufacturing.` keys added by
+`security/0023_manufacturing_permissions` on 2026-11-13 (358). The list below is also read by
 `tests/unit/administration-contracts.test.ts` to prove every action is classified
 by `packages/contracts/src/administration/access-levels.ts`. Refresh it when a
 migration adds permission keys.
@@ -19,6 +20,7 @@ migration adds permission keys.
 | `finance` | 45 |
 | `hr` | 129 |
 | `inventory` | 5 |
+| `manufacturing` | 10 |
 | `master_data` | 4 |
 | `platform` | 38 |
 | `procurement` | 13 |
@@ -39,10 +41,11 @@ A unit test fails if a module in `app/shell/config/prototype-data.ts` is missing
 | `banking` | Banking & Treasury | `banking.` | Live (56 keys) |
 | `purchases` | Purchases | `procurement.` | Live (13 keys) |
 | `inventory` | Inventory | `inventory.` | Live (5 keys) |
+| `manufacturing` | Production / Manufacturing | `manufacturing.` | Live (10 keys): Bill of Materials, Production Planning, Manufacturing Orders. Other Manufacturing pages remain mock. |
 | `finance` | Accounting (label renamed per D10) | `finance.`, `master_data.` | Live (45 + 4 keys) |
 | `hr` | HR & Payroll | `hr.` + admin-level `workflow.approval.approve/reject` (payroll journal/payment approvals) | Live (129 + 2 keys) |
 | `sales` | Sales & Billing | — | **Mock** — no server permissions (client store) |
-| `costing`, `tax`, `operations`, `fleet`, `manufacturing`, `quality`, `crm`, `projects`, `resources`, `support`, `assets`, `expenses`, `documents`, `budget`, `reports`, `portals`, `configuration`, `approvals`, `notifications`, `integrations`, `ai`, `audit`, `migration`, `mobile` | — | — | **Mock** — access level controls navigation only |
+| `costing`, `tax`, `operations`, `fleet`, `quality`, `crm`, `projects`, `resources`, `support`, `assets`, `expenses`, `documents`, `budget`, `reports`, `portals`, `configuration`, `approvals`, `notifications`, `integrations`, `ai`, `audit`, `migration`, `mobile` | — | — | **Mock** — access level controls navigation only |
 | `dashboard` | Dashboard | — | Not grantable: visible to every signed-in user |
 | `administration` | Administration | `security.`, `platform.`, `administration.` | Not grantable: Super Admin only |
 
@@ -303,6 +306,16 @@ inventory.bin.read
 inventory.item.create
 inventory.item.read
 inventory.stock.read
+manufacturing.bom.create
+manufacturing.bom.read
+manufacturing.bom.update
+manufacturing.order.approve
+manufacturing.order.create
+manufacturing.order.read
+manufacturing.order.submit
+manufacturing.plan.convert
+manufacturing.plan.create
+manufacturing.plan.read
 master_data.location.manage
 master_data.location.read
 master_data.project.manage

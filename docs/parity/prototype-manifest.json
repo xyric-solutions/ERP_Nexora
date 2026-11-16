@@ -3,8 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 30,
-    "groups": 118,
-    "pages": 667
+    "groups": 119,
+    "pages": 668
   },
   "modules": [
     {
@@ -415,7 +415,7 @@
               "id": "invoices",
               "label": "Invoices",
               "archetype": "list",
-              "status": "live"
+              "status": "prototype"
             },
             {
               "id": "recurring-bills",
@@ -427,19 +427,13 @@
               "id": "receipts",
               "label": "Receipts",
               "archetype": "list",
-              "status": "live"
+              "status": "prototype"
             },
             {
               "id": "customers",
               "label": "Customers",
               "archetype": "list",
-              "status": "live"
-            },
-            {
-              "id": "currency-balances",
-              "label": "Currency Accounts",
-              "archetype": "list",
-              "status": "live"
+              "status": "prototype"
             }
           ]
         }
@@ -1251,6 +1245,58 @@
       ],
       "groups": [
         {
+          "id": "manufacturing-live",
+          "label": "Manufacturing",
+          "pages": [
+            {
+              "id": "boms",
+              "label": "Bill of Materials",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "production-plans",
+              "label": "Production Planning",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "production-orders",
+              "label": "Manufacturing Orders",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "bom-editor",
+              "label": "Add Bill of Materials",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "production-plan",
+              "label": "Production Planning",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-production-order",
+              "label": "Add Manufacturing Order",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "production-order-detail",
+              "label": "Manufacturing Order",
+              "archetype": "detail",
+              "status": "live",
+              "hiddenFromNavigation": true
+            }
+          ]
+        },
+        {
           "id": "engineering",
           "label": "Product Engineering",
           "pages": [
@@ -1258,18 +1304,6 @@
               "id": "manufacturing-overview",
               "label": "Production Overview",
               "archetype": "dashboard",
-              "status": "prototype"
-            },
-            {
-              "id": "boms",
-              "label": "BOM Catalogue",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "bom-editor",
-              "label": "BOM Editor",
-              "archetype": "form",
               "status": "prototype"
             },
             {
@@ -1326,24 +1360,6 @@
           "id": "production",
           "label": "Production",
           "pages": [
-            {
-              "id": "production-orders",
-              "label": "Production Orders",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-production-order",
-              "label": "Add Production Order",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "production-order-detail",
-              "label": "Production Order Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            },
             {
               "id": "release-production-order",
               "label": "Release Production Order",

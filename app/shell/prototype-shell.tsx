@@ -1089,7 +1089,7 @@ export function PrototypeShell({
                           ? "Purchases updated successfully"
                           : isLiveFinanceChartPage
                             ? "Finance updated successfully"
-                            : ["sales", "revenue", "customers", "administration"].includes(current.module.id)
+                            : ["sales", "revenue", "customers", "administration", "manufacturing"].includes(current.module.id)
                               ? `${current.module.shortLabel} updated successfully`
                               : "Bank updated successfully",
                       message,

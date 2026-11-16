@@ -1,4 +1,5 @@
 import { createInventoryRouter, type InventoryRepository } from "./modules/inventory/router.js";
+import { createManufacturingRouter, type ManufacturingRepository } from "./modules/manufacturing/router.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 
 import cors from "cors";
@@ -106,6 +107,7 @@ export interface AppDependencies {
   referenceMasterRepository?: ReferenceMasterRepository;
   procurementRepository?: ProcurementRepository;
   inventoryRepository?: InventoryRepository;
+  manufacturingRepository?: ManufacturingRepository;
   fiscalCalendarRepository?: FiscalCalendarApiRepository;
   financePeriodRepository?: FinancePeriodApiRepository;
   bankSelfApprovalRepository?: BankSelfApprovalRepository;
@@ -474,6 +476,18 @@ export function createApp(dependencies: AppDependencies): Express {
       "/api/v1/inventory",
       createInventoryRouter({
         repository: dependencies.inventoryRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.manufacturingRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/manufacturing",
+      createManufacturingRouter({
+        repository: dependencies.manufacturingRepository,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",
