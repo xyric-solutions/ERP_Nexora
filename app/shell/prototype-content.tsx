@@ -154,6 +154,7 @@ import { InventoryOperationsWorkspace } from "@prototype/features/inventory/view
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
 import { FixedAssetsWorkspace } from "@/features/fixed-assets/views/fixed-assets-workspace";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
+import { PurchaseAssetReturnsWorkspace, isPurchaseAssetReturnPage } from "@/features/purchasing/views/purchase-asset-returns";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
 import { MultiCurrencyWorkspace } from "@prototype/features/finance/views/multi-currency-workspace";
@@ -3159,6 +3160,9 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     return <MultiCurrencyWorkspace operational key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" ? context.recordRef : undefined} />;
   }
 
+  if (context.moduleId === "purchases" && isPurchaseAssetReturnPage(context.pageId)) {
+    return <PurchaseAssetReturnsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+  }
   if (context.moduleId === "assets" || (context.moduleId === "reports" && ["asset-register-report","asset-depreciation-report"].includes(context.pageId))) {
     return <FixedAssetsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
   }

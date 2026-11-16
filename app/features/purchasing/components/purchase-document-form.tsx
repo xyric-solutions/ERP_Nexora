@@ -781,6 +781,20 @@ export function PurchaseDocumentForm({
             } else void perform(action, continueFlow);
           }}
         />
+        {kind === "bill" &&
+          record?.state === "approved" &&
+          permissions.includes("assets.asset.read") &&
+          permissions.includes("assets.asset.return") &&
+          !session?.impersonation && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy || dirty}
+              onClick={() => onNavigate("purchase-bill-returns", record.id)}
+            >
+              Purchase Return
+            </Button>
+          )}
         <ol aria-label="Document status" className="m-0 flex list-none flex-wrap gap-1 p-0 text-xs">
           {(["draft", "submitted", "approved"] as const).map((state) => (
             <li

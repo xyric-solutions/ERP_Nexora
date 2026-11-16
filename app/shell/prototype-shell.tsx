@@ -58,7 +58,11 @@ const legacyJournalPageIds = new Set([
   "recurring-journals",
 ]);
 const navigationPageId = (moduleId: string, pageId: string) =>
-  moduleId === "inventory"
+  moduleId === "assets" && ["add-asset", "asset-detail", "asset-acquisition", "capitalisation"].includes(pageId)
+    ? "assets"
+    : moduleId === "purchases" && ["purchase-bill-returns", "purchase-refunds"].includes(pageId)
+      ? "purchase-returns"
+    : moduleId === "inventory"
     ? ["warehouses", "add-warehouse"].includes(pageId)
       ? "warehouses"
       : ["stock-transfers", "add-stock-transfer"].includes(pageId)

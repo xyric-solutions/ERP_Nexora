@@ -1,5 +1,36 @@
 # Remaining UI migration checklist
 
+## 2026-11-16 — Fixed Assets workpage consolidation
+
+- Classes and Policies is first and Asset Register second. Their single primary
+  actions are **Add New Asset Class and Policy** and **Add New Asset**.
+  Transfer and Assignment is a history workpage with an **Asset Transfer** action,
+  current location/project context and a cancelable destination form.
+- Removed separate asset creation/details/acquisition/approval sidebar entries
+  using hidden internal routes. Register records retain status-driven independent
+  submission, approval and activation. Existing deep links and source references
+  remain usable; no editable status field bypasses lifecycle rules.
+- Asset vendor returns/refunds now open under Purchase. Approved Bills provide a
+  **Purchase Return** entry with a source-bill check; the Purchase Returns workpage
+  also handles direct bank-acquired assets. Old asset return/refund links redirect
+  to Purchase; asset histories and existing credit/refund services remain intact.
+- Preserved shared Tailwind/shadcn controls, semantic typography/colours,
+  permissions, source allocations and posting controls. The compatible local
+  frontend includes existing opt-in table keyboard support after live tablet
+  acceptance found its older scroll region could not receive focus.
+- Passed **38 unit**, **25 integration**, **10 Chromium** tests, typecheck,
+  production builds, touched-file ESLint, catalogue generation/check, theme audit
+  write/check and diff checks. Live verification passed **18** responsive
+  light/dark views with zero Axe violations and no page overflow, plus menu,
+  create/cancel, transfer and Purchase return navigation checks in both companies.
+- Evidence and exact commands:
+  `docs/superpowers/plans/2026-11-16-fixed-assets-workpage-consolidation.md` and
+  ignored `tmp/asset-workpages-release/evidence/`. Static audit: zero direct
+  font/colour exceptions across 129 feature views (not a menu-screen percentage).
+- Local workpages are updated. The integrated database extension below retains
+  its separate rollout gate. General stock/non-asset Purchase Returns are outside
+  this asset-return relocation.
+
 ## 2026-11-16 — Fixed Assets header actions
 
 - Removed the redundant **Asset register** shortcut and **Refresh** button from

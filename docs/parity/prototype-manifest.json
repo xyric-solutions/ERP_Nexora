@@ -3,8 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 30,
-    "groups": 118,
-    "pages": 672
+    "groups": 120,
+    "pages": 673
   },
   "modules": [
     {
@@ -492,6 +492,12 @@
               "status": "live"
             },
             {
+              "id": "purchase-returns",
+              "label": "Purchase Returns",
+              "archetype": "workflow",
+              "status": "live"
+            },
+            {
               "id": "payments",
               "label": "Payment",
               "archetype": "list",
@@ -555,6 +561,20 @@
               "id": "add-purchase-bill",
               "label": "Bill",
               "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "purchase-bill-returns",
+              "label": "Purchase Return",
+              "archetype": "workflow",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "purchase-refunds",
+              "label": "Vendor Refunds",
+              "archetype": "workflow",
               "status": "live",
               "hiddenFromNavigation": true
             },
@@ -2406,15 +2426,15 @@
           "label": "Asset Register",
           "pages": [
             {
-              "id": "assets-dashboard",
-              "label": "Assets Dashboard",
-              "archetype": "dashboard",
+              "id": "asset-classes",
+              "label": "Asset Classes and Policies",
+              "archetype": "settings",
               "status": "live"
             },
             {
-              "id": "asset-classes",
-              "label": "Asset Classes & Policies",
-              "archetype": "settings",
+              "id": "assets",
+              "label": "Asset Register",
+              "archetype": "list",
               "status": "live"
             },
             {
@@ -2424,51 +2444,9 @@
               "status": "live"
             },
             {
-              "id": "assets",
-              "label": "Fixed Asset Register",
-              "archetype": "list",
-              "status": "live"
-            },
-            {
-              "id": "add-asset",
-              "label": "Add Asset",
-              "archetype": "form",
-              "status": "live"
-            },
-            {
-              "id": "asset-detail",
-              "label": "Asset Detail",
-              "archetype": "detail",
-              "status": "live"
-            },
-            {
-              "id": "asset-acquisition",
-              "label": "Register Posted Acquisitions",
-              "archetype": "form",
-              "status": "live"
-            },
-            {
-              "id": "capitalisation",
-              "label": "Asset Approval & Activation",
-              "archetype": "approval",
-              "status": "live"
-            },
-            {
               "id": "asset-transfer",
-              "label": "Transfer & Assignment",
-              "archetype": "form",
-              "status": "live"
-            },
-            {
-              "id": "asset-return",
-              "label": "Vendor Returns",
-              "archetype": "form",
-              "status": "live"
-            },
-            {
-              "id": "asset-refund",
-              "label": "Vendor Refunds",
-              "archetype": "form",
+              "label": "Transfer and Assignment",
+              "archetype": "list",
               "status": "live"
             },
             {
@@ -2487,6 +2465,53 @@
               "id": "asset-reports",
               "label": "Asset Reports",
               "archetype": "report",
+              "status": "live"
+            }
+          ]
+        },
+        {
+          "id": "asset-records",
+          "label": "Asset Records",
+          "hiddenFromNavigation": true,
+          "pages": [
+            {
+              "id": "add-asset",
+              "label": "Add New Asset",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "asset-detail",
+              "label": "Asset Details",
+              "archetype": "detail",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "asset-acquisition",
+              "label": "Register Posted Acquisitions",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "capitalisation",
+              "label": "Asset Approval and Activation",
+              "archetype": "approval",
+              "status": "live",
+              "hiddenFromNavigation": true
+            }
+          ]
+        },
+        {
+          "id": "asset-overview",
+          "label": "Overview",
+          "pages": [
+            {
+              "id": "assets-dashboard",
+              "label": "Assets Dashboard",
+              "archetype": "dashboard",
               "status": "live"
             }
           ]

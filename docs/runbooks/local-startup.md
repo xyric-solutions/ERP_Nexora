@@ -23,7 +23,7 @@ The backup is restored briefly into a uniquely named disposable database and
 removed there after validation; the ignored archive remains on this workstation.
 Migration verifies that original credentials, permissions, asset snapshots and
 journal populations are unchanged. Protected configuration is reused without
-writing `.env`. The latest extension release build is `tmp/asset-header-current-build`.
+writing `.env`. The latest extension release build is `tmp/fixed-assets-workpages-ready-build`.
 The dedicated `nexora-asset-drafts` worker prepares drafts and cleans expired
 unbound uploads; it has no financial approval/post handlers. Company automation
 starts disabled. Verify API readiness, sign-in, worker readiness and asset options

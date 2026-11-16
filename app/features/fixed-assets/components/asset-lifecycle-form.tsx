@@ -224,6 +224,28 @@ export function AssetLifecycleForm({
         </Section>
         {asset && (
           <Section title="Transaction details">
+            {type === "transfer" && (
+              <>
+                <Field label="Current location">
+                  <Input
+                    readOnly
+                    value={
+                      options.locations.find((row) => row.id === asset.assignment.location_id)?.name ?? "Unassigned"
+                    }
+                  />
+                </Field>
+                <Field label="Current project">
+                  <Input
+                    readOnly
+                    value={options.projects.find((row) => row.id === asset.assignment.project_id)?.name ?? "Unassigned"}
+                  />
+                </Field>
+                <p className="col-span-full text-sm text-muted-foreground">
+                  Choose the destination location or project below. The current assignment changes only after the
+                  transfer is approved and posted.
+                </p>
+              </>
+            )}
             {(type === "transfer" || type === "verification") && (
               <AssignmentFields options={options} value={assignment} onChange={setAssignment} />
             )}

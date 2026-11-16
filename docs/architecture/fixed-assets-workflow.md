@@ -21,7 +21,7 @@ change or production deployment is part of this extension.
 
 ## Integrated purchase and policy extension — 16 November 2026
 
-- The existing register route is now labelled **Fixed Asset Register**. **Asset
+- The existing register route is now labelled **Asset Register**. **Asset
   Policies** manages company defaults and nominal classification; direct
   classification changes require asset-category administration and Chart of
   Accounts update authority. Valid category cost mappings retain their existing
@@ -132,14 +132,15 @@ tenant RLS; API queries additionally enforce company scope and live roles.
    Purchase lines may select an existing asset category. Accounting recognizes
    classified lines to their category accounts and ordinary lines to the existing
    expense policy. It rejects a conflicting manual counter-account override.
-4. Open Register asset from the posted Bank Payment or supplier invoice, or select
-   posted evidence in Fixed Assets. Register individual units, serial numbers,
+4. Open **Asset Register → Add New Asset**, or the acquisition link on the posted
+   Bank Payment or supplier invoice. Register individual units, serial numbers,
    original base cost, residual value, available-for-use and commencement dates,
    useful life and scoped assignments. The API allocates the original journal
    debit under locks. Registration creates **no acquisition journal**. Costs across
    all units and improvements cannot exceed the source debit. Codes are permanent,
    transactionally allocated and company scoped.
-5. Submit, independently approve, then activate when available for use. Physical
+5. Open the saved register record to submit, independently approve, then activate
+   when available for use. Physical
    details remain editable in service. Depreciation terms may be corrected in an
    unsubmitted draft; approved historical terms cannot be overwritten.
 6. Prepare depreciation by company accounting month. Select up to 400 assets per
@@ -150,8 +151,11 @@ tenant RLS; API queries additionally enforce company scope and live roles.
    run can be reversed with separate authority, date and reason; later financial
    dependencies must be resolved first. Reversal retains original journals and
    effects rather than deleting them.
-7. Transfer existing company employee/department/branch/location/project references
-   through a separately approved effective-dated event. Acquisition cost and source
+7. Open **Transfer and Assignment → Asset Transfer** to transfer existing company
+   employee/department/branch/location/project references through a separately
+   approved effective-dated event. The workpage shows transfer history and the
+   form shows the current location/project before destination selection.
+   Acquisition cost and source
    stay unchanged. Depreciation dimensions resolve the assignment effective on its
    posting date, including historical periods before a later transfer.
 8. Record maintenance dates, status, vendor, cost, invoice/evidence references and
@@ -171,6 +175,12 @@ tenant RLS; API queries additionally enforce company scope and live roles.
 
 ## Vendor returns and refunds
 
+- Open **Purchase → Purchase Returns**, or **Purchase Return** on an approved
+  original Bill. The bill entry checks the selected asset's acquisition source.
+  Use the Vendor Refunds tab to allocate actual posted receipts. Direct
+  bank-acquired assets use the same Purchase-side entry. These operations are
+  removed from the Assets menu; asset history retains their original audit and
+  journal links. General stock/non-asset Purchase Returns are a separate feature.
 - A faulty unit may be returned before activation without pretending it entered
   service. An active unit includes depreciation due through the event date under
   its category convention. Registration and original Bank Payment remain intact.

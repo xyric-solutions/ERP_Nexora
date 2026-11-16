@@ -5,7 +5,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../app/shell/prototype-content.js", () => ({
-  PrototypeContent: () => <div data-testid="mock-prototype-content" />,
+  PrototypeContent: ({ context }: { context: { recordRef?: string } }) => (
+    <div data-testid="mock-prototype-content" data-record-ref={context.recordRef} />
+  ),
 }));
 
 vi.mock("../../app/features/ai/components/nexora-intelligence.js", () => ({
@@ -44,6 +46,23 @@ afterEach(() => {
 });
 
 describe("Prototype shell module navigation", () => {
+  it.each([
+    ["asset-return", "Purchase Returns"],
+    ["asset-refund", "Vendor Refunds"],
+  ])("preserves an asset reference when opening the retired %s link", async (page, label) => {
+    await act(async () => {
+      window.history.replaceState(null, "", `#/assets/${page}/asset-source-123`);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    await settle();
+    expect([...container.querySelectorAll(".nx-breadcrumbs li")].map((item) => item.textContent)).toEqual([
+      "Workspace", "Purchases", label,
+    ]);
+    expect(window.location.hash).toContain("asset-source-123");
+    expect(container.querySelector('[data-testid="mock-prototype-content"]')?.getAttribute("data-record-ref")).toBe(
+      "asset-source-123",
+    );
+  });
   it("keeps the assistant trigger named when responsive styles hide its text", () => {
     expect(container.querySelector("button.nx-intelligence-trigger--ai")?.getAttribute("aria-label")).toBe("Nexora AI");
   });

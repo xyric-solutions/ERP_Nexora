@@ -1,6 +1,6 @@
 # Fixed Assets workpage consolidation
 
-Date: 16 November 2026. Status: proposed for owner review.
+Date: 16 November 2026. Status: owner-approved, implemented and verified locally.
 
 ## Requested result
 
@@ -89,6 +89,9 @@ API; the integrated extension keeps its previously documented rollout gate.
 - Context and existing workflow inspected.
 - Preferred implementation and two return-handling alternatives specified.
 - Navigation versus financial scope, hidden routes and verification reviewed.
-- Awaiting owner confirmation of the Purchase Return scope and design.
-- After approval: record the implementation plan, implement and verify, then
-  push changes to shoaib_nexora and update the compatible local frontend.
+- Owner approved the design and the recommended relocation of existing asset
+  returns/refunds into Purchase; general stock Purchase Returns remain outside
+  this change.
+- Implementation and verification are recorded in
+  `../plans/2026-11-16-fixed-assets-workpage-consolidation.md`. The compatible
+  local frontend is updated; the wider database extension keeps its rollout gate.
