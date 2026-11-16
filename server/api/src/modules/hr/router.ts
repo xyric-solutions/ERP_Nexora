@@ -12,6 +12,7 @@ import {hrPayrollJournalQuerySchema,hrPayrollJournalActionSchema} from '@nexora/
 import {hrLocalizationQuerySchema,createHrLocalizationSchema,hrLocalizationDecisionSchema} from '@nexora/contracts';
 import {hrOvertimeMoneyQuerySchema,createHrOvertimeMoneySchema,hrOvertimeMoneyDecisionSchema} from '@nexora/contracts';
 import {hrPayrollRunComparisonQuerySchema,hrPayrollRunComparisonSchema,hrPayrollRunQuerySchema,hrPayrollRunActionSchema} from '@nexora/contracts';
+import {hrRecordCodePreviewQuerySchema} from '@nexora/contracts';
 import {hrPayrollWorkspaceQuerySchema,hrPayrollOptionsQuerySchema,createHrPayrollRecordSchema,hrPayrollRecordActionSchema,reviseHrPayrollLoanSchema,hrPayrollMutationResultSchema} from '@nexora/contracts';
 import {hrLeaveQuerySchema,createHrLeaveTypeRequestSchema,updateHrLeavePolicyRequestSchema,hrLeaveTypeStatusRequestSchema,hrLeaveBalanceQuerySchema,hrLeaveLedgerQuerySchema,hrLeaveBalancePostingRequestSchema,hrLeaveContextQuerySchema,hrLeaveContextSchema,hrLeaveRequestQuerySchema,hrLeaveRequestDetailSchema,createHrLeaveRequestSchema,hrLeaveRequestActionRequestSchema} from '@nexora/contracts';
 import {hrOvertimeQuerySchema,hrOvertimeContextQuerySchema,createHrOvertimeRequestSchema,hrOvertimeRuleRequestSchema,hrOvertimeActionRequestSchema,replaceHrOvertimeRequestSchema,hrAttendancePeriodQuerySchema,hrAttendancePeriodActionRequestSchema} from '@nexora/contracts';
@@ -231,6 +232,7 @@ export interface HrRouterDependencies {
     | "listJobGradeCurrencies"
     | "listRequisitionProjects"
     | "employeeNumberPreview"
+    | "previewRecordCode"
     | "updateManpowerRequisition"
     | "changeManpowerRequisitionState"
     | "deleteManpowerRequisition"
@@ -1156,6 +1158,14 @@ export function createHrRouter(dependencies: HrRouterDependencies): Router {
       operation(await loadHrSessionContext(req, dependencies, true), idempotencyKey(req), currentRequestContext().correlationId),
     );
   };
+  router.get("/record_code_preview", async (req, res) => {
+    res.json(
+      await handle(async () => {
+        const input = hrRecordCodePreviewQuerySchema.parse(req.query);
+        return dependencies.repository.previewRecordCode(await loadHrSessionContext(req, dependencies), input);
+      }),
+    );
+  });
   router.get("/employee_number_preview", async (req, res) => {
     const companyId = recordId(req.query.company_id);
     res.json(await handle(async () => dependencies.repository.employeeNumberPreview(await loadHrSessionContext(req, dependencies), companyId)));

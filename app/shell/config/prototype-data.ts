@@ -644,7 +644,6 @@ export const prototypeModules = [
         p("payroll-inputs", "Payroll Inputs", "form", "live"),
         p("payroll-runs", "Payroll Runs", "list", "live"),
         p("payroll-validation", "Payroll Review & Approval", "approval", "live"),
-        p("employee-loans", "Loans & Advances", "list", "live"),
         p("payroll-journal", "Payroll Journal", "report", "live"),
         p("payment-batch", "Payment Batch", "workflow", "live"),
         p("payslips", "Payslips", "workflow", "live"),
@@ -1375,6 +1374,8 @@ export function findPrototypeModule(moduleId: string) {
  * instead of silently falling back to a module's first page.
  */
 const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: string, recordRef?: string]> = {
+  // Payroll › Loans & Advances retired 13 Nov 2026: Employee Lifecycle › Loan Requests is the single place.
+  "hr:employee-loans": ["hr", "loans-benefits"],
   "finance:accounting-events": ["reports", "journal-register-report"],
   "finance:general-ledger": ["reports", "general-ledger-detail-report"],
   "finance:trial-balance": ["reports", "trial-balance-report"],

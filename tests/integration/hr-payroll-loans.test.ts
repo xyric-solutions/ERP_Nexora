@@ -9,6 +9,7 @@ import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import { ensureSourceAuthorizationFixture, sourceTestTenantId as tenant } from "./source-security-fixture.js";
 import { createLoanFixture, loanActor } from "./hr-payroll-loans-fixture.js";
+import { createHrPayrollRecordSchema, hrPayrollRecordActionSchema } from "../../packages/contracts/src/hr/index.js";
 import { runActor } from "./hr-payroll-run-fixture.js";
 const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL,
   run = url ? describe : describe.skip;
@@ -28,6 +29,71 @@ run("Governed loan disbursement and Payroll recovery", () => {
     fixtures.push(f);
     return f;
   }
+  it("approves a rejected loan request again with a fresh schedule and keeps the rejection in history", async () => {
+    const f = await fixture();
+    const created = await f.repo.createPayrollRecord(
+      loanActor(),
+      createHrPayrollRecordSchema.parse({
+        kind: "loan",
+        company_id: f.companyId,
+        reason: "Second governed loan request for re-approval",
+        employee_id: f.person.employeeId,
+        component_id: f.component.id,
+        reference: "AUTO",
+        currency_code: "PKR",
+        start_month: f.month,
+        principal: "90.00",
+        instalment_count: 3,
+      }),
+      randomUUID(),
+      "loan-test",
+    );
+    const read = async () =>
+      (
+        await f.repo.getPayrollWorkspace(loanActor(), {
+          company_id: f.companyId,
+          section: "loans",
+          month: f.month,
+          search: "",
+          limit: 25,
+          offset: 0,
+        })
+      ).items.find((r) => r.id === created.id)!;
+    const act = async (action: "submit" | "approve" | "reject", who = "r06.maker") => {
+      const current = await read();
+      return f.repo.actOnPayrollRecord(
+        loanActor(who),
+        created.id,
+        hrPayrollRecordActionSchema.parse({
+          company_id: f.companyId,
+          section: "loans",
+          action,
+          expected_version: current.version,
+          source_hash: current.source_hash,
+          reason: "Governed loan decision for re-approval",
+          confirm_override: false,
+        }),
+        randomUUID(),
+        "loan-test",
+      );
+    };
+    await act("submit");
+    await act("reject", "r06.checker");
+    expect((await read()).status).toBe("rejected");
+    expect((await read()).lines).toHaveLength(0);
+    // The maker cannot approve their own request, even after a rejection.
+    await expect(act("approve")).rejects.toMatchObject({ status: 403 });
+    await expect(act("reject", "r06.checker")).rejects.toMatchObject({ status: 409 });
+    await act("approve", "r06.checker");
+    const approved = await read();
+    expect(approved.status).toBe("approved");
+    expect(approved.lines.map((line) => line.amount)).toEqual(["30.0000", "30.0000", "30.0000"]);
+    expect(approved.history.map((event) => event.action).reverse()).toEqual(
+      expect.arrayContaining(["submit", "reject", "approve"]),
+    );
+    expect(approved.details.employee_number).toBeTruthy();
+    expect(approved.details.employee_display_name).toBeTruthy();
+  });
   it("links a real governed posted payment, protects evidence and consumes only on final approval", async () => {
     const f = await fixture();
     expect((await f.row()).status).toBe("approved");

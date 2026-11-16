@@ -1,4 +1,5 @@
 "use client";
+import { HrFormRows, HrRecordCodeField } from "./hr-create-form";
 import { HrRecordDrawer } from "./hr-record-drawer";
 
 import { useEffect, useRef, useState } from "react";
@@ -204,7 +205,8 @@ export function HrOrganizationPlacementChangeMakerPanel({
         )}
         {state === "ready" && (
           <>
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+            <HrRecordCodeField kind="placement_change" id="organization-placement-code" companyId={companyId || undefined} value={null} refreshKey={notice} />
+            <HrFormRows>
               {levels.map((level, index) => {
                 // Options sit beneath the nearest level already chosen above this one.
                 const ancestorId = levels
@@ -234,7 +236,7 @@ export function HrOrganizationPlacementChangeMakerPanel({
                   </label>
                 );
               })}
-            </div>
+            </HrFormRows>
             <label
               htmlFor="organization-placement-effective-on"
               className="grid content-start gap-1.5 text-sm font-medium"

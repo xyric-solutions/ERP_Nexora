@@ -64,6 +64,93 @@ const url = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
     });
     expect(fresh.status).toBe("draft");
   });
+  it("rejects a lifecycle policy independently and approves it again with audit evidence", async () => {
+    const f = await fixture();
+    const created = await f.repo.createEmploymentLifecyclePolicy(
+      lifecycleActor(),
+      { company_id: f.companyId, code: "AUTO", name: "Re-approval policy", description: "Reviewed text" },
+      randomUUID(),
+      "lifecycle-test",
+    );
+    expect(created.code).toMatch(/^LCP-\d{3,}$/);
+    await f.repo.submitEmploymentLifecyclePolicy(
+      lifecycleActor(),
+      created.id,
+      { reason: "Ready for review" },
+      randomUUID(),
+      "lifecycle-test",
+    );
+    const decide = (who: string, decision?: "approved" | "rejected") =>
+      f.repo.approveEmploymentLifecyclePolicy(
+        lifecycleActor(who),
+        created.id,
+        { ...(decision ? { decision } : {}), reason: "Independent policy decision" },
+        randomUUID(),
+        "lifecycle-test",
+      );
+    await expect(decide("r06.maker", "rejected")).rejects.toMatchObject({ status: 403 });
+    expect(await decide("r06.checker", "rejected")).toMatchObject({ status: "rejected" });
+    const status = async () =>
+      (await f.repo.listEmploymentLifecyclePolicies(lifecycleActor(), { company_id: f.companyId, limit: 100 })).items.find(
+        (item) => item.id === created.id,
+      )!.status;
+    expect(await status()).toBe("rejected");
+    // Rejected is not final: it cannot be rejected twice, the maker cannot approve it, the checker can.
+    await expect(decide("r06.checker", "rejected")).rejects.toMatchObject({ status: 409 });
+    await expect(decide("r06.maker")).rejects.toMatchObject({ status: 403 });
+    expect(await decide("r06.checker")).toMatchObject({ status: "approved" });
+    expect(await status()).toBe("approved");
+    const audit = (
+      await pool.query(
+        "select action from platform_admin_audit_event where tenant_id=$1 and entity_id=$2 and action like 'hr.employment_lifecycle_policy.%' order by sequence",
+        [tenant, created.id],
+      )
+    ).rows.map((row) => row.action);
+    expect(audit).toEqual(
+      expect.arrayContaining(["hr.employment_lifecycle_policy.reject", "hr.employment_lifecycle_policy.approve"]),
+    );
+  });
+  it("re-approves a rejected case independently, keeps the rejection in history and blocks duplicate live cases", async () => {
+    const f = await fixture();
+    const terms = {
+      kind: "onboarding" as const,
+      relationship_id: f.relationshipId,
+      due_date: f.today,
+      notes: "",
+      tasks: f.tasks("onboarding"),
+    };
+    const first = await f.save(terms);
+    await f.act(first.id, "submit");
+    await f.act(first.id, "reject", "r06.checker");
+    const rejected = (await f.read("onboarding", "r06.checker")).items.find((item) => item.id === first.id)!;
+    expect(rejected.state).toBe("rejected");
+    // The officer who rejected may approve again; the author may not.
+    expect(rejected.allowed_actions).toContain("approve");
+    expect((await f.read("onboarding")).items.find((item) => item.id === first.id)!.allowed_actions).not.toContain(
+      "approve",
+    );
+    await expect(f.act(first.id, "approve")).rejects.toMatchObject({ status: 403 });
+    // Employee code and name are separate fields.
+    expect(rejected.employee_number).not.toBe("");
+    expect(rejected.employee_name).not.toContain(rejected.employee_number);
+    // A second live onboarding case for the same employment blocks re-approval of the first.
+    const second = await f.save({ ...terms, notes: "Second attempt" });
+    await expect(f.act(first.id, "approve", "r06.checker")).rejects.toMatchObject({ status: 409 });
+    await f.act(second.id, "cancel");
+    // Deleted drafts leave the list; the cancelled row and its event remain for audit.
+    expect((await f.read("onboarding")).items.map((item) => item.id)).not.toContain(second.id);
+    const approved = await f.act(first.id, "approve", "r06.checker");
+    expect(approved.status).toBe("approved");
+    const history = (
+      await pool.query(
+        "select action from hr_lifecycle_case_event where tenant_id=$1 and record_id=$2 order by created_at,id",
+        [tenant, first.id],
+      )
+    ).rows.map((row) => row.action);
+    expect(history).toEqual(["save", "submit", "reject", "approve"]);
+    // Approved evidence stays immutable after re-approval.
+    await expect(f.act(first.id, "reject", "r06.checker")).rejects.toMatchObject({ status: 403 });
+  });
   it("completes joining controls and independently confirms probation through authoritative employment history", async () => {
     const f = await fixture();
     const incomplete = await f.save({

@@ -5,6 +5,7 @@ import { WorkForm } from "@/shared/ui/work-form";
 import { HrDrawerActions } from "../components/hr-drawer-context";
 import { readHrOperationsScope, useHrOperationsScope } from "../components/hr-operations-scope";
 import { HrRecordDrawer } from "../components/hr-record-drawer";
+import { HrFormRows, HrRecordCodeField } from "../components/hr-create-form";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   createHrShiftAllocationRequestSchema,
@@ -284,6 +285,13 @@ function AllocationEditor({
         </Alert>
       )}
       <HrDetailSection title="Assigned to">
+        <HrRecordCodeField
+          kind="shift_allocation"
+          companyId={companyId}
+          value={null}
+          id="hr-shift-allocation-code"
+          refreshKey={revision}
+        />
         <label className="grid content-start gap-2 text-sm font-medium">
           Allocation scope
           <select
@@ -321,7 +329,7 @@ function AllocationEditor({
         />
       </HrDetailSection>
       <HrDetailSection title="Schedule">
-        <div className="grid gap-3 sm:grid-cols-2">
+        <HrFormRows>
           <label className="grid content-start gap-2 text-sm font-medium">
             Effective from
             <Input
@@ -339,7 +347,7 @@ function AllocationEditor({
             Effective to
             <Input type="date" min={from} value={to} disabled={busy} onChange={(e) => setTo(e.target.value)} />
           </label>
-        </div>
+        </HrFormRows>
       </HrDetailSection>
       <HrDetailSection title="Shift">
         <label className="grid content-start gap-2 text-sm font-medium">
@@ -462,7 +470,7 @@ function EndAllocation({
           {error}
         </p>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4">
         <label className="grid content-start gap-2 text-sm font-medium">
           End action
           <select
