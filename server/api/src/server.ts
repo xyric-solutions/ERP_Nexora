@@ -1,4 +1,5 @@
 import { SourceInventoryRepository } from "./modules/inventory/source-repository.js";
+import { FixedAssetsService } from "./modules/fixed-assets/service.js";
 import { createServer } from "node:http";
 
 import { Redis } from "ioredis";
@@ -138,13 +139,24 @@ const app = createApp({
     new SupplierProfileCrypto(config.bankingDataEncryptionKey, config.bankingDataEncryptionKeyVersion),
   ),
   inventoryRepository: new SourceInventoryRepository(pool),
+  fixedAssetsService: new FixedAssetsService(pool, objectStorage),
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
+    fixed_assets: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.fixed_asset_record') is not null and to_regclass('public.fixed_asset_attachment') is not null and exists(select 1 from nexora_schema_migration where module_name='fixed_assets' and version=2) and exists(select 1 from nexora_schema_migration where module_name='finance' and version=39) and exists(select 1 from nexora_schema_migration where module_name='security' and version=23) as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Fixed Assets migrations are required");
+    },
     multi_currency_accounting: async () => {
-      const result = await pool.query<{ available: boolean }>(`select to_regclass('public.finance_subledger_item_event') is not null and to_regclass('public.finance_subledger_operation') is not null and exists(select 1 from nexora_schema_migration where module_name='finance' and version=37) and exists(select 1 from nexora_schema_migration where module_name='security' and version=21) as available`);
+      const result = await pool.query<{ available: boolean }>(
+        `select to_regclass('public.finance_subledger_item_event') is not null and to_regclass('public.finance_subledger_operation') is not null and exists(select 1 from nexora_schema_migration where module_name='finance' and version=37) and exists(select 1 from nexora_schema_migration where module_name='security' and version=21) as available`,
+      );
       if (!result.rows[0]?.available) throw new Error("Multi-currency subledger migrations are required");
-      const taxes = await pool.query<{available:boolean}>("select to_regclass('public.finance_tax_application') is not null and exists(select 1 from nexora_schema_migration where module_name='finance' and version=38) and exists(select 1 from nexora_schema_migration where module_name='security' and version=22) and exists(select 1 from nexora_schema_migration where module_name='hr' and version=152) as available");
+      const taxes = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.finance_tax_application') is not null and exists(select 1 from nexora_schema_migration where module_name='finance' and version=38) and exists(select 1 from nexora_schema_migration where module_name='security' and version=22) and exists(select 1 from nexora_schema_migration where module_name='hr' and version=152) as available",
+      );
       if (!taxes.rows[0]?.available) throw new Error("Unified tax management migrations are required");
     },
     inventory_foundation: async () => {

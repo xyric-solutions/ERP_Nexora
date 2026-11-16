@@ -12,3 +12,4 @@ export * from "./security/index.js";
 export * from "./security/bank-self-approval.js";
 
 export * from "./inventory/index.js";
+export * from "./fixed-assets/index.js";

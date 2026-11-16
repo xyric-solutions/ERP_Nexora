@@ -1,5 +1,111 @@
 # Remaining UI migration checklist
 
+## 2026-11-14 - PostgreSQL Fixed Assets implementation
+
+- Replaced generic owned-asset prototype routes with the connected workspace in
+  `app/features/fixed-assets`: category policies, posted-source registration,
+  maker/checker approval and activation, physical edits, transfers, maintenance,
+  verification and current exception reporting, impairment, disposal, vendor
+  returns/refunds, depreciation preview/post/reversal and persisted reports.
+  Full functional/technical handoff: `docs/architecture/fixed-assets-workflow.md`.
+- Added scoped contracts/generated client, `/api/v1/assets`, source repository,
+  exact calculations, lifecycle/depreciation/report services, private file storage
+  and additive security 0023 / finance 0039 / fixed_assets 0001-0002 migrations.
+  The module consumes existing company masters and FinancePostingService.
+  Registration/improvements allocate existing acquisition debits without posting
+  them again. Purchase remains instruction-only; Accounting recognizes approved
+  classified asset/expense bill lines. Original journal and assignment evidence
+  survives all asset lifecycle actions.
+- Financial lifecycle previews include required depreciation through the effective
+  date, under configured full-month/actual-day policy, with additional posting
+  authority and atomic rollback. Partial returns/refunds, current verification
+  exceptions and company GL reconciliation use actual PostgreSQL balances.
+- UI uses semantic Tailwind and existing shadcn controls, with a feature table
+  wrapper retaining shared table controls, remote pagination and internal scrolling.
+  No feature stylesheet was added or retired. Preserved existing routes, cookie/
+  CSRF, tenant/company scopes, source approvals, idempotency and no duplicate
+  acquisition safeguards. Lease accounting remains explicitly a separate prototype.
+- Shared fixes: moved the existing HR multipart parser to `server/api/src/http`
+  and corrected Busboy's exact part-count boundary; unexpected/extra/oversized
+  content remains rejected. Gave the shell assistant a permanent accessible name
+  and mapped light subtle text to the existing muted semantic token after Axe
+  detected insufficient contrast. No environment values or dependencies changed.
+- Passed unit command: `npm.cmd run test:unit -- fixed-assets-calculations.test.ts administration-contracts.test.ts bank-currency-settlement.test.tsx prototype-shell-navigation.test.tsx purchase-document-form.test.tsx purchase-workflow.test.ts tax-management.test.ts`
+  (98 tests). Asset/storage/multipart integration: `npm.cmd run test:integration -- fixed-assets.test.ts fixed-assets-attachments.test.ts single-file-multipart.test.ts`
+  (29 tests, including 23 asset scenarios).
+- Existing integration regressions: `npm.cmd run test:integration -- procurement-workflow.test.ts multi-currency-subledger.test.ts tax-management.test.ts`
+  (61 tests), plus `npx.cmd tsx tmp/currency-integration/banking-regression.ts`
+  (20 Bank Payment/Receipt tests in a fresh disposable database).
+- Contract command: `npm.cmd run test:contract -- openapi.test.ts multi-currency-subledger.test.ts tax-management.test.ts`
+  (16 tests). Updated the explicit OpenAPI path inventory for 16 asset paths plus
+  three existing baseline paths previously omitted. The Administration assertion
+  now preserves the two inactive retired `costing`/`tax` catalogue identities while
+  checking active navigation and the new Fixed Assets permission tiers.
+- Chromium command: `npx.cmd cross-env NEXORA_ASSETS_E2E=true TEST_SOURCE_BOOTSTRAP_DATABASE_URL=postgresql://nexora@127.0.0.1:55433/nexora_source_test PLAYWRIGHT_BASE_URL=http://127.0.0.1:3299 PLAYWRIGHT_USE_EXISTING_WEB=true playwright test tests/e2e/fixed-assets.spec.ts --workers=1 --reporter=list`
+  (7 passed). Real API/PostgreSQL/MinIO registration/upload/approval/activation/
+  depreciation/reload, plus register/dashboard at 1440/768/390px, light/dark.
+  Register Axe and page overflow checks passed; screenshots inspected in
+  `tmp/fixed-assets/evidence/register-{light,dark}-{1440,768,390}.png`.
+- Passed `npm.cmd run typecheck`, `npm.cmd run build:web`, targeted ESLint,
+  targeted `npx.cmd prettier --check`, `npm.cmd run api:check`,
+  `npm.cmd run catalogue:check`, `git diff --check`, and
+  `node scripts/audit-ui-theme.mjs --write` / `--check`. Audit: 0/128 direct
+  feature-view font/color exceptions; this is not a count of all menu screens.
+  `npx.cmd tsx tmp/fixed-assets/check-migration.ts` applied and replayed all source
+  migrations without bypassing checksums in a disposable database.
+- Rollout blocker: this checkout has no `.env`; its local API helper expects an
+  unavailable PostgreSQL service on 55435. The intended existing ERP environment
+  must be identified and configured before business migration/deployment and owner
+  acceptance. No business database was reset, replaced or silently seeded. The
+  isolated 3299 preview was stopped; the pre-existing 3000 server was preserved.
+
+## 2026-11-13 - Purchase and Sales bank currency integration
+
+- Purchase payment forms and the shared Accounting settlement/advance form now
+  show bank-derived currency read-only. Operational Sales and supplier accounting
+  views hide accounting policy, valuation and bank-deal controls; the Accounting
+  workspace retains those controls. Customer/supplier account creation remains
+  available through separately labelled actions. Non-bank documents preserve document currency.
+- Hidden standalone Sales Currency Accounts and Supplier Currency Accounts menu
+  entries retain compatible routes and the approved-Bill accounting handoff.
+  Generated navigation catalogue and API/client remain synchronized.
+- API requests may omit bank-based currency; stored responses remain canonical.
+  Both repositories derive currency from the tenant/company-authorized bank and
+  reject conflicting input. Purchase FX snapshots reuse Accounting's rate authority
+  and existing JSON/audit storage, with stale-rate rejection before approval.
+- Preserved: bank payment/receipt behavior, Purchase instruction-only approvals,
+  same-currency procurement allocations, Accounting cross-currency settlements,
+  maker/checker, idempotency, GL posting, historical records and explicit non-posting
+  Sales samples. No CSS files were retired, dependencies added, environment values
+  changed, or new currency tables/services created.
+- Verified: 99 focused unit tests; 7 currency/subledger contract tests; 28 Purchase
+  and 22 subledger integration tests; 20 existing bank payment/receipt integration
+  tests in a fresh disposable database; isolated Accounting/Sales browser workflow.
+  `npm.cmd run typecheck`, `npm.cmd run build:web`, targeted ESLint,
+  `npm.cmd run api:check`, `npm.cmd run catalogue:check`,
+  `node scripts/audit-ui-theme.mjs --write`, its `--check` mode, and
+  `git diff --check` passed. UI detector returned no findings.
+- Purchase browser checks passed the complete single-/multi-vendor approval,
+  supplier save/cancel, and guided PR-to-Bill workflows. Six focused Payment form
+  checks passed at 1440/768/390px in light/dark, including PKR/AED/USD bank switches,
+  read-only currency, Axe accessibility and no page overflow. Their screenshots
+  are `tmp/purchase-workflow-evidence/bank-currency-payment-{light,dark}-{1440,768,390}.png`.
+  The synthetic browser session now uses the current active-company contract and
+  real company-access repository; canceled navigation lookups are handled explicitly.
+- Browser evidence: `tmp/multi-currency-evidence/sales-receipt-{desktop,tablet,mobile}-{light,dark}.png`;
+  the real Accounting browser workflow verifies receipt posting, FX valuation,
+  history/reload and zero GL reconciliation difference. Feature-view theme audit
+  remains 0/127 font overrides and 0/127 ordinary-UI color overrides.
+- Existing unrelated contract failure: `tests/contract/openapi.test.ts` expects 380
+  paths while GitHub baseline `f3c1b31` already contains 383. The missing assertions
+  are `/auth/change-password`, `/admin/modules`, and
+  `/hr/payroll_records/{recordId}/revision`. Generated snapshot equality and
+  `npm.cmd run api:check` pass. No production path was removed to satisfy this test.
+- Separate browser issue: the broader Purchase visual suite stops at the untouched
+  supplier-bank editor with 23px horizontal overflow at 1440px. Its existing tests
+  remain in place; the six changed-surface Payment checks pass independently.
+
+
 ## 2026-11-12 - Accounting menu cleanup and company fiscal setup
 
 - Removed the complete Ledgers & Close and Group & Reporting navigation groups

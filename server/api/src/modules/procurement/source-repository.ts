@@ -1,4 +1,8 @@
 import { resolveTax, TaxError } from "../finance/taxes/resolver.js";
+import {
+  resolveCompanyCurrencyAuthority,
+  CompanyCurrencyAuthorityError,
+} from "../finance/currencies/company-authority.js";
 import { companyAuthoritySql as companyAuthority } from "../security/company-authority.js";
 import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -11,6 +15,7 @@ import {
   supplierSchema,
   supplierMutationSchema,
   savePurchaseRequestSchema,
+  savePurchaseInputSchema,
   purchaseActionRequestSchema,
   supplierInputSchema,
   supplierProfileSchema,
@@ -19,6 +24,7 @@ import {
   type PurchaseDocument,
   type PurchaseKind,
   type SavePurchaseRequest,
+  type SavePurchaseInput,
   type PurchaseActionRequest,
   type PurchaseQuery,
   type PurchaseMutation,
@@ -37,6 +43,8 @@ import {
   scaled,
   money,
   paymentTotals,
+  convertMinor,
+  decimalText,
   type ProcurementOptions,
   type PurchasePaymentDetails,
 } from "@nexora/contracts";
@@ -227,6 +235,12 @@ export class SourceProcurementRepository {
       );
       return {
         currencies: result.rows,
+        asset_categories: (
+          await client.query<{ id: string; code: string; name: string }>(
+            "select id,code,name from fixed_asset_category where tenant_id=$1 and company_id=$2 and active order by code limit 5000",
+            [context.tenantId, company],
+          )
+        ).rows,
         bank_accounts: banks.rows,
         can_self_approve: canSelfApprove,
         execution_mode: "instruction_only" as const,
@@ -619,20 +633,31 @@ export class SourceProcurementRepository {
   async save(
     context: ProcurementContext,
     id: string | null,
-    input: SavePurchaseRequest,
+    input: SavePurchaseInput,
     key: string,
     correlation: string,
   ): Promise<PurchaseMutation> {
-    const parsed = savePurchaseRequestSchema.parse(input),
-      fingerprint = digest({ entity: "document", id, input: parsed });
+    const request = savePurchaseInputSchema.parse(input),
+      fingerprint = digest({ entity: "document", id, input: request });
     return this.transaction(
       context,
-      parsed.company_id,
+      request.company_id,
       id ? "procurement.document.action" : "procurement.document.create",
       true,
       async (client) => {
         const replay = await this.replay(client, context, key, fingerprint);
         if (replay) return purchaseMutationSchema.parse(replay);
+        const bank =
+          ["payment", "multi_payment"].includes(request.kind) && request.payment_details
+            ? await this.paymentBank(
+                client,
+                context.tenantId,
+                request.company_id,
+                request.currency,
+                request.payment_details.bank_account_id,
+              )
+            : null;
+        const parsed = savePurchaseRequestSchema.parse({ ...request, currency: bank?.currency ?? request.currency });
         let code: string;
         let approverId = parsed.approver_id ?? null;
         let previousApprover: string | null = null;
@@ -726,7 +751,14 @@ export class SourceProcurementRepository {
           }
         }
         const details = paymentDetails
-          ? await this.paymentSnapshots(client, context.tenantId, parsed.company_id, parsed.currency, paymentDetails)
+          ? await this.paymentSnapshots(
+              client,
+              context.tenantId,
+              parsed.company_id,
+              parsed.currency,
+              parsed.document_date,
+              paymentDetails,
+            )
           : null;
         const terms = {
           ...parsed,
@@ -851,7 +883,24 @@ export class SourceProcurementRepository {
     if (terms.payment_details) fail("Payment details belong to payment instructions.");
     if (terms.allocations.length) fail("Bill allocations belong to Payment forms.");
     if (!terms.lines.length) fail("Enter at least one product or service line.");
+    const assetCategoryIds = [
+      ...new Set(terms.lines.flatMap((line) => (line.asset_category_id ? [line.asset_category_id] : []))),
+    ];
+    if (
+      assetCategoryIds.length &&
+      (
+        await client.query(
+          "select id from fixed_asset_category where tenant_id=$1 and company_id=$2 and id=any($3::text[]) and active",
+          [tenant, terms.company_id, assetCategoryIds],
+        )
+      ).rowCount !== assetCategoryIds.length
+    )
+      fail("Select active asset categories in this company.");
     for (const line of terms.lines) {
+      if (line.asset_category_id) {
+        if (scaled(line.quantity, 4) % 10000n !== 0n)
+          fail("Individually registered fixed assets require a whole-number quantity.");
+      }
       if (!line.tax_definition_id) continue;
       try {
         const basis = money((scaled(line.quantity, 4) * scaled(line.unit_price, 2) + 5000n) / 10000n);
@@ -1058,19 +1107,40 @@ export class SourceProcurementRepository {
         gross += scaled(entry.amount, 2);
       }
       if (gross > 99999999999999n) fail("The payment amount exceeds the supported limit.");
+      if (terms.payment_details.fx_snapshot) {
+        const current = await this.paymentFxSnapshot(
+          client,
+          tenant,
+          terms.company_id,
+          terms.currency,
+          terms.document_date,
+          terms.payment_details,
+        );
+        if (digest(current) !== digest(terms.payment_details.fx_snapshot))
+          fail(
+            "The Accounting exchange-rate evidence changed. Edit the payment and resubmit for approval.",
+            "PAYMENT_FX_SNAPSHOT_CHANGED",
+          );
+      }
       return money(gross);
     }
     return money(total);
   }
-  private async paymentBank(client: PoolClient, tenant: string, company: string, currency: string, id: string) {
-    const result = await client.query<{ account_name: string; account_number_masked: string | null }>(
-      `select bank.account_name,bank.account_number_masked from bank_account bank join account ledger
+  private async paymentBank(
+    client: PoolClient,
+    tenant: string,
+    company: string,
+    currency: string | undefined,
+    id: string,
+  ) {
+    const result = await client.query<{ account_name: string; account_number_masked: string | null; currency: string }>(
+      `select bank.account_name,bank.account_number_masked,bank.currency from bank_account bank join account ledger
        on ledger.tenant_id=bank.tenant_id and ledger.company_id=bank.company_id and ledger.id=bank.account_id
-       where bank.tenant_id=$1 and bank.company_id=$2 and bank.id=$3 and bank.currency=$4 and bank.status='active'
+       where bank.tenant_id=$1 and bank.company_id=$2 and bank.id=$3 and bank.status='active'
         and ledger.status='active' and not ledger.is_header and ledger.manual_posting_allowed and ledger.reconciliation_required for share of bank,ledger`,
-      [tenant, company, id, currency],
+      [tenant, company, id],
     );
-    if (!result.rows[0])
+    if (!result.rows[0] || (currency && currency !== result.rows[0].currency))
       fail("Select an active company bank account in the payment currency.", "PAYMENT_BANK_INELIGIBLE");
     return result.rows[0];
   }
@@ -1079,6 +1149,7 @@ export class SourceProcurementRepository {
     tenant: string,
     company: string,
     currency: string,
+    date: string,
     details: PurchasePaymentDetails,
   ): Promise<PurchasePaymentDetails> {
     const bank = await this.paymentBank(client, tenant, company, currency, details.bank_account_id);
@@ -1092,6 +1163,7 @@ export class SourceProcurementRepository {
       bank_account_id: details.bank_account_id,
       bank_account_name: bank.account_name,
       account_number_masked: bank.account_number_masked,
+      fx_snapshot: await this.paymentFxSnapshot(client, tenant, company, bank.currency, date, details),
       entries: details.entries.map((entry) => {
         const supplier = result.rows.find((item) => item.id === entry.supplier_id)!;
         const profile = this.readProfile(supplier.profile, tenant, company, supplier.id);
@@ -1103,6 +1175,55 @@ export class SourceProcurementRepository {
         };
       }),
     };
+  }
+  private async paymentFxSnapshot(
+    client: PoolClient,
+    tenant: string,
+    company: string,
+    currency: string,
+    date: string,
+    details: PurchasePaymentDetails,
+  ) {
+    try {
+      const authority = await resolveCompanyCurrencyAuthority(client, {
+        tenantId: tenant,
+        companyId: company,
+        sourceCurrency: currency,
+        effectiveOnOrBefore: date,
+      });
+      if (authority.sourceDecimalPlaces !== 2)
+        fail("Purchase payments require a company currency with two decimal places.");
+      let gross = 0n,
+        withholding = 0n,
+        additional = 0n,
+        net = 0n;
+      for (const entry of details.entries) {
+        const totals = paymentTotals(entry, "0.00");
+        gross += scaled(entry.amount, 2);
+        withholding += scaled(totals.wht, 2);
+        additional += scaled(entry.additional_wht, 2);
+        net += scaled(totals.net, 2);
+      }
+      const base = (units: bigint) =>
+        decimalText(
+          convertMinor(units, 2, authority.rateValue, authority.baseDecimalPlaces),
+          authority.baseDecimalPlaces,
+        );
+      return {
+        currency,
+        base_currency: authority.baseCurrency,
+        rate_id: authority.rateId,
+        rate: authority.rateValue,
+        rate_effective_date: authority.rateEffectiveDate,
+        gross_base: base(gross),
+        withholding_base: base(withholding),
+        additional_withholding_base: base(additional),
+        net_base: base(net),
+      };
+    } catch (error) {
+      if (error instanceof CompanyCurrencyAuthorityError) fail(error.message, error.code, error.status);
+      throw error;
+    }
   }
   async action(
     context: ProcurementContext,

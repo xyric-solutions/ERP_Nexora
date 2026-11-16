@@ -56,7 +56,16 @@ describe("module catalogue", () => {
       .map((module) => module.id)
       .filter((id) => id !== "dashboard" && id !== "administration")
       .sort();
-    expect(administrationModuleCatalogue.map((module) => module.id).sort()).toEqual(grantable);
+    const retired = ["costing", "tax"];
+    expect(
+      administrationModuleCatalogue
+        .filter((module) => !retired.includes(module.id))
+        .map((module) => module.id)
+        .sort(),
+    ).toEqual(grantable);
+    for (const id of retired) {
+      expect(findAdministrationModule(id)).toMatchObject({ live: false, permissionPrefixes: [] });
+    }
   });
 
   it("only marks modules live when they own server permissions", () => {
@@ -110,6 +119,25 @@ describe("access level expansion", () => {
   it("never grants keys of another module", () => {
     const keys = expandModuleAccessToPermissionKeys({ banking: "admin" }, permissionKeys);
     expect(keys.filter((key) => !key.startsWith("banking.") && !key.startsWith("platform."))).toEqual([]);
+  });
+  it("keeps Fixed Assets read and operational access separate from financial authority", () => {
+    const view = expandModuleAccessToPermissionKeys({ assets: "view" }, permissionKeys),
+      user = expandModuleAccessToPermissionKeys({ assets: "user" }, permissionKeys),
+      admin = expandModuleAccessToPermissionKeys({ assets: "admin" }, permissionKeys);
+    expect(view).toContain("assets.asset.read");
+    expect(view).toContain("assets.asset.report");
+    expect(user).toContain("assets.asset.maintain");
+    expect(user).not.toContain("assets.asset.approve");
+    expect(user).not.toContain("assets.asset.depreciate");
+    expect(admin).toEqual(
+      expect.arrayContaining([
+        "assets.asset.depreciate",
+        "assets.asset.impair",
+        "assets.asset.dispose",
+        "assets.asset.return",
+        "assets.asset.reverse",
+      ]),
+    );
   });
 
   it("grants reference reads only when some module is assigned", () => {

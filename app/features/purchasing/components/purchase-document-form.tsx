@@ -87,7 +87,7 @@ export function PurchaseDocumentForm({
     document_date: new Date().toLocaleDateString("en-CA"),
     ...(kind === "bill" ? { bill_date: new Date().toLocaleDateString("en-CA"), payment_term: null } : {}),
     due_date: null,
-    currency: options.currencies[0]?.code ?? "",
+    currency: payment ? "" : (options.currencies[0]?.code ?? ""),
     reference: "",
     notes: "",
     lines: kind === "request" ? [newLine()] : [],
@@ -367,7 +367,15 @@ export function PurchaseDocumentForm({
     };
   }, [api, company, kind, step, sourceSearch, payment, sourceSupplierId, sourceQuery, reload]);
   function change(patch: Partial<SavePurchaseRequest>) {
-    setInput((current) => ({ ...current, ...patch }));
+    setInput((current) => {
+      const next = { ...current, ...patch };
+      if (payment && next.payment_details) {
+        const details = { ...next.payment_details };
+        delete details.fx_snapshot;
+        next.payment_details = details;
+      }
+      return next;
+    });
     setDirty(true);
   }
   function updateLine(index: number, patch: Partial<PurchaseLine>) {
@@ -393,7 +401,7 @@ export function PurchaseDocumentForm({
     }
     const result = await api.savePurchaseDocument(
       record?.id ?? null,
-      parsed.data,
+      payment && parsed.data.payment_details ? { ...parsed.data, currency: undefined } : parsed.data,
       csrfToken(),
       retryKey("save", { id: record?.id ?? null, input: parsed.data }),
     );
@@ -404,6 +412,7 @@ export function PurchaseDocumentForm({
     setInput((current) => ({
       ...current,
       expected_version: result.record.version,
+      currency: result.record.currency,
       lines: result.record.lines,
       approver_id: result.record.approver_id ?? null,
       payment_details: result.record.payment_details ?? null,
@@ -867,7 +876,7 @@ export function PurchaseDocumentForm({
           onBankChange={(bankAccountId) => {
             const bank = options.bank_accounts?.find((item) => item.id === bankAccountId);
             if (bankAccountId && !bank) return;
-            const currency = bank?.currency ?? input.currency;
+            const currency = bank?.currency ?? "";
             const currencyChanged = currency !== input.currency;
             if (currencyChanged) setManualAmounts(new Set());
             change({
@@ -1521,6 +1530,23 @@ export function PurchaseDocumentForm({
                           value={line.description}
                           onChange={(event) => updateLine(index, { description: event.target.value })}
                         />
+                        {options.asset_categories?.length || line.asset_category_id ? (
+                          <select
+                            className={`${purchaseSelectClass} mt-2`}
+                            aria-label={`Line ${index + 1} asset category`}
+                            value={line.asset_category_id ?? ""}
+                            onChange={(event) =>
+                              updateLine(index, { asset_category_id: event.target.value || undefined })
+                            }
+                          >
+                            <option value="">Expense / inventory purchase</option>
+                            {options.asset_categories?.map((category) => (
+                              <option key={category.id} value={category.id}>
+                                Fixed asset · {category.code} · {category.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
                       </td>
                       <td className="p-2">
                         <Input

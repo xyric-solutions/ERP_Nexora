@@ -34,7 +34,7 @@ export async function setupSubledgerFixture(pool: DatabasePool, company = `mc-${
   await migrateSourceSchema(pool);
   await ensureSourceAuthorizationFixture(pool);
   const tenant = sourceTestTenantId;
-  for (const currency of ["PKR", "USD", "EUR", "JPY", "KWD"])
+  for (const currency of ["PKR", "USD", "AED", "EUR", "JPY", "KWD"])
     await pool.query(
       `insert into currency(tenant_id,code,name,decimal_places,is_base,status,catalog_code,row_version,adopted_by,adopted_at)
     select $1,code,name,decimal_places,false,'active',code,1,'r06.maker',clock_timestamp() from currency_catalog where code=$2 on conflict(tenant_id,code) do nothing`,
@@ -44,7 +44,7 @@ export async function setupSubledgerFixture(pool: DatabasePool, company = `mc-${
     "insert into organization_unit(id,tenant_id,parent_id,type,code,name,status) values($1,$2,null,'company',$1,$1,'active')",
     [company, tenant],
   );
-  await ensureCompanyCurrencyFixture(pool, company, base, ["PKR", "USD", "EUR", "JPY", "KWD"]);
+  await ensureCompanyCurrencyFixture(pool, company, base, ["PKR", "USD", "AED", "EUR", "JPY", "KWD"]);
   for (const [policy, user] of [
     ["r06-uat-policy-maker", "r06.maker"],
     ["r06-uat-policy-checker", "r06.checker"],
@@ -93,7 +93,7 @@ export async function setupSubledgerFixture(pool: DatabasePool, company = `mc-${
       [`${company}-${role}`, tenant, company, role, types[index]],
     );
   const banks: Record<string, string> = {};
-  for (const currency of ["PKR", "USD", "EUR", "JPY", "KWD"]) {
+  for (const currency of ["PKR", "USD", "AED", "EUR", "JPY", "KWD"]) {
     const account = `${company}-bank-${currency}`,
       id = `${company}-${currency}`;
     await pool.query(
@@ -125,8 +125,8 @@ export async function setupSubledgerFixture(pool: DatabasePool, company = `mc-${
   };
   const values: Record<string, string> =
     base === "PKR"
-      ? { USD: "280", EUR: "300", JPY: "2", KWD: "900" }
-      : { PKR: "0.003571428571428571", EUR: "1.1", JPY: "0.007", KWD: "3.25" };
+      ? { USD: "280", AED: "76", EUR: "300", JPY: "2", KWD: "900" }
+      : { PKR: "0.003571428571428571", AED: "0.27", EUR: "1.1", JPY: "0.007", KWD: "3.25" };
   for (const [currency, value] of Object.entries(values)) await rate(currency, value, "2026-09-01");
   const repository = new SourceSubledgerRepository(pool);
   const policy = await repository.configure(

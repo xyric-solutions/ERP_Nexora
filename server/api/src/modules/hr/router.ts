@@ -106,7 +106,7 @@ import {
 } from "@nexora/contracts";
 
 import { HttpError } from "../../http/errors.js";
-import { parseSingleFileMultipart } from "./shared/multipart.js";
+import { parseSingleFileMultipart } from "../../http/single-file-multipart.js";
 import { currentRequestContext } from "../../http/request-context.js";
 import type { TenantAuthApiService, TenantSessionApiService } from "../auth/tenant-router.js";
 import { HrEmployeeService } from "./employees/service.js";

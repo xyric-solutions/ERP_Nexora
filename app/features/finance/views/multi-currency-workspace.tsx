@@ -15,7 +15,7 @@ import {
   decimalText,
   divideRounded,
   type TaxDefinition,
-  type SubledgerInput,
+  type SubledgerRequest,
   type SubledgerOperation,
   type SubledgerPolicyInput,
   type SubledgerReport,
@@ -83,6 +83,7 @@ function Money({ currency, value }: { currency: string; value: string }) {
 }
 
 type WorkspaceProps = {
+  operational?: boolean;
   embedded?: boolean;
   initialTab?: Tab;
   initialSide?: Side;
@@ -101,6 +102,7 @@ export function MultiCurrencyWorkspace(props: WorkspaceProps) {
 }
 
 function CompanyCurrencyWorkspace({
+  operational = false,
   embedded = false,
   initialTab = "balances",
   initialSide = "receivable",
@@ -166,7 +168,6 @@ function CompanyCurrencyWorkspace({
     return !!activeCompany && !!session?.user.permissions.includes("finance.tax.read");
   }
   const [bankId, setBankId] = useState(""),
-    [paymentCurrency, setPaymentCurrency] = useState(""),
     [paymentAmount, setPaymentAmount] = useState("");
   const [bankFee, setBankFee] = useState("0"),
     [dealRate, setDealRate] = useState(""),
@@ -175,6 +176,8 @@ function CompanyCurrencyWorkspace({
     [allocations, setAllocations] = useState<Record<string, string>>({});
   const [partyName, setPartyName] = useState(""),
     [advanceAccount, setAdvanceAccount] = useState(""),
+    [documentCounterAccount, setDocumentCounterAccount] = useState(""),
+    [originalItemId,setOriginalItemId]=useState(''),
     [sourceSupplier, setSourceSupplier] = useState(""),
     [sourceBill, setSourceBill] = useState("");
   const [sourceGovernedTax, setSourceGovernedTax] = useState(false);
@@ -200,6 +203,16 @@ function CompanyCurrencyWorkspace({
   const currentReportScope = useRef("");
   const reportScopeKey = JSON.stringify([company, asOf, side, partyId, currency, reportKind, presentation, reportFrom]);
   const data = loaded?.scope === scopeKey ? loaded.value : null;
+  const selectedBank = data?.banks.find((bank) => bank.id === bankId);
+  const paymentCurrency = selectedBank?.currency ?? "";
+  function selectBank(id: string) {
+    setBankId(id);
+    setPaymentAmount("");
+    setBankFee("0");
+    setDealRate("");
+    setDealReference("");
+    if (kind === "advance") setDocumentAmount("");
+  }
   useLayoutEffect(() => {
     currentScope.current = scopeKey;
     currentReportScope.current = reportScopeKey;
@@ -388,7 +401,7 @@ function CompanyCurrencyWorkspace({
     const alloc = Object.entries(allocations)
       .filter(([, value]) => value && !/^0(?:\.0*)?$/.test(value))
       .map(([item_id, amount]) => ({ item_id, amount }));
-    let input: SubledgerInput;
+    let input: SubledgerRequest;
     if (type === "recognition")
       input = {
         ...common,
@@ -396,7 +409,7 @@ function CompanyCurrencyWorkspace({
         side,
         party_id: partyId,
         kind,
-        currency,
+        ...(kind === "advance" ? {} : { currency }),
         amount: documentAmount,
         due_date: dueDate,
         monetary,
@@ -408,8 +421,10 @@ function CompanyCurrencyWorkspace({
               : { tax_amount: taxAmount, ...(taxAccount ? { tax_account_id: taxAccount } : {}) }
           : {}),
         ...(!monetary && kind === "advance" ? { counter_account_id: advanceAccount } : {}),
+        ...(kind !== "advance" && documentCounterAccount ? { counter_account_id: documentCounterAccount } : {}),
         ...(kind === "advance" ? { bank_account_id: bankId } : {}),
-        ...(sourceBill ? { source_document_id: sourceBill } : {}),
+        ...(sourceBill&&kind==='invoice' ? { source_document_id: sourceBill } : {}),
+        ...(kind==='credit_note'&&originalItemId?{original_item_id:originalItemId}:{}),
       };
     else if (type === "settlement")
       input = {
@@ -418,7 +433,6 @@ function CompanyCurrencyWorkspace({
         side,
         party_id: partyId,
         bank_account_id: bankId,
-        payment_currency: paymentCurrency,
         payment_amount: paymentAmount,
         ...(settlementTax ? { tax_definition_id: settlementTax } : {}),
         bank_fee: bankFee,
@@ -508,7 +522,13 @@ function CompanyCurrencyWorkspace({
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Finance · {activeCompany?.name}
             </p>
-            <h1 className="mt-1 text-2xl font-semibold">Multi-currency accounting</h1>
+            <h1 className="mt-1 text-2xl font-semibold">
+              {operational
+                ? side === "receivable"
+                  ? "Customer receipts & invoices"
+                  : "Supplier payments & bills"
+                : "Multi-currency accounting"}
+            </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Original currency balances, posted carrying values and auditable exchange movements.
             </p>
@@ -527,27 +547,38 @@ function CompanyCurrencyWorkspace({
         </div>
       </header>
       <nav className="flex flex-wrap gap-1" aria-label="Currency accounting sections">
-        {(Object.keys(titles) as Tab[]).map((key) => (
-          <Button
-            type="button"
-            key={key}
-            variant={tab === key ? "default" : "outline"}
-            aria-pressed={tab === key}
-            onClick={() => {
-              setTab(key);
-              setOffset(0);
-              setReport(null);
-            }}
-          >
-            {titles[key]}
-          </Button>
-        ))}
+        {(Object.keys(titles) as Tab[])
+          .filter((key) => !operational || key !== "revaluation")
+          .map((key) => (
+            <Button
+              type="button"
+              key={key}
+              variant={tab === key ? "default" : "outline"}
+              aria-pressed={tab === key}
+              onClick={() => {
+                setTab(key);
+                if (operational && key === "settlement") {
+                  setCurrency("");
+                  setAllocations({});
+                }
+                setOffset(0);
+                setReport(null);
+              }}
+            >
+              {operational && key === "setup"
+                ? side === "receivable"
+                  ? "Add customer"
+                  : "Add supplier account"
+                : titles[key]}
+            </Button>
+          ))}
       </nav>
       <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Ledger">
           <select
             className={workSelectClass}
             value={side}
+            disabled={operational}
             onChange={(event) => {
               setSide(event.target.value === "payable" ? "payable" : "receivable");
               setPartyId("");
@@ -576,19 +607,21 @@ function CompanyCurrencyWorkspace({
             {partyOptions}
           </select>
         </Field>
-        <Field label="Original currency">
-          <select
-            className={workSelectClass}
-            value={currency}
-            onChange={(event) => {
-              setCurrency(event.target.value);
-              setOffset(0);
-              setReport(null);
-            }}
-          >
-            {currencyOptions}
-          </select>
-        </Field>
+        {!(operational && (tab === "settlement" || (tab === "documents" && kind === "advance"))) && (
+          <Field label="Original currency">
+            <select
+              className={workSelectClass}
+              value={currency}
+              onChange={(event) => {
+                setCurrency(event.target.value);
+                setOffset(0);
+                setReport(null);
+              }}
+            >
+              {currencyOptions}
+            </select>
+          </Field>
+        )}
         <Field label="Balances as of">
           <Input
             type="date"
@@ -820,10 +853,35 @@ function CompanyCurrencyWorkspace({
                 </>
               )}
               {commonFields}
-              {side === "payable" && (
+              {side === "payable" && kind==='invoice' && (
                 <Field label="Approved procurement bill ID (optional)">
                   <Input value={sourceBill} onChange={(event) => setSourceBill(event.target.value)} />
                 </Field>
+              )}
+              {kind==='credit_note'&&<Field label="Original invoice"><select className={workSelectClass} value={originalItemId} onChange={event=>{const item=data.items.find(item=>item.id===event.target.value);setOriginalItemId(event.target.value);if(item)setCurrency(item.currency);}}><option value="">Select original invoice (required for asset returns)</option>{data.items.filter(item=>item.kind==='invoice'&&item.side===side&&item.party_id===partyId).map(item=><option key={item.id} value={item.id}>{item.code} · {item.date} · {item.currency} {item.original_amount}</option>)}</select></Field>}
+              {side === "payable" && kind !== "advance" && (
+                <>
+                  <Field label="Purchase accounting account">
+                    <select
+                      className={workSelectClass}
+                      value={documentCounterAccount}
+                      onChange={(event) => setDocumentCounterAccount(event.target.value)}
+                    >
+                      <option value="">Approved bill categories / default purchase expense</option>
+                      {data.accounts
+                        .filter((account) => account.type === "expense" || account.type === "asset")
+                        .map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.code} · {account.name}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+                  <p className="text-xs text-muted-foreground">
+                    Asset accounts must be configured in Fixed Assets. Acquisitions require an approved Purchase bill;
+                    supplier credit notes use the original asset account.
+                  </p>
+                </>
               )}
               {kind === "advance" && (
                 <>
@@ -831,11 +889,14 @@ function CompanyCurrencyWorkspace({
                     <select
                       className={workSelectClass}
                       value={bankId}
-                      onChange={(event) => setBankId(event.target.value)}
+                      onChange={(event) => selectBank(event.target.value)}
                       required
                     >
                       {bankOptions}
                     </select>
+                  </Field>
+                  <Field label="Transaction currency">
+                    <Input readOnly value={paymentCurrency} placeholder="Select a bank account" />
                   </Field>
                   <label htmlFor="advance-monetary" className="flex items-center gap-2 text-sm">
                     <Checkbox
@@ -867,10 +928,18 @@ function CompanyCurrencyWorkspace({
                 </>
               )}
               <p className="col-span-full text-sm text-muted-foreground">
-                Select the party and original currency above. Exchange rates come from the company’s governed rates for
-                the posting date. Saving creates a draft; approval and posting are separate.
+                {kind === "advance"
+                  ? "Select the party and bank account."
+                  : "Select the party and original currency above."}{" "}
+                Exchange rates come from Accounting for the posting date. Saving creates a draft; approval and posting
+                are separate.
               </p>
-              <Button type="submit" disabled={busy || !canManage || !partyId || !currency || !data.policy}>
+              <Button
+                type="submit"
+                disabled={
+                  busy || !canManage || !partyId || !(kind === "advance" ? paymentCurrency : currency) || !data.policy
+                }
+              >
                 Save financial draft
               </Button>
             </form>
@@ -886,25 +955,18 @@ function CompanyCurrencyWorkspace({
               >
                 <h2 className="col-span-full text-base font-semibold">Allocate a receipt or payment</h2>
                 {commonFields}
-                <Field label="Payment currency">
-                  <select
-                    className={workSelectClass}
-                    value={paymentCurrency}
-                    onChange={(event) => setPaymentCurrency(event.target.value)}
-                    required
-                  >
-                    {currencyOptions}
-                  </select>
-                </Field>
                 <Field label="Bank account">
                   <select
                     className={workSelectClass}
                     value={bankId}
-                    onChange={(event) => setBankId(event.target.value)}
+                    onChange={(event) => selectBank(event.target.value)}
                     required
                   >
                     {bankOptions}
                   </select>
+                </Field>
+                <Field label="Payment currency">
+                  <Input readOnly value={paymentCurrency} placeholder="Selected automatically from the bank" />
                 </Field>
                 <Field label="Payment amount before bank fee">
                   <Input
@@ -940,7 +1002,7 @@ function CompanyCurrencyWorkspace({
                     required
                   />
                 </Field>
-                {paymentCurrency && paymentCurrency !== currency && (
+                {!operational && paymentCurrency && paymentCurrency !== currency && (
                   <>
                     <Field label="Bank deal rate (optional, payment units per invoice unit)">
                       <Input
@@ -966,7 +1028,7 @@ function CompanyCurrencyWorkspace({
                   allocations at the company’s effective cross-currency rates. FX and bank fees are posted separately.
                 </p>
                 <div className="col-span-full flex flex-wrap gap-2">
-                  <Button type="submit" disabled={busy || !canManage || !partyId}>
+                  <Button type="submit" disabled={busy || !canManage || !partyId || !selectedBank}>
                     Save settlement draft
                   </Button>
                   <Button
@@ -1180,7 +1242,7 @@ function CompanyCurrencyWorkspace({
             </>
           )}
           {tab === "setup" && (
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className={operational ? "grid gap-4" : "grid gap-4 lg:grid-cols-2"}>
               <form
                 className="grid content-start gap-3 rounded-lg border border-border bg-card p-4"
                 onSubmit={(event) => {
@@ -1225,53 +1287,55 @@ function CompanyCurrencyWorkspace({
                   Create financial party
                 </Button>
               </form>
-              <form
-                className="grid gap-3 rounded-lg border border-border bg-card p-4"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!company) return;
-                  const input: SubledgerPolicyInput = {
-                    company_id: company,
-                    expected_version: data.policy?.version ?? 0,
-                    receivable_account_id: policyValues.receivable_account_id ?? "",
-                    payable_account_id: policyValues.payable_account_id ?? "",
-                    revenue_account_id: policyValues.revenue_account_id ?? "",
-                    expense_account_id: policyValues.expense_account_id ?? "",
-                    realized_gain_account_id: policyValues.realized_gain_account_id ?? "",
-                    realized_loss_account_id: policyValues.realized_loss_account_id ?? "",
-                    unrealized_gain_account_id: policyValues.unrealized_gain_account_id ?? "",
-                    unrealized_loss_account_id: policyValues.unrealized_loss_account_id ?? "",
-                  };
-                  void perform(
-                    () => api.configureSubledgerPolicy(input, csrfToken(), crypto.randomUUID()),
-                    "Versioned accounting policy saved.",
-                  );
-                }}
-              >
-                <h2 className="font-semibold">Control and exchange accounts · version {data.policy?.version ?? 0}</h2>
-                {policyRoles.map((role) => (
-                  <Field key={role} label={role.replaceAll("_", " ")}>
-                    <select
-                      className={workSelectClass}
-                      value={policyValues[`${role}_account_id`] ?? ""}
-                      onChange={(event) =>
-                        setPolicyValues((previous) => ({ ...previous, [`${role}_account_id`]: event.target.value }))
-                      }
-                      required
-                    >
-                      <option value="">Choose posting account</option>
-                      {data.accounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.code} · {account.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                ))}
-                <Button type="submit" disabled={busy || !canManage}>
-                  Save accounting policy
-                </Button>
-              </form>
+              {!operational && (
+                <form
+                  className="grid gap-3 rounded-lg border border-border bg-card p-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!company) return;
+                    const input: SubledgerPolicyInput = {
+                      company_id: company,
+                      expected_version: data.policy?.version ?? 0,
+                      receivable_account_id: policyValues.receivable_account_id ?? "",
+                      payable_account_id: policyValues.payable_account_id ?? "",
+                      revenue_account_id: policyValues.revenue_account_id ?? "",
+                      expense_account_id: policyValues.expense_account_id ?? "",
+                      realized_gain_account_id: policyValues.realized_gain_account_id ?? "",
+                      realized_loss_account_id: policyValues.realized_loss_account_id ?? "",
+                      unrealized_gain_account_id: policyValues.unrealized_gain_account_id ?? "",
+                      unrealized_loss_account_id: policyValues.unrealized_loss_account_id ?? "",
+                    };
+                    void perform(
+                      () => api.configureSubledgerPolicy(input, csrfToken(), crypto.randomUUID()),
+                      "Versioned accounting policy saved.",
+                    );
+                  }}
+                >
+                  <h2 className="font-semibold">Control and exchange accounts · version {data.policy?.version ?? 0}</h2>
+                  {policyRoles.map((role) => (
+                    <Field key={role} label={role.replaceAll("_", " ")}>
+                      <select
+                        className={workSelectClass}
+                        value={policyValues[`${role}_account_id`] ?? ""}
+                        onChange={(event) =>
+                          setPolicyValues((previous) => ({ ...previous, [`${role}_account_id`]: event.target.value }))
+                        }
+                        required
+                      >
+                        <option value="">Choose posting account</option>
+                        {data.accounts.map((account) => (
+                          <option key={account.id} value={account.id}>
+                            {account.code} · {account.name}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                  ))}
+                  <Button type="submit" disabled={busy || !canManage}>
+                    Save accounting policy
+                  </Button>
+                </form>
+              )}
             </div>
           )}
           {!["reports", "setup"].includes(tab) && (
@@ -1296,6 +1360,7 @@ function CompanyCurrencyWorkspace({
                       canManage={canManage}
                       canApprove={canApprove}
                       canPost={canPost}
+                      canRegisterAssets={permissions.has("assets.asset.create")}
                       actor={session?.user.id ?? ""}
                       act={(action) =>
                         void perform(
@@ -1391,6 +1456,7 @@ function OperationRow({
   canManage,
   canApprove,
   canPost,
+  canRegisterAssets,
   actor,
   act,
   reverse,
@@ -1400,6 +1466,7 @@ function OperationRow({
   canManage: boolean;
   canApprove: boolean;
   canPost: boolean;
+  canRegisterAssets: boolean;
   actor: string;
   act: (action: "submit" | "approve" | "reject" | "post") => void;
   reverse: () => void;
@@ -1459,6 +1526,25 @@ function OperationRow({
                 Prepare reversal
               </Button>
             )}
+            {operation.state === "posted" &&
+              operation.input.type === "recognition" &&
+              operation.input.side === "payable" &&
+              operation.input.kind === "invoice" &&
+              operation.input.source_document_id &&
+              canRegisterAssets && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    if (operation.input.type === "recognition" && operation.input.source_document_id)
+                      window.location.hash = `/assets/add-asset/${encodeURIComponent(operation.input.source_document_id)}`;
+                  }}
+                >
+                  Register acquired assets
+                </Button>
+              )}
           </div>
         </td>
       </tr>

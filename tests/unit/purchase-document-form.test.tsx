@@ -248,6 +248,11 @@ describe("Persisted Purchase creation and approval form", () => {
     expect(container.querySelector("textarea[readonly]")?.textContent).toBe("Saved mailing address");
     expect(container.querySelector('[aria-label="Unallocated balance 1"]')).toHaveProperty("value", "25.00");
     expect(container.textContent).toContain("Net bank amount: 96.50");
+    const currencyLabel = [...container.querySelectorAll("label")].find(
+      (item) => item.textContent === "Payment currency",
+    )!;
+    expect(document.getElementById(currencyLabel.htmlFor)).toHaveProperty("readOnly", true);
+    expect(document.getElementById(currencyLabel.htmlFor)).toHaveProperty("value", "USD");
     change("WHT rate 1", "5");
     change("Additional WHT 1", "2.00");
     change("Discount BILL-001", "4.00");
@@ -259,6 +264,7 @@ describe("Persisted Purchase creation and approval form", () => {
         entries: [{ mode: "cheque", wht_rate: "5", additional_wht: "2.00" }],
       },
     });
+    expect(harness.api.savePurchaseDocument.mock.calls[0][1].currency).toBeUndefined();
   });
   it("inherits the PR approver through an older RFQ without showing another selector", async () => {
     harness.api.getPurchaseDocument.mockResolvedValue({

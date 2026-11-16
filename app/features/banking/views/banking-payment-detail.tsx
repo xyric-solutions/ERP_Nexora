@@ -44,6 +44,7 @@ export interface BankingPaymentDetailProps {
   paymentId: string;
   onBack: () => void;
   onEdit: (paymentId: string) => void;
+  onRegisterAssets?: (paymentId: string) => void;
 }
 
 const stateLabels: Record<BankPaymentDetail["state"], string> = {
@@ -116,7 +117,7 @@ function isVersionConflict(error: unknown): boolean {
   );
 }
 
-export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPaymentDetailProps) {
+export function BankingPaymentDetail({ paymentId, onBack, onEdit, onRegisterAssets }: BankingPaymentDetailProps) {
   const { api, csrfToken, session, loading: sessionLoading } = useSession();
   const notify = useActionFeedback();
   const client = useMemo(() => new BankingApiClient(api), [api]);
@@ -322,6 +323,9 @@ export function BankingPaymentDetail({ paymentId, onBack, onEdit }: BankingPayme
             </p>
           </div>
           <div className="flex flex-wrap items-start gap-2 lg:max-w-md lg:justify-end">
+            {payment.state === "posted" && onRegisterAssets && session?.user.permissions.includes("assets.asset.create") && (
+              <Button type="button" variant="secondary" onClick={()=>onRegisterAssets(payment.id)}>Register acquired assets</Button>
+            )}
             {canEdit ? (
               <Button type="button" variant="secondary" disabled={mutationBusy} onClick={() => onEdit(payment.id)}>
                 <PencilLine aria-hidden="true" />

@@ -416,4 +416,17 @@ security.user_account.revoke_sessions
 security.user_account.submit
 workflow.approval.approve
 workflow.approval.reject
+assets.asset.read
+assets.asset.create
+assets.asset.edit
+assets.asset.approve
+assets.asset.transfer
+assets.asset.return
+assets.asset.depreciate
+assets.asset.reverse
+assets.asset.maintain
+assets.asset.impair
+assets.asset.dispose
+assets.asset.categories
+assets.asset.report
 ```

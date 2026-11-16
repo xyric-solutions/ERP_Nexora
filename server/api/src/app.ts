@@ -54,6 +54,8 @@ import { createChartTemplateRouter } from "./modules/finance/templates/router.js
 import type { ChartTemplateRepository } from "./modules/finance/templates/service.js";
 import { createReferenceMasterRouter } from "./modules/master-data/router.js";
 import { createProcurementRouter, type ProcurementRepository } from "./modules/procurement/router.js";
+import { createFixedAssetsRouter } from "./modules/fixed-assets/router.js";
+import type { FixedAssetsService } from "./modules/fixed-assets/service.js";
 import {
   createFiscalCalendarRouter,
   type FiscalCalendarApiRepository,
@@ -105,6 +107,7 @@ export interface AppDependencies {
   chartTemplateRepository?: ChartTemplateRepository;
   referenceMasterRepository?: ReferenceMasterRepository;
   procurementRepository?: ProcurementRepository;
+  fixedAssetsService?: FixedAssetsService;
   inventoryRepository?: InventoryRepository;
   fiscalCalendarRepository?: FiscalCalendarApiRepository;
   financePeriodRepository?: FinancePeriodApiRepository;
@@ -421,15 +424,29 @@ export function createApp(dependencies: AppDependencies): Express {
   }
 
   if (dependencies.taxRepository && dependencies.authService && dependencies.sessionService) {
-    app.use("/api/v1/finance/taxes", createTaxRouter({ repository: dependencies.taxRepository,
-      authentication: dependencies.authService, sessions: dependencies.sessionService,
-      secureCookies: dependencies.config.nodeEnv === "production", allowedOrigins: dependencies.config.allowedOrigins }));
+    app.use(
+      "/api/v1/finance/taxes",
+      createTaxRouter({
+        repository: dependencies.taxRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
   }
 
   if (dependencies.subledgerRepository && dependencies.authService && dependencies.sessionService) {
-    app.use("/api/v1/finance/subledger", createSubledgerRouter({ repository: dependencies.subledgerRepository,
-      authentication: dependencies.authService, sessions: dependencies.sessionService,
-      secureCookies: dependencies.config.nodeEnv === "production", allowedOrigins: dependencies.config.allowedOrigins }));
+    app.use(
+      "/api/v1/finance/subledger",
+      createSubledgerRouter({
+        repository: dependencies.subledgerRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
   }
 
   if (dependencies.financeCurrencyRepository && dependencies.authService && dependencies.sessionService) {
@@ -450,6 +467,18 @@ export function createApp(dependencies: AppDependencies): Express {
       "/api/v1/finance/chart_templates",
       createChartTemplateRouter({
         repository: dependencies.chartTemplateRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.fixedAssetsService && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/assets",
+      createFixedAssetsRouter({
+        service: dependencies.fixedAssetsService,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

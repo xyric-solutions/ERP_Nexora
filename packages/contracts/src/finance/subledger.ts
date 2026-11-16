@@ -54,6 +54,7 @@ export const subledgerRecognitionSchema = z.strictObject({
   monetary: z.boolean().default(true),
   bank_account_id: id.optional(),
   source_document_id: id.optional(),
+  original_item_id:id.optional(),
   counter_account_id: id.optional(),
   tax_definition_id: id.optional(),
   tax_amount: amount.optional(),
@@ -98,6 +99,22 @@ export const subledgerOperationInputSchema = z.discriminatedUnion("type", [
   subledgerRevaluationSchema,
   subledgerReversalSchema,
 ]);
+/** Requests may omit bank-derived currency; persisted operations remain canonical. */
+export const subledgerOperationRequestSchema = z.discriminatedUnion("type", [
+  subledgerRecognitionSchema.partial({ currency: true }).superRefine((input, context) => {
+    if (!input.currency && (input.kind !== "advance" || !input.bank_account_id))
+      context.addIssue({
+        code: "custom",
+        path: ["currency"],
+        message: "A document currency or advance bank is required.",
+      });
+  }),
+  subledgerSettlementSchema.partial({ payment_currency: true }),
+  subledgerOffsetSchema,
+  subledgerRevaluationSchema,
+  subledgerReversalSchema,
+]);
+export type SubledgerRequest = z.infer<typeof subledgerOperationRequestSchema>;
 export const subledgerActionSchema = z.strictObject({
   company_id: id,
   expected_version: z.number().int().positive(),

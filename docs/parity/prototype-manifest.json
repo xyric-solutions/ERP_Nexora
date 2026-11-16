@@ -4,7 +4,7 @@
   "counts": {
     "modules": 30,
     "groups": 118,
-    "pages": 667
+    "pages": 672
   },
   "modules": [
     {
@@ -439,7 +439,8 @@
               "id": "currency-balances",
               "label": "Currency Accounts",
               "archetype": "list",
-              "status": "live"
+              "status": "live",
+              "hiddenFromNavigation": true
             }
           ]
         }
@@ -512,7 +513,8 @@
               "id": "supplier-currency-accounts",
               "label": "Supplier Currency Accounts",
               "archetype": "list",
-              "status": "live"
+              "status": "live",
+              "hiddenFromNavigation": true
             }
           ]
         },
@@ -2397,7 +2399,7 @@
     {
       "id": "assets",
       "code": "FA",
-      "label": "Fixed Assets & Leases",
+      "label": "Fixed Assets",
       "category": "Finance & trade",
       "modes": [
         "service",
@@ -2413,49 +2415,79 @@
               "id": "assets-dashboard",
               "label": "Assets Dashboard",
               "archetype": "dashboard",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-classes",
               "label": "Asset Classes & Policies",
               "archetype": "settings",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "assets",
               "label": "Asset Register",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "add-asset",
               "label": "Add Asset",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-detail",
               "label": "Asset Detail",
               "archetype": "detail",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-acquisition",
-              "label": "Acquisition & CWIP",
+              "label": "Register Posted Acquisitions",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "capitalisation",
-              "label": "Capitalisation",
+              "label": "Asset Approval & Activation",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-transfer",
               "label": "Transfer & Assignment",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
+            },
+            {
+              "id": "asset-return",
+              "label": "Vendor Returns",
+              "archetype": "form",
+              "status": "live"
+            },
+            {
+              "id": "asset-refund",
+              "label": "Vendor Refunds",
+              "archetype": "form",
+              "status": "live"
+            },
+            {
+              "id": "asset-maintenance",
+              "label": "Maintenance",
+              "archetype": "form",
+              "status": "live"
+            },
+            {
+              "id": "asset-verification",
+              "label": "Physical Verification",
+              "archetype": "form",
+              "status": "live"
+            },
+            {
+              "id": "asset-reports",
+              "label": "Asset Reports",
+              "archetype": "report",
+              "status": "live"
             }
           ]
         },
@@ -2467,19 +2499,19 @@
               "id": "depreciation-run",
               "label": "Depreciation Run",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-revaluation",
-              "label": "Revaluation & Impairment",
+              "label": "Impairment Assessments",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-disposal",
               "label": "Asset Disposal",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -3755,13 +3787,13 @@
               "id": "asset-register-report",
               "label": "Fixed Asset Register",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-depreciation-report",
               "label": "Depreciation Schedule",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "asset-movement-report",

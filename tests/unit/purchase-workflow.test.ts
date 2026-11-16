@@ -30,13 +30,8 @@ describe("Consolidated Purchase workflow", () => {
       "Payment",
       "Multi-vendor Payment",
       "Suppliers",
-      "Supplier Currency Accounts",
     ]);
-    expect(pages.map((page) => page.id)).toEqual([
-      ...purchaseSteps.map((step) => step.page),
-      "suppliers",
-      "supplier-currency-accounts",
-    ]);
+    expect(pages.map((page) => page.id)).toEqual([...purchaseSteps.map((step) => step.page), "suppliers"]);
     expect(prototypeModules.some((module) => module.id === "suppliers")).toBe(false);
     expect(findPrototypePage("purchases", "suppliers").page.hiddenFromNavigation).not.toBe(true);
   });

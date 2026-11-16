@@ -1,4 +1,5 @@
 import { inventoryPaths } from "./inventory/openapi.js";
+import { fixedAssetPaths } from "./fixed-assets/openapi.js";
 import {
   warehouseInputSchema,
   updateWarehouseInputSchema,
@@ -187,7 +188,7 @@ import {
 import { referenceMasterPaths } from "./master-data/openapi.js";
 import { procurementPaths } from "./procurement/openapi.js";
 import {
-  updatePurchaseRequestSchema,
+  updatePurchaseInputSchema as updatePurchaseRequestSchema,
   updateSupplierInputSchema,
   procurementCompaniesSchema,
   procurementOptionsSchema,
@@ -196,7 +197,7 @@ import {
   purchaseFlowSchema,
   purchaseDocumentSchema,
   purchaseDirectorySchema,
-  savePurchaseRequestSchema,
+  savePurchaseInputSchema as savePurchaseRequestSchema,
   purchaseActionRequestSchema,
   purchaseMutationSchema,
   supplierInputSchema,
@@ -1136,6 +1137,7 @@ export function buildOpenApiDocument() {
       ...referenceMasterPaths(),
       ...procurementPaths(),
       ...inventoryPaths(),
+      ...fixedAssetPaths(),
       "/auth/login": {
         post: {
           operationId: "loginWithPassword",

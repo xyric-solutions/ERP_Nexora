@@ -11,6 +11,7 @@ import {
 } from "../../packages/db/src/index.js";
 import {
   savePurchaseRequestSchema,
+  savePurchaseInputSchema,
   productInputSchema,
   supplierInputSchema,
   type PurchaseDocument,
@@ -122,6 +123,7 @@ suite("Database-backed Purchase and Supplier workflow", () => {
     source?: PurchaseDocument,
     supplier: string | null = supplierA,
     quantity = "10",
+    currency = source?.currency ?? "USD",
   ): SavePurchaseRequest {
     return savePurchaseRequestSchema.parse({
       company_id: company,
@@ -130,7 +132,7 @@ suite("Database-backed Purchase and Supplier workflow", () => {
       source_id: source?.id ?? null,
       invited_supplier_ids: kind === "rfq" ? [supplierA, supplierB] : [],
       document_date: "2026-11-05",
-      currency: "USD",
+      currency,
       reference: kind === "bill" ? `INV-${key()}` : "",
       lines: [
         {
@@ -186,13 +188,13 @@ suite("Database-backed Purchase and Supplier workflow", () => {
   async function approved(input: SavePurchaseRequest) {
     return approve(await submit(await save(input)));
   }
-  async function order(supplier = supplierA, quantity = "10") {
-    const requisition = await approved(terms("request", undefined, null, quantity));
+  async function order(supplier = supplierA, quantity = "10", currency = "USD") {
+    const requisition = await approved(terms("request", undefined, null, quantity, currency));
     const rfq = await approved(terms("rfq", requisition, null, quantity));
     return approved(terms("order", rfq, supplier, quantity));
   }
-  async function bill(supplier = supplierA, quantity = "10") {
-    const po = await order(supplier, quantity);
+  async function bill(supplier = supplierA, quantity = "10", currency = "USD") {
+    const po = await order(supplier, quantity, currency);
     await approved(terms("receipt", po, supplier, quantity));
     return approved(terms("bill", po, supplier, quantity));
   }
@@ -652,6 +654,116 @@ suite("Database-backed Purchase and Supplier workflow", () => {
       [tenant, final.id],
     );
     expect(snapshots.rows[0]?.details).toEqual(final.payment_details);
+  });
+  it.each([
+    ["PKR", "0.35"],
+    ["AED", "27.00"],
+    ["USD", "100.00"],
+  ])("derives %s purchase payment currency and stores Accounting base values", async (currency, grossBase) => {
+    const invoice = await bill(supplierA, "10", currency);
+    const input = savePurchaseInputSchema.parse({
+      company_id: company,
+      kind: "payment",
+      supplier_id: supplierA,
+      document_date: "2026-11-05",
+      allocations: [{ bill_id: invoice.id, amount: "100.00" }],
+      payment_details: {
+        bank_account_id: `purchase-bank-${currency}`,
+        entries: [
+          {
+            supplier_id: supplierA,
+            amount: "100.00",
+            mode: "bank_transfer",
+            wht_rate: "0",
+            additional_wht: "0.00",
+          },
+        ],
+      },
+    });
+    const saved = await repo.save(maker, null, input, key(), key());
+    expect(saved.record.currency).toBe(currency);
+    expect(saved.record.payment_details?.fx_snapshot).toMatchObject({
+      currency,
+      base_currency: "USD",
+      gross_base: grossBase,
+      net_base: grossBase,
+    });
+    const forged = {
+      ...input,
+      payment_details: {
+        ...input.payment_details!,
+        fx_snapshot: { ...saved.record.payment_details!.fx_snapshot!, rate: "999", net_base: "0" },
+      },
+    };
+    const canonical = await repo.save(maker, null, forged, key(), key());
+    expect(canonical.record.payment_details?.fx_snapshot).toEqual(saved.record.payment_details?.fx_snapshot);
+    await expect(repo.save(maker, null, { ...input, currency: "ZZZ" }, key(), key())).rejects.toMatchObject({
+      code: "PAYMENT_BANK_INELIGIBLE",
+    });
+    const completed = await approve(await submit(saved.record));
+    expect(completed.payment_details?.fx_snapshot).toEqual(saved.record.payment_details?.fx_snapshot);
+    const journals = await pool.query("select count(*)::integer as count from journal_entry where tenant_id=$1", [
+      tenant,
+    ]);
+    expect(journals.rows[0]?.count).toBe(0);
+  });
+  it("fails closed on missing rates and requires refreshed approval when Accounting FX evidence changes", async () => {
+    const invoice = await bill(supplierA, "10", "AED");
+    const input = savePurchaseInputSchema.parse({
+      company_id: company,
+      kind: "payment",
+      supplier_id: supplierA,
+      document_date: "2026-11-05",
+      allocations: [{ bill_id: invoice.id, amount: "100.00" }],
+      payment_details: {
+        bank_account_id: "purchase-bank-AED",
+        entries: [
+          {
+            supplier_id: supplierA,
+            amount: "100.00",
+            mode: "bank_transfer",
+            wht_rate: "2",
+            additional_wht: "1.00",
+          },
+        ],
+      },
+    });
+    await expect(repo.save(maker, null, { ...input, document_date: "2025-12-31" }, key(), key())).rejects.toMatchObject(
+      { code: "COMPANY_CURRENCY_RATE_MISSING" },
+    );
+    const saved = (await repo.save(maker, null, input, key(), key())).record;
+    expect(saved.payment_details?.fx_snapshot).toMatchObject({
+      gross_base: "27.00",
+      withholding_base: "0.54",
+      additional_withholding_base: "0.27",
+      net_base: "26.19",
+    });
+    const pending = await submit(saved);
+    await pool.query(
+      `insert into currency_rate(id,tenant_id,company_id,source_currency,target_currency,rate,effective_date,status,row_version,created_by,reason,updated_at)
+      values('purchase-rate-AED-new',$1,$2,'AED','USD','0.28','2026-11-05','active',1,'r06.maker','Synthetic rate change',now())`,
+      [tenant, company],
+    );
+    await expect(approve(pending)).rejects.toMatchObject({ code: "PAYMENT_FX_SNAPSHOT_CHANGED" });
+    const rejected = (
+      await repo.action(
+        checker,
+        pending.id,
+        {
+          company_id: company,
+          expected_version: pending.version,
+          action: "reject",
+          reason: "Refresh Accounting rate evidence",
+        },
+        key(),
+        key(),
+      )
+    ).record;
+    const refreshed = (
+      await repo.save(maker, rejected.id, { ...input, expected_version: rejected.version }, key(), key())
+    ).record;
+    expect(refreshed.payment_details?.fx_snapshot?.net_base).toBe("27.16");
+    expect((await approve(await submit(refreshed))).state).toBe("approved");
   });
   it("serializes concurrent payment approvals against the same bill", async () => {
     const invoice = await bill();

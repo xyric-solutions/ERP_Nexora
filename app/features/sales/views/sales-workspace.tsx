@@ -61,6 +61,7 @@ export function SalesWorkspace(props: SalesWorkspaceProps) {
           </Button>
         </div>
         <MultiCurrencyWorkspace
+          operational
           key={context.pageId}
           initialTab={
             context.pageId === "invoices" ? "documents" : context.pageId === "receipts" ? "settlement" : "balances"

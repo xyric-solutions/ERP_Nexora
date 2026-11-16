@@ -36,6 +36,30 @@ CSV payment detail rows keep supplier totals separate from individual bill rows.
 Receipt/return money-voucher categories are pending party/direction clarification;
 the existing `receipt` kind continues to mean receiving products.
 
+Bank-based Payment and Multi-vendor Payment requests may omit currency. The API
+resolves the active, permitted company bank and stores its currency; an explicitly
+conflicting currency is rejected. Forms show that currency read-only and clear
+incompatible allocations when the bank currency changes. Documents without a bank
+retain their existing document/source currency behavior.
+
+New or edited bank instructions use Accounting's `resolveCompanyCurrencyAuthority`
+for the document date. `payment_details.fx_snapshot` stores the server's rate
+identity/value/effective date, company base currency, and gross, withholding,
+additional withholding and net base amounts. Decimal conversion uses the existing
+Accounting integer helpers. Client-supplied snapshots are replaced. Submission and
+approval recheck saved evidence; a rate change requires editing and resubmission.
+Missing/inactive currency setup or a missing applicable rate fails closed. Older
+instructions without FX snapshots remain readable and retain their existing
+approval behavior. No migration or new FX configuration store is introduced.
+
+The standalone Supplier Currency Accounts menu entry is hidden; its existing deep
+link and approved-Bill accounting-preparation action remain supported. These use
+the same Accounting subledger with accounting policy controls and the valuation tab
+hidden in the operational view. Financial supplier account creation remains
+available. Instruction approval still reserves allocations only; actual
+supplier settlement, including cross-currency settlement, retains the existing
+separate Accounting lifecycle and GL posting boundary.
+
 The additive Procurement 1 source migration adds `procurement_supplier`,
 `procurement_document` and append-only `procurement_change`. Suppliers also create
 the existing tenant Party/vendor identity, with a company-specific Purchase

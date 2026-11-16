@@ -92,8 +92,9 @@ test.describe("persistent multi-currency accounting", () => {
 
       await maker.page.getByRole("button", { name: "Receipts & payments", exact: true }).click();
       await maker.page.getByLabel("Posting date", { exact: true }).fill("2026-10-02");
-      await maker.page.getByLabel("Payment currency", { exact: true }).selectOption("USD");
       await maker.page.getByLabel("Bank account", { exact: true }).selectOption({ label: "USD · USD" });
+      await expect(maker.page.getByLabel("Payment currency", { exact: true })).toHaveValue("USD");
+      await expect(maker.page.getByLabel("Payment currency", { exact: true })).toHaveAttribute("readonly", "");
       await maker.page.getByLabel("Payment amount before bank fee").fill("500");
       await maker.page.getByLabel("Allocate ARI-001", { exact: true }).fill("500");
       await maker.page.getByRole("button", { name: "Save settlement draft", exact: true }).click();
@@ -148,6 +149,36 @@ test.describe("persistent multi-currency accounting", () => {
         document.documentElement.dataset.theme = "light";
       });
       await maker.page.screenshot({ path: "tmp/multi-currency-evidence/mobile-light.png", fullPage: true });
+      await maker.page.goto("/#/sales/receipts");
+      await expect(
+        maker.page.getByRole("heading", { name: "Customer receipts & invoices", exact: true }),
+      ).toBeVisible();
+      await expect(maker.page.getByRole("button", { name: "Accounting setup", exact: true })).toHaveCount(0);
+      await expect(maker.page.getByRole("button", { name: "Add customer", exact: true })).toBeVisible();
+      await expect(maker.page.getByLabel("Original currency", { exact: true })).toHaveCount(0);
+      await maker.page.getByLabel("Bank account", { exact: true }).selectOption({ label: "USD · USD" });
+      await expect(maker.page.getByLabel("Payment currency", { exact: true })).toHaveValue("USD");
+      await expect(maker.page.getByLabel("Payment currency", { exact: true })).toHaveAttribute("readonly", "");
+      await expect(maker.page.locator(".nx-submenu-link span").filter({ hasText: /^Currency Accounts$/ })).toHaveCount(
+        0,
+      );
+      for (const [name, width, height] of [
+        ["desktop", 1440, 1000],
+        ["tablet", 820, 1180],
+        ["mobile", 390, 844],
+      ] as const) {
+        await maker.page.setViewportSize({ width, height });
+        for (const theme of ["light", "dark"]) {
+          await maker.page.evaluate((value) => {
+            document.documentElement.dataset.theme = value;
+          }, theme);
+          await expect(maker.page.getByLabel("Bank account", { exact: true })).toBeVisible();
+          await maker.page.screenshot({
+            path: `tmp/multi-currency-evidence/sales-receipt-${name}-${theme}.png`,
+            fullPage: true,
+          });
+        }
+      }
     } finally {
       await maker.context.close();
     }

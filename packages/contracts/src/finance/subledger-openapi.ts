@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
   subledgerActionSchema,
-  subledgerOperationInputSchema,
+  subledgerOperationRequestSchema,
   subledgerOperationSchema,
   subledgerPartyInputSchema,
   subledgerPartySchema,
@@ -106,7 +106,7 @@ export function subledgerPaths() {
       post: post("configureSubledgerPolicy", subledgerPolicyInputSchema, subledgerPolicySchema, true),
     },
     "/finance/subledger/operations": {
-      post: post("createSubledgerOperation", subledgerOperationInputSchema, subledgerOperationSchema, false, 201),
+      post: post("createSubledgerOperation", subledgerOperationRequestSchema, subledgerOperationSchema, false, 201),
     },
     "/finance/subledger/operations/{operationId}/actions": {
       post: {
