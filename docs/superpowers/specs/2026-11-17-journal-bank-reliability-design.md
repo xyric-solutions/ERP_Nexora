@@ -1,7 +1,7 @@
 # Journal and Bank reliability repair
 
-Status: Proposed for owner review after the integration audit. No implementation
-or business-data correction has been performed.
+Status: Approved by the owner on 17 November 2026; implemented, verified and active
+on localhost. No owner business record or accounting-period control was changed.
 
 ## Scope and alternatives
 
@@ -74,3 +74,21 @@ permission is granted automatically and credentials remain unchanged.
 API activation must follow the existing compatible-runtime/migration procedure;
 do not restart an API that expects newer Purchase/Assets schema against the
 recovered older database. Report live rollout limits explicitly.
+
+## Completed verification
+
+65 focused unit tests, 7 OpenAPI contract tests, the expanded 2-test repository
+suite under both UTC and Asia/Karachi, and all 10 responsive light/dark Chromium
+cases passed. Both production web builds, typecheck, contract generation/check,
+touched-file lint, formatting checks, theme audit and whitespace checks passed.
+The compatible build reports 14 generated-cache CSS optimization warnings.
+
+Read-only real-API acceptance passed 12 preview and 12 live cases across both
+companies at desktop/tablet/mobile widths. Existing Journal states/versions,
+Bank balances, fiscal dates and November's Soft Closed status were retained.
+Bank return navigation fetched fresh account data. No owner Journal was posted.
+
+Recurring template and occurrence dates also retain their calendar dates. The
+worker's date projection is corrected and tested on disposable data; this release
+does not start a recurring worker. A missing legacy template creation timestamp
+was also corrected without changing recurring activation or posting rules.

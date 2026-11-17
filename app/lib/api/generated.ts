@@ -139,6 +139,7 @@ import type {
   JournalDetail,
   JournalMutationResult,
   JournalDeleteResult,
+  JournalPostingEligibility,
   CreateJournalRequest,
   UpdateJournalRequest,
   DeleteJournalRequest,
@@ -1435,6 +1436,9 @@ export class NexoraApiClient {
   }
   getJournalOptions(query = ""): Promise<JournalOptions> {
     return this.request(`/api/v1/finance/journals/options${query}`);
+  }
+  getJournalPostingEligibility(query: string): Promise<JournalPostingEligibility> {
+    return this.request(`/api/v1/finance/journals/posting_eligibility${query}`);
   }
   listJournals(query: string): Promise<JournalDirectory> {
     return this.request(`/api/v1/finance/journals${query}`);

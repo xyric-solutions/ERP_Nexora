@@ -343,7 +343,7 @@ function validateCommand(command: FinancePostCommand | FinanceMultiCurrencyPostC
   normalizeMetadata(command.payloadHashMaterial);
 }
 
-function resolvePeriod(periods: readonly FinancePeriodRow[]): FinancePeriodRow {
+export function resolveFinancePostingPeriod(periods: readonly FinancePeriodRow[]): FinancePeriodRow {
   if (periods.length === 0)
     throw financeError(409, "FINANCE_PERIOD_UNAVAILABLE", "No Finance period covers the posting date.");
   if (periods.length !== 1)
@@ -659,7 +659,7 @@ export class FinancePostingService {
         "FINANCE_EXCHANGE_RATE_CHANGED",
         "The stored exchange-rate snapshot no longer matches Finance authority.",
       );
-    const period = resolvePeriod(
+    const period = resolveFinancePostingPeriod(
       await this.repository.loadPeriods(client, command.tenantId, command.companyId, command.postingDate),
     );
     const accountIds = [...new Set(normalized.map((line) => line.accountId))];
@@ -875,7 +875,7 @@ export class FinancePostingService {
       resolvedRates.set(lookupKey, { id: lineAuthority.rateId, rate: authoritative.canonical });
     }
 
-    const period = resolvePeriod(
+    const period = resolveFinancePostingPeriod(
       await this.repository.loadPeriods(client, command.tenantId, command.companyId, command.postingDate),
     );
     validateAccounts(
@@ -1054,7 +1054,7 @@ export class FinancePostingService {
         "FINANCE_REVERSAL_DATE_INVALID",
         "A Finance reversal cannot be dated before the original posting.",
       );
-    const period = resolvePeriod(
+    const period = resolveFinancePostingPeriod(
       await this.repository.loadPeriods(client, command.tenantId, command.companyId, reversalDate),
     );
     const reversedLines = original.lines.map<PersistedFinanceLine>((line) => ({

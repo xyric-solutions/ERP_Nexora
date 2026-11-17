@@ -58,7 +58,7 @@ import type {
   SubmitFinanceNominalRequest,
   DecideFinanceNominalRequest,
   ChangeFinanceNominalStatusRequest,
-  JournalOptions,JournalDirectory,JournalDetail,JournalMutationResult,JournalDeleteResult,
+  JournalOptions,JournalDirectory,JournalDetail,JournalMutationResult,JournalDeleteResult,JournalPostingEligibility,
   CreateJournalRequest,UpdateJournalRequest,DeleteJournalRequest,SubmitJournalRequest,DecideJournalRequest,ReverseJournalRequest,
   RecurringJournalDirectory,RecurringJournalTemplate,RecurringJournalOccurrenceDirectory,
   CreateRecurringJournalRequest,UpdateRecurringJournalRequest,ChangeRecurringJournalStatusRequest,
@@ -597,6 +597,7 @@ export class NexoraApiClient {
     return this.request(\`/api/v1/finance/nominals/\${encodeURIComponent(nominalId)}/status\`, { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": \`"\${payload.expected_version}"\` }, body: JSON.stringify(payload) });
   }
   getJournalOptions(query = ""): Promise<JournalOptions> { return this.request(\`/api/v1/finance/journals/options\${query}\`); }
+  getJournalPostingEligibility(query: string): Promise<JournalPostingEligibility> { return this.request(\`/api/v1/finance/journals/posting_eligibility\${query}\`); }
   listJournals(query: string): Promise<JournalDirectory> { return this.request(\`/api/v1/finance/journals\${query}\`); }
   getJournal(journalId: string): Promise<JournalDetail> { return this.request(\`/api/v1/finance/journals/\${encodeURIComponent(journalId)}\`); }
   createJournal(payload: CreateJournalRequest, csrfToken: string, idempotencyKey: string): Promise<JournalMutationResult> {

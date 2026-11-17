@@ -54,7 +54,7 @@ powershell -NoProfile -File tmp/units-of-measure/start-live-runtime.ps1
 ```
 
 This guarded private helper uses `tmp/units-of-measure/release/source`, production
-web build `tmp/journal-repair-build` (ID `yzUiqCrb20qKW2veAAgcw`), and its
+web build `tmp/journal-bank-reliability-build` (ID `PSy2nsWoHy5j9KLDht-ZH`), and its
 compiled API. The compact Products/UOM/Warehouse/Stock Transfer and all Bank
 menus follow-ups change only the frontend; the Unit of Measure API/schema remain.
 The approved compact Manual Journal editor is also active: Save Draft and
@@ -65,6 +65,17 @@ Approve & Close now displays and focuses missing requirements instead of silentl
 remaining disabled. Fiscal-year proposals follow the stored company calendar or
 saved first-year setup month. The current July 2026–June 2027 year is unchanged;
 November's Soft Closed status requires a separate authorized reopening decision.
+The 17 November Journal/Bank reliability repair is also active in the compatible
+API and frontend. Journal/recurring and Bank last-movement dates retain calendar
+days. The Journal API exposes read-only period eligibility; forms show Awaiting
+approval/Soft Closed rather than implying posted Bank effects. Approval refreshes
+the check and posting still validates inside its transaction. Existing Journal
+states and Bank balances are unchanged; November remains Soft Closed. No migration,
+permission grant, financial posting or worker startup was performed. Both builds,
+focused tests and 12 preview plus 12 live read-only cases passed. Private runtime
+and rollback evidence is under `tmp/journal-bank-reliability/`. The compatible
+build has 14 generated-cache CSS optimization warnings.
+
 The compatible API also includes the 17 November Purchase currency-fetch repair:
 Procurement transactions set both authenticated tenant and user context so the
 existing company-currency security policy returns the permitted options. The

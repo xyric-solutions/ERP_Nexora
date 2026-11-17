@@ -44,6 +44,7 @@ describe("OpenAPI contract", () => {
       "/finance/company-currency-rates",
       "/finance/company-currency-rates/{rateId}/corrections",
       "/finance/company-currency-rates/{rateId}/status",
+      "/finance/journals/posting_eligibility",
       "/finance/journals/options",
       "/finance/journals",
       "/finance/journals/{journalId}",

@@ -10,6 +10,7 @@ const harness = vi.hoisted(() => ({
   notify: vi.fn(),
   api: {
     getJournalOptions: vi.fn(),
+    getJournalPostingEligibility: vi.fn(),
     listJournals: vi.fn(),
     getJournal: vi.fn(),
     createJournal: vi.fn(),
@@ -159,6 +160,7 @@ describe("Finance Journal screens", () => {
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, 320, 40));
     HTMLElement.prototype.scrollIntoView = vi.fn();
     harness.api.getJournalOptions.mockResolvedValue(options);
+    harness.api.getJournalPostingEligibility.mockImplementation(async () => ({company_id:"company-1",journal_date:"2026-11-17",eligible:true,blocker:null,period:null}));
     harness.api.listJournals.mockResolvedValue({ items: [], next_cursor: null });
     harness.api.listRecurringJournals.mockResolvedValue({ items: [], next_cursor: null });
     harness.api.listRecurringJournalOccurrences.mockResolvedValue({ items: [], next_cursor: null });
@@ -631,4 +633,25 @@ describe("Finance Journal screens", () => {
     expect(journals?.pages.find((page) => page.id === "manual-journal")?.hiddenFromNavigation).toBe(true);
     expect(journals?.pages.find((page) => page.id === "recurring-journals")?.hiddenFromNavigation).toBe(true);
   });
+  it('explains a submitted Journal and blocks posting in a closed period without losing review access', async () => {
+    harness.api.getJournalPostingEligibility.mockResolvedValue({company_id:'company-1',journal_date:submittedJournal.journal_date,eligible:false,blocker:{code:'closed',message:'November is Soft Closed.'},period:null});
+    harness.api.getJournal.mockResolvedValue({...submittedJournal,posting_eligibility:{company_id:'company-1',journal_date:submittedJournal.journal_date,eligible:false,blocker:{code:'FINANCE_PERIOD_CLOSED_POST_BLOCKED',message:'November is Soft Closed. An authorized period manager must open it before posting.'},period:null}});
+    await act(async () => root.render(<FinanceJournalWorkspace page='journal-approval' recordRef='journal-1' onNavigate={vi.fn()} />));
+    await settle();
+    expect(document.body.textContent).toContain('Awaiting approval \u2014 not posted');
+    expect(document.body.textContent).toContain('November is Soft Closed');
+    expect(document.body.textContent).toContain('has not changed ledger or Bank balances');
+    const confirmation=document.querySelector('#journal-final-confirmation');
+    if(!(confirmation instanceof HTMLElement))throw new Error('Missing review');
+    act(()=>confirmation.click()); await settle();
+    click('Approve and Post'); await settle();
+    expect(harness.api.decideJournal).not.toHaveBeenCalled();
+    expect(harness.notify).not.toHaveBeenCalledWith('Journal confirmed and posted.');
+    harness.api.getJournalPostingEligibility.mockResolvedValue({company_id:'company-1',journal_date:submittedJournal.journal_date,eligible:true,blocker:null,period:null});
+    harness.api.decideJournal.mockResolvedValue({id:'journal-1',state:'posted',version:3});
+    click('Approve and Post'); await settle();
+    expect(harness.api.decideJournal).toHaveBeenCalledTimes(1);
+    expect(harness.notify).toHaveBeenCalledWith('Journal confirmed and posted.');
+  });
+
 });

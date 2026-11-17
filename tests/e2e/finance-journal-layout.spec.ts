@@ -62,6 +62,19 @@ for (const theme of ["light", "dark"] as const) {
               ],
             },
           });
+        if (path === "/api/v1/finance/journals/posting_eligibility")
+          return route.fulfill({
+            json: {
+              company_id: "company-1",
+              journal_date: new URL(request.url()).searchParams.get("journal_date"),
+              eligible: false,
+              blocker: {
+                code: "FINANCE_PERIOD_CLOSED_POST_BLOCKED",
+                message: "November is Soft Closed. An authorized period manager must open it before posting.",
+              },
+              period: null,
+            },
+          });
         if (path === "/api/v1/finance/journals") return route.fulfill({ json: { items: [], next_cursor: null } });
         return route.fulfill({ status: 404, json: { detail: "No fixture for this endpoint" } });
       });
@@ -83,6 +96,8 @@ for (const theme of ["light", "dark"] as const) {
       await workspaceHeader.getByRole("button", { name: "＋ New Journal", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "New Manual Journal", exact: true });
       await expect(dialog).toBeVisible();
+      await expect(dialog.getByText("Draft \u2014 not posted", { exact: true })).toBeVisible();
+      await expect(dialog.getByText(/November is Soft Closed/)).toBeVisible();
       await expect(dialog.getByRole("columnheader", { name: "Required Dimensions", exact: true })).toHaveCount(0);
       await expect(dialog.locator('footer[aria-label="Manual Journal actions"] button')).toHaveText([
         "Save Draft",

@@ -3,6 +3,7 @@ import type { SourceFinanceJournalRepository } from "./source-repository.js";
 export type FinanceJournalRepository = Pick<
   SourceFinanceJournalRepository,
   | "options"
+  | "postingEligibility"
   | "list"
   | "get"
   | "create"
@@ -20,6 +21,9 @@ export type FinanceJournalRepository = Pick<
 
 export class FinanceJournalService {
   constructor(private readonly repository: FinanceJournalRepository) {}
+  postingEligibility(...args: Parameters<FinanceJournalRepository["postingEligibility"]>) {
+    return this.repository.postingEligibility(...args);
+  }
   options(...args: Parameters<FinanceJournalRepository["options"]>) {
     return this.repository.options(...args);
   }

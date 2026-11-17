@@ -10,6 +10,7 @@ import {
   journalDirectorySchema,
   journalMutationResultSchema,
   journalOptionsSchema,
+  journalPostingEligibilitySchema,
   recurringJournalDirectorySchema,
   recurringJournalOccurrenceDirectorySchema,
   recurringJournalTemplateSchema,
@@ -54,6 +55,19 @@ export function journalPaths() {
     { in: "query", name: "cursor", required: false, schema: { type: "string", maxLength: 512 } },
   ];
   return {
+    "/finance/journals/posting_eligibility": {
+      get: {
+        operationId: "getJournalPostingEligibility",
+        description:
+          "Read-only company base-currency and period check. Posting revalidates authority, accounts, amounts, permissions and period inside its transaction.",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          company,
+          { name: "journal_date", in: "query", required: true, schema: { type: "string", format: "date" } },
+        ],
+        responses: response("Journal posting period eligibility", journalPostingEligibilitySchema),
+      },
+    },
     "/finance/journals/options": {
       get: {
         operationId: "getJournalOptions",

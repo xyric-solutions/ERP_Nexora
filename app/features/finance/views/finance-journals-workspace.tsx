@@ -26,6 +26,7 @@ import { inActiveCompany } from "@/lib/session/active-company";
 import { useSession } from "@/lib/session/session-provider";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
+import { JournalPostingStatus, useJournalPostingEligibility } from "../components/journal-posting-status";
 import { FinanceJournalsClient } from "../api/finance-journals-client";
 import { formatJournalAmount, formatJournalDisplayAmount, validateJournalLines } from "../lib/finance-journal-form";
 import { ManualJournalActions, ManualJournalActionError, manualJournalActionVisibility, type ManualJournalActionVisibility, type ManualJournalIntent } from "../lib/manual-journal-actions";
@@ -809,6 +810,7 @@ function ManualJournalForm({
     return errors.length === 0;
   };
   const state = actions.progress?.state ?? detail?.state ?? "draft";
+  const posting = useJournalPostingEligibility(client, companyId, date, state === "draft" || state === "submitted");
   const editable = state === "draft" && !busy && !retryIntent && !impersonating;
   const canSave =
     !impersonating &&
@@ -847,6 +849,10 @@ function ManualJournalForm({
     setError("");
     setActionError("");
     try {
+      if (intent === "approve" && needsReview) {
+        const current = await posting.refresh();
+        if (current.blocker) throw new ManualJournalActionError(current.blocker.message);
+      }
       const result = await actions.run({
         client,
         csrfToken,
@@ -938,6 +944,7 @@ function ManualJournalForm({
             setDirty(true);
           }}
         />
+        <JournalPostingStatus state={state} {...posting} />
         {actionError ? (
           <Notice title="Journal action could not be completed" detail={actionError} destructive />
         ) : null}
@@ -1306,6 +1313,7 @@ function JournalDetailView({
           Total · {money(detail.total, detail.currency, displayDecimalPlaces)}
         </div>
       </section>
+      <JournalPostingStatus state={detail.state} eligibility={detail.posting_eligibility} />
       <section className="rounded-lg border border-border bg-card p-4">
         <h3 className="font-semibold">Lifecycle evidence</h3>
         <ol className="mt-3 space-y-2">
@@ -1471,6 +1479,14 @@ function JournalApproval({
     if (!detail?.version) return;
     setBusy(true);
     try {
+      if (action === "post") {
+        const current = await client.postingEligibility({ company_id: detail.company_id, journal_date: detail.journal_date });
+        setDetail({ ...detail, posting_eligibility: current });
+        if (current.blocker) {
+          setError(current.blocker.message);
+          return;
+        }
+      }
       await client.decide(
         detail.id,
         {
@@ -1545,6 +1561,9 @@ function JournalApproval({
                 </p>
               </div>
               <Badge variant="outline">Balanced · {money(detail.total, detail.currency, displayDecimalPlaces)}</Badge>
+            </div>
+            <div className="mt-3">
+              <JournalPostingStatus state={detail.state} eligibility={detail.posting_eligibility} />
             </div>
             <div className="mt-4">
               <ReadOnlyLines detail={detail} displayDecimalPlaces={displayDecimalPlaces} />
@@ -2416,7 +2435,7 @@ function StateBadge({ state }: { state: JournalSummary["state"] }) {
       variant={state === "posted" ? "default" : state === "reversed" ? "destructive" : "outline"}
       className="capitalize"
     >
-      {state}
+      {state === "submitted" ? "Awaiting approval" : state}
     </Badge>
   );
 }

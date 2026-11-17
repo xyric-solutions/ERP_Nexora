@@ -194,4 +194,24 @@ describe("Manual Journal action progression", () => {
     await expect(actions.run(input)).rejects.toThrow("new final review");
     expect(client.decide).not.toHaveBeenCalled();
   });
+  it("retains a submitted identity when its period is closed and resumes without duplicate saves", async () => {
+    const { client, actions, input } = setup();
+    client.detail.mockResolvedValue({
+      ...detail(),
+      posting_eligibility: {
+        company_id: "company",
+        journal_date: payload.journal_date,
+        eligible: false,
+        blocker: { code: "FINANCE_PERIOD_CLOSED_POST_BLOCKED", message: "November is Soft Closed." },
+        period: null,
+      },
+    });
+    await expect(actions.run(input)).rejects.toThrow("November is Soft Closed");
+    expect(actions.progress).toMatchObject({ id: "journal", state: "submitted", version: 2 });
+    expect(client.decide).not.toHaveBeenCalled();
+    client.detail.mockResolvedValue(detail());
+    await expect(actions.run(input)).resolves.toMatchObject({ state: "posted" });
+    expect(client.create).toHaveBeenCalledTimes(1);
+    expect(client.submit).toHaveBeenCalledTimes(1);
+  });
 });

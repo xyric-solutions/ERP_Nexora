@@ -85,6 +85,8 @@ export class ManualJournalActions {
       if (current.state !== "submitted")
         throw new ManualJournalActionError("Refresh the Journal to review its current state.");
       if (!current.capabilities.approve) return this.progress;
+      if (current.posting_eligibility?.blocker)
+        throw new ManualJournalActionError(current.posting_eligibility.blocker.message);
       if (!confirmed) throw new ManualJournalActionError("Confirm the final review before approving this Journal.");
       if (current.capabilities.super_admin_override_available && reason.trim().length < 3)
         throw new ManualJournalActionError("Enter a self-approval override reason of at least 3 characters.");

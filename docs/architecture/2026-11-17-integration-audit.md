@@ -1,8 +1,9 @@
 # ERP integration audit — 17 November 2026
 
 Status: Initial audit complete for the reported Journal/Bank balance incident and
-the principal cross-module posting boundaries. Follow-up work below is proposed,
-not implemented. This is not a claim that every ERP route has been verified.
+the principal cross-module posting boundaries. The Journal reliability repair is
+now implemented and active; the remaining integration work below is proposed.
+This is not a claim that every ERP route has been verified.
 
 ## Reported incident: USD 1,000,000 missing from JS Bank
 
@@ -49,8 +50,9 @@ Disposable database reproduction:
 - The same probe under Asia/Karachi: 1 passed, 1 failed. The Bank assertions passed;
   the date assertion expected `2026-10-29` but received `2026-10-28`.
 
-The failing audit assertion is retained in ignored private evidence, not suppressed
-or represented as a passing production check. No production fix has been applied.
+The failing audit assertion is retained in ignored private evidence. The corrected
+regression now passes in both time zones; the Journal repair is active on
+localhost. Existing calendar dates and posted history were not rewritten.
 
 ## Cross-module findings
 
@@ -106,3 +108,21 @@ The running recovered API retains Procurement migration 5 and Fixed Assets 2.
 Latest Purchase adjustments/asset registration source is ahead of that runtime.
 The existing backup/migration/deployment authorization boundary remains documented
 in `docs/runbooks/local-startup.md`; this audit did not activate that release.
+
+## Journal repair follow-up
+
+The owner approved the first repair slice. SQL text projections now preserve
+Manual Journal, ledger-detail, recurring template/occurrence and Bank last-movement
+dates. Recurring generation also preserves scheduled calendar dates. Existing
+posting-period authority powers a read-only eligibility endpoint; editor/detail/
+approval screens distinguish pending documents from actual posted Bank effects.
+Approval refreshes eligibility, while posting still checks the period atomically.
+Failed posting retains the existing submitted identity for a safe retry.
+
+Verified: 65 focused unit tests; 7 OpenAPI contract tests; 2 expanded integration
+tests under each of UTC and Asia/Karachi; 10 light/dark responsive Chromium cases;
+both production builds; typecheck, lint, formatting and theme checks. Read-only
+acceptance passed 12 preview and 12 live cases. Posting/replay/reversal Bank effects
+were tested only on disposable records. Original owner Journals remain submitted,
+November remains Soft Closed, and the Bank balance is consequently unchanged.
+The Purchase/AP, stock, Sales and other integration work above remains outstanding.

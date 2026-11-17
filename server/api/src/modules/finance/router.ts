@@ -21,6 +21,7 @@ import {
   changeCurrencyRateStatusRequestSchema,
   upsertTransferFxPolicyRequestSchema,
   journalOptionsQuerySchema,
+  journalPostingEligibilityQuerySchema,
   journalDirectoryQuerySchema,
   createJournalRequestSchema,
   updateJournalRequestSchema,
@@ -86,6 +87,14 @@ export function createFinanceRouter(
     return z.string().trim().min(1).max(128).parse(req.params.nominalId);
   }
   if (journals) {
+    router.get("/journals/posting_eligibility", async (req, res) => {
+      const query = journalPostingEligibilityQuerySchema.parse(req.query);
+      res.json(
+        await handle(async () =>
+          journals.postingEligibility(await loadBankingSessionContext(req, dependencies), query),
+        ),
+      );
+    });
     router.get("/journals/options", async (req, res) => {
       const query = journalOptionsQuerySchema.parse(req.query);
       res.json(

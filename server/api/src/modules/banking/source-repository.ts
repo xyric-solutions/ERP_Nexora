@@ -295,7 +295,7 @@ export class SourceBankingRepository {
                 coalesce(sum(case when journal.status in ('posted','reversed') and line.currency=bank.currency
                                   then line.debit-line.credit else 0 end),0)::text as ledger_balance,
                 null::text as available_balance,null::integer as unreconciled_count,
-                max(journal.posting_date) filter (where journal.status in ('posted','reversed')) as last_movement_on,
+                (max(journal.posting_date) filter (where journal.status in ('posted','reversed')))::text as last_movement_on,
                 bank.status as state,bank.row_version as version
            from bank_account bank
            join account ledger on ledger.tenant_id=bank.tenant_id and ledger.id=bank.account_id
@@ -944,7 +944,7 @@ export class SourceBankingRepository {
               coalesce(sum(case when journal.status in ('posted','reversed') and line.currency=bank.currency
                                 then line.debit-line.credit else 0 end),0)::text as ledger_balance,
               null::text as available_balance,null::integer as unreconciled_count,
-              max(journal.posting_date) filter (where journal.status in ('posted','reversed')) as last_movement_on,
+              (max(journal.posting_date) filter (where journal.status in ('posted','reversed')))::text as last_movement_on,
               bank.status as state,bank.row_version as version,bank.company_id,bank.iban_masked,
               bank.swift_bic,bank.overdraft_limit::text,bank.created_by,bank.submitted_by,
               bank.approved_by,bank.rejected_by,bank.created_at,bank.submitted_at,bank.approved_at,bank.rejected_at

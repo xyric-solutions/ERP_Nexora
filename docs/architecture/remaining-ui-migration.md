@@ -1,5 +1,37 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Journal and Bank reliability repair
+
+- Added a feature-owned posting-status notice to the existing Manual Journal,
+  detail and approval views. Submitted badges now say Awaiting approval; the
+  notice explains actual period blockers and unposted ledger/Bank effects.
+  No duplicate form, refresh button or CSS file.
+- Added a company/date read-only Journal eligibility API using existing currency/
+  period authority. Approval refreshes eligibility; posting retains its atomic
+  checks. Validation, final review, permissions, self-approval, idempotency, draft
+  save and recovery of existing submitted records are preserved.
+- SQL date projections preserve Journal/recurring dates, posting commands,
+  recurring generation and Bank last movement. The template insert supplies its
+  required creation timestamp. No historical data rewrite or worker startup.
+- Passed 65 focused unit tests; 7 OpenAPI contract tests; the expanded 2-test
+  Journal suite under UTC and Asia/Karachi; and all 10 Chromium cases across
+  light/dark at 1440/768/559/390/320px with zero Axe violations. The first browser
+  pass found low contrast from destructive description opacity; the new notice
+  now uses semantic foreground text and passed the confirmation.
+- Both production builds, typecheck, changed-file lint, helper/new-test formatting,
+  contract generation/check, theme write/check and diff check pass. The compatible
+  build reports 14 generated-cache CSS optimization warnings. No new source font/
+  palette exception. Evidence: `tmp/journal-bank-reliability/` and
+  `tmp/journal-layout-evidence/`.
+- Real-API acceptance passed 12 preview and 12 live company/theme/width cases:
+  unchanged Journal versions/amounts/states, corrected displayed dates, fresh Bank
+  reads on return, fiscal defaults, no overflow/page errors and no business writes.
+  July-June and November Soft Closed remain unchanged.
+- Active compatible build: `tmp/journal-bank-reliability-build`, ID
+  `PSy2nsWoHy5j9KLDht-ZH`; API 25556, web 29416. No migrations. Purchase/AP, stock
+  and Sales integration work remains in `2026-11-17-integration-audit.md`; the
+  broader Purchase/Asset rollout remains pending.
+
 ## 2026-11-17 - Journal approval feedback and July–June defaults
 
 - Repaired the apparent inactive Approve & Close action. It remains clickable
