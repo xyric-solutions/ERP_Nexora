@@ -1,5 +1,45 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Compact Journal workspace and review tables
+
+- Compacted the register, manual editor, detail, approval/final review, reversal,
+  recurring template editor and generation history. Journal-owned control sizing
+  is 32px, field gaps and table padding are smaller, and both drawer families use
+  the available width. Shared ERP controls and stylesheets are unchanged.
+- Register filters respond to their container width. The reference search no
+  longer collapses beside fixed-width selects and dates. Existing server filters,
+  local table tools, pagination, display precision and actions remain available.
+- Removed Dimensions headers/cells from detail and shared approval/reversal line
+  tables, including posted/reversed detail. Persisted dimensions and conditional
+  required inputs beneath the nominal selector remain intact. No approval,
+  final-review, validation, permission, idempotency or posting rule changed.
+- Recurring fields now have associated labels. Read-only line tables provide a
+  named, keyboard-focusable scroll region at narrow widths; the narrowly scoped
+  lint exception documents this WCAG keyboard-scrolling requirement.
+- Passed 40 focused unit tests and all 10 expanded Chromium cases at
+  1440/768/559/390/320px in light/dark, covering manual, detail, approval, posted
+  detail, reversal and recurring forms. Final checks found no Axe violations,
+  form overflow or business writes. Initial checks exposed the legacy control
+  height, tablet action width, recurring labels and keyboard scrolling, now fixed.
+- Root and compatible production builds, typecheck, changed-file lint, browser
+  test formatting, theme write/check and diff check pass. The compatible build
+  emits 15 generated-cache CSS optimizer warnings; source font/palette exceptions
+  remain zero. Journal non-render statements in 15 functions are unchanged.
+- Six real-data preview and six live cases passed with unchanged Journal/Bank data and all
+  twelve FY July 2026-June 2027 periods still Open. Private browser/release
+  evidence is in `tmp/journal-compact/` and `tmp/journal-layout-evidence/`.
+- Active compatible frontend: `tmp/journal-compact-final-build`, ID
+  `2c4YRsVHQ5beFK1oeIEs_`, web 18488. API 25556 and its schema are unchanged.
+  The local launcher now checks an exclusive loopback socket instead of stale
+  Windows Listen rows with OwningProcess=0. No migration, permission grant,
+  journal posting, balance change or worker startup accompanied this UI release.
+- Commands: `npm.cmd run test:unit -- tests/unit/finance-journals-workspace.test.tsx tests/unit/manual-journal-actions.test.ts tests/unit/journal-posting-status.test.tsx`;
+  `playwright.cmd test tests/e2e/finance-journal-layout.spec.ts --workers=1`;
+  `npm.cmd run build:web` in root and compatible release; `npm.cmd run typecheck`;
+  changed-file ESLint; `node scripts/audit-ui-theme.mjs --write` and `--check`;
+  browser-test Prettier check; `git diff --check`. Existing Markdown formatting
+  warnings were also confirmed on HEAD; unrelated document formatting is retained.
+
 ## 2026-11-17 - Journal and Bank reliability repair
 
 - Added a feature-owned posting-status notice to the existing Manual Journal,

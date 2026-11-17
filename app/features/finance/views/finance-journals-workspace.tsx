@@ -2,7 +2,7 @@
 import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
 import { WorkFormLayout } from "@/shared/ui/work-form";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { cloneElement, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type {
   JournalDetail,
   JournalLineInput,
@@ -51,6 +51,11 @@ type Navigate = (
   options?: { bypassUnsavedGuard?: boolean },
 ) => void;
 type DraftLine = JournalLineInput & { client_id: string };
+
+// Local to the Journal workspace and its portalled drawers; shared controls keep
+// their default sizing everywhere else in the ERP.
+const journalDensity =
+  "min-w-0 [--nx-control-height:2rem] [&_h2]:m-0! [&_h3]:m-0! [&_p]:my-0! [&_input]:h-8 [&_input]:px-2 [&_input]:py-1 [&_select]:h-8 [&_select]:px-2 [&_[data-slot=button]]:h-8 [&_[data-slot=button]]:min-h-7 [&_[data-slot=button]]:px-2.5 [&_[data-slot=button]]:py-1 [&_[data-slot=textarea]]:min-h-14 [&_[data-work-table]>div:first-child]:p-2 [&_nav]:py-2";
 
 const today = () => {
   const now = new Date();
@@ -278,7 +283,7 @@ export function FinanceJournalWorkspace({
             ? "Reverse Journal"
             : "Journal Details";
   return (
-    <div className="grid min-w-0 gap-2" aria-busy={loading}>
+    <div className={`grid gap-2 ${journalDensity}`} aria-busy={loading}>
       <WorkspaceHeader
         activeTab={activeTab}
         options={options}
@@ -323,7 +328,7 @@ export function FinanceJournalWorkspace({
       >
         <SheetContent
           portalClassName="relative isolate z-[1300]"
-          className="min-w-0 gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]"
+          className={`${journalDensity} gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]`}
         >
           <SheetHeader className="shrink-0 gap-1 border-b border-border p-3! pr-12! [&_h2]:m-0! [&_p]:m-0!">
             <SheetTitle className="text-lg">{drawerTitle}</SheetTitle>
@@ -333,7 +338,7 @@ export function FinanceJournalWorkspace({
                 : "Review the Journal, lifecycle evidence and permitted actions without leaving the register."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-2 sm:p-3">
             {(drawerMode === "create" || drawerMode === "edit") && companyId && options?.selected_company_id === companyId ? (
               <ManualJournalForm
                 key={`${companyId}:${selectedJournalId ?? "new"}`}
@@ -554,8 +559,8 @@ function JournalRegister({
     setCursorHistory([]);
   };
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border p-4" aria-label="Journal register views">
+    <section className="@container overflow-hidden rounded-lg border border-border bg-card" aria-label="Journal register">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border p-3" aria-label="Journal register views">
         {(
           [
             ["all", "All transactions"],
@@ -584,7 +589,7 @@ function JournalRegister({
           </Button>
         ))}
       </div>
-      <div className="grid gap-3 border-b border-border p-4 md:grid-cols-2 xl:grid-cols-[1fr_11rem_11rem_1fr_10rem_10rem_auto]">
+      <div aria-label="Journal filters" className="grid min-w-0 gap-2 border-b border-border p-3 @min-[24rem]:grid-cols-2 @min-[36rem]:grid-cols-3 @min-[60rem]:grid-cols-[minmax(8rem,1.3fr)_minmax(6rem,0.8fr)_minmax(6rem,0.8fr)_minmax(8rem,1fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_auto]">
         <Input
           aria-label="Reference search"
           placeholder="Reference or source"
@@ -593,7 +598,7 @@ function JournalRegister({
         />
         <select
           aria-label="State"
-          className="h-10 rounded-md border border-input bg-background px-3"
+          className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
           value={state}
           onChange={(event) => setState(event.target.value)}
         >
@@ -605,7 +610,7 @@ function JournalRegister({
         </select>
         <select
           aria-label="Source"
-          className="h-10 rounded-md border border-input bg-background px-3"
+          className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
           value={source}
           onChange={(event) => setSource(event.target.value)}
         >
@@ -618,7 +623,7 @@ function JournalRegister({
         </select>
         <select
           aria-label="Nominal account"
-          className="h-10 rounded-md border border-input bg-background px-3"
+          className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
           value={nominalId}
           onChange={(event) => setNominalId(event.target.value)}
         >
@@ -679,7 +684,7 @@ function JournalTable({
         <thead className="bg-primary text-left text-primary-foreground">
           <tr>
             {["Journal ID", "Date", "Reference", "Source", "State", "Total", "Action"].map((label) => (
-              <th key={label} className="px-4 py-3 font-semibold">
+              <th key={label} className="px-3 py-2 font-semibold">
                 {label}
               </th>
             ))}
@@ -688,24 +693,24 @@ function JournalTable({
         <tbody>
           {busy ? (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+              <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                 Loading Journals…
               </td>
             </tr>
           ) : null}
           {items.map((item) => (
             <tr key={item.id} className="border-t border-border">
-              <td className="px-4 py-3 font-semibold text-primary">{item.display_number}</td>
-              <td className="px-4 py-3">{item.journal_date}</td>
-              <td className="px-4 py-3">{item.reference_number ?? "—"}</td>
-              <td className="px-4 py-3">{item.source_label}</td>
-              <td className="px-4 py-3">
+              <td className="px-3 py-2 font-semibold text-primary">{item.display_number}</td>
+              <td className="px-3 py-2">{item.journal_date}</td>
+              <td className="px-3 py-2">{item.reference_number ?? "—"}</td>
+              <td className="px-3 py-2">{item.source_label}</td>
+              <td className="px-3 py-2">
                 <StateBadge state={item.state} />
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">
+              <td className="px-3 py-2 text-right tabular-nums">
                 {money(item.total, item.currency, displayDecimalPlaces)}
               </td>
-              <td className="px-4 py-3">
+              <td className="px-3 py-2">
                 <Button size="sm" variant="outline" onClick={() => onOpen(item)}>
                   View
                 </Button>
@@ -714,7 +719,7 @@ function JournalTable({
           ))}
           {!busy && items.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+              <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                 No Journals match the current filters.
               </td>
             </tr>
@@ -904,8 +909,8 @@ function ManualJournalForm({
         data-manual-journal-editor
         className="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3"
       >
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-          <div className="grid gap-2">
+        <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_minmax(0,2fr)]">
+          <div className="grid gap-1">
             <Label htmlFor="journal-date">Date *</Label>
             <Input
               id="journal-date"
@@ -919,7 +924,7 @@ function ManualJournalForm({
               }}
             />
           </div>
-          <div className="grid gap-2">
+          <div className="grid gap-1">
             <Label htmlFor="journal-reference">Ref. No.</Label>
             <Input
               id="journal-reference"
@@ -981,7 +986,7 @@ function ManualJournalForm({
           </div>
         </div>
         {actionVisibility.approveAndClose && canContinue ? (
-          <div className="grid gap-2 border-t border-border pt-3">
+          <div className="grid gap-2 border-t border-border pt-2">
             <p className="m-0 text-xs text-muted-foreground" role="status">
               {needsReview
                 ? "Approve & Close saves, submits and posts this Journal after final review."
@@ -1023,7 +1028,7 @@ function ManualJournalForm({
         ) : null}
         <footer
           aria-label="Manual Journal actions"
-          className="flex flex-wrap justify-end gap-2 border-t border-border pt-3"
+          className="flex flex-wrap justify-end gap-2 border-t border-border pt-2"
         >
           {actionVisibility.saveDraft && canSave ? (
             <Button
@@ -1090,35 +1095,35 @@ function LineEditor({
   return (
     <WorkFormLayout>
       <div className="min-w-0">
-        <table className="block w-full table-fixed text-sm xl:table">
+        <table className="block w-full table-fixed text-sm md:table">
           <caption className="sr-only">Journal lines</caption>
-          <thead className="sr-only bg-primary text-left text-primary-foreground xl:not-sr-only">
+          <thead className="sr-only bg-primary text-left text-primary-foreground md:not-sr-only">
             <tr>
-              <th scope="col" className="w-[34%] px-2 py-2">
+              <th scope="col" className="w-[32%] px-2 py-2">
                 Nominal Account
               </th>
-              <th scope="col" className="w-[30%] px-2 py-2">
+              <th scope="col" className="w-[26%] px-2 py-2">
                 Description
               </th>
-              <th scope="col" className="w-[14%] px-2 py-2 text-right">
+              <th scope="col" className="w-[15%] px-2 py-2 text-right">
                 Debit
               </th>
-              <th scope="col" className="w-[14%] px-2 py-2 text-right">
+              <th scope="col" className="w-[15%] px-2 py-2 text-right">
                 Credit
               </th>
-              <th scope="col" className="w-[8%] px-2 py-2">
+              <th scope="col" className="w-[12%] px-2 py-2">
                 Action
               </th>
             </tr>
           </thead>
-          <tbody className="grid gap-2 xl:table-row-group">
+          <tbody className="grid gap-2 md:table-row-group">
             {lines.map((line, index) => (
               <tr
                 key={line.client_id}
-                className="grid min-w-0 grid-cols-2 gap-2 rounded-lg border border-border p-3 xl:table-row xl:rounded-none xl:border-x-0 xl:border-b-0 xl:p-0"
+                className="grid min-w-0 grid-cols-2 gap-2 rounded-lg border border-border p-2 md:table-row md:rounded-none md:border-x-0 md:border-b-0 md:p-0"
               >
-                <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                <td className="col-span-2 grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
                     Nominal Account · Line {index + 1}
                   </span>
                   <SearchableSelect
@@ -1152,8 +1157,8 @@ function LineEditor({
                     );
                   })()}
                 </td>
-                <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                <td className="col-span-2 grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
                     Description
                   </span>
                   <Input
@@ -1164,8 +1169,8 @@ function LineEditor({
                   />
                 </td>
 
-                <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                <td className="grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
                     Debit
                   </span>
                   <JournalAmountInput
@@ -1176,8 +1181,8 @@ function LineEditor({
                     onChange={(value) => change(index, "debit", value || "0")}
                   />
                 </td>
-                <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                <td className="grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
                     Credit
                   </span>
                   <JournalAmountInput
@@ -1188,7 +1193,7 @@ function LineEditor({
                     onChange={(value) => change(index, "credit", value || "0")}
                   />
                 </td>
-                <td className="col-span-2 flex justify-end xl:table-cell xl:p-2">
+                <td className="col-span-2 flex justify-end md:table-cell md:p-1.5">
                   <Button
                     type="button"
                     size="sm"
@@ -1206,7 +1211,7 @@ function LineEditor({
         {!disabled ? (
           <Button
             type="button"
-            className="mt-3"
+            className="mt-2"
             variant="outline"
             onClick={() => onChange([...lines, emptyLine()])}
           >
@@ -1240,12 +1245,12 @@ function JournalDetailView({
     return <Notice title="Select a Journal" detail="Open a Journal from the register to view its detail." />;
   if (!detail) return <Notice title="Loading Journal" detail="Reading lines and lifecycle evidence." />;
   return (
-    <div className="space-y-4">
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-3">
+      <section className="rounded-lg border border-border bg-card p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">{detail.source_label}</p>
-            <h2 className="text-2xl font-semibold">{detail.display_number}</h2>
+            <h2 className="text-lg font-semibold">{detail.display_number}</h2>
             <p className="mt-1 text-sm">
               {detail.journal_date} · {detail.reference_number ?? "No reference"}
             </p>
@@ -1274,11 +1279,11 @@ function JournalDetailView({
       ) : null}
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <WorkTable tableId="app/features/finance/views/finance-journals-workspace:3" className="w-full min-w-[760px] text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-journals-workspace:3" className="w-full min-w-[560px] text-sm">
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
-                {["Nominal Account", "Description", "Dimensions", "Debit", "Credit"].map((value) => (
-                  <th key={value} className="px-4 py-3">
+                {["Nominal Account", "Description", "Debit", "Credit"].map((value) => (
+                  <th key={value} className="px-3 py-2">
                     {value}
                   </th>
                 ))}
@@ -1287,21 +1292,14 @@ function JournalDetailView({
             <tbody>
               {detail.lines.map((line) => (
                 <tr key={line.id} className="border-t border-border">
-                  <td className="px-4 py-3 font-medium">
+                  <td className="px-3 py-2 font-medium">
                     {line.account_code} · {line.account_name}
                   </td>
-                  <td className="px-4 py-3">{line.description}</td>
-                  <td className="px-4 py-3">
-                    {Object.entries(line.dimensions).length
-                      ? Object.entries(line.dimensions)
-                          .map(([dimension, value]) => `${dimension.replaceAll("_", " ")}: ${value}`)
-                          .join(" · ")
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
+                  <td className="px-3 py-2">{line.description}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
                     {formatJournalDisplayAmount(line.debit, displayDecimalPlaces)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
+                  <td className="px-3 py-2 text-right tabular-nums">
                     {formatJournalDisplayAmount(line.credit, displayDecimalPlaces)}
                   </td>
                 </tr>
@@ -1309,12 +1307,12 @@ function JournalDetailView({
             </tbody>
           </WorkTable>
         </div>
-        <div className="border-t border-border bg-muted/30 px-4 py-3 text-right font-semibold">
+        <div className="border-t border-border bg-muted/30 px-3 py-2 text-right font-semibold">
           Total · {money(detail.total, detail.currency, displayDecimalPlaces)}
         </div>
       </section>
       <JournalPostingStatus state={detail.state} eligibility={detail.posting_eligibility} />
-      <section className="rounded-lg border border-border bg-card p-4">
+      <section className="rounded-lg border border-border bg-card p-3">
         <h3 className="font-semibold">Lifecycle evidence</h3>
         <ol className="mt-3 space-y-2">
           {detail.events.map((event) => (
@@ -1517,16 +1515,16 @@ function JournalApproval({
     }
   };
   return (
-    <div className={embedded ? "" : "grid gap-4 xl:grid-cols-[22rem_1fr]"}>
+    <div className={embedded ? "" : "grid gap-3 xl:grid-cols-[22rem_1fr]"}>
       {!embedded ? (
         <aside className="rounded-lg border border-border bg-card">
-          <div className="border-b border-border p-4 font-semibold">Submitted queue</div>
-          {loading ? <p className="p-6 text-sm text-muted-foreground">Loading submitted Journals…</p> : null}
+          <div className="border-b border-border p-3 font-semibold">Submitted queue</div>
+          {loading ? <p className="p-3 text-sm text-muted-foreground">Loading submitted Journals…</p> : null}
           {items.map((item) => (
             <button
               type="button"
               key={item.id}
-              className={`block w-full border-b border-border p-4 text-left hover:bg-muted/40 ${selected === item.id ? "bg-primary/10" : ""}`}
+              className={`block w-full border-b border-border p-3 text-left hover:bg-muted/40 ${selected === item.id ? "bg-primary/10" : ""}`}
               onClick={() => setSelected(item.id)}
             >
               <strong>{item.display_number}</strong>
@@ -1535,7 +1533,7 @@ function JournalApproval({
               </span>
             </button>
           ))}
-          {items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No Journals await approval.</p> : null}
+          {items.length === 0 ? <p className="p-3 text-sm text-muted-foreground">No Journals await approval.</p> : null}
           <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
               setSelected("");
               setDetail(null);
@@ -1550,7 +1548,7 @@ function JournalApproval({
             }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </aside>
       ) : null}
-      <section className="rounded-lg border border-border bg-card p-4">
+      <section className="rounded-lg border border-border bg-card p-3">
         {detail ? (
           <>
             <div className="flex flex-wrap justify-between gap-3">
@@ -1565,15 +1563,15 @@ function JournalApproval({
             <div className="mt-3">
               <JournalPostingStatus state={detail.state} eligibility={detail.posting_eligibility} />
             </div>
-            <div className="mt-4">
+            <div className="mt-2">
               <ReadOnlyLines detail={detail} displayDecimalPlaces={displayDecimalPlaces} />
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="grid gap-2">
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
+              <div className="grid gap-1">
                 <Label htmlFor="decision-note">Approval note</Label>
                 <Textarea id="decision-note" value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1">
                 <Label htmlFor="decision-reason">
                   {detail.capabilities.super_admin_override_available
                     ? "Self-approval override reason *"
@@ -1598,18 +1596,18 @@ function JournalApproval({
                     ? "Your assigned self-approval permission allows you to approve this Journal. An override reason is not required."
                     : "Confirm the final review to approve and post. A reason is required only when rejecting to draft."}
             </p>
-            <div className="mt-4 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
+            <div className="mt-2 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
               <Checkbox
                 id="journal-final-confirmation"
                 checked={confirmed}
                 onCheckedChange={(value) => setConfirmed(value === true)}
               />
-              <Label htmlFor="journal-final-confirmation" className="text-sm font-normal">
-                <strong>Final review confirmed.</strong>
-                <br />I verified the date, base-currency lines, nominal accounts, balance and supporting reference.
+              <Label htmlFor="journal-final-confirmation" className="block text-sm font-normal">
+                <strong>Final review confirmed.</strong>{" "}
+                I verified the date, base-currency lines, nominal accounts, balance and supporting reference.
               </Label>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-2 flex justify-end gap-2">
               <Button
                 variant="outline"
                 disabled={busy || reason.trim().length < 3 || !detail.capabilities.reject}
@@ -1726,9 +1724,9 @@ function JournalReversal({
     }
   };
   return (
-    <div className={embedded ? "" : "grid gap-4 lg:grid-cols-[20rem_1fr]"}>
+    <div className={embedded ? "" : "grid gap-3 lg:grid-cols-[20rem_1fr]"}>
       {!embedded ? (
-        <section className="rounded-lg border border-border bg-card p-4">
+        <section className="rounded-lg border border-border bg-card p-3">
           <Label htmlFor="reversal-source">Posted Manual Journal</Label>
           <select
             id="reversal-source"
@@ -1758,18 +1756,18 @@ function JournalReversal({
             }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </section>
       ) : null}
-      <section className="rounded-lg border border-border bg-card p-4">
+      <section className="rounded-lg border border-border bg-card p-3">
         {detail ? (
           <>
             <h2 className="text-xl font-semibold">Reverse {detail.display_number}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               The original posting remains immutable. A new compensating Journal will be posted.
             </p>
-            <div className="mt-4">
+            <div className="mt-2">
               <ReadOnlyLines detail={detail} displayDecimalPlaces={displayDecimalPlaces} />
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="grid gap-2">
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
+              <div className="grid gap-1">
                 <Label htmlFor="reversal-date">Reversal date</Label>
                 <Input
                   id="reversal-date"
@@ -1779,7 +1777,7 @@ function JournalReversal({
                   onChange={(event) => setDate(event.target.value)}
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1">
                 <Label htmlFor="reversal-reason">Reason</Label>
                 <Input id="reversal-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
               </div>
@@ -1787,7 +1785,7 @@ function JournalReversal({
             {date < detail.journal_date ? (
               <p className="mt-3 text-sm text-destructive">The reversal date cannot be before {detail.journal_date}.</p>
             ) : null}
-            <div className="mt-4 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
+            <div className="mt-2 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
               <Checkbox
                 id="confirm-reversal"
                 checked={confirmed}
@@ -1797,7 +1795,7 @@ function JournalReversal({
                 I confirm this creates an immutable compensating posting; it does not alter the original Journal.
               </Label>
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-2 flex justify-end">
               <Button
                 variant="destructive"
                 disabled={
@@ -2019,9 +2017,9 @@ function RecurringJournals({
     }
   };
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <section className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border p-3">
           <Field label="Template status">
             <select
               aria-label="Template status"
@@ -2050,7 +2048,7 @@ function RecurringJournals({
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
                 {["Template", "Schedule", "Next draft", "Last generated", "Status", "Action"].map((value) => (
-                  <th key={value} className="px-4 py-3">
+                  <th key={value} className="px-3 py-2">
                     {value}
                   </th>
                 ))}
@@ -2059,24 +2057,24 @@ function RecurringJournals({
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                     Loading recurring templates…
                   </td>
                 </tr>
               ) : null}
               {items.map((item) => (
                 <tr key={item.id} className="border-t border-border">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     <strong>{item.name}</strong>
                     <span className="block text-muted-foreground">{item.narration}</span>
                   </td>
-                  <td className="px-4 py-3 capitalize">{item.schedule}</td>
-                  <td className="px-4 py-3">{item.next_scheduled_date ?? "Complete"}</td>
-                  <td className="px-4 py-3">{item.last_generated_date ?? "Not generated"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 capitalize">{item.schedule}</td>
+                  <td className="px-3 py-2">{item.next_scheduled_date ?? "Complete"}</td>
+                  <td className="px-3 py-2">{item.last_generated_date ?? "Not generated"}</td>
+                  <td className="px-3 py-2">
                     <Badge variant={item.status === "active" ? "default" : "outline"}>{item.status}</Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => openHistory(item)}>
                         History
@@ -2097,7 +2095,7 @@ function RecurringJournals({
               ))}
               {!loading && items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                     No recurring templates match the selected status.
                   </td>
                 </tr>
@@ -2118,7 +2116,7 @@ function RecurringJournals({
 
       {pendingStatus ? (
         <section
-          className="space-y-3 rounded-lg border border-border bg-card p-4"
+          className="space-y-3 rounded-lg border border-border bg-card p-3"
           aria-label="Confirm recurring status change"
         >
           <h2 className="font-semibold">
@@ -2153,8 +2151,11 @@ function RecurringJournals({
           if (!open) closeDrawer();
         }}
       >
-        <SheetContent className="w-full max-w-none gap-0 sm:max-w-[min(96vw,80rem)]">
-          <SheetHeader className="border-b border-border pr-14">
+        <SheetContent
+          portalClassName="relative isolate z-[1300]"
+          className={`${journalDensity} gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]`}
+        >
+          <SheetHeader className="shrink-0 gap-1 border-b border-border p-3! pr-12!">
             <SheetTitle>
               {drawerMode === "history"
                 ? "Recurring generation history"
@@ -2168,10 +2169,10 @@ function RecurringJournals({
                 : "Recurring templates generate drafts only and remain subject to Journal approval."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-2 sm:p-3">
             {drawerMode === "history" && historyTemplate ? (
               <section className="overflow-hidden rounded-lg border border-border bg-card">
-                <div className="border-b border-border p-4">
+                <div className="border-b border-border p-3">
                   <h2 className="font-semibold">Generation history · {historyTemplate.name}</h2>
                   <p className="text-sm text-muted-foreground">
                     Failures remain isolated to their occurrence; exhausted retries require operator review.
@@ -2182,7 +2183,7 @@ function RecurringJournals({
                     <thead className="bg-muted">
                       <tr>
                         {["Scheduled date", "State", "Attempts", "Draft", "Last error", "Updated"].map((value) => (
-                          <th key={value} className="px-4 py-3 text-left">
+                          <th key={value} className="px-3 py-2 text-left">
                             {value}
                           </th>
                         ))}
@@ -2191,15 +2192,15 @@ function RecurringJournals({
                     <tbody>
                       {occurrenceLoading ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                          <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                             Loading generation history…
                           </td>
                         </tr>
                       ) : null}
                       {occurrences.map((occurrence) => (
                         <tr key={occurrence.id} className="border-t border-border">
-                          <td className="px-4 py-3">{occurrence.scheduled_date}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">{occurrence.scheduled_date}</td>
+                          <td className="px-3 py-2">
                             <Badge
                               variant={
                                 occurrence.state === "exhausted" || occurrence.state === "failed"
@@ -2210,15 +2211,15 @@ function RecurringJournals({
                               {occurrence.state.replaceAll("_", " ")}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3">{occurrence.attempt_count}</td>
-                          <td className="px-4 py-3">{occurrence.manual_journal_id ?? "—"}</td>
-                          <td className="px-4 py-3">{occurrence.last_error_code ?? "—"}</td>
-                          <td className="px-4 py-3">{new Date(occurrence.updated_at).toLocaleString()}</td>
+                          <td className="px-3 py-2">{occurrence.attempt_count}</td>
+                          <td className="px-3 py-2">{occurrence.manual_journal_id ?? "—"}</td>
+                          <td className="px-3 py-2">{occurrence.last_error_code ?? "—"}</td>
+                          <td className="px-3 py-2">{new Date(occurrence.updated_at).toLocaleString()}</td>
                         </tr>
                       ))}
                       {!occurrenceLoading && occurrences.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                          <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                             No occurrences have been generated.
                           </td>
                         </tr>
@@ -2242,7 +2243,7 @@ function RecurringJournals({
             ) : null}
 
             {drawerMode === "form" && canManage ? (
-              <section className="space-y-4 rounded-lg border border-border bg-card p-4">
+              <section className="space-y-3 rounded-lg border border-border bg-card p-3">
                 <h2 className="text-xl font-semibold">
                   {selected ? `Edit ${selected.name}` : "Add recurring template"}
                 </h2>
@@ -2258,7 +2259,7 @@ function RecurringJournals({
                   </Field>
                   <Field label="Schedule">
                     <select
-                      className="h-10 rounded-md border border-input bg-background px-3"
+                      className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
                       value={schedule}
                       onChange={(event) => {
                         setSchedule(event.target.value as typeof schedule);
@@ -2380,17 +2381,22 @@ function JournalAmountInput({
   );
 }
 
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- A named overflow region needs keyboard focus to scroll its read-only table (WCAG 2.1.1). */
 function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail; displayDecimalPlaces: number }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[620px] text-sm">
+    <div
+      role="region"
+      aria-label="Journal lines"
+      tabIndex={0}
+      className="overflow-x-auto rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <table className="w-full min-w-[560px] text-sm">
         <thead className="bg-muted">
           <tr>
-            <th className="px-3 py-2 text-left">Nominal</th>
-            <th className="px-3 py-2 text-left">Description</th>
-            <th className="px-3 py-2 text-left">Dimensions</th>
-            <th className="px-3 py-2 text-right">Debit</th>
-            <th className="px-3 py-2 text-right">Credit</th>
+            <th scope="col" className="px-3 py-2 text-left">Nominal Account</th>
+            <th scope="col" className="px-3 py-2 text-left">Description</th>
+            <th scope="col" className="px-3 py-2 text-right">Debit</th>
+            <th scope="col" className="px-3 py-2 text-right">Credit</th>
           </tr>
         </thead>
         <tbody>
@@ -2400,13 +2406,6 @@ function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail
                 {line.account_code} · {line.account_name}
               </td>
               <td className="px-3 py-2">{line.description}</td>
-              <td className="px-3 py-2">
-                {Object.entries(line.dimensions).length
-                  ? Object.entries(line.dimensions)
-                      .map(([dimension, value]) => `${dimension.replaceAll("_", " ")}: ${value}`)
-                      .join(" · ")
-                  : "—"}
-              </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {formatJournalDisplayAmount(line.debit, displayDecimalPlaces)}
               </td>
@@ -2421,11 +2420,15 @@ function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/* eslint-enable jsx-a11y/no-noninteractive-tabindex */
+
+function Field({ label, children }: { label: string; children: React.ReactElement<{ id?: string }> }) {
+  const generatedId = useId();
+  const id = children.props.id ?? generatedId;
   return (
-    <div className="grid gap-2">
-      <span className="text-sm font-medium">{label}</span>
-      {children}
+    <div className="grid min-w-0 gap-1">
+      <Label htmlFor={id}>{label}</Label>
+      {cloneElement(children, { id })}
     </div>
   );
 }

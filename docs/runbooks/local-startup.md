@@ -54,7 +54,7 @@ powershell -NoProfile -File tmp/units-of-measure/start-live-runtime.ps1
 ```
 
 This guarded private helper uses `tmp/units-of-measure/release/source`, production
-web build `tmp/journal-bank-reliability-build` (ID `PSy2nsWoHy5j9KLDht-ZH`), and its
+web build `tmp/journal-compact-final-build` (ID `2c4YRsVHQ5beFK1oeIEs_`), and its
 compiled API. The compact Products/UOM/Warehouse/Stock Transfer and all Bank
 menus follow-ups change only the frontend; the Unit of Measure API/schema remain.
 The approved compact Manual Journal editor is also active: Save Draft and
@@ -63,18 +63,25 @@ conditional beneath the account selector, and optional actions have Finance-owne
 visibility configuration. No journals are posted by startup or verification.
 Approve & Close now displays and focuses missing requirements instead of silently
 remaining disabled. Fiscal-year proposals follow the stored company calendar or
-saved first-year setup month. The current July 2026–June 2027 year is unchanged;
-November's Soft Closed status requires a separate authorized reopening decision.
+saved first-year setup month. The current July 2026–June 2027 year is unchanged.
+The owner explicitly requested opening every month of that year: all twelve are
+now Open, with eleven audited reopenings and October retained as already Open.
+Opening the periods did not post existing Journals or change Bank balances.
 The 17 November Journal/Bank reliability repair is also active in the compatible
 API and frontend. Journal/recurring and Bank last-movement dates retain calendar
-days. The Journal API exposes read-only period eligibility; forms show Awaiting
-approval/Soft Closed rather than implying posted Bank effects. Approval refreshes
-the check and posting still validates inside its transaction. Existing Journal
-states and Bank balances are unchanged; November remains Soft Closed. No migration,
+days. The Journal API exposes read-only period eligibility; forms distinguish
+Awaiting approval and actual period blockers from posted Bank effects. Approval
+refreshes the check and posting still validates inside its transaction. The
+reliability repair did not post Journals or change Bank balances. No migration,
 permission grant, financial posting or worker startup was performed. Both builds,
 focused tests and 12 preview plus 12 live read-only cases passed. Private runtime
-and rollback evidence is under `tmp/journal-bank-reliability/`. The compatible
-build has 14 generated-cache CSS optimization warnings.
+and rollback evidence is under `tmp/journal-bank-reliability/`. The
+Journal compaction follow-up is live throughout the register, manual/recurring
+forms, details, final review and reversal. Dimensions columns are removed from
+read-only line tables; required input validation and stored data remain intact.
+The compatible build has 15 generated-cache CSS optimization warnings. Private
+evidence is under `tmp/journal-compact/`. The launcher probes an exclusive loopback
+socket because Windows can return stale Listen rows with OwningProcess=0.
 
 The compatible API also includes the 17 November Purchase currency-fetch repair:
 Procurement transactions set both authenticated tenant and user context so the

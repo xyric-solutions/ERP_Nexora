@@ -126,3 +126,13 @@ acceptance passed 12 preview and 12 live cases. Posting/replay/reversal Bank eff
 were tested only on disposable records. Original owner Journals remain submitted,
 November remains Soft Closed, and the Bank balance is consequently unchanged.
 The Purchase/AP, stock, Sales and other integration work above remains outstanding.
+
+## Subsequent owner-authorized period opening
+
+After the repair, the owner explicitly requested posting access in every month
+of FY 1 July 2026-30 June 2027. The existing authenticated period-status API opened
+the eleven Soft Closed periods, preserving October as already Open and recording
+eleven audit events. All twelve monthly Journal eligibility checks passed. Year
+boundaries, Journal records and Bank balances were unchanged by this operation.
+The earlier Soft Closed observations above describe the original audit state.
+Private operational evidence is `tmp/journal-bank-reliability/open-fy-periods-result.json`.

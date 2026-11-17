@@ -1,13 +1,16 @@
 import { expect, test } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import type { JournalDetail } from "@nexora/contracts";
 
 for (const theme of ["light", "dark"] as const) {
   for (const width of [1440, 768, 559, 390, 320]) {
     test(`full Journal form: ${theme}, ${width}px`, async ({ page }) => {
+      test.setTimeout(60_000);
       await page.setViewportSize({ width, height: 978 });
       await page.addInitScript((value) => localStorage.setItem("nexora-theme-preference-v1", value), theme);
       const writes: string[] = [],
         errors: string[] = [];
+      let journalState: JournalDetail["state"] = "submitted";
       page.on("pageerror", (error) => errors.push(error.message));
       await page.route("**/api/v1/**", (route) => {
         const request = route.request(),
@@ -36,6 +39,8 @@ for (const theme of ["light", "dark"] as const) {
                   "finance.journal.submit",
                   "finance.journal.approve",
                   "finance.journal.self_approve",
+                  "finance.recurring_journal.read",
+                  "finance.recurring_journal.manage",
                 ],
               },
             },
@@ -76,6 +81,66 @@ for (const theme of ["light", "dark"] as const) {
             },
           });
         if (path === "/api/v1/finance/journals") return route.fulfill({ json: { items: [], next_cursor: null } });
+        if (path === "/api/v1/finance/recurring-journals")
+          return route.fulfill({ json: { items: [], next_cursor: null } });
+        if (path === "/api/v1/finance/journals/journal-layout-record") {
+          const detail: JournalDetail = {
+            id: "journal-layout-record",
+            company_id: "company-one",
+            display_number: "MJ-2026-000001",
+            journal_date: "2026-11-17",
+            reference_number: "Layout regression",
+            source: "manual",
+            source_label: "Manual Journal",
+            state: journalState,
+            currency: "PKR",
+            total: "123.45",
+            version: 2,
+            maker_user_id: "journal-maker",
+            submitted_at: "2026-11-17T00:00:00Z",
+            can_open_owner_workflow: true,
+            base_decimal_places: 2,
+            approval_note: null,
+            rejection_reason: null,
+            posted_entry_number: journalState === "posted" ? "JE-001" : null,
+            lines: [
+              {
+                id: "debit",
+                line_number: 1,
+                account_id: "expense-one",
+                account_code: "6001",
+                account_name: "Office expenses",
+                description: "Layout check",
+                debit: "123.45",
+                credit: "0",
+                dimensions: { cost_centre: "CC-001" },
+              },
+              {
+                id: "credit",
+                line_number: 2,
+                account_id: "capital",
+                account_code: "3100",
+                account_name: "Capital",
+                description: "Layout check",
+                debit: "0",
+                credit: "123.45",
+                dimensions: {},
+              },
+            ],
+            events: [],
+            capabilities: {
+              update: false,
+              delete_draft: false,
+              submit: false,
+              approve: journalState === "submitted",
+              reject: journalState === "submitted",
+              reverse: journalState === "posted",
+              self_approval_required: true,
+              super_admin_override_available: false,
+            },
+          };
+          return route.fulfill({ json: detail });
+        }
         return route.fulfill({ status: 404, json: { detail: "No fixture for this endpoint" } });
       });
       await page.goto("/#/finance/journal-register");
@@ -92,6 +157,12 @@ for (const theme of ["light", "dark"] as const) {
         .include('header[aria-label="Journal workspace"]')
         .analyze();
       expect(headerAccessibility.violations).toEqual([]);
+      const filters = page.locator('[aria-label="Journal filters"]');
+      for (const label of ["Reference search", "State", "Source", "Nominal account", "Date from", "Date to"]) {
+        const control = filters.getByLabel(label, { exact: true });
+        expect((await control.boundingBox())!.width).toBeGreaterThan(80);
+        expect((await control.boundingBox())!.height).toBeLessThanOrEqual(36);
+      }
       await page.screenshot({ path: `tmp/journal-layout-evidence/header-${theme}-${width}.png`, fullPage: true });
       await workspaceHeader.getByRole("button", { name: "＋ New Journal", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "New Manual Journal", exact: true });
@@ -159,6 +230,49 @@ for (const theme of ["light", "dark"] as const) {
       page.once("dialog", (confirmation) => confirmation.accept());
       await dialog.getByRole("button", { name: "Close", exact: true }).click();
       await expect(dialog).toHaveCount(0);
+      await page.goto("/#/finance/journal-detail/journal-layout-record");
+      const detail = page.getByRole("dialog", { name: "Journal Details", exact: true });
+      await expect(detail).toBeVisible();
+      await expect(detail.locator("table th")).toHaveText(["Nominal Account", "Description", "Debit", "Credit"]);
+      await detail.getByRole("button", { name: "Final review", exact: true }).click();
+      const review = page.getByRole("dialog", { name: "Review and Post Journal", exact: true });
+      await expect(review).toBeVisible();
+      await expect(review.locator("table th")).toHaveText(["Nominal Account", "Description", "Debit", "Credit"]);
+      await expect(review.getByRole("button", { name: "Approve and Post", exact: true })).toBeDisabled();
+      await review.getByRole("checkbox", { name: /Final review confirmed/ }).check();
+      await expect(review.getByRole("button", { name: "Approve and Post", exact: true })).toBeEnabled();
+      await page.evaluate(async () => {
+        await Promise.all(
+          document
+            .getAnimations()
+            .filter((animation) => animation.effect?.getTiming().iterations !== Infinity)
+            .map((animation) => animation.finished.catch(() => undefined)),
+        );
+      });
+      expect((await new AxeBuilder({ page }).include('[data-slot="sheet-content"]').analyze()).violations).toEqual([]);
+      await page.screenshot({ path: `tmp/journal-layout-evidence/approval-${theme}-${width}.png`, fullPage: true });
+      await review.getByRole("button", { name: "Close", exact: true }).click();
+      journalState = "posted";
+      await page.goto("/?posted-layout-check=1#/finance/journal-detail/journal-layout-record");
+      const posted = page.getByRole("dialog", { name: "Journal Details", exact: true });
+      await expect(posted.locator("table th")).toHaveText(["Nominal Account", "Description", "Debit", "Credit"]);
+      await posted.getByRole("button", { name: "Reverse", exact: true }).click();
+      const reversal = page.getByRole("dialog", { name: "Reverse Journal", exact: true });
+      await expect(reversal.locator("table th")).toHaveText(["Nominal Account", "Description", "Debit", "Credit"]);
+      await expect(reversal.getByRole("button", { name: "Post compensating reversal", exact: true })).toBeDisabled();
+      expect((await new AxeBuilder({ page }).include('[data-slot="sheet-content"]').analyze()).violations).toEqual([]);
+      await reversal.getByRole("button", { name: "Close", exact: true }).click();
+      await page.goto("/#/finance/recurring-journals");
+      await page.getByRole("button", { name: "＋ New template", exact: true }).click();
+      const recurring = page.getByRole("dialog", { name: "New recurring template", exact: true });
+      await expect(recurring).toBeVisible();
+      await expect(recurring.getByLabel("Name", { exact: true })).toBeVisible();
+      await expect(recurring.getByLabel("Schedule", { exact: true })).toBeVisible();
+      await expect(recurring.getByRole("columnheader", { name: /Dimensions/ })).toHaveCount(0);
+      expect(await recurring.evaluate((element) => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+      expect((await new AxeBuilder({ page }).include('[data-slot="sheet-content"]').analyze()).violations).toEqual([]);
+      await page.screenshot({ path: `tmp/journal-layout-evidence/recurring-${theme}-${width}.png`, fullPage: true });
+      expect(writes).toEqual([]);
       expect(errors).toEqual([]);
     });
   }

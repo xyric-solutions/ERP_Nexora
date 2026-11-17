@@ -182,6 +182,8 @@ describe("Finance Journal screens", () => {
     );
     await settle();
     expect(document.body.textContent).toContain("An override reason is not required");
+    expect([...document.querySelectorAll('[role="dialog"] table th')].map((item) => item.textContent?.trim()))
+      .toEqual(["Nominal Account", "Description", "Debit", "Credit"]);
     const approve = [...document.body.querySelectorAll("button")].find(
       (button) => button.textContent === "Approve and Post",
     );
@@ -242,7 +244,32 @@ describe("Finance Journal screens", () => {
     expect(document.body.textContent).toContain("Reverse Journal");
     expect(document.body.textContent).toContain("Post compensating reversal");
     expect(document.body.querySelector("#reversal-date")).not.toBeNull();
+    expect([...document.querySelectorAll('[role="dialog"] table th')].map((item) => item.textContent?.trim()))
+      .toEqual(["Nominal Account", "Description", "Debit", "Credit"]);
   });
+
+  it.each(["draft", "submitted", "posted", "reversed"] as const)(
+    "removes the Dimensions column from %s detail without changing the journal data",
+    async (state) => {
+      const journal = {
+        ...submittedJournal,
+        state,
+        lines: submittedJournal.lines.map((line) => ({ ...line, dimensions: { cost_centre: "CC-001" } })),
+      };
+      harness.api.getJournal.mockResolvedValue(journal);
+      await act(async () => root.render(
+        <FinanceJournalWorkspace page="journal-detail" recordRef="journal-1" onNavigate={vi.fn()} />,
+      ));
+      await settle();
+      const table = document.querySelector('[role="dialog"] table');
+      expect([...table!.querySelectorAll("th")].map((item) => item.textContent?.trim()))
+        .toEqual(["Nominal Account", "Description", "Debit", "Credit"]);
+      expect([...table!.querySelectorAll("tbody tr")].every((row) => row.children.length === 4)).toBe(true);
+      expect(journal.lines[0]?.dimensions).toEqual({ cost_centre: "CC-001" });
+      expect(harness.api.updateJournal).not.toHaveBeenCalled();
+      expect(harness.api.decideJournal).not.toHaveBeenCalled();
+    },
+  );
 
   it("explains and enforces the reason when self-approval actually requires an administrator override", async () => {
     harness.api.getJournal.mockResolvedValue({
