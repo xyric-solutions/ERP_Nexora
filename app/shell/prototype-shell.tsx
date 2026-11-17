@@ -1,4 +1,5 @@
 "use client";
+import { bankWorkspaceLayout } from "@prototype/features/banking/components/bank-workspace-layout";
 import { purchaseSteps } from "@prototype/features/purchasing/model/purchase-workflow";
 import { PURCHASE_EXPORT_EVENT } from "@prototype/features/purchasing/model/purchase-export";
 import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
@@ -1053,7 +1054,8 @@ export function PrototypeShell({
           ) : null}
 
           <div
-            className={`nx-content mt-3 flex-1 rounded-tl-3xl bg-background${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}`}
+            data-bank-workspace={current.module.id === "banking" ? "" : undefined}
+            className={`nx-content mt-3 flex-1 rounded-tl-3xl bg-background${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}${current.module.id === "banking" ? ` ${bankWorkspaceLayout}` : ""}`}
           >
             {activeWorkspace === "identity" && identityContent ? (
               identityContent

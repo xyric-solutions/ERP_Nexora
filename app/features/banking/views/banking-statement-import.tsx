@@ -376,7 +376,7 @@ export function BankingStatementImport({
   const profiles = options?.mapping_profiles.filter((profile) => profile.bank_account_id === bankAccountId) ?? [];
 
   return (
-    <section aria-labelledby="bank-statement-import-heading" className="space-y-4">
+    <section aria-labelledby="bank-statement-import-heading" className="space-y-3">
       <div className="border-b border-border pb-3">
         <h1 id="bank-statement-import-heading" className="text-2xl font-semibold tracking-tight">
           Import Statement
@@ -417,7 +417,7 @@ export function BankingStatementImport({
         <div className="border-b border-border px-4 py-3">
           <h2 className="text-sm font-semibold">⌄ Search</h2>
         </div>
-        <div className="grid gap-4 p-4 md:grid-cols-2 lg:grid-cols-12">
+        <div className="grid gap-3 p-3 md:grid-cols-2 lg:grid-cols-12">
           <label className="order-1 space-y-1 text-sm lg:col-span-4">
             <span>
               Bank{" "}
@@ -541,7 +541,7 @@ export function BankingStatementImport({
 
       {!detail ? (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <WorkTable tableId="app/features/banking/views/banking-statement-import:1" className="w-full min-w-[1080px] border-collapse text-sm">
+          <WorkTable keyboardScroll tableId="app/features/banking/views/banking-statement-import:1" className="w-full min-w-[1080px] border-collapse text-sm">
             <thead className="bg-primary text-primary-foreground">
               <tr>
                 <th className="px-3 py-3 text-left font-medium">Date</th>
@@ -586,7 +586,7 @@ export function BankingStatementImport({
           </div>
 
           {mappingOpen ? (
-            <div className="rounded-lg border border-border bg-card p-4">
+            <div className="rounded-lg border border-border bg-card p-3">
               <div className="mb-4">
                 <h2 className="text-sm font-semibold">Column mapping</h2>
                 <p className="text-xs text-muted-foreground">
@@ -794,7 +794,7 @@ export function BankingStatementImport({
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-border bg-card">
-            <WorkTable tableId="app/features/banking/views/banking-statement-import:2" className="w-full min-w-[1180px] border-collapse text-sm">
+            <WorkTable keyboardScroll tableId="app/features/banking/views/banking-statement-import:2" className="w-full min-w-[1180px] border-collapse text-sm">
               <thead className="bg-primary text-primary-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Include</th>

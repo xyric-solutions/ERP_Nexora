@@ -246,8 +246,8 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
   }
 
   return (
-    <div className="space-y-4" aria-busy={loadingCompanies || loading || loadingMore}>
-      <header className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm lg:flex-row lg:items-end lg:justify-between">
+    <div className="space-y-3" aria-busy={loadingCompanies || loading || loadingMore}>
+      <header className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Bank Payments</h1>
         </div>
@@ -263,10 +263,10 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
       </header>
 
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm" aria-label="Bank payments">
-        <div className="grid gap-3 border-b border-border bg-muted/25 p-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 border-b border-border bg-muted/25 p-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Bank account">
             <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
               value={bankAccountId}
               disabled={!companyId || loadingCompanies}
               onChange={(event) => {
@@ -285,7 +285,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
           <Field label="Payment state">
             <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
               value={state}
               onChange={(event) => {
                 invalidateDirectory();
@@ -303,7 +303,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
           <Field label="Search payments" className="md:col-span-2">
             <Input
-              className="h-10"
+              className="h-9"
               maxLength={160}
               placeholder="Reference, narration or account…"
               value={search}
@@ -316,7 +316,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
           <Field label="Posting date from">
             <Input
-              className="h-10"
+              className="h-9"
               type="date"
               value={postingDateFrom}
               onChange={(event) => {
@@ -328,7 +328,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
           <Field label="Posting date to">
             <Input
-              className="h-10"
+              className="h-9"
               type="date"
               value={postingDateTo}
               onChange={(event) => {
@@ -340,7 +340,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
           <Field label="Sort payments">
             <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
               value={sortBy}
               onChange={(event) => {
                 invalidateDirectory();
@@ -375,7 +375,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
         {loadFailure ? (
           <div
-            className="m-4 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+            className="m-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
             role="alert"
           >
             <strong className="block">{loadFailure.title}</strong>
@@ -394,7 +394,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
         ) : null}
 
         {!loadFailure && loading && rows.length === 0 ? (
-          <div className="space-y-2 p-4" role="status" aria-label="Loading bank payments">
+          <div className="space-y-2 p-3" role="status" aria-label="Loading bank payments">
             {Array.from({ length: 5 }, (_, index) => (
               <div key={index} className="h-12 animate-pulse rounded-md bg-muted/60" />
             ))}
@@ -417,13 +417,13 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-payments:1" className="w-full min-w-[1120px] border-collapse text-left text-sm">
+            <WorkTable keyboardScroll continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-payments:1" className="w-full min-w-[1120px] border-collapse text-left text-sm">
               <caption className="sr-only">Persisted bank payments for the selected company</caption>
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
                   {["Reference", "Dates", "Bank account", "Narration", "Currency", "Lines", "Total", "State"].map(
                     (heading) => (
-                      <th key={heading} className="border-b border-border px-4 py-3 font-semibold" scope="col">
+                      <th key={heading} className="border-b border-border px-4 py-1.5 font-semibold" scope="col">
                         {heading}
                       </th>
                     ),
@@ -433,7 +433,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
               <tbody>
                 {rows.map((payment) => (
                   <tr key={payment.id} className="border-b border-border/70 transition-colors hover:bg-muted/35">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-1.5">
                       <button
                         className="font-semibold text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         type="button"
@@ -443,28 +443,28 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
                       </button>
                       <small className="mt-1 block text-muted-foreground">Version {payment.version}</small>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-4 py-1.5 whitespace-nowrap">
                       <span className="block font-medium">Posted {date(payment.posting_date)}</span>
                       <small className="mt-1 block text-muted-foreground">
                         Value {payment.value_date ? date(payment.value_date) : "not set"}
                       </small>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-1.5">
                       <BankAccountCapsule>{payment.bank_account_name}</BankAccountCapsule>
                       <small className="mt-1 block text-muted-foreground">
                         {[payment.bank_name, payment.account_number_masked].filter(Boolean).join(" · ") ||
                           "Nominal account"}
                       </small>
                     </td>
-                    <td className="max-w-80 px-4 py-3 text-muted-foreground">
+                    <td className="max-w-80 px-4 py-1.5 text-muted-foreground">
                       {payment.narration_summary ?? "No narration recorded"}
                     </td>
-                    <td className="px-4 py-3 font-medium">{payment.currency}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{payment.line_count}</td>
-                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                    <td className="px-4 py-1.5 font-medium">{payment.currency}</td>
+                    <td className="px-4 py-1.5 text-right tabular-nums">{payment.line_count}</td>
+                    <td className="px-4 py-1.5 text-right font-semibold tabular-nums">
                       {money(payment.total_amount, payment.currency)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-1.5">
                       <Badge variant={stateVariant(payment.state)}>{label(payment.state)}</Badge>
                     </td>
                   </tr>

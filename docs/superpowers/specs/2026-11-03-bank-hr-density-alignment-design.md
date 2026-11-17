@@ -77,3 +77,34 @@ This is a presentation-only batch. Existing component props, request parameters,
 - **Dense controls becoming hard to use:** retain existing shared control heights and minimum touch targets; reduce empty space around controls, not the controls themselves.
 - **Semantic amber confused with warning status:** reserve the capsule for bank-account identity and keep status badges unchanged.
 - **Large HR surface area:** centralize only repeated layout behavior, then verify representative consumers and avoid speculative rewrites of specialized workflows.
+
+## 17 November 2026: compact Bank follow-up
+
+The owner requested the same compact density already deployed to Inventory across
+all Bank menus and linked pages. This follow-up applies to Bank only; HR remains
+outside it. It reuses the existing screens and shared controls.
+
+- A feature-owned `bankWorkspaceLayout` is applied only while the shell renders
+  a Bank route, marked by `data-bank-workspace`. Its scoped Tailwind selectors
+  reset inherited heading, paragraph and definition-list margins and reduce known
+  legacy header/form spacing. Important utilities resolve the incumbent unlayered
+  legacy CSS at this boundary; other modules and portalled dialogs are outside it.
+- Page headings use the same 18px scale as compact Inventory. Headers/actions wrap
+  at narrow widths, directory controls use 36px where they previously used 40px,
+  and excessive panel/section gaps are reduced. Existing compact entry-control
+  sizes and editable line layouts are retained. Currency summaries are smaller.
+- Bank directories use 6px vertical cell padding where rows previously used
+  8-12px. WorkTable's existing `keyboardScroll` option gives wide Bank tables
+  a labelled focusable scroll region. Revaluation headers now pair semantic muted
+  surfaces and text, correcting the previous light-mode white-on-pale contrast.
+- Account Balances, Payments, Receipts, Transfers, Reconciliation, Import Statement
+  and Revaluation are covered, together with their linked entry/detail/legacy
+  prototype layouts. Prototype screens remain labelled; no workflow becomes live
+  merely because its layout changes.
+- API requests, monetary calculations, lifecycle permissions, posting/approval
+  handlers and audit logic are unchanged. Private AST comparison confirms that
+  the 19 modified existing source files differ only in presentation attributes
+  and the Bank-boundary import. No database migration or credential change occurs.
+
+The verification record and local release identity are maintained in
+`docs/architecture/remaining-ui-migration.md` and the local startup runbook.

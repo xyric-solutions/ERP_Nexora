@@ -299,9 +299,9 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
   const afterPosting = receipt.state === "posted" || receipt.state === "reversed";
 
   return (
-    <section className="min-w-0 space-y-5" aria-busy={mutationBusy || loading}>
+    <section className="min-w-0 space-y-3" aria-busy={mutationBusy || loading}>
       <header className="overflow-hidden rounded-2xl border border-border bg-[var(--nx-emphasis-background)] text-[var(--nx-emphasis-text)] shadow-sm">
-        <div className="grid gap-6 px-5 py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:px-7">
+        <div className="grid gap-4 px-5 py-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:px-7">
           <div className="min-w-0">
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <Button
@@ -399,7 +399,7 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
         </Alert>
       )}
       <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0 space-y-5">
+        <div className="min-w-0 space-y-3">
           <Card>
             <CardHeader className="border-b border-border">
               <CardTitle className="flex items-center gap-2 font-serif text-xl">
@@ -440,7 +440,7 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
-                <WorkTable tableId="app/features/banking/views/banking-receipt-detail:1" className="w-full min-w-[920px] text-left text-sm">
+                <WorkTable keyboardScroll tableId="app/features/banking/views/banking-receipt-detail:1" className="w-full min-w-[920px] text-left text-sm">
                   <thead className="bg-card text-xs uppercase tracking-wider text-muted-foreground">
                     <tr>
                       <th scope="col" className="px-4 py-3">
@@ -513,7 +513,7 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
           {!afterPosting ? <AccountingPreview receipt={receipt} /> : <AccountingLinks receipt={receipt} />}
         </div>
 
-        <aside className="space-y-5">
+        <aside className="space-y-3">
           {(canDecide || independentCheckerRequired) && receipt.state === "submitted" ? (
             <Card className="border-[var(--nx-info-border)]">
               <CardHeader>
@@ -523,7 +523,7 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
                 </CardTitle>
                 <CardDescription>Approval remains separate from Finance posting.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3">
                 {independentCheckerRequired ? (
                   <Alert variant="destructive">
                     <AlertTitle>Independent checker required</AlertTitle>
@@ -695,7 +695,7 @@ export function BankingReceiptDetail({ receiptId, onBack, onEdit }: BankingRecei
               <CardDescription>Persisted actors and transition evidence.</CardDescription>
             </CardHeader>
             <CardContent>
-              <ol className="relative space-y-5 border-l border-border pl-5">
+              <ol className="relative space-y-3 border-l border-border pl-5">
                 {receipt.timeline.map((event) => (
                   <li key={event.id} className="relative">
                     <span className="absolute -left-[1.55rem] top-1 size-3 rounded-full border-2 border-border bg-[var(--nx-info-soft)] ring-1 ring-[var(--nx-info-border)]" />
@@ -724,7 +724,7 @@ function AccountingPreview({ receipt }: { receipt: BankReceiptDetail }) {
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">
-          <WorkTable tableId="app/features/banking/views/banking-receipt-detail:2" className="w-full min-w-[680px] text-left text-sm">
+          <WorkTable keyboardScroll tableId="app/features/banking/views/banking-receipt-detail:2" className="w-full min-w-[680px] text-left text-sm">
             <thead className="bg-[var(--nx-warning-soft)] text-xs uppercase tracking-wider text-[var(--nx-warning)]/65">
               <tr>
                 <th scope="col" className="px-4 py-3">
@@ -775,7 +775,7 @@ function AccountingLinks({ receipt }: { receipt: BankReceiptDetail }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-5 sm:grid-cols-2">
-        <div className="rounded-lg border border-[var(--nx-success-border)] bg-card/70 p-4">
+        <div className="rounded-lg border border-[var(--nx-success-border)] bg-card/70 p-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-[var(--nx-success-text)]">Original posting</p>
           <dl className="mt-3 space-y-3">
             <Datum label="Entry number" value={receipt.journal_entry_number ?? "Unavailable"} strong />
@@ -784,7 +784,7 @@ function AccountingLinks({ receipt }: { receipt: BankReceiptDetail }) {
           </dl>
         </div>
         {receipt.state === "reversed" ? (
-          <div className="rounded-lg border border-[var(--nx-border)] bg-card/70 p-4">
+          <div className="rounded-lg border border-[var(--nx-border)] bg-card/70 p-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-[var(--nx-purple)]">Compensating reversal</p>
             <dl className="mt-3 space-y-3">
               <Datum label="Entry number" value={receipt.reversal_journal_entry_number ?? "Unavailable"} strong />

@@ -33,6 +33,7 @@ for (const theme of ["light", "dark"] as const) {
             json: {
               status: "authenticated",
               tenant_id: "example-tenant",
+              active_company: { id: "company-one", code: "ONE", name: "Example Services Company" },
               csrf_token: "c".repeat(43),
               idle_expires_at: "2099-01-01T00:00:00Z",
               absolute_expires_at: "2099-01-01T00:00:00Z",
@@ -61,6 +62,13 @@ for (const theme of ["light", "dark"] as const) {
 
       for (const kind of ["transfer", "fx"] as const) {
         await page.goto(`/?entry=${kind}#/banking/transfers`);
+        await expect(page.locator("[data-bank-workspace]")).toBeVisible();
+        const registerTitle = page.getByRole("heading", { name: "Bank Transfers", exact: true });
+        await expect(registerTitle).toBeVisible();
+        expect(
+          await registerTitle.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
+        ).toBeLessThanOrEqual(18);
+        expect((await registerTitle.locator("../..").boundingBox())!.height).toBeLessThan(width < 1440 ? 160 : 115);
         await expect(page.getByRole("heading", { name: "Bank Transfers", exact: true })).toBeVisible();
         const addNew = page.getByRole("button", { name: "Add New", exact: true });
         await addNew.focus();

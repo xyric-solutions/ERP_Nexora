@@ -468,7 +468,7 @@ export function BankingTransactionDetail({
 
   return (
     <div className="grid min-w-0 gap-3.5">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             {onBack ? <button className="nx-record-link" type="button" onClick={onBack}>← Back to list</button> : null}
@@ -500,7 +500,7 @@ export function BankingTransactionDetail({
         </div>
       </header>
 
-      <section className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(9.375rem,1fr))] gap-3.5 rounded-md border border-border bg-card p-4 shadow-xs [&_span]:block [&_span]:text-xs [&_span]:font-semibold [&_span]:text-muted-foreground [&_strong]:mt-1 [&_strong]:block [&_strong]:text-base [&_strong]:font-bold [&_strong]:tabular-nums [&_small]:mt-0.5 [&_small]:block [&_small]:text-xs [&_small]:text-muted-foreground">
+      <section className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(9.375rem,1fr))] gap-3.5 rounded-md border border-border bg-card p-3 shadow-xs [&_span]:block [&_span]:text-xs [&_span]:font-semibold [&_span]:text-muted-foreground [&_strong]:mt-1 [&_strong]:block [&_strong]:text-base [&_strong]:font-bold [&_strong]:tabular-nums [&_small]:mt-0.5 [&_small]:block [&_small]:text-xs [&_small]:text-muted-foreground">
         <div><span>Amount</span><strong>{formatMoney(transaction.amount, transaction.currency)}</strong></div>
         <div><span>Bank account</span><strong>{bank?.name ?? "—"}</strong><small>{bank?.number}</small></div>
         {counterBank ? <div><span>Destination</span><strong>{counterBank.name}</strong><small>{counterBank.number}</small></div> : null}
@@ -527,7 +527,7 @@ export function BankingTransactionDetail({
           {tab === "Accounting effect" ? (
             <>
               <div className="nx-table-wrap">
-                <WorkTable tableId="app/features/banking/views/banking-transaction-detail:1" className="nx-data-table [&_tbody_small]:block [&_tbody_small]:text-xs [&_tbody_small]:text-muted-foreground">
+                <WorkTable keyboardScroll tableId="app/features/banking/views/banking-transaction-detail:1" className="nx-data-table [&_tbody_small]:block [&_tbody_small]:text-xs [&_tbody_small]:text-muted-foreground">
                   <thead>
                     <tr><th>Account</th><th>Description</th><th className="amount">Debit</th><th className="amount">Credit</th></tr>
                   </thead>
@@ -638,7 +638,7 @@ export function BankAccountDetail({
 
   return (
     <div className="grid min-w-0 gap-3.5">
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground"><span>Bank & cash accounts</span></div>
           <h1>{account.name}</h1>
@@ -674,7 +674,7 @@ export function BankAccountDetail({
         </div>
       </header>
 
-      <section className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(9.375rem,1fr))] gap-3.5 rounded-md border border-border bg-card p-4 shadow-xs [&_span]:block [&_span]:text-xs [&_span]:font-semibold [&_span]:text-muted-foreground [&_strong]:mt-1 [&_strong]:block [&_strong]:text-base [&_strong]:font-bold [&_strong]:tabular-nums [&_small]:mt-0.5 [&_small]:block [&_small]:text-xs [&_small]:text-muted-foreground">
+      <section className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(9.375rem,1fr))] gap-3.5 rounded-md border border-border bg-card p-3 shadow-xs [&_span]:block [&_span]:text-xs [&_span]:font-semibold [&_span]:text-muted-foreground [&_strong]:mt-1 [&_strong]:block [&_strong]:text-base [&_strong]:font-bold [&_strong]:tabular-nums [&_small]:mt-0.5 [&_small]:block [&_small]:text-xs [&_small]:text-muted-foreground">
         <div><span>Ledger balance</span><strong>{formatMoney(account.ledgerBalance, account.currency)}</strong></div>
         <div><span>Available</span><strong>{formatMoney(account.availableBalance, account.currency)}</strong></div>
         <div><span>Overdraft limit</span><strong>{formatMoney(account.overdraftLimit, account.currency)}</strong></div>
@@ -686,7 +686,7 @@ export function BankAccountDetail({
         <section className="nx-card nx-detail-main">
           <div className="nx-card-head"><div><span>Activity</span><h2>Recent transactions</h2></div></div>
           <div className="nx-table-wrap">
-            <WorkTable tableId="app/features/banking/views/banking-transaction-detail:2" className="nx-data-table">
+            <WorkTable keyboardScroll tableId="app/features/banking/views/banking-transaction-detail:2" className="nx-data-table">
               <thead><tr><th>Reference</th><th>Date</th><th>Party</th><th className="amount">Amount</th><th>Status</th></tr></thead>
               <tbody>
                 {related.length === 0 ? (

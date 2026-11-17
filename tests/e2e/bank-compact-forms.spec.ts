@@ -33,6 +33,7 @@ for (const theme of ["light", "dark"] as const) {
               json: {
                 status: "authenticated",
                 tenant_id: "example-tenant",
+                active_company: { id: "company-one", code: "ONE", name: "Example Services Company" },
                 csrf_token: "c".repeat(43),
                 idle_expires_at: "2099-01-01T00:00:00Z",
                 absolute_expires_at: "2099-01-01T00:00:00Z",
@@ -92,6 +93,10 @@ for (const theme of ["light", "dark"] as const) {
           exact: true,
         });
         await expect(heading).toBeVisible();
+        await expect(page.locator("[data-bank-workspace]")).toBeVisible();
+        expect(
+          await heading.evaluate((element) => Number.parseFloat(getComputedStyle(element).fontSize)),
+        ).toBeLessThanOrEqual(18);
         const controls = page.getByRole("region", {
           name: `${kind[0].toUpperCase()}${kind.slice(1)} controls`,
           exact: true,
@@ -109,7 +114,7 @@ for (const theme of ["light", "dark"] as const) {
               : page.getByLabel("Posting date", { exact: true });
           const bank =
             kind === "transfer"
-              ? page.locator("#transfer-company")
+              ? page.locator("#transfer-value-date")
               : page.getByLabel(kind === "payment" ? "Pay through" : "Receive into", { exact: true });
           expect(Math.abs((await dates.boundingBox())!.y - (await bank.boundingBox())!.y)).toBeLessThan(3);
         }
@@ -166,6 +171,7 @@ for (const theme of ["light", "dark"] as const) {
             json: {
               status: "authenticated",
               tenant_id: "example-tenant",
+              active_company: { id: "company-one", code: "ONE", name: "Example Services Company" },
               csrf_token: "c".repeat(43),
               idle_expires_at: "2099-01-01T00:00:00Z",
               absolute_expires_at: "2099-01-01T00:00:00Z",

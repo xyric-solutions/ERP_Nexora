@@ -1,5 +1,46 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Compact Bank menus and linked pages
+
+- Applied the approved Inventory density to all seven Bank menus and existing
+  linked entry/detail pages. A feature-owned layout, enabled only on Bank routes,
+  resets legacy margins, uses 18px headings, reduces panel/form gaps to 12px,
+  and gives directory controls 36px heights and rows 6px vertical padding.
+  Balance summaries are smaller; editable transaction controls retain their sizes.
+- Preserved handlers, API contracts, permissions, lifecycle states, calculations,
+  global company selection and existing login. AST comparison of the 19 modified
+  existing source files confirms presentation-only differences. No business records
+  were written, migrations applied or CSS files retired. Revaluation headers now
+  use matching semantic colours; wide Bank tables use existing keyboard scrolling.
+- Passed 96 unit tests across 16 files and all 30 Bank Chromium tests. Browser
+  fixtures now include the current active-company contract and Transfer date field.
+  Real-data preview checks covered both companies' seven menus and 26 linked
+  pages. The final 42 light/dark desktop/tablet/mobile cases have no outer overflow:
+  41 passed Axe immediately, and the remaining Reconciliation tablet case passed
+  after its finite button transition settled. Original findings remain in evidence.
+- Root and compatible production builds, typecheck, touched-file ESLint,
+  helper/header/test formatting, theme audit write/check and diff check pass.
+  Compatible build emitted 13 generated-cache CSS optimization warnings; the root
+  build had none. Whole-Bank lint also found 10 pre-existing label warnings in the
+  unchanged batch-entry, reconciliation-worksheet and historical statement files.
+- Active compatible frontend: `tmp/bank-compact-final-build`, ID
+  `JXLcwu_wh60i_uKqRhsdf`, inside `tmp/units-of-measure/release/source`.
+  The existing API and schema remain. Local evidence: `tmp/bank-compact/`, including
+  presentation proof, browser reports and the settled accessibility confirmation.
+  Live acceptance passed unchanged sign-in, all seven menus, payment/receipt/
+  transfer entry navigation and isolation from Inventory; no business writes or
+  page errors occurred. The guarded routine starter also passed its health check.
+- Reproduction commands: `npm.cmd run test:unit -- <tests/unit/banking-*.test.tsx>`,
+  `playwright.cmd test tests/e2e/bank-compact-forms.spec.ts tests/e2e/bank-transfer-menu.spec.ts --workers=1`
+  with `PLAYWRIGHT_USE_EXISTING_WEB=true` and `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3219`,
+  `npm.cmd run build:web` (isolated root and compatible output directories),
+  `npm.cmd run typecheck`, `eslint <changed TS/TSX files>`,
+  `prettier --check <helper/header/two browser specs>`,
+  `node scripts/audit-ui-theme.mjs --write`,
+  `node scripts/audit-ui-theme.mjs --check` and `git diff --check`.
+- Safe resume: retain these compact Bank/Inventory layouts and use the guarded
+  starter in the local runbook. The separate Purchase/Assets rollout remains pending.
+
 ## 2026-11-17 - Compact UOM, Warehouse and Stock Transfer
 
 - Extended the approved Products density to the existing Inventory operations and

@@ -153,9 +153,9 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
   }
 
   return (
-    <div className="space-y-4" aria-busy={loading}>
+    <div className="space-y-3" aria-busy={loading}>
       {!loading && !error && companies.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <div className="rounded-lg border border-border bg-card p-3 shadow-sm">
           <p role="alert" className="m-0 text-sm font-medium text-destructive">
             Your session has no authorized company for bank accounts.
           </p>
@@ -165,12 +165,12 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Bank account currency totals">
         {loading && summary.length === 0
           ? Array.from({ length: 4 }, (_, index) => (
-              <div key={index} className="h-32 animate-pulse rounded-lg border border-border bg-muted/50" />
+              <div key={index} className="h-24 animate-pulse rounded-lg border border-border bg-muted/50" />
             ))
           : summary.map((total) => (
-              <article key={total.currency} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+              <article key={total.currency} className="rounded-lg border border-border bg-card p-3 shadow-sm">
                 <span className="text-sm text-muted-foreground">Total held · {total.currency}</span>
-                <strong className="mt-2 block text-2xl font-semibold text-foreground">
+                <strong className="mt-1 block text-xl font-semibold text-foreground">
                   {money(total.ledger_balance, total.currency)}
                 </strong>
                 <small className="mt-1 block text-muted-foreground">
@@ -230,7 +230,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
         {error ? (
           <div
-            className="m-4 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+            className="m-4 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive"
             role="alert"
           >
             <strong className="block">Bank account data could not be loaded.</strong>
@@ -250,7 +250,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-account-balances:1" className="w-full min-w-[1050px] border-collapse text-left text-sm">
+            <WorkTable keyboardScroll continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-account-balances:1" className="w-full min-w-[1050px] border-collapse text-left text-sm">
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
                   {[
@@ -264,7 +264,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                     "Last movement",
                     "Status",
                   ].map((heading) => (
-                    <th key={heading} className="border-b border-border px-4 py-3 font-semibold">
+                    <th key={heading} className="border-b border-border px-4 py-1.5 font-semibold">
                       {heading}
                     </th>
                   ))}
@@ -273,7 +273,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
               <tbody>
                 {rows.map((account) => (
                   <tr key={account.id} className="border-b border-border/70 transition-colors hover:bg-muted/35">
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-4 py-1.5 align-top">
                       <BankAccountCapsule
                         aria-label={`Open ${account.bank_name ?? account.ledger_account_code}`}
                         onClick={() => onOpenAccount(account.id)}
@@ -284,7 +284,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                         {account.branch || "Branch not recorded"}
                       </small>
                     </td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-4 py-1.5 align-top">
                       <BankAccountCapsule
                         aria-label={`Open ${account.account_name}`}
                         onClick={() => onOpenAccount(account.id)}
@@ -295,30 +295,30 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                         {account.account_number_masked ?? account.ledger_account_code}
                       </small>
                     </td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-4 py-1.5 align-top">
                       {account.ledger_account_code}
                       <small className="mt-1 block text-muted-foreground">{account.ledger_account_name}</small>
                     </td>
-                    <td className="px-4 py-3 align-top">{account.currency}</td>
-                    <td className="px-4 py-3 text-right align-top font-semibold tabular-nums">
+                    <td className="px-4 py-1.5 align-top">{account.currency}</td>
+                    <td className="px-4 py-1.5 text-right align-top font-semibold tabular-nums">
                       {money(account.ledger_balance, account.currency)}
                     </td>
-                    <td className="px-4 py-3 text-right align-top tabular-nums">
+                    <td className="px-4 py-1.5 text-right align-top tabular-nums">
                       {account.available_balance === null ? (
                         <span className="text-muted-foreground">Unavailable</span>
                       ) : (
                         money(account.available_balance, account.currency)
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right align-top">
+                    <td className="px-4 py-1.5 text-right align-top">
                       {account.unreconciled_count === null ? (
                         <span className="text-muted-foreground">Unavailable</span>
                       ) : (
                         `${account.unreconciled_count} items`
                       )}
                     </td>
-                    <td className="px-4 py-3 align-top">{account.last_movement_on ?? "No posted movement"}</td>
-                    <td className="px-4 py-3 align-top">
+                    <td className="px-4 py-1.5 align-top">{account.last_movement_on ?? "No posted movement"}</td>
+                    <td className="px-4 py-1.5 align-top">
                       <span className="inline-flex rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
                         {label(account.state)}
                       </span>
@@ -359,7 +359,7 @@ function Filter({
   return (
     <LabeledField label={fieldLabel}>
       <select
-        className="h-10 min-w-0 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        className="h-9 min-w-0 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
         aria-label={fieldLabel}
         value={value}
         onChange={(event) => onChange(event.target.value)}

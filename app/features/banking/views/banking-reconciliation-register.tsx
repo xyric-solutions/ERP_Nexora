@@ -200,7 +200,7 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {error ? (
         <Alert variant="destructive">
           <AlertTitle>Reconciliations could not be loaded</AlertTitle>
@@ -244,7 +244,7 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
       </section>
 
       <section className="rounded-lg border border-border bg-card">
-        <div className="grid gap-3 border-b border-border p-4 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid gap-3 border-b border-border p-3 md:grid-cols-3 xl:grid-cols-6">
           <select
             aria-label="Bank account"
             className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
@@ -306,17 +306,17 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
         </div>
 
         <div className="overflow-x-auto">
-          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-reconciliation-register:1" className="w-full min-w-[1050px] border-collapse text-sm">
+          <WorkTable keyboardScroll continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-reconciliation-register:1" className="w-full min-w-[1050px] border-collapse text-sm">
             <thead className="bg-primary text-primary-foreground">
               <tr>
-                <th className="px-3 py-2 text-left font-medium">Reconciliation</th>
-                <th className="px-3 py-2 text-left font-medium">Bank Account</th>
-                <th className="px-3 py-2 text-left font-medium">Statement / Period</th>
-                <th className="px-3 py-2 text-left font-medium">Method</th>
-                <th className="px-3 py-2 text-right font-medium">Closing balance</th>
-                <th className="px-3 py-2 text-right font-medium">Difference</th>
-                <th className="px-3 py-2 text-right font-medium">Open items</th>
-                <th className="px-3 py-2 text-left font-medium">Status</th>
+                <th className="px-3 py-1.5 text-left font-medium">Reconciliation</th>
+                <th className="px-3 py-1.5 text-left font-medium">Bank Account</th>
+                <th className="px-3 py-1.5 text-left font-medium">Statement / Period</th>
+                <th className="px-3 py-1.5 text-left font-medium">Method</th>
+                <th className="px-3 py-1.5 text-right font-medium">Closing balance</th>
+                <th className="px-3 py-1.5 text-right font-medium">Difference</th>
+                <th className="px-3 py-1.5 text-right font-medium">Open items</th>
+                <th className="px-3 py-1.5 text-left font-medium">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -337,7 +337,7 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
               ) : null}
               {records.map((record) => (
                 <tr key={record.id} className="border-t border-border">
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5">
                     <button
                       type="button"
                       className="font-medium text-primary hover:underline"
@@ -347,8 +347,8 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
                     </button>
                     <span className="block text-xs text-muted-foreground">v{record.version}</span>
                   </td>
-                  <td className="px-3 py-2">{record.bank_account_name}</td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5">{record.bank_account_name}</td>
+                  <td className="px-3 py-1.5">
                     <span>
                       {record.statement_reference} · {record.statement_date}
                     </span>
@@ -356,17 +356,17 @@ export function BankingReconciliationRegister({ onAction, onOpen }: BankingRecon
                       {record.period_start} to {record.period_end}
                     </span>
                   </td>
-                  <td className="px-3 py-2">{methodLabel(record.method)}</td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="px-3 py-1.5">{methodLabel(record.method)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">
                     {formatAmount(record.balances.closing_statement_balance, record.balances.currency)}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="px-3 py-1.5 text-right tabular-nums">
                     {formatAmount(record.balances.difference, record.balances.currency)}
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
+                  <td className="px-3 py-1.5 text-right tabular-nums">
                     {record.balances.unmatched_statement_count + record.balances.unmatched_ledger_count}
                   </td>
-                  <td className="px-3 py-2">
+                  <td className="px-3 py-1.5">
                     <Badge variant={record.state === "submitted" ? "default" : "outline"}>
                       {bankReconciliationStateLabel(record.state)}
                     </Badge>
