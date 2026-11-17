@@ -33,6 +33,33 @@ const record = () =>
     ],
   });
 describe("Purchase exports", () => {
+  it("exports discounted line bases, freight and the saved document total without repeating totals", () => {
+    const document = record();
+    document.lines[0]!.discount_amount = "1.00";
+    document.discount_amount = "1.00";
+    document.additional_charges = [
+      { id: "freight", type: "freight", description: "Delivery", amount: "2.00", tax_percent: "10" },
+    ];
+    document.total_amount = "10.20";
+    const rows = purchaseExportRows([document]);
+    const data = rows.slice(1).map((row) => Object.fromEntries(rows[0].map((header, index) => [header, row[index]])));
+    expect(data[0]).toMatchObject({
+      "Line Discount": "1.00",
+      "Allocated Purchase Discount": "1.00",
+      "Line Net Amount": "8.00",
+      "Additional Charges": "2.00",
+      "Total Tax": "0.20",
+      "Total Purchase Amount": "10.20",
+    });
+    expect(data[1]).toMatchObject({
+      "Row Type": "Additional charge",
+      Description: "Delivery",
+      "Line Net Amount": "2.00",
+      "Line Tax Amount": "0.20",
+      "Total Purchase Amount": "",
+    });
+    expect(rows.every((row) => row.length === rows[0].length)).toBe(true);
+  });
   it("exports persisted bill dates, terms and exact installment schedules", () => {
     const invoice = record();
     invoice.kind = "bill";

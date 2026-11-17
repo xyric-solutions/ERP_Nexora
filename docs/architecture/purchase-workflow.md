@@ -217,6 +217,48 @@ multi-supplier records.
 Directory search is bounded/paginated; continuation tokens bind tenant, company
 and filter. Consumption and supplier validation queries are batched.
 
+## Searchable products and exact purchase adjustments
+
+The existing product selector browses and searches the real company directory
+inside its popup. There is no external product search field or search button.
+Custom-item fields remain available; downstream product identity is inherited.
+
+Procurement migration **0006** adds zero-default document discounts and bounded
+additional charges. Lines support an optional currency-amount discount. Existing
+documents retain their amounts. An expandable adjustments section contains the
+overall discount and freight/other expense rows; each charge uses an explicit
+same-company expense nominal and existing manual/governed tax controls. Approval
+requires an eligible expense account. This does not automatically capitalize
+freight or add a financial posting action to Purchase approval.
+
+The form shows Subtotal, Total Discount, Total Tax, Additional Charges and Grand
+Total together under **Total Purchase Amount**. Values update while editing;
+incomplete amounts display an incomplete calculation rather than a saved total.
+The same integer-decimal `purchaseTotals` helper is used by API validation,
+payment schedules, supplier accounting and linked asset cost validation. Quantity
+times price rounds to cents first. Line discounts then apply, followed by an
+overall discount allocated across the remaining line bases using stable
+largest-remainder allocation. Tax applies to discounted bases and charge amounts.
+Charges are excluded from product discounts and are added once.
+
+Receipts/bills inherit adjustments from the approved order. Cumulative quantity
+allocation gives final partial documents the remaining discount/charge cents.
+Charge allocation uses net product values, falling back to gross values and then
+quantities for zero-value sources. Company transaction locks protect consumption;
+approval rejects stale allocations. The existing order detail response includes
+optional bounded `source_consumption` aggregates for receipt/bill previews, using
+the same authenticated company-scoped API. It does not load an unbounded history
+into the browser. Ordinary unadjusted draft/source validation remains compatible.
+
+The existing explicit AP flow rechecks the saved bill total, discounted net
+bases, charge expense nominals and governed tax evidence. Fixed asset debits and
+individual unit costs reconcile to discounted purchase lines, while independent
+asset approval/activation remains unchanged. CSV exports retain their existing
+columns and append discount/net/tax/total columns; charge detail uses separate
+rows and document totals appear once. No new dependency or duplicate purchase
+workflow is introduced. See the approved 17 November design and implementation
+plan under `docs/superpowers` for verification and local rollout status.
+
 ## Posting boundary
 
 This implementation persists operational Purchase records and payment

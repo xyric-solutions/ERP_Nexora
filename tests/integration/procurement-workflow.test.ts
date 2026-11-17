@@ -198,6 +198,60 @@ suite("Database-backed Purchase and Supplier workflow", () => {
     await approved(terms("receipt", po, supplier, quantity));
     return approved(terms("bill", po, supplier, quantity));
   }
+  it("persists discounts and freight and allocates their remaining cents across partial receipts and bills", async () => {
+    const expenseId = `purchase-freight-${key()}`;
+    await pool.query(
+      "insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$1,'Synthetic freight','expense',false,'active',now())",
+      [expenseId, tenant, company],
+    );
+    const request = await approved({
+      ...terms("request", undefined, null, "3"),
+      discount_amount: "0.02",
+      lines: [{ ...terms("request", undefined, null, "3").lines[0]!, unit_price: "1.00", discount_amount: "0.01" }],
+      additional_charges: [
+        {
+          id: "freight",
+          type: "freight",
+          description: "Synthetic freight",
+          amount: "0.01",
+          tax_percent: "0",
+          nominal_account_id: expenseId,
+        },
+      ],
+    });
+    const orderInput = terms("order", request, supplierA, "3");
+    const po = await approved({
+      ...orderInput,
+      discount_amount: request.discount_amount,
+      additional_charges: request.additional_charges,
+    });
+    expect(po.total_amount).toBe("2.98");
+    const receipt = await approved(terms("receipt", po, supplierA, "1"));
+    const first = await approved(terms("bill", po, supplierA, "1"));
+    const secondDraft = await save(terms("bill", po, supplierA, "2"));
+    const secondSubmitted = await submit(secondDraft);
+    await expect(approve(secondSubmitted)).rejects.toMatchObject({ code: "PURCHASE_RECEIPT_MATCH_REQUIRED" });
+    await approved(terms("receipt", po, supplierA, "2"));
+    const second = await approve(secondSubmitted);
+    expect(Number(first.total_amount) + Number(second.total_amount)).toBe(2.98);
+    expect(Number(first.additional_charges![0]!.amount) + Number(second.additional_charges![0]!.amount)).toBe(0.01);
+    expect(Number(receipt.discount_amount) + Number(second.discount_amount)).toBe(0.02);
+    const loaded = await repo.get(maker, company, second.id);
+    expect(loaded).toMatchObject({
+      discount_amount: second.discount_amount,
+      additional_charges: second.additional_charges,
+      total_amount: second.total_amount,
+    });
+    const origin = await repo.get(maker, company, po.id);
+    expect(origin.source_consumption?.bill.lines[0]).toMatchObject({
+      quantity: "3",
+      line_discount: "0.01",
+      document_discount: "0.02",
+    });
+    await expect(save({ ...terms("request", undefined, null), discount_amount: "1000" })).rejects.toMatchObject({
+      code: "PURCHASE_VALIDATION_FAILED",
+    });
+  });
   it("filters supplier bills before pagination and binds cursors to the supplier", async () => {
     const first = await bill(supplierA),
       other = await bill(supplierB),

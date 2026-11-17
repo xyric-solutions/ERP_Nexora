@@ -12,7 +12,16 @@ export {
   supplierMailingAddress,
 } from "./supplier-profile.js";
 export type { SupplierProfile, SupplierBankAccount } from "./supplier-profile.js";
-export { scaled, money, lineTotal, documentTotal } from "./amounts.js";
+export {
+  scaled,
+  money,
+  lineTotal,
+  documentTotal,
+  purchaseTotals,
+  allocatePurchaseAmount,
+  formatPurchaseMoney,
+  inheritPurchaseAdjustments,
+} from "./amounts.js";
 export { paymentTotals } from "./payment-amounts.js";
 
 const identity = z.string().trim().min(1).max(128);
@@ -40,10 +49,44 @@ export const purchaseLineSchema = z.strictObject({
   quantity,
   uom: z.string().trim().min(1).max(32),
   unit_price: amount,
+  discount_amount: amount.optional(),
+  allocated_discount_amount: amount
+    .optional()
+    .describe("Server-verified share of an approved source purchase discount on a partial receipt or bill."),
   tax_percent: z
     .string()
     .regex(/^\d{1,3}(\.\d{1,2})?$/)
     .refine((value) => Number(value) <= 100),
+});
+export const purchaseChargeSchema = z.strictObject({
+  id: identity,
+  source_charge_id: identity.nullable().optional(),
+  type: z.enum(["freight", "other"]),
+  description: z.string().trim().min(1).max(500),
+  amount,
+  nominal_account_id: identity.optional(),
+  tax_definition_id: identity.optional(),
+  tax_snapshot: taxSnapshotSchema.optional(),
+  tax_percent: z
+    .string()
+    .regex(/^\d{1,3}(\.\d{1,2})?$/)
+    .refine((value) => Number(value) <= 100),
+});
+export type PurchaseCharge = z.infer<typeof purchaseChargeSchema>;
+export const purchaseConsumptionSchema = z.strictObject({
+  lines: z
+    .array(
+      z.strictObject({
+        source_line_id: identity,
+        quantity: z.string().regex(/^\d+(\.\d{1,4})?$/),
+        line_discount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+        document_discount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+      }),
+    )
+    .max(100),
+  charges: z
+    .array(z.strictObject({ source_charge_id: identity, amount: z.string().regex(/^\d+(\.\d{1,2})?$/) }))
+    .max(30),
 });
 export const purchaseAllocationSchema = z.strictObject({
   bill_id: identity,
@@ -104,6 +147,8 @@ export const purchaseTermsSchema = z.strictObject({
   reference: z.string().trim().max(128).default(""),
   notes: z.string().trim().max(2000).default(""),
   lines: z.array(purchaseLineSchema).max(100).default([]),
+  discount_amount: amount.optional(),
+  additional_charges: z.array(purchaseChargeSchema).max(30).optional(),
   allocations: z.array(purchaseAllocationSchema).max(100).default([]),
   payment_details: purchasePaymentDetailsSchema.nullable().optional(),
 });
@@ -144,6 +189,9 @@ export const purchaseActionRequestSchema = z
       context.addIssue({ code: "custom", path: ["reason"], message: "A reason is required for this action." });
   });
 export const purchaseDocumentSchema = purchaseTermsSchema.extend({
+  source_consumption: z
+    .strictObject({ receipt: purchaseConsumptionSchema, bill: purchaseConsumptionSchema })
+    .optional(),
   id: identity,
   code: z.string(),
   state: purchaseStateSchema,

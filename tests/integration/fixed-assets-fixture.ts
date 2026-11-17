@@ -301,6 +301,9 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
       beforePost?: (document: PurchaseDocument) => Promise<void>;
       beforeBillApproval?: (document: PurchaseDocument) => Promise<void>;
       approver?: typeof checker;
+      discount_amount?: string;
+      line_discount_amount?: string;
+      unit_cost?: string;
     } = {},
   ) {
     const groups = options.groups ?? [{ category, amount, quantity }];
@@ -321,6 +324,7 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
             document_date: "2026-09-01",
             currency: "PKR",
             reference: `ASSET-${kind}-${randomUUID()}`,
+            discount_amount: options.discount_amount,
             lines: [
               ...groups.map((group, index) => ({
                 source_line_id: parent?.lines[index]?.id ?? null,
@@ -330,6 +334,9 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
                 uom: "Each",
                 unit_price: group.amount,
                 tax_percent: "0",
+                ...(index === 0 && options.line_discount_amount
+                  ? { discount_amount: options.line_discount_amount }
+                  : {}),
                 ...(classified ? { asset_category_id: group.category.id } : {}),
                 ...(kind === "bill" && autoRegister
                   ? {
@@ -345,7 +352,7 @@ export async function setupAssetFixture(pool: DatabasePool, storage?: ObjectStor
                             serial_number: serial ?? randomUUID(),
                             custom_fields: group.custom_fields ?? {},
                           },
-                          cost: group.amount,
+                          cost: options.unit_cost ?? group.amount,
                           residual_value: "0",
                           useful_life_months: group.category.useful_life_months,
                           method: group.category.method,

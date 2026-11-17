@@ -11,7 +11,12 @@ import { createLogger, createMetrics } from "../../packages/observability/src/in
 import { SourceTenantAuthenticationRepository } from "../../server/api/src/modules/auth/source-repository.js";
 import type { TenantAuthApiService, TenantSessionApiService } from "../../server/api/src/modules/auth/tenant-router.js";
 import { S3ObjectStorage } from "../../packages/domain/src/storage/s3-object-storage.js";
-import { assetCategoryInputSchema } from "../../packages/contracts/src/index.js";
+import {
+  assetCategoryInputSchema,
+  productInputSchema,
+  savePurchaseRequestSchema,
+} from "../../packages/contracts/src/index.js";
+import { SourceInventoryRepository } from "../../server/api/src/modules/inventory/source-repository.js";
 
 test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
   test.skip(process.env.NEXORA_ASSETS_E2E !== "true", "Explicit isolated local acceptance run required.");
@@ -269,7 +274,9 @@ test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
     ).toBeVisible();
     await expect(page.getByRole("button", { name: "Save and preview draft", exact: true })).toBeDisabled();
     await page.getByLabel("Asset", { exact: true }).selectOption(acquired.id);
-    await expect(page.getByLabel("Original acquisition", { exact: true })).toHaveValue(new RegExp(purchase.source.code));
+    await expect(page.getByLabel("Original acquisition", { exact: true })).toHaveValue(
+      new RegExp(purchase.source.code),
+    );
     await page.getByLabel("Effective date", { exact: true }).fill("2026-10-31");
     await page.getByLabel("Reason / remarks", { exact: true }).fill("Return original supplier acquisition");
     await page.getByLabel("Net vendor credit (PKR)", { exact: true }).fill("20000");
@@ -325,6 +332,106 @@ test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
         await expect(page.getByRole("heading", { name: "Asset distribution", exact: true })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       });
+  test("searches products inside the selector and saves accurate purchase discounts, freight and totals", async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    const permission = "inventory.item.create",
+      policy = "r06-uat-policy-maker";
+    await f.pool.query(
+      "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) values($1,$2,$3,'all') on conflict do nothing",
+      [f.tenant, policy, permission],
+    );
+    await f.pool.query(
+      "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) values($1,$2,$3,'company',$4) on conflict do nothing",
+      [f.tenant, policy, permission, f.company],
+    );
+    const creator = {
+      ...f.maker,
+      actor: { ...f.maker.actor, permissions: [...f.maker.actor.permissions, permission] },
+    };
+    const product = (
+      await new SourceInventoryRepository(f.pool).save(
+        creator,
+        null,
+        productInputSchema.parse({
+          company_id: f.company,
+          name: "Browser maintenance service",
+          type: "service",
+          track_inventory: false,
+          unit: "Hour",
+          currency: "USD",
+        }),
+        randomUUID(),
+        randomUUID(),
+      )
+    ).record;
+    const draft = (
+      await f.procurement.save(
+        f.maker,
+        null,
+        savePurchaseRequestSchema.parse({
+          company_id: f.company,
+          kind: "request",
+          document_date: "2026-09-01",
+          currency: "USD",
+          approver_id: "r06.checker",
+          lines: [{ description: "Maintenance", quantity: "1", uom: "Hour", unit_price: "10.00", tax_percent: "0" }],
+        }),
+        randomUUID(),
+        randomUUID(),
+      )
+    ).record;
+    await page.goto(`/#/purchases/add-requisition/${draft.id}`);
+    const productBox = page.getByLabel("Line 1 product", { exact: true });
+    await productBox.click();
+    const search = page.getByLabel("Search products and services for line 1", { exact: true });
+    await search.fill("maintenance service");
+    await expect(page.getByRole("option", { name: `${product.code} · ${product.name}`, exact: true })).toBeVisible();
+    await search.press("ArrowDown");
+    await search.press("Enter");
+    await expect(productBox).toContainText(product.name);
+    await expect(search).toHaveCount(0);
+    await expect(page.getByLabel("Line 1 unit", { exact: true })).toHaveValue("Hour");
+    await page.getByLabel("Line 1 quantity", { exact: true }).fill("2");
+    await page.getByLabel("Line 1 tax percent", { exact: true }).fill("10");
+    await page.getByLabel("Line 1 discount", { exact: true }).fill("2.00");
+    await page.getByText("Discounts and additional charges", { exact: true }).click();
+    await page.getByLabel("Overall purchase discount", { exact: true }).fill("3.00");
+    await page.getByRole("button", { name: "Add charge", exact: true }).click();
+    await page.getByLabel("Charge 1 description", { exact: true }).fill("Delivery freight");
+    await page.getByLabel("Charge 1 amount", { exact: true }).fill("5.00");
+    await page.getByLabel("Charge 1 account", { exact: true }).selectOption(f.accounts.expense!);
+    await page.getByLabel("Charge 1 tax percent", { exact: true }).fill("20");
+    const summary = page.getByRole("region", { name: "Total Purchase Amount", exact: true });
+    await expect(summary.locator("dd").last()).toHaveText("USD 22.50");
+    await page.getByRole("button", { name: "Save Draft", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save Draft", exact: true })).toBeEnabled();
+    await page.reload();
+    await expect(summary.locator("dd").last()).toHaveText("USD 22.50");
+    const saved = await f.procurement.get(f.maker, f.company, draft.id);
+    expect(saved.total_amount).toBe("22.50");
+    expect(saved.lines[0]).toMatchObject({ product_id: product.id, discount_amount: "2.00" });
+    expect(saved.additional_charges?.[0]).toMatchObject({
+      description: "Delivery freight",
+      amount: "5.00",
+      tax_percent: "20",
+      nominal_account_id: f.accounts.expense,
+    });
+    await mkdir("tmp/purchase-totals/evidence", { recursive: true });
+    for (const theme of ["light", "dark"])
+      for (const width of [1440, 768, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.locator("html").evaluate((element, value) => {
+          element.setAttribute("data-theme", value);
+          element.classList.toggle("dark", value === "dark");
+        }, theme);
+        await expect(summary).toBeVisible();
+        expect((await new AxeBuilder({ page }).include("main").analyze()).violations).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+        await page.screenshot({ path: `tmp/purchase-totals/evidence/purchase-${theme}-${width}.png`, fullPage: true });
+      }
+  });
   test("saves and reloads individual registration details on a real draft Purchase bill", async ({ page }) => {
     test.setTimeout(120000);
     let billId = "";

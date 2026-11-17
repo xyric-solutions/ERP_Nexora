@@ -4,7 +4,9 @@ import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   savePurchaseRequestSchema,
-  documentTotal,
+  purchaseTotals,
+  inheritPurchaseAdjustments,
+  formatPurchaseMoney,
   scaled,
   money,
   type SavePurchaseRequest,
@@ -98,6 +100,9 @@ export function PurchaseDocumentForm({
     };
   }, [api, company, kind, session]);
   const [record, setRecord] = useState<PurchaseDocument | null>(null);
+  const [allocationResult, setAllocationResult] = useState<{ key: string; source: PurchaseDocument | null } | null>(
+    null,
+  );
   const [manualAmounts, setManualAmounts] = useState<Set<string>>(new Set());
   const [selectedPaymentSupplier, setSelectedPaymentSupplier] = useState<Supplier | null>(null);
   const [input, setInput] = useState<SavePurchaseRequest>({
@@ -195,6 +200,10 @@ export function PurchaseDocumentForm({
     permissions.includes("procurement.document.approve") &&
     !!(options.can_self_approve || canOverride);
   const next = nextPurchaseStep(kind);
+  const allocationKey = `${company}:${kind}:${input.source_id ?? ""}:${editable}:${reload}`;
+  const allocationSource = allocationResult?.key === allocationKey ? allocationResult.source : null;
+  const allocationLoading =
+    (kind === "receipt" || kind === "bill") && !!input.source_id && allocationResult?.key !== allocationKey;
   const canContinue =
     !!next &&
     ["request", "rfq", "order", "receipt"].includes(kind) &&
@@ -251,6 +260,14 @@ export function PurchaseDocumentForm({
         approver_id: payment ? current.approver_id : (source.request_approver_id ?? source.approver_id ?? null),
         source_id: payment ? null : kind === "bill" && source.kind === "receipt" ? source.source_id : source.id,
         currency: source.currency,
+        discount_amount: payment ? undefined : source.discount_amount,
+        additional_charges: payment
+          ? undefined
+          : source.additional_charges?.map((charge) => ({
+              ...charge,
+              id: `charge-${crypto.randomUUID()}`,
+              source_charge_id: charge.id,
+            })),
         supplier_id:
           kind === "rfq"
             ? current.supplier_id
@@ -310,6 +327,8 @@ export function PurchaseDocumentForm({
             reference: result.reference,
             notes: result.notes,
             lines: result.lines,
+            discount_amount: result.discount_amount,
+            additional_charges: result.additional_charges,
             allocations: result.allocations,
             payment_details: result.payment_details ?? null,
             expected_version: result.version,
@@ -391,7 +410,20 @@ export function PurchaseDocumentForm({
   }, [api, company, kind, step, sourceSearch, payment, sourceSupplierId, sourceQuery, reload]);
   function change(patch: Partial<SavePurchaseRequest>) {
     setInput((current) => {
-      const next = { ...current, ...patch };
+      let next = { ...current, ...patch };
+      if ((kind === "receipt" || kind === "bill") && patch.lines) {
+        const origin =
+          allocationSource?.id === next.source_id
+            ? allocationSource
+            : sources.find((item) => item.id === next.source_id);
+        if (origin?.source_consumption) {
+          try {
+            next = { ...next, ...inheritPurchaseAdjustments(origin, next.lines, origin.source_consumption[kind]) };
+          } catch {
+            /* Incomplete quantities remain editable and are validated before save. */
+          }
+        }
+      }
       if (payment && next.payment_details) {
         const details = { ...next.payment_details };
         delete details.fx_snapshot;
@@ -413,6 +445,10 @@ export function PurchaseDocumentForm({
     return key;
   }
   async function persist() {
+    if (allocationLoading) {
+      setError("Wait for the approved source allocations to finish loading.");
+      return null;
+    }
     if (kind === "rfq" && !input.invited_supplier_ids.length) {
       setError("Select a supplier for the Request for Quotation.");
       return null;
@@ -437,6 +473,8 @@ export function PurchaseDocumentForm({
       expected_version: result.record.version,
       currency: result.record.currency,
       lines: result.record.lines,
+      discount_amount: result.record.discount_amount,
+      additional_charges: result.record.additional_charges,
       approver_id: result.record.approver_id ?? null,
       payment_details: result.record.payment_details ?? null,
       bill_date: result.record.bill_date,
@@ -571,7 +609,11 @@ export function PurchaseDocumentForm({
       if (scope.active) setSourcesLoading(false);
     }
   }
+  const source =
+    allocationSource?.id === input.source_id ? allocationSource : sources.find((item) => item.id === input.source_id);
   let total = "—";
+  let breakdown: ReturnType<typeof purchaseTotals> | null = null;
+  let amountError = "";
   const paymentSuppliers = selectedPaymentSupplier
     ? [selectedPaymentSupplier, ...suppliers.filter((supplier) => supplier.id !== selectedPaymentSupplier.id)]
     : suppliers;
@@ -590,21 +632,59 @@ export function PurchaseDocumentForm({
         }
       : null;
   try {
+    const preview =
+      editable && (kind === "receipt" || kind === "bill") && source?.source_consumption
+        ? { ...input, ...inheritPurchaseAdjustments(source, input.lines, source.source_consumption[kind]) }
+        : input;
     total = payment
       ? money(
           details
             ? details.entries.reduce((sum, entry) => sum + scaled(entry.amount, 2), 0n)
             : input.allocations.reduce((sum, item) => sum + scaled(item.amount, 2), 0n),
         )
-      : documentTotal(input.lines);
-  } catch {
-    /* Incomplete inputs are validated before saving. */
+      : (breakdown = purchaseTotals(preview.lines, preview)).total;
+  } catch (error) {
+    amountError = error instanceof Error ? error.message : "Complete the amounts to calculate the total.";
   }
-  const source = sources.find((item) => item.id === input.source_id);
   const sourceSupplier =
     source?.supplier_id ??
     (source?.kind === "rfq" && source.invited_supplier_ids.length === 1 ? source.invited_supplier_ids[0] : null);
   const sourceLocked = kind === "receipt" || kind === "bill";
+  useEffect(() => {
+    if (!sourceLocked || !input.source_id) return;
+    let active = true;
+    api
+      .getPurchaseDocument(input.source_id, company)
+      .then((origin) => {
+        if (!active) return;
+        setAllocationResult({ key: allocationKey, source: origin });
+        setSources((current) => [origin, ...current.filter((item) => item.id !== origin.id)]);
+        if (editable)
+          setInput((current) => {
+            try {
+              return {
+                ...current,
+                ...inheritPurchaseAdjustments(
+                  origin,
+                  current.lines,
+                  origin.source_consumption?.[kind === "bill" ? "bill" : "receipt"],
+                ),
+              };
+            } catch {
+              return current;
+            }
+          });
+      })
+      .catch((caught) => {
+        if (active) {
+          setAllocationResult({ key: allocationKey, source: null });
+          setError(purchaseError(caught));
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [api, company, sourceLocked, kind, input.source_id, editable, allocationKey]);
   const currentSupplier = record?.supplier_id && !suppliers.some((item) => item.id === record.supplier_id);
   const paymentBills = sources.filter(
     (bill) => bill.kind === "bill" && (kind === "multi_payment" || bill.supplier_id === input.supplier_id),
@@ -1496,6 +1576,7 @@ export function PurchaseDocumentForm({
                                   : []),
                               ]}
                               search={products.search}
+                              searchLabel={`Search products and services for line ${index + 1}`}
                               onSearchChange={products.setSearch}
                               loading={products.busy}
                               onValueChange={(value) => {
@@ -1660,7 +1741,7 @@ export function PurchaseDocumentForm({
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                disabled={!assetOptions || !line.asset_category_id}
+                                disabled={!assetOptions || !line.asset_category_id || !breakdown}
                                 onClick={() => setAssetLineIndex(index)}
                               >
                                 {line.asset_registration ? "Edit Asset Details" : "Add Asset Details"}
@@ -1711,6 +1792,20 @@ export function PurchaseDocumentForm({
                           value={line.unit_price}
                           onChange={(event) => updateLine(index, { unit_price: event.target.value })}
                         />
+                        <label
+                          htmlFor={`purchase-discount-${line.id ?? index}`}
+                          className="mt-2 grid gap-1 text-xs text-muted-foreground"
+                        >
+                          Line discount
+                          <Input
+                            id={`purchase-discount-${line.id ?? index}`}
+                            aria-label={`Line ${index + 1} discount`}
+                            disabled={sourceLocked}
+                            inputMode="decimal"
+                            value={line.discount_amount ?? "0.00"}
+                            onChange={(event) => updateLine(index, { discount_amount: event.target.value })}
+                          />
+                        </label>
                       </td>
                       <td className="p-2">
                         <Input
@@ -1782,6 +1877,208 @@ export function PurchaseDocumentForm({
           ) : null}
         </section>
       )}
+      {!payment && (
+        <details
+          className="min-w-0 rounded-lg border border-border bg-card p-3"
+          open={!!input.additional_charges?.length || undefined}
+        >
+          <summary className="cursor-pointer text-sm font-semibold focus-visible:outline-ring">
+            Discounts and additional charges
+          </summary>
+          <fieldset disabled={!editable || busy || sourceLocked} className="mt-3 grid min-w-0 gap-3 border-0 p-0">
+            <LabeledField label={`Overall purchase discount (${input.currency})`}>
+              <Input
+                aria-label="Overall purchase discount"
+                inputMode="decimal"
+                value={input.discount_amount ?? "0.00"}
+                onChange={(event) => change({ discount_amount: event.target.value })}
+              />
+            </LabeledField>
+            <p className="m-0 text-xs text-muted-foreground">
+              Discounts apply before tax. Freight and other charges are added once. Receipts and bills inherit approved
+              order adjustments.
+            </p>
+            {(input.additional_charges ?? []).map((charge, index) => {
+              const update = (patch: Partial<typeof charge>) =>
+                change({
+                  additional_charges: input.additional_charges!.map((item, itemIndex) =>
+                    itemIndex === index ? { ...item, ...patch } : item,
+                  ),
+                });
+              return (
+                <div
+                  key={charge.id}
+                  className="grid min-w-0 gap-3 rounded-md border border-border p-3 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  <LabeledField label="Charge type">
+                    <select
+                      aria-label={`Charge ${index + 1} type`}
+                      className={purchaseSelectClass}
+                      value={charge.type}
+                      onChange={(event) => update({ type: event.target.value === "freight" ? "freight" : "other" })}
+                    >
+                      <option value="freight">Freight</option>
+                      <option value="other">Other expense</option>
+                    </select>
+                  </LabeledField>
+                  <LabeledField label="Description *">
+                    <Input
+                      aria-label={`Charge ${index + 1} description`}
+                      required
+                      maxLength={500}
+                      value={charge.description}
+                      onChange={(event) => update({ description: event.target.value })}
+                    />
+                  </LabeledField>
+                  <LabeledField label={`Amount (${input.currency})`}>
+                    <Input
+                      aria-label={`Charge ${index + 1} amount`}
+                      inputMode="decimal"
+                      value={charge.amount}
+                      onChange={(event) => update({ amount: event.target.value })}
+                    />
+                  </LabeledField>
+                  <LabeledField label="Expense account">
+                    <select
+                      aria-label={`Charge ${index + 1} account`}
+                      className={purchaseSelectClass}
+                      value={charge.nominal_account_id ?? ""}
+                      onChange={(event) => update({ nominal_account_id: event.target.value || undefined })}
+                    >
+                      <option value="">Select expense account</option>
+                      {options.nominals
+                        ?.filter((nominal) => nominal.type === "expense")
+                        .map((nominal) => (
+                          <option key={nominal.id} value={nominal.id}>
+                            {nominal.code} · {nominal.name}
+                          </option>
+                        ))}
+                    </select>
+                  </LabeledField>
+                  <LabeledField label="Tax %">
+                    <Input
+                      aria-label={`Charge ${index + 1} tax percent`}
+                      inputMode="decimal"
+                      disabled={!!charge.tax_definition_id}
+                      value={charge.tax_percent}
+                      onChange={(event) => update({ tax_percent: event.target.value })}
+                    />
+                  </LabeledField>
+                  {session?.user.permissions.includes("finance.tax.read") && (
+                    <LabeledField label="Tax definition">
+                      <select
+                        aria-label={`Charge ${index + 1} tax definition`}
+                        className={purchaseSelectClass}
+                        value={charge.tax_definition_id ?? ""}
+                        onChange={(event) => {
+                          const choice = taxChoices.find((item) => item.id === event.target.value);
+                          update({
+                            tax_definition_id: choice?.id,
+                            tax_snapshot: undefined,
+                            tax_percent: choice?.rate ?? "0",
+                          });
+                        }}
+                      >
+                        <option value="">Manual tax</option>
+                        {taxChoices.map((tax) => (
+                          <option key={tax.id} value={tax.id}>
+                            {tax.code} · {tax.name}
+                          </option>
+                        ))}
+                        {charge.tax_definition_id && !taxChoices.some((tax) => tax.id === charge.tax_definition_id) && (
+                          <option value={charge.tax_definition_id}>Saved tax · {charge.tax_percent}%</option>
+                        )}
+                      </select>
+                    </LabeledField>
+                  )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    aria-label={`Remove charge ${index + 1}`}
+                    onClick={() =>
+                      change({
+                        additional_charges: input.additional_charges!.filter((_, itemIndex) => itemIndex !== index),
+                      })
+                    }
+                  >
+                    Remove charge
+                  </Button>
+                </div>
+              );
+            })}
+            {!sourceLocked && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="justify-self-start"
+                disabled={(input.additional_charges?.length ?? 0) >= 30}
+                onClick={() =>
+                  change({
+                    additional_charges: [
+                      ...(input.additional_charges ?? []),
+                      {
+                        id: `charge-${crypto.randomUUID()}`,
+                        type: "freight",
+                        description: "",
+                        amount: "0.00",
+                        tax_percent: "0",
+                      },
+                    ],
+                  })
+                }
+              >
+                Add charge
+              </Button>
+            )}
+          </fieldset>
+        </details>
+      )}
+      {!payment && (
+        <section
+          aria-label="Total Purchase Amount"
+          className="grid min-w-0 gap-3 rounded-lg border border-border bg-muted/40 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]"
+        >
+          <div>
+            <h2 className="m-0 text-base font-semibold">Total Purchase Amount</h2>
+            <p className="m-0 mt-1 text-sm text-muted-foreground">
+              {input.lines.length} product / service line(s) · {input.currency}
+            </p>
+          </div>
+          <dl className="m-0 grid grid-cols-[1fr_auto] gap-x-6 gap-y-2 text-sm" aria-live="polite" aria-atomic="true">
+            {(
+              [
+                ["Subtotal", breakdown?.subtotal],
+                ["Total Discount", breakdown?.discount],
+                ["Total Tax", breakdown?.tax],
+                ["Additional Charges", breakdown?.additional_charges],
+                ["Grand Total", breakdown?.total],
+              ] as const
+            ).map(([label, amount]) => (
+              <div
+                key={label}
+                className={`col-span-2 grid grid-cols-subgrid ${label === "Grand Total" ? "mt-1 border-t border-border pt-3 text-lg font-semibold" : ""}`}
+              >
+                <dt>{label}</dt>
+                <dd className="m-0 text-right tabular-nums">
+                  {amount !== undefined ? `${input.currency} ${formatPurchaseMoney(amount)}` : "—"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          {amountError && (
+            <p role="status" className="m-0 text-sm text-destructive sm:col-span-2">
+              {amountError}
+            </p>
+          )}
+          {allocationLoading && (
+            <p role="status" className="m-0 text-sm text-muted-foreground sm:col-span-2">
+              Loading approved source allocations…
+            </p>
+          )}
+        </section>
+      )}
       <LabeledField label="Notes / business purpose">
         <Textarea
           rows={2}
@@ -1791,16 +2088,18 @@ export function PurchaseDocumentForm({
           onChange={(event) => change({ notes: event.target.value })}
         />
       </LabeledField>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-y border-border py-3">
-        <span className="text-sm text-muted-foreground">
-          {payment
-            ? `${input.allocations.length} bill allocation(s)`
-            : `${input.lines.length} product / service line(s)`}
-        </span>
-        <strong className="text-lg tabular-nums">
-          Total {input.currency} {record && !dirty ? record.total_amount : total}
-        </strong>
-      </div>
+      {payment && (
+        <div className="flex flex-wrap items-baseline justify-between gap-2 border-y border-border py-3">
+          <span className="text-sm text-muted-foreground">
+            {payment
+              ? `${input.allocations.length} bill allocation(s)`
+              : `${input.lines.length} product / service line(s)`}
+          </span>
+          <strong className="text-lg tabular-nums">
+            Total {input.currency} {record && !dirty ? record.total_amount : total}
+          </strong>
+        </div>
+      )}
       {kind === "receipt" || kind === "bill" ? (
         <p className="m-0 text-xs text-muted-foreground">
           {kind === "receipt"
@@ -1881,6 +2180,7 @@ export function PurchaseDocumentForm({
               key={line.id}
               company={input.company_id}
               line={line}
+              netAmount={breakdown?.lines[assetLineIndex]?.net}
               category={category}
               options={assetOptions}
               currency={input.currency}

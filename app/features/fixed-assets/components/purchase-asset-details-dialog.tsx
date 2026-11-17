@@ -6,6 +6,8 @@ import {
   decimal,
   decimalText,
   divideRounded,
+  purchaseTotals,
+  allocatePurchaseAmount,
   validateAssetCustomFields,
   assetPolicyStart,
   type AssetCategory,
@@ -29,6 +31,7 @@ export function PurchaseAssetDetailsDialog({
   onSave,
   onClose,
   company,
+  netAmount = purchaseTotals([line], { discount_amount: line.allocated_discount_amount }).lines[0]!.net,
 }: {
   line: PurchaseLine;
   category: AssetCategory;
@@ -38,9 +41,16 @@ export function PurchaseAssetDetailsDialog({
   onSave: (value: PurchaseAssetRegistration) => void;
   onClose: () => void;
   company: string;
+  netAmount?: string;
 }) {
-  const generate = (): AssetUnitInput[] =>
-    Array.from({ length: Math.max(1, Math.min(100, Number(line.quantity) || 1)) }, (_, index) =>
+  const generate = (): AssetUnitInput[] => {
+    const count = Math.max(1, Math.min(100, Number(line.quantity) || 1));
+    const costs = allocatePurchaseAmount(
+      decimal(netAmount, 2),
+      Array.from({ length: count }, () => 1n),
+      Array.from({ length: count }, (_, index) => String(index).padStart(3, "0")),
+    );
+    return Array.from({ length: count }, (_, index) =>
       assetUnitInputSchema.parse({
         ...line.asset_registration?.units[index],
         unit_id: line.asset_registration?.units[index]?.unit_id ?? crypto.randomUUID(),
@@ -49,9 +59,9 @@ export function PurchaseAssetDetailsDialog({
           condition: "new",
           uom: line.uom,
         },
-        cost: line.unit_price,
+        cost: decimalText(costs[index]!, 2),
         residual_value: decimalText(
-          divideRounded(decimal(line.unit_price, 2) * BigInt(Math.round(category.residual_percent * 10000)), 1000000n),
+          divideRounded(costs[index]! * BigInt(Math.round(category.residual_percent * 10000)), 1000000n),
           2,
         ),
         useful_life_months: category.useful_life_months,
@@ -62,6 +72,7 @@ export function PurchaseAssetDetailsDialog({
         assignment: line.asset_registration?.units[index]?.assignment ?? {},
       }),
     );
+  };
   const [units, setUnits] = useState(() => line.asset_registration?.units ?? generate()),
     [selected, setSelected] = useState(0),
     [uploadBusy, setUploadBusy] = useState(false),
@@ -89,10 +100,7 @@ export function PurchaseAssetDetailsDialog({
         company_policy_version: category.company_policy_version,
         units,
       });
-      if (
-        decimal(line.quantity, 4) !== BigInt(units.length) * 10000n ||
-        total !== decimal(line.unit_price, 2) * BigInt(units.length)
-      )
+      if (decimal(line.quantity, 4) !== BigInt(units.length) * 10000n || total !== decimal(netAmount, 2))
         throw Error("Unit count and costs must equal the bill line quantity and net amount.");
       for (const item of units) {
         const invalid = validateAssetCustomFields(category.field_definitions ?? [], item.details.custom_fields);

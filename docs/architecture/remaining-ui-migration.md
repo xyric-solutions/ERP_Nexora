@@ -1,5 +1,32 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 — Purchase product selection and amount summary
+
+- Reused the existing real-directory product/service dropdown with its embedded
+  code/name search, keyboard selection, custom items, error/retry and pagination.
+  No duplicate product search control, form, stylesheet or dependency was added.
+- Updated the existing Purchase Form with line discounts, an expandable overall
+  discount/freight/expense section and a distinct live Total Purchase Amount
+  summary. Incomplete amounts do not reuse a stale saved total. Existing approval,
+  source identity, Purchase Return and individual asset detail actions remain.
+- Shared exact-decimal calculations now cover persisted adjustments, discounted
+  tax snapshots, partial source allocation, installment schedules, AP matching,
+  charge expense debits, individual asset costs and CSV output. Procurement 0006
+  is additive; old records, versions and audit evidence survive the tested upgrade.
+- Passed **66 focused unit**, **91 integration**, **7 contract** and **11 Chromium**
+  tests, full typecheck, production build, touched-file ESLint, API/catalogue checks,
+  theme audit write/check and whitespace review. Purchase acceptance included six
+  light/dark combinations at 1440/768/390px with zero Axe violations or page
+  overflow. Desktop and mobile screenshots were visually reviewed.
+- Exact commands and results: `docs/superpowers/plans/2026-11-17-purchase-search-and-totals.md`.
+  Private browser evidence: `tmp/purchase-totals/evidence/`. No CSS was retired;
+  shared semantic colours and typography remain in use.
+- The tested release is `tmp/purchase-totals-final-build`. Localhost still uses
+  the prior compatible release. Automatic review requires explicit authorization
+  for protected rollout-helper updates, a private database backup/restore check,
+  procurement 0006 and the earlier approved asset migrations before activation.
+  Login details and business data were not changed by this implementation.
+
 ## 2026-11-16 — Fixed Assets workpage consolidation
 
 - Classes and Policies is first and Asset Register second. Their single primary

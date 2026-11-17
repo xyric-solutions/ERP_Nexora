@@ -958,136 +958,155 @@ run("persistent multi-currency customer/vendor accounting", () => {
       );
     }
   });
-  it("recognizes an approved supplier bill once with exact source tax and company linkage", async () => {
-    const permissions = [
-      "procurement.document.read",
-      "procurement.document.create",
-      "procurement.document.action",
-      "procurement.document.submit",
-      "procurement.document.approve",
-      "procurement.vendor.read",
-      "procurement.vendor.create",
-    ];
-    for (const role of ["r06-uat-policy-maker", "r06-uat-policy-checker"]) {
-      await fixture.pool.query(
-        "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
-        [fixture.tenant, role, permissions],
+  it.each([false, true])(
+    "recognizes an approved supplier bill once with exact source tax and company linkage (adjustments=%s)",
+    async (adjusted) => {
+      const permissions = [
+        "procurement.document.read",
+        "procurement.document.create",
+        "procurement.document.action",
+        "procurement.document.submit",
+        "procurement.document.approve",
+        "procurement.vendor.read",
+        "procurement.vendor.create",
+      ];
+      for (const role of ["r06-uat-policy-maker", "r06-uat-policy-checker"]) {
+        await fixture.pool.query(
+          "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
+          [fixture.tenant, role, permissions],
+        );
+        await fixture.pool.query(
+          "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
+          [fixture.tenant, role, permissions, fixture.company],
+        );
+      }
+      const procurement = new SourceProcurementRepository(
+        fixture.pool,
+        new SupplierProfileCrypto(randomBytes(32).toString("base64"), "test-v1"),
       );
-      await fixture.pool.query(
-        "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
-        [fixture.tenant, role, permissions, fixture.company],
-      );
-    }
-    const procurement = new SourceProcurementRepository(
-      fixture.pool,
-      new SupplierProfileCrypto(randomBytes(32).toString("base64"), "test-v1"),
-    );
-    const prep = { ...maker, actor: { ...maker.actor, permissions: [...maker.actor.permissions, ...permissions] } };
-    const review = {
-      ...checker,
-      actor: { ...checker.actor, permissions: [...checker.actor.permissions, ...permissions] },
-    };
-    const vendor = (
-      await procurement.saveSupplier(
-        prep,
-        null,
-        supplierInputSchema.parse({ company_id: fixture.company, name: "Approved source vendor" }),
-        randomUUID(),
-        randomUUID(),
-      )
-    ).record;
-    let source: PurchaseDocument | undefined;
-    let order: PurchaseDocument | undefined;
-    const names: PurchaseKind[] = ["request", "rfq", "order", "receipt", "bill"];
-    for (const kind of names) {
-      let document = (
-        await procurement.save(
+      const prep = { ...maker, actor: { ...maker.actor, permissions: [...maker.actor.permissions, ...permissions] } };
+      const review = {
+        ...checker,
+        actor: { ...checker.actor, permissions: [...checker.actor.permissions, ...permissions] },
+      };
+      const vendor = (
+        await procurement.saveSupplier(
           prep,
           null,
-          savePurchaseRequestSchema.parse({
-            company_id: fixture.company,
-            kind,
-            supplier_id: kind === "request" || kind === "rfq" ? null : vendor.id,
-            source_id: (kind === "bill" ? order : source)?.id ?? null,
-            invited_supplier_ids: kind === "rfq" ? [vendor.id] : [],
-            approver_id: "r06.checker",
-            document_date: "2026-11-29",
-            currency: "USD",
-            reference: `SOURCE-${kind}`,
-            lines: [
-              {
-                source_line_id: (kind === "bill" ? order : source)?.lines[0]?.id ?? null,
-                item_code: "SOURCE-001",
-                description: "Source tax rounding",
-                quantity: "1.005",
-                uom: "Each",
-                unit_price: "1.00",
-                tax_percent: "10",
-              },
-            ],
-          }),
+          supplierInputSchema.parse({ company_id: fixture.company, name: "Approved source vendor" }),
           randomUUID(),
           randomUUID(),
         )
       ).record;
-      for (const [actor, action] of [
-        [prep, "submit"],
-        [review, "approve"],
-      ] as const)
-        document = (
-          await procurement.action(
-            actor,
-            document.id,
-            {
+      let source: PurchaseDocument | undefined;
+      let order: PurchaseDocument | undefined;
+      const names: PurchaseKind[] = ["request", "rfq", "order", "receipt", "bill"];
+      for (const kind of names) {
+        let document = (
+          await procurement.save(
+            prep,
+            null,
+            savePurchaseRequestSchema.parse({
               company_id: fixture.company,
-              expected_version: document.version,
-              action,
-              reason: "Approved source accounting test",
-            },
+              kind,
+              supplier_id: kind === "request" || kind === "rfq" ? null : vendor.id,
+              source_id: (kind === "bill" ? order : source)?.id ?? null,
+              invited_supplier_ids: kind === "rfq" ? [vendor.id] : [],
+              approver_id: "r06.checker",
+              document_date: "2026-11-29",
+              currency: "USD",
+              reference: `SOURCE-${kind}`,
+              ...(adjusted
+                ? {
+                    discount_amount: "0.01",
+                    additional_charges: [
+                      {
+                        id: `freight-${kind}`,
+                        type: "freight",
+                        description: "Source freight",
+                        amount: "0.10",
+                        tax_percent: "10",
+                        nominal_account_id: fixture.policy.expense_account_id,
+                      },
+                    ],
+                  }
+                : {}),
+              lines: [
+                {
+                  source_line_id: (kind === "bill" ? order : source)?.lines[0]?.id ?? null,
+                  item_code: "SOURCE-001",
+                  description: "Source tax rounding",
+                  quantity: "1.005",
+                  uom: "Each",
+                  unit_price: "1.00",
+                  tax_percent: "10",
+                  ...(adjusted ? { discount_amount: "0.01" } : {}),
+                },
+              ],
+            }),
             randomUUID(),
             randomUUID(),
           )
         ).record;
-      source = document;
-      if (kind === "order") order = document;
-    }
-    if (!source) throw Error("Source bill missing");
-    expect(source.total_amount).toBe("1.11");
-    const vendorAccount = await fixture.repository.createParty(
-      maker,
-      {
-        company_id: fixture.company,
-        kind: "supplier",
-        name: vendor.name,
-        default_currency: "USD",
-        source_supplier_id: vendor.id,
-      },
-      randomUUID(),
-    );
-    const taxAccount = `source-tax-${randomUUID()}`;
-    await fixture.pool.query(
-      "insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$1,'Input tax','asset',false,'active',clock_timestamp())",
-      [taxAccount, fixture.tenant, fixture.company],
-    );
-    const input = {
-      ...recognize(vendorAccount.id, "USD", "1.11", "2026-11-29", "payable"),
-      source_document_id: source.id,
-      tax_amount: "0.10",
-      tax_account_id: taxAccount,
-    };
-    await expect(
-      fixture.repository.create(maker, { ...input, tax_amount: "0.11" }, randomUUID()),
-    ).rejects.toMatchObject({ code: "SUBLEDGER_VALIDATION_FAILED" });
-    const operation = await post(input);
-    expect(operation.preview?.lines).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ accountId: fixture.policy.expense_account_id, debit: "1.01" }),
-        expect.objectContaining({ accountId: taxAccount, debit: "0.10" }),
-      ]),
-    );
-    await expect(post(input)).rejects.toMatchObject({ code: "SUBLEDGER_CONFLICT" });
-    expect((await workspace("2026-11-30", vendorAccount.id)).total_items).toBe(1);
-  });
+        for (const [actor, action] of [
+          [prep, "submit"],
+          [review, "approve"],
+        ] as const)
+          document = (
+            await procurement.action(
+              actor,
+              document.id,
+              {
+                company_id: fixture.company,
+                expected_version: document.version,
+                action,
+                reason: "Approved source accounting test",
+              },
+              randomUUID(),
+              randomUUID(),
+            )
+          ).record;
+        source = document;
+        if (kind === "order") order = document;
+      }
+      if (!source) throw Error("Source bill missing");
+      expect(source.total_amount).toBe(adjusted ? "1.20" : "1.11");
+      const vendorAccount = await fixture.repository.createParty(
+        maker,
+        {
+          company_id: fixture.company,
+          kind: "supplier",
+          name: vendor.name,
+          default_currency: "USD",
+          source_supplier_id: vendor.id,
+        },
+        randomUUID(),
+      );
+      const taxAccount = `source-tax-${randomUUID()}`;
+      await fixture.pool.query(
+        "insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$1,'Input tax','asset',false,'active',clock_timestamp())",
+        [taxAccount, fixture.tenant, fixture.company],
+      );
+      const input = {
+        ...recognize(vendorAccount.id, "USD", adjusted ? "1.20" : "1.11", "2026-11-29", "payable"),
+        source_document_id: source.id,
+        tax_amount: adjusted ? "0.11" : "0.10",
+        tax_account_id: taxAccount,
+      };
+      await expect(
+        fixture.repository.create(maker, { ...input, tax_amount: adjusted ? "0.12" : "0.11" }, randomUUID()),
+      ).rejects.toMatchObject({ code: "SUBLEDGER_VALIDATION_FAILED" });
+      const operation = await post(input);
+      expect(operation.preview?.lines).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ accountId: fixture.policy.expense_account_id, debit: adjusted ? "0.99" : "1.01" }),
+          expect.objectContaining({ accountId: taxAccount, debit: adjusted ? "0.11" : "0.10" }),
+        ]),
+      );
+      await expect(post(input)).rejects.toMatchObject({ code: "SUBLEDGER_CONFLICT" });
+      expect((await workspace("2026-11-30", vendorAccount.id)).total_items).toBe(1);
+    },
+  );
   it.each(["PKR", "AED", "USD"])(
     "derives %s settlements and advances from the bank, rejects spoofing, and posts balanced GL",
     async (currency) => {

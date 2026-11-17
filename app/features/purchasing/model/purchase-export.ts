@@ -4,6 +4,7 @@ import {
   paymentTotals,
   billPaymentTerms,
   billPaymentSchedule,
+  purchaseTotals,
   type PurchaseDocument,
 } from "@nexora/contracts";
 
@@ -42,6 +43,7 @@ export function purchaseExportRows(records: readonly PurchaseDocument[]) {
     ],
   ];
   for (const record of records) {
+    const amounts = record.lines.length ? purchaseTotals(record.lines, record) : null;
     const firstRow = rows.length;
     const prefix = [record.code, record.document_date, record.supplier_name ?? "", record.state, record.currency];
     for (const line of record.lines)
@@ -72,6 +74,12 @@ export function purchaseExportRows(records: readonly PurchaseDocument[]) {
         allocation.discount ?? "0.00",
         record.payment_details?.bank_account_name ?? "",
       ]);
+    for (const charge of record.additional_charges ?? []) {
+      const row = [...prefix, "", "", charge.description, "1", "Charge", charge.amount, charge.tax_percent];
+      while (row.length < rows[0].length) row.push("");
+      row[25] = "Additional charge";
+      rows.push(row);
+    }
     for (const entry of record.payment_details?.entries ?? []) {
       // Supplier totals are separate rows: never repeat a gross voucher amount on every bill.
       const allocated =
@@ -120,10 +128,36 @@ export function purchaseExportRows(records: readonly PurchaseDocument[]) {
     ];
     for (let index = firstRow; index < rows.length; index++) {
       while (rows[index].length < rows[0].length) rows[index].push("");
+      const offset = index - firstRow;
+      const line = amounts?.lines[offset];
+      const charge = amounts?.charges[offset - record.lines.length - record.allocations.length];
+      rows[index].push(
+        line?.line_discount ?? "",
+        line?.document_discount ?? "",
+        line?.net ?? charge?.net ?? "",
+        line?.tax ?? charge?.tax ?? "",
+        index === firstRow && amounts ? (record.discount_amount ?? "0.00") : "",
+        index === firstRow && amounts ? amounts.additional_charges : "",
+        index === firstRow && amounts ? amounts.tax : "",
+        index === firstRow && amounts ? record.total_amount : "",
+      );
       rows[index].push(...billValues);
     }
   }
-  rows[0].push("Bill Date", "Due Date", "Payment Term", "Payment Schedule");
+  rows[0].push(
+    "Line Discount",
+    "Allocated Purchase Discount",
+    "Line Net Amount",
+    "Line Tax Amount",
+    "Purchase Discount",
+    "Additional Charges",
+    "Total Tax",
+    "Total Purchase Amount",
+    "Bill Date",
+    "Due Date",
+    "Payment Term",
+    "Payment Schedule",
+  );
   return rows.map((row) => [...row, ...Array<string>(rows[0].length - row.length).fill("")]);
 }
 

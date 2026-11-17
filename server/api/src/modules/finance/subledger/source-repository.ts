@@ -2,7 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import {
-  purchaseLineSchema,
+  purchaseDocumentSchema,
+  purchaseTotals,
   calculateTax,
   absolute,
   convertMinor,
@@ -796,21 +797,36 @@ export class SourceSubledgerRepository {
         reject("A governed tax cannot be combined with manual tax overrides or an advance.");
       const sourceTaxDocument = input.source_document_id
         ? (
-            await client.query<{ lines: unknown; date: string }>(
-              "select lines,coalesce(bill_date,document_date)::text as date from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved' for share",
+            await client.query<{ lines: unknown; discount_amount: string; additional_charges: unknown; date: string }>(
+              "select lines,discount_amount::text,additional_charges,coalesce(bill_date,document_date)::text as date from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved' for share",
               [context.tenantId, input.company_id, input.source_document_id],
             )
           ).rows[0]
         : undefined;
-      const sourceTaxLines = sourceTaxDocument ? purchaseLineSchema.array().parse(sourceTaxDocument.lines) : [];
-      const sourceGoverned = sourceTaxLines.some((line) => line.tax_definition_id);
+      const sourceTerms = sourceTaxDocument
+        ? purchaseDocumentSchema
+            .pick({ lines: true, discount_amount: true, additional_charges: true })
+            .parse({
+              lines: sourceTaxDocument.lines,
+              discount_amount: sourceTaxDocument.discount_amount,
+              additional_charges: sourceTaxDocument.additional_charges,
+            })
+        : null;
+      const sourceTaxLines = sourceTerms?.lines ?? [];
+      const sourceCharges = sourceTerms?.additional_charges ?? [];
+      const sourceAmounts = sourceTerms ? purchaseTotals(sourceTaxLines, sourceTerms) : null;
+      const sourceTaxEntries = [
+        ...sourceTaxLines.map((line, index) => ({ line, net: sourceAmounts!.lines[index]!.net })),
+        ...sourceCharges.map((line, index) => ({ line, net: sourceAmounts!.charges[index]!.net })),
+      ];
+      const sourceGoverned = sourceTaxEntries.some(({ line }) => line.tax_definition_id);
       const governedTaxes = [];
       if (sourceGoverned) {
         if (input.tax_amount !== undefined || input.tax_account_id)
           reject("An approved governed bill resolves its own tax mappings; manual overrides are not allowed.");
         let sourceBasis = 0n;
-        for (const line of sourceTaxLines) {
-          const units = divideRounded(decimal(line.quantity, 4) * decimal(line.unit_price, 2), 10000n);
+        for (const { line, net } of sourceTaxEntries) {
+          const units = decimal(net, 2);
           sourceBasis += units;
           if (!line.tax_definition_id) {
             if (decimal(line.tax_percent, 2) !== 0n)
@@ -936,9 +952,8 @@ export class SourceSubledgerRepository {
       }
       if (input.source_document_id) {
         const source = (
-          await client.query<{ currency: string; total: string; net: string }>(
-            `select d.currency,d.total_amount::text as total,
-          (select sum(round((l->>'quantity')::numeric*(l->>'unit_price')::numeric,2))::text from jsonb_array_elements(d.lines) l) as net
+          await client.query<{ currency: string; total: string }>(
+            `select d.currency,d.total_amount::text as total
           from procurement_document d join finance_subledger_party p
           on p.tenant_id=d.tenant_id and p.company_id=d.company_id and p.source_supplier_id=d.supplier_id
           where d.tenant_id=$1 and d.company_id=$2 and d.id=$3 and p.id=$4 and d.kind='bill' and d.state='approved'`,
@@ -951,7 +966,9 @@ export class SourceSubledgerRepository {
           !source ||
           source.currency !== input.currency ||
           decimal(source.total, 8) !== decimal(decimalText(withholding ? basis : positive, a.sourceDecimalPlaces), 8) ||
-          decimal(source.total, 8) - decimal(source.net, 8) !==
+          !sourceAmounts ||
+          decimal(source.total, 8) !== decimal(sourceAmounts.total, 8) ||
+          decimal(source.total, 8) - decimal(sourceAmounts.net, 8) !==
             decimal(decimalText(withholding ? 0n : tax, a.sourceDecimalPlaces), 8)
         )
           reject("The source must be this supplier's approved bill with matching currency and amount.");
@@ -1018,7 +1035,7 @@ export class SourceSubledgerRepository {
       if (
         input.side === "payable" &&
         input.kind === "invoice" &&
-        sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id)
+        (sourceCharges.length > 0 || sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id))
       ) {
         if (input.counter_account_id)
           reject("The approved bill resolves its asset categories. Clear the manual purchase accounting override.");
@@ -1033,13 +1050,13 @@ export class SourceSubledgerRepository {
           )
         ).rows;
         let allocated = 0n;
-        for (const line of sourceTaxLines) {
+        for (const [lineIndex, line] of sourceTaxLines.entries()) {
           const category = line.asset_category_id
             ? categories.find((item) => item.id === line.asset_category_id)
             : undefined;
           if (line.asset_category_id && !category)
             reject("An approved asset category or its accounting account is no longer active.");
-          const unitsAtSource = divideRounded(decimal(line.quantity, 4) * decimal(line.unit_price, 2), 10000n),
+          const unitsAtSource = decimal(sourceAmounts!.lines[lineIndex]!.net, 2),
             native = decimal(decimalText(unitsAtSource, 2), a.sourceDecimalPlaces);
           allocated += native;
           add(
@@ -1051,6 +1068,21 @@ export class SourceSubledgerRepository {
           );
           if (native > 0n && line.asset_category_id && line.id)
             result.lines[result.lines.length - 1]!.dimensions = { purchase_line_id: line.id };
+        }
+        for (const charge of sourceCharges) {
+          if (
+            !charge.nominal_account_id ||
+            !(
+              await client.query(
+                "select 1 from account where tenant_id=$1 and company_id=$2 and id=$3 and status='active' and type='expense' and not is_header and not reconciliation_required",
+                [context.tenantId, input.company_id, charge.nominal_account_id],
+              )
+            ).rowCount
+          )
+            reject("The approved charge requires an active expense account in this company.");
+          const native = decimal(charge.amount, a.sourceDecimalPlaces);
+          allocated += native;
+          add(charge.nominal_account_id, native, input.currency, a, `${code} ${charge.description}`);
         }
         if (allocated !== (withholding ? signed + signedTax : signed - signedTax))
           reject("Approved bill acquisition allocations do not match its net accounting amount.");

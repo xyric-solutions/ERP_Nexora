@@ -1,16 +1,25 @@
 # Local startup (Windows)
 
-## Integrated Fixed Assets rollout — pending local backup approval
+## Purchase adjustments and Integrated Fixed Assets — pending local rollout approval
 
 The integrated extension is implemented and verified on disposable test data.
 The running recovered service still uses the prior deployed version. The new API
-and asset-only worker require fixed-assets migrations **0003–0007** before restart.
+requires procurement migration **0006** and fixed-assets migrations **0003–0007**
+before restart. Do not restart the latest API against the older recovered schema.
 Automatic approval review requires the owner's explicit authorization to copy
 the business database into ignored `tmp/backups` and a disposable local database
 for restore verification. No such backup, migration or service replacement has
-been performed for this extension yet.
+been performed for these extensions yet.
 
-After that approval, the prepared workstation-local steps are:
+Automatic approval review also rejected updating the protected local rollout
+helpers for the Purchase release without explicit authorization for that
+deployment/migration path. The implementation is verified on disposable data;
+the business database and currently running release remain unchanged.
+
+After explicit authorization, update the existing workstation-local helpers to
+target `tmp/purchase-totals-final-build`, migrate only procurement through 6 and
+fixed-assets through 7, and verify unchanged credentials, permissions, original
+Purchase/Asset values and journal populations. Then use the existing steps:
 
 ```powershell
 powershell -NoProfile -File tmp/fixed-assets/backup-before-rollout.ps1
@@ -23,7 +32,7 @@ The backup is restored briefly into a uniquely named disposable database and
 removed there after validation; the ignored archive remains on this workstation.
 Migration verifies that original credentials, permissions, asset snapshots and
 journal populations are unchanged. Protected configuration is reused without
-writing `.env`. The latest extension release build is `tmp/fixed-assets-workpages-ready-build`.
+writing `.env`. The latest release build is `tmp/purchase-totals-final-build`.
 The dedicated `nexora-asset-drafts` worker prepares drafts and cleans expired
 unbound uploads; it has no financial approval/post handlers. Company automation
 starts disabled. Verify API readiness, sign-in, worker readiness and asset options

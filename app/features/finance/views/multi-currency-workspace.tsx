@@ -13,7 +13,7 @@ import {
 import {
   decimal,
   decimalText,
-  divideRounded,
+  purchaseTotals,
   type TaxDefinition,
   type SubledgerRequest,
   type SubledgerOperation,
@@ -308,11 +308,7 @@ function CompanyCurrencyWorkspace({
       const scale = current.currencies.find((item) => item.code === bill.currency)?.decimal_places;
       if (scale === undefined) throw new Error("Activate the bill's currency for this company first.");
       // Purchase totals round each line's net to its two-decimal source precision.
-      const netAtStorageScale =
-        bill.lines.reduce(
-          (sum, line) => sum + divideRounded(decimal(line.quantity, 4) * decimal(line.unit_price, 2), 10000n),
-          0n,
-        ) * 1000000n;
+      const netAtStorageScale = decimal(purchaseTotals(bill.lines, bill).net, 8);
       const grossAtStorageScale = decimal(bill.total_amount, 8);
       const currencyUnit = 10n ** BigInt(8 - scale);
       if (grossAtStorageScale % currencyUnit !== 0n || netAtStorageScale % currencyUnit !== 0n)
@@ -327,7 +323,7 @@ function CompanyCurrencyWorkspace({
       setTab("documents");
       setPartyId(party.id);
       setCurrency(bill.currency);
-      const governedBill = bill.lines.some((line) => line.tax_definition_id);
+      const governedBill = bill.lines.some((line) => line.tax_definition_id) || !!bill.additional_charges?.some((charge) => charge.tax_definition_id);
       setSourceGovernedTax(governedBill);
       setDocumentAmount(decimalText(governedBill ? net : gross, scale));
       setTaxAmount(decimalText(gross > net ? gross - net : 0n, scale));

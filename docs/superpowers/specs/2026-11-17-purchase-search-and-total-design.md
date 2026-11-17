@@ -1,6 +1,8 @@
 # Purchase form search and total amount
 
-Status: Proposed; awaiting owner review before implementation.
+Status: Approved by the owner on 17 November 2026; implemented and verified.
+Activation on the recovered business database awaits explicit local rollout
+authorization described in the runbook.
 
 ## Requested outcome
 

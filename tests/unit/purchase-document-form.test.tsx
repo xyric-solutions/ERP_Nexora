@@ -134,8 +134,92 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   container.remove();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 describe("Persisted Purchase creation and approval form", () => {
+  it("updates the visible breakdown and persists discounts and taxed freight", async () => {
+    harness.api.getPurchaseDocument.mockResolvedValue(record());
+    harness.api.savePurchaseDocument.mockImplementation(async (_id, input) => ({
+      record: { ...record(), ...input, version: 2, total_amount: "22.50" },
+    }));
+    await act(async () => root.render(<PurchaseDocumentForm {...props} reference="purchase-one" />));
+    await settle();
+    change("Line 1 quantity", "2");
+    change("Line 1 tax percent", "10");
+    change("Line 1 discount", "2.00");
+    change("Overall purchase discount", "3.00");
+    await click("Add charge");
+    change("Charge 1 description", "Freight");
+    change("Charge 1 amount", "5.00");
+    change("Charge 1 tax percent", "20");
+    const summary = container.querySelector('[aria-label="Total Purchase Amount"]')!;
+    expect(summary.textContent).toContain("SubtotalUSD 20.00");
+    expect(summary.textContent).toContain("Total DiscountUSD 5.00");
+    expect(summary.textContent).toContain("Total TaxUSD 2.50");
+    expect(summary.textContent).toContain("Additional ChargesUSD 5.00");
+    expect(summary.textContent).toContain("Grand TotalUSD 22.50");
+    await click("Save Draft");
+    expect(harness.api.savePurchaseDocument).toHaveBeenCalledWith(
+      "purchase-one",
+      expect.objectContaining({
+        discount_amount: "3.00",
+        lines: [expect.objectContaining({ discount_amount: "2.00" })],
+        additional_charges: [expect.objectContaining({ description: "Freight", amount: "5.00", tax_percent: "20" })],
+      }),
+      "test-csrf",
+      expect.any(String),
+    );
+    change("Line 1 unit price", "");
+    expect(summary.textContent).toContain("Grand Total—");
+    expect(summary.textContent).not.toContain("22.50");
+  });
+  it("searches the real directory adapter inside the product dropdown without an external search", async () => {
+    vi.stubGlobal("PointerEvent", MouseEvent);
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const matches = Element.prototype.matches;
+    vi.spyOn(Element.prototype, "matches").mockImplementation(function (selector) {
+      return selector.includes(":fullscreen") ? false : matches.call(this, selector);
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, 320, 40));
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    harness.api.getPurchaseDocument.mockResolvedValue(record());
+    harness.api.listPurchaseProducts.mockResolvedValue({
+      items: [{ id: "product-a", code: "SVC-001", name: "Maintenance", uom: "Hour" }],
+      next_cursor: null,
+    });
+    await act(async () => root.render(<PurchaseDocumentForm {...props} reference="purchase-one" />));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    });
+    expect(container.querySelector('input[placeholder="Search products"]')).toBeNull();
+    const selector = container.querySelector('[aria-label="Line 1 product"]') as HTMLButtonElement;
+    await act(async () => selector.click());
+    const search = document.querySelector('[aria-label="Search products and services for line 1"]') as HTMLInputElement;
+    expect(search).not.toBeNull();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(search, "Maintenance");
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    });
+    expect(harness.api.listPurchaseProducts).toHaveBeenLastCalledWith(expect.stringContaining("search=Maintenance"));
+    const option = [...document.querySelectorAll('[role="option"]')].find((item) =>
+      item.textContent?.includes("SVC-001"),
+    ) as HTMLElement;
+    expect(option).toBeDefined();
+    await act(async () => option.click());
+    expect(container.querySelector('[aria-label="Line 1 product"]')?.textContent).toContain("Maintenance");
+    expect(container.querySelector('[aria-label="Line 1 unit"]')).toHaveProperty("value", "Hour");
+  });
   it("reopens bill dates, recalculates terms from bill date and saves manual due dates", async () => {
     const invoice = {
       ...record(),

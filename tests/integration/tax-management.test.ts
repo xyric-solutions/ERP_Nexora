@@ -473,161 +473,187 @@ run("unified tax configuration and accounting", () => {
       );
     }
   });
-  it("carries governed purchase-line mappings through request/order/receipt/bill and real supplier accounting", async () => {
-    const tax = await repo.save(
-      actor(true),
-      input({
-        name: "Governed input tax",
-        rate: "10.00",
-        treatment: "recoverable",
-        trigger: "recognition",
-        account_id: `${f.company}-tax-asset`,
-      }),
-      randomUUID(),
-    );
-    const permissions = [
-      "procurement.document.read",
-      "procurement.document.create",
-      "procurement.document.action",
-      "procurement.document.submit",
-      "procurement.document.approve",
-      "procurement.vendor.read",
-      "procurement.vendor.create",
-    ];
-    for (const policy of ["r06-uat-policy-maker", "r06-uat-policy-checker"]) {
-      await f.pool.query(
-        "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
-        [f.tenant, policy, permissions],
-      );
-      await f.pool.query(
-        "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
-        [f.tenant, policy, permissions, f.company],
-      );
-    }
-    const prep = {
-      ...subledgerActor(),
-      actor: { ...subledgerActor().actor, permissions: [...subledgerActor().actor.permissions, ...permissions] },
-    };
-    const review = {
-      ...subledgerActor("r06.checker"),
-      actor: {
-        ...subledgerActor("r06.checker").actor,
-        permissions: [...subledgerActor().actor.permissions, ...permissions],
-      },
-    };
-    const procurement = new SourceProcurementRepository(
-      f.pool,
-      new SupplierProfileCrypto(randomBytes(32).toString("base64"), "test-tax"),
-    );
-    const vendor = (
-      await procurement.saveSupplier(
-        prep,
-        null,
-        supplierInputSchema.parse({ company_id: f.company, name: "Governed bill vendor" }),
+  it.each([false, true])(
+    "carries governed purchase-line mappings through request/order/receipt/bill and real supplier accounting (adjustments=%s)",
+    async (adjusted) => {
+      const tax = await repo.save(
+        actor(true),
+        input({
+          name: adjusted ? "Adjusted governed input tax" : "Governed input tax",
+          rate: "10.00",
+          treatment: "recoverable",
+          trigger: "recognition",
+          account_id: `${f.company}-tax-asset`,
+        }),
         randomUUID(),
-        randomUUID(),
-      )
-    ).record;
-    let source: PurchaseDocument | undefined, order: PurchaseDocument | undefined;
-    for (const kind of ["request", "rfq", "order", "receipt", "bill"] as PurchaseKind[]) {
-      let document = (
-        await procurement.save(
+      );
+      const permissions = [
+        "procurement.document.read",
+        "procurement.document.create",
+        "procurement.document.action",
+        "procurement.document.submit",
+        "procurement.document.approve",
+        "procurement.vendor.read",
+        "procurement.vendor.create",
+      ];
+      for (const policy of ["r06-uat-policy-maker", "r06-uat-policy-checker"]) {
+        await f.pool.query(
+          "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
+          [f.tenant, policy, permissions],
+        );
+        await f.pool.query(
+          "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
+          [f.tenant, policy, permissions, f.company],
+        );
+      }
+      const prep = {
+        ...subledgerActor(),
+        actor: { ...subledgerActor().actor, permissions: [...subledgerActor().actor.permissions, ...permissions] },
+      };
+      const review = {
+        ...subledgerActor("r06.checker"),
+        actor: {
+          ...subledgerActor("r06.checker").actor,
+          permissions: [...subledgerActor().actor.permissions, ...permissions],
+        },
+      };
+      const procurement = new SourceProcurementRepository(
+        f.pool,
+        new SupplierProfileCrypto(randomBytes(32).toString("base64"), "test-tax"),
+      );
+      const vendor = (
+        await procurement.saveSupplier(
           prep,
           null,
-          savePurchaseRequestSchema.parse({
-            company_id: f.company,
-            kind,
-            supplier_id: ["request", "rfq"].includes(kind) ? null : vendor.id,
-            approver_id: "r06.checker",
-            source_id: (kind === "bill" ? order : source)?.id ?? null,
-            invited_supplier_ids: kind === "rfq" ? [vendor.id] : [],
-            document_date: "2026-09-29",
-            currency: "USD",
-            reference: `GOV-${kind}`,
-            lines: [
-              {
-                source_line_id: (kind === "bill" ? order : source)?.lines[0]?.id ?? null,
-                item_code: "GOV-ITEM",
-                description: "Governed exact line tax",
-                quantity: "1.005",
-                uom: "Each",
-                unit_price: "1.00",
-                tax_percent: "99",
-                tax_definition_id: tax.id,
-              },
-            ],
-          }),
+          supplierInputSchema.parse({ company_id: f.company, name: "Governed bill vendor" }),
           randomUUID(),
           randomUUID(),
         )
       ).record;
-      expect(document.lines[0]!.tax_percent).toBe("10.00");
-      expect(document.lines[0]!.tax_snapshot!.amount).toBe("0.10");
-      for (const [who, action] of [
-        [prep, "submit"],
-        [review, "approve"],
-      ] as const)
-        document = (
-          await procurement.action(
-            who,
-            document.id,
-            { company_id: f.company, expected_version: document.version, action, reason: "Review governed tax source" },
+      let source: PurchaseDocument | undefined, order: PurchaseDocument | undefined;
+      for (const kind of ["request", "rfq", "order", "receipt", "bill"] as PurchaseKind[]) {
+        let document = (
+          await procurement.save(
+            prep,
+            null,
+            savePurchaseRequestSchema.parse({
+              company_id: f.company,
+              kind,
+              supplier_id: ["request", "rfq"].includes(kind) ? null : vendor.id,
+              approver_id: "r06.checker",
+              source_id: (kind === "bill" ? order : source)?.id ?? null,
+              invited_supplier_ids: kind === "rfq" ? [vendor.id] : [],
+              document_date: "2026-09-29",
+              currency: "USD",
+              reference: `GOV-${kind}`,
+              ...(adjusted
+                ? {
+                    discount_amount: "0.01",
+                    additional_charges: [
+                      {
+                        id: `governed-freight-${kind}`,
+                        type: "freight",
+                        description: "Governed freight",
+                        amount: "0.10",
+                        tax_percent: "99",
+                        tax_definition_id: tax.id,
+                        nominal_account_id: f.policy.expense_account_id,
+                      },
+                    ],
+                  }
+                : {}),
+              lines: [
+                {
+                  source_line_id: (kind === "bill" ? order : source)?.lines[0]?.id ?? null,
+                  item_code: "GOV-ITEM",
+                  description: "Governed exact line tax",
+                  quantity: "1.005",
+                  uom: "Each",
+                  unit_price: "1.00",
+                  tax_percent: "99",
+                  tax_definition_id: tax.id,
+                  ...(adjusted ? { discount_amount: "0.01" } : {}),
+                },
+              ],
+            }),
             randomUUID(),
             randomUUID(),
           )
         ).record;
-      source = document;
-      if (kind === "order") order = document;
-    }
-    const party = await f.repository.createParty(
-      subledgerActor(),
-      {
-        company_id: f.company,
-        name: vendor.name,
-        kind: "supplier",
-        default_currency: "USD",
-        source_supplier_id: vendor.id,
-      },
-      randomUUID(),
-    );
-    const operation = await post({
-      type: "recognition",
-      company_id: f.company,
-      date: "2026-09-30",
-      due_date: "2026-09-30",
-      reference: "Governed approved bill",
-      reason: "Preserve exact source tax mappings",
-      side: "payable",
-      kind: "invoice",
-      party_id: party.id,
-      currency: "USD",
-      amount: "1.01",
-      source_document_id: source!.id,
-      monetary: true,
-    });
-    expect(operation.preview!.item!.original_amount).toBe("1.11");
-    expect(operation.preview!.taxes[0]!.account_id).toBe(tax.account_id);
-    expect(operation.preview!.taxes[0]!.amount).toBe("0.10");
-    await expect(
-      f.repository.create(
+        expect(document.lines[0]!.tax_percent).toBe("10.00");
+        expect(document.lines[0]!.tax_snapshot!.amount).toBe("0.10");
+        if (adjusted) expect(document.additional_charges?.[0]?.tax_snapshot?.amount).toBe("0.01");
+        for (const [who, action] of [
+          [prep, "submit"],
+          [review, "approve"],
+        ] as const)
+          document = (
+            await procurement.action(
+              who,
+              document.id,
+              {
+                company_id: f.company,
+                expected_version: document.version,
+                action,
+                reason: "Review governed tax source",
+              },
+              randomUUID(),
+              randomUUID(),
+            )
+          ).record;
+        source = document;
+        if (kind === "order") order = document;
+      }
+      const party = await f.repository.createParty(
         subledgerActor(),
         {
-          ...operation.input,
-          type: "recognition",
-          side: "payable",
-          kind: "invoice",
-          party_id: party.id,
-          currency: "USD",
-          amount: "1.01",
-          due_date: "2026-09-30",
-          monetary: true,
-          source_document_id: source!.id,
-          tax_amount: "0.10",
+          company_id: f.company,
+          name: vendor.name,
+          kind: "supplier",
+          default_currency: "USD",
+          source_supplier_id: vendor.id,
         },
         randomUUID(),
-      ),
-    ).rejects.toMatchObject({ code: "SUBLEDGER_VALIDATION_FAILED" });
-  });
+      );
+      const operation = await post({
+        type: "recognition",
+        company_id: f.company,
+        date: "2026-09-30",
+        due_date: "2026-09-30",
+        reference: "Governed approved bill",
+        reason: "Preserve exact source tax mappings",
+        side: "payable",
+        kind: "invoice",
+        party_id: party.id,
+        currency: "USD",
+        amount: adjusted ? "1.09" : "1.01",
+        source_document_id: source!.id,
+        monetary: true,
+      });
+      expect(operation.preview!.item!.original_amount).toBe(adjusted ? "1.20" : "1.11");
+      expect(operation.preview!.taxes[0]!.account_id).toBe(tax.account_id);
+      expect(operation.preview!.taxes[0]!.amount).toBe("0.10");
+      await expect(
+        f.repository.create(
+          subledgerActor(),
+          {
+            ...operation.input,
+            type: "recognition",
+            side: "payable",
+            kind: "invoice",
+            party_id: party.id,
+            currency: "USD",
+            amount: "1.01",
+            due_date: "2026-09-30",
+            monetary: true,
+            source_document_id: source!.id,
+            tax_amount: "0.10",
+          },
+          randomUUID(),
+        ),
+      ).rejects.toMatchObject({ code: "SUBLEDGER_VALIDATION_FAILED" });
+    },
+  );
 
   it("enforces tax RLS for a non-owner database role with wrong-company and wrong-tenant sessions", async () => {
     const role = `tax_rls_${randomUUID().replaceAll("-", "")}`;
