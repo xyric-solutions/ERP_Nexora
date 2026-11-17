@@ -1,5 +1,35 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Journal approval feedback and July–June defaults
+
+- Repaired the apparent inactive Approve & Close action. It remains clickable
+  outside pending requests and validates line descriptions, dimensions, balance,
+  explicit final review and override reasons together. Errors are visible and
+  focused in the drawer. No confirmation is implied by clicking the button; the
+  existing mutation helper, permissions and posting rules remain unchanged.
+- Removed the hardcoded January proposal from Finance fiscal setup. Stored company
+  calendars determine the next year, and initial setup supplies the first-year
+  month. With neither source, the proposal remains empty. The calendar covering
+  today is selected by default; explicit selections and typed proposals remain.
+- Live inspection confirmed the current company year already spans 1 July 2026
+  through 30 June 2027. November is Soft Closed independently of that year range.
+  No dates or period statuses were changed; reopening November awaits the owner's
+  explicit choice. Organisation setup remains the existing browser prototype
+  preference for first-year proposals; persisted calendars remain API authority.
+- Passed 55 focused tests using `npm.cmd run test:unit -- tests/unit/finance-fiscal-defaults.test.ts tests/unit/finance-fiscal-periods.test.tsx tests/unit/fiscal-calendars.test.ts tests/unit/manual-journal-actions.test.ts tests/unit/finance-journals-workspace.test.tsx`.
+  All 10 `playwright.cmd test tests/e2e/finance-journal-layout.spec.ts --workers=1`
+  cases passed, including clickable approval, focused errors, dimensions and Axe
+  at five light/dark widths. Both production builds, typecheck, changed-file lint,
+  helper/new-test/browser-test formatting, theme write/check and diff check pass.
+  The compatible build retains its 13 generated-cache CSS optimizer warnings.
+- Active compatible frontend: `tmp/journal-repair-build`, ID
+  `yzUiqCrb20qKW2veAAgcw`. Private evidence: `tmp/journal-repair/`.
+  Read-only preview and live acceptance each passed 12 company/theme/width cases
+  plus real fiscal-year default checks, with zero Axe violations, overflow, page
+  errors or business writes. Routine guarded startup remains healthy.
+  No API/schema/credential changes, synthetic business records or live postings.
+  Preserve the Purchase currency repair and the pending Purchase/Assets boundary.
+
 ## 2026-11-17 - Compact Manual Journal and governed actions
 
 - Updated the existing Finance Journal drawer/shared editor. Removed the Required

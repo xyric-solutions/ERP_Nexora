@@ -545,7 +545,11 @@ describe("Finance Journal screens", () => {
     await act(async () => root.render(<FinanceJournalWorkspace page="manual-journal" recordRef="journal-1" onNavigate={vi.fn()} />));
     await settle();
     const approve=[...document.querySelectorAll('button')].find(button=>button.textContent==="Approve & Close");
-    expect(approve?.disabled).toBe(true);
+    expect(approve?.disabled).toBe(false);
+    click("Approve & Close"); await settle();
+    expect(document.body.textContent).toContain("Confirm the final review before approving this Journal.");
+    expect(document.activeElement?.id).toBe("manual-journal-validation");
+    expect(harness.api.updateJournal).not.toHaveBeenCalled();
     const confirmation=document.querySelector('#manual-journal-final-review');
     if (!(confirmation instanceof HTMLElement)) throw new Error("Missing final review");
     if (confirmation.getAttribute('aria-checked')!=="true") act(()=>confirmation.click());
@@ -581,13 +585,17 @@ describe("Finance Journal screens", () => {
     const reference = document.querySelector("#journal-reference");
     if (!(reason instanceof HTMLInputElement) || !(confirmation instanceof HTMLElement) || !(reference instanceof HTMLInputElement))
       throw new Error("Missing review controls");
-    expect(approve?.disabled).toBe(true);
+    expect(approve?.disabled).toBe(false);
+    click("Approve & Close"); await settle();
+    expect(document.body.textContent).toContain("Enter a self-approval override reason");
     act(() => confirmation.click()); await settle();
-    expect(approve?.disabled).toBe(true);
+    expect(approve?.disabled).toBe(false);
     input(reason, "Authorized final review"); await settle();
     expect(approve?.disabled).toBe(false);
     input(reference, "Changed after review"); await settle();
-    expect(approve?.disabled).toBe(true);
+    expect(approve?.disabled).toBe(false);
+    click("Approve & Close"); await settle();
+    expect(document.body.textContent).toContain("Confirm the final review before approving this Journal.");
     expect(harness.api.createJournal).not.toHaveBeenCalled();
   });
 

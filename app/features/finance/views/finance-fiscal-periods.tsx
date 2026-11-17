@@ -28,6 +28,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
+import { readOrganisationSetup } from "@/features/administration/model/organisation-setup";
+import { currentFiscalCalendar, defaultFiscalStart } from "../lib/finance-fiscal-defaults";
 const selectClass = "h-10 w-full rounded-md border border-input bg-background px-3 focus-visible:outline-ring";
 const labels = { open: "Open", soft_close: "Soft Closed", closed: "Locked" } as const;
 // URL context is a UI selection, never an authorization or business-data source.
@@ -131,7 +133,7 @@ function CompanyPeriods({ company }: { company: string }) {
     [calendarId, setCalendarId] = useState(() => savedScope("fiscal_calendar")),
     [detail, setDetail] = useState<FiscalCalendarDetail | null>(null),
     [selected, setSelected] = useState<string[]>([]);
-  const [start, setStart] = useState(`${new Date().getUTCFullYear()}-01-01`),
+  const [start, setStart] = useState(() => defaultFiscalStart([], readOrganisationSetup(session?.tenant_id ?? "")?.financial_year_start_month, new Date().toLocaleDateString("en-CA"))),
     [error, setError] = useState(""),
     [success, setSuccess] = useState(""),
     [loading, setLoading] = useState(true),
@@ -141,6 +143,7 @@ function CompanyPeriods({ company }: { company: string }) {
     [reason, setReason] = useState(""),
     [confirmLocked, setConfirmLocked] = useState(false);
   const request = useRef(0),
+    startTouched = useRef(false),
     lock = useRef(false),
     retry = useRef<{ fingerprint: string; key: string } | null>(null);
   const permissions = session?.user.permissions ?? [],
@@ -166,8 +169,10 @@ function CompanyPeriods({ company }: { company: string }) {
       .then((v) => {
         if (active) {
           setCalendars(v.items);
+          const today = new Date().toLocaleDateString("en-CA");
+          if (!startTouched.current) setStart(defaultFiscalStart(v.items, readOrganisationSetup(session?.tenant_id ?? "")?.financial_year_start_month, today));
           setCursor(v.next_cursor);
-          setCalendarId((id) => (v.items.some((c) => c.id === id) ? id : (v.items[0]?.id ?? "")));
+          setCalendarId((id) => (v.items.some((c) => c.id === id) ? id : (currentFiscalCalendar(v.items, today)?.id ?? "")));
           setLoading(false);
         }
       })
@@ -180,7 +185,7 @@ function CompanyPeriods({ company }: { company: string }) {
     return () => {
       active = false;
     };
-  }, [api, company, refresh]);
+  }, [api, company, refresh, session?.tenant_id]);
   useEffect(() => {
     if (!calendarId || !canReadPeriods) return;
     let active = true;
@@ -264,6 +269,7 @@ function CompanyPeriods({ company }: { company: string }) {
                 key,
               );
       retry.current = null;
+      if (kind === "create") startTouched.current = false;
       setDetail(result);
       setCalendarId(result.calendar.id);
       rememberScope(company, result.calendar.id);
@@ -326,7 +332,7 @@ function CompanyPeriods({ company }: { company: string }) {
           <CardHeader>
             <CardTitle>New company fiscal year</CardTitle>
             <CardDescription>
-              Choose the first day of any month. January–December, July–June and other monthly starts are supported.
+              Continue the stored company year, or use the financial-year month selected during setup for the first year.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid max-w-xl gap-4 sm:grid-cols-2">
@@ -337,7 +343,7 @@ function CompanyPeriods({ company }: { company: string }) {
                 type="date"
                 value={start}
                 disabled={busy}
-                onChange={(e) => setStart(e.target.value)}
+                onChange={(e) => { startTouched.current = true; setStart(e.target.value); }}
               />
             </div>
             <div className="grid gap-2">

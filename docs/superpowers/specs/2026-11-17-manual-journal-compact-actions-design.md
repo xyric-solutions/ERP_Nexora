@@ -8,6 +8,22 @@ Update the existing New/Edit Manual Journal drawer and its shared line editor.
 Preserve the Finance register, recurring workflow, API contracts, financial
 precision, posting rules, permission checks, audit history and live credentials.
 
+### Follow-up repair
+
+The owner reported Approve & Close appearing inactive with final review unchecked
+and empty descriptions. Keep the action clickable when its permission and request
+state permit it; clicking validates fields, dimensions, review and override reasons
+together and focuses the visible error summary. Explicit confirmation remains
+mandatory before any save/submit/post sequence; a click never implies consent.
+
+Finance must retain the existing July–June company calendar and propose its next
+year from the stored end date. The first-year proposal uses the saved organisation
+setup month; absent both sources, leave the proposal empty rather than inventing
+January. Prefer the calendar covering today when no valid saved selection exists.
+Do not overwrite typed proposals after a delayed lookup. Calendar dates and period
+statuses remain governed by existing server APIs. Reopening a Soft Closed period
+requires a separate explicit owner choice; no journal is posted for verification.
+
 ## Layout
 
 Remove the Required Dimensions column, mobile heading and empty placeholders.

@@ -760,6 +760,13 @@ function ManualJournalForm({
   const [actions] = useState(() => new ManualJournalActions());
   const operation = useRef(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const validationSummary = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (validationErrors.length) {
+      validationSummary.current?.focus({ preventScroll: true });
+      validationSummary.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [validationErrors]);
   useEffect(() => {
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
@@ -795,8 +802,8 @@ function ManualJournalForm({
     () => validateJournalLines(linePayload(lines), decimalPlaces),
     [decimalPlaces, lines],
   );
-  const validate = () => {
-    const errors = [...validation.errors, ...requiredDimensionErrors(lines, options)];
+  const validate = (reviewErrors: string[] = []) => {
+    const errors = [...validation.errors, ...requiredDimensionErrors(lines, options), ...reviewErrors];
     if (!date) errors.unshift("Select the Journal date.");
     setValidationErrors(errors);
     return errors.length === 0;
@@ -824,16 +831,16 @@ function ManualJournalForm({
       operation.current ||
       !companyId ||
       (retryIntent && retryIntent !== intent) ||
-      (intent === "save" ? !canSave : !canContinue) ||
-      !validate()
+      (intent === "save" ? !canSave : !canContinue)
     )
       return;
-    if (
-      intent === "approve" &&
-      needsReview &&
-      (!confirmed || (needsOverride && overrideReason.trim().length < 3))
-    )
-      return;
+    const reviewErrors: string[] = [];
+    if (intent === "approve" && needsReview) {
+      if (!confirmed) reviewErrors.push("Confirm the final review before approving this Journal.");
+      if (needsOverride && overrideReason.trim().length < 3)
+        reviewErrors.push("Enter a self-approval override reason of at least 3 characters.");
+    }
+    if (!validate(reviewErrors)) return;
     operation.current = true;
     onBusyChange?.(true);
     setBusy(intent);
@@ -935,7 +942,7 @@ function ManualJournalForm({
           <Notice title="Journal action could not be completed" detail={actionError} destructive />
         ) : null}
         {validationErrors.length ? (
-          <Alert variant="destructive" role="alert">
+          <Alert ref={validationSummary} id="manual-journal-validation" tabIndex={-1} variant="destructive" role="alert">
             <AlertTitle>Review the Journal form</AlertTitle>
             <AlertDescription>
               <ul className="list-disc space-y-1 pl-5 text-destructive">
@@ -1026,9 +1033,9 @@ function ManualJournalForm({
               type="button"
               disabled={
                 !!busy ||
-                (retryIntent !== null && retryIntent !== "approve") ||
-                (needsReview && (!confirmed || (needsOverride && overrideReason.trim().length < 3)))
+                (retryIntent !== null && retryIntent !== "approve")
               }
+              aria-describedby={validationErrors.length ? "manual-journal-validation" : undefined}
               onClick={() => void run("approve")}
             >
               {busy === "approve" ? "Processing…" : "Approve & Close"}

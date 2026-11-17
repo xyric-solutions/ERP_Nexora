@@ -54,13 +54,17 @@ powershell -NoProfile -File tmp/units-of-measure/start-live-runtime.ps1
 ```
 
 This guarded private helper uses `tmp/units-of-measure/release/source`, production
-web build `tmp/manual-journal-compact-build` (ID `7nVCXi48nkj28-5O0D4op`), and its
+web build `tmp/journal-repair-build` (ID `yzUiqCrb20qKW2veAAgcw`), and its
 compiled API. The compact Products/UOM/Warehouse/Stock Transfer and all Bank
 menus follow-ups change only the frontend; the Unit of Measure API/schema remain.
 The approved compact Manual Journal editor is also active: Save Draft and
 Approve & Close reuse the existing governed APIs; required dimensions remain
 conditional beneath the account selector, and optional actions have Finance-owned
 visibility configuration. No journals are posted by startup or verification.
+Approve & Close now displays and focuses missing requirements instead of silently
+remaining disabled. Fiscal-year proposals follow the stored company calendar or
+saved first-year setup month. The current July 2026–June 2027 year is unchanged;
+November's Soft Closed status requires a separate authorized reopening decision.
 The compatible API also includes the 17 November Purchase currency-fetch repair:
 Procurement transactions set both authenticated tenant and user context so the
 existing company-currency security policy returns the permitted options. The

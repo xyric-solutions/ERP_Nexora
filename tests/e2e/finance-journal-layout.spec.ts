@@ -30,7 +30,13 @@ for (const theme of ["light", "dark"] as const) {
                 email: "maker@example.invalid",
                 display_name: "Journal Maker",
                 roles: ["super_administrator"],
-                permissions: ["finance.journal.read", "finance.journal.create", "finance.journal.submit"],
+                permissions: [
+                  "finance.journal.read",
+                  "finance.journal.create",
+                  "finance.journal.submit",
+                  "finance.journal.approve",
+                  "finance.journal.self_approve",
+                ],
               },
             },
           });
@@ -83,6 +89,7 @@ for (const theme of ["light", "dark"] as const) {
         "Approve & Close",
       ]);
       await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
+      await expect(dialog.getByRole("button", { name: "Approve & Close", exact: true })).toBeEnabled();
       const heading = dialog.locator('[data-slot="sheet-header"]');
       expect((await heading.boundingBox())!.height).toBeLessThan(width >= 768 ? 90 : 120);
       await dialog.getByRole("button", { name: "Close", exact: true }).click({ trial: true });
@@ -120,6 +127,11 @@ for (const theme of ["light", "dark"] as const) {
       await dialog.getByRole("button", { name: "Remove", exact: true }).last().click();
       await expect(page.getByLabel("Debit line 3", { exact: true })).toHaveCount(0);
       await expect(page.getByLabel("Description line 1", { exact: true })).toHaveValue("Synthetic layout check");
+      await page.getByRole("button", { name: "Approve & Close", exact: true }).click();
+      await expect(dialog.getByRole("alert").filter({ hasText: "Review the Journal form" })).toContainText(
+        "Confirm the final review",
+      );
+      await expect(dialog.locator("#manual-journal-validation")).toBeFocused();
       await page.getByRole("button", { name: "Save Draft", exact: true }).click();
       await expect(page.getByRole("alert").filter({ hasText: "Review the Journal form" })).toBeVisible();
       expect(writes).toEqual([]);
