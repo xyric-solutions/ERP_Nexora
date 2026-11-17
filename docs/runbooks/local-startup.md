@@ -57,6 +57,10 @@ This guarded private helper uses `tmp/units-of-measure/release/source`, producti
 web build `tmp/bank-compact-final-build` (ID `JXLcwu_wh60i_uKqRhsdf`), and its
 compiled API. The compact Products/UOM/Warehouse/Stock Transfer and all Bank
 menus follow-ups change only the frontend; the Unit of Measure API/schema remain.
+The compatible API also includes the 17 November Purchase currency-fetch repair:
+Procurement transactions set both authenticated tenant and user context so the
+existing company-currency security policy returns the permitted options. The
+repair requires no schema migration, credential change or frontend replacement.
 Automatic migrations remain disabled. `-Restart` validates artifacts and known process identities
 before restarting. The previous Products compatible startup entry points now
 forward to this release. See the [executed release evidence](../superpowers/plans/2026-11-17-inventory-units-release.md).

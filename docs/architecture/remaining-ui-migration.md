@@ -1,5 +1,32 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Purchase currency fetching
+
+- Repaired the existing shared Procurement options source: transactions now supply
+  authenticated user context alongside tenant context. Company-currency RLS had
+  correctly returned no rows when the user setting was missing. No form, currency
+  list, permission, API contract or accounting calculation was duplicated/changed.
+- Reproduced the empty list with a failing restricted-role integration test, then
+  passed all 31 tests in `npm.cmd run test:integration -- tests/integration/procurement-workflow.test.ts`.
+  The regression covers company/user/tenant denial and settings cleared after
+  commit/rollback on a reused connection. An initial full run timed out in fixture
+  setup; the isolated retry passed. All fixture mutations use disposable databases.
+- `npm.cmd run test:unit -- <eight tests/unit/purchase-*.test.ts[x] files>` passed
+  85 of 86 tests. The existing workflow-navigation expectation omits Purchase
+  Returns and fails independently of this backend-only change; it remains unchanged.
+  Root and compatible `npm.cmd run build --workspace @nexora/api`,
+  `npm.cmd run typecheck`, changed-file ESLint, integration-test Prettier check and
+  `git diff --check` passed. No frontend source changed or web rebuild was needed.
+- Live read-only acceptance covered both companies, five document forms, both
+  payment forms and supplier currency options. Purchase currencies now match the
+  existing Inventory options: USD/AED/PKR and USD/PKR respectively. Base-first
+  defaults and bank-derived payment currency remain; login succeeds unchanged.
+  No business writes or page errors occurred. Evidence: `tmp/purchase-currency/`.
+- Applied only this context repair to the compatible API source and compiled it.
+  The guarded API restart retained the compact Bank/Inventory web build, database
+  schema and credentials; readiness and routine-start health checks passed.
+  Keep the separate Purchase/Assets extension rollout pending as before.
+
 ## 2026-11-17 - Compact Bank menus and linked pages
 
 - Applied the approved Inventory density to all seven Bank menus and existing

@@ -156,6 +156,7 @@ export class SourceProcurementRepository {
     try {
       await client.query("begin");
       await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select set_config('nexora.user_id',$1,true)", [context.actor.userId]);
       await client.query("select pg_advisory_xact_lock_shared(hashtextextended($1,0))", [
         `nexora:security:admin:${context.tenantId}`,
       ]);

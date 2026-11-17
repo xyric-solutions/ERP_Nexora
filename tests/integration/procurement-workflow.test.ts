@@ -1,6 +1,7 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { SupplierProfileCrypto } from "../../server/api/src/modules/procurement/supplier-profile-crypto.js";
 import { PassThrough } from "node:stream";
+import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -198,6 +199,44 @@ suite("Database-backed Purchase and Supplier workflow", () => {
     await approved(terms("receipt", po, supplier, quantity));
     return approved(terms("bill", po, supplier, quantity));
   }
+  it("fetches Purchase currencies under runtime RLS without leaking company or user context", async () => {
+    const role = `purchase_rls_${randomUUID().replaceAll("-", "")}`;
+    await pool.query(`create role ${role} nologin nosuperuser nobypassrls`);
+    await pool.query(`grant usage on schema public to ${role}`);
+    await pool.query(`grant select on all tables in schema public to ${role}`);
+    const target = new URL(bootstrapUrl!);
+    target.pathname = `/${database}`;
+    const restrictedPool = new Pool({ connectionString: target.toString(), options: `-c role=${role}`, max: 1 });
+    const restricted = new SourceProcurementRepository(restrictedPool, profileCrypto);
+    const assertClearedContext = async () => {
+      const result = await restrictedPool.query(
+        "select current_setting('nexora.user_id',true) as user_id,current_setting('nexora.tenant_id',true) as tenant_id",
+      );
+      expect(result.rows[0].user_id ?? "").toBe("");
+      expect(result.rows[0].tenant_id ?? "").toBe("");
+      expect((await restrictedPool.query("select currency_code from company_currency")).rows).toEqual([]);
+    };
+    try {
+      const expected = (await repo.options(maker, company)).currencies;
+      expect(expected).toContainEqual(expect.objectContaining({ code: "USD" }));
+      expect((await restricted.options(maker, company)).currencies).toEqual(expected);
+      await assertClearedContext();
+      await expect(restricted.options(maker, "outside-company")).rejects.toMatchObject({ status: 403 });
+      await assertClearedContext();
+      const unassigned = { ...maker, actor: { ...maker.actor, userId: "unassigned-purchase-user" } };
+      await expect(restricted.options(unassigned, company)).rejects.toMatchObject({ status: 403 });
+      await expect(restricted.options({ ...maker, tenantId: "outside-tenant" }, company)).rejects.toMatchObject({
+        status: 403,
+      });
+      await assertClearedContext();
+      expect((await restricted.options(checker, company)).currencies).toEqual(expected);
+      await assertClearedContext();
+    } finally {
+      await restrictedPool.end();
+      await pool.query(`drop owned by ${role}`);
+      await pool.query(`drop role ${role}`);
+    }
+  });
   it("persists discounts and freight and allocates their remaining cents across partial receipts and bills", async () => {
     const expenseId = `purchase-freight-${key()}`;
     await pool.query(
