@@ -132,7 +132,7 @@ function CompanyTaxConsole() {
           </span>
           <div>
             <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Accounting / Taxes · {activeCompany?.name}
+              Accounting / Taxes
             </p>
             <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Unified Tax Management Console</h1>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">

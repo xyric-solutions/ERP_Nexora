@@ -3,7 +3,7 @@ import { inActiveCompany } from "@/lib/session/active-company";
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InventoryCompanies, InventoryOptions, Product } from "@nexora/contracts";
+import type { InventoryOptions, Product } from "@nexora/contracts";
 import { LayoutGrid, List, Plus, Search, Package } from "lucide-react";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -26,9 +26,9 @@ export function ProductsWorkspace({
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { api, session, loading: sessionLoading } = useSession();
-  const [companies, setCompanies] = useState<InventoryCompanies["items"]>([]),
-    [company, setCompany] = useState(""),
+  const [company, setCompany] = useState(""),
     [options, setOptions] = useState<InventoryOptions | null>(null),
+    [optionsError, setOptionsError] = useState(""),
     [optionsCompany, setOptionsCompany] = useState(""),
     [companiesLoaded, setCompaniesLoaded] = useState(false);
   const [records, setRecords] = useState<Product[]>([]),
@@ -64,17 +64,8 @@ export function ProductsWorkspace({
       .then(inActiveCompany)
       .then((r) => {
         if (active) {
-          setCompanies(r.items);
           setCompaniesLoaded(true);
-          setCompany((current) =>
-            r.items.some((c) => c.id === current)
-              ? current
-              : (r.items.find(
-                  (c) => c.id === window.localStorage.getItem(`nexora-inventory-company:${session?.tenant_id}`),
-                )?.id ??
-                r.items[0]?.id ??
-                ""),
-          );
+          setCompany(r.items[0]?.id ?? "");
         }
       })
       .catch((e) => {
@@ -93,10 +84,11 @@ export function ProductsWorkspace({
         if (active) {
           setOptions(r);
           setOptionsCompany(company);
+          setOptionsError("");
         }
       })
       .catch((e) => {
-        if (active) setError(productError(e));
+        if (active) setOptionsError(productError(e));
       });
     return () => {
       active = false;
@@ -158,14 +150,6 @@ export function ProductsWorkspace({
   function open(id?: string) {
     onNavigate("inventory", "add-product", id);
   }
-  function changeCompany(value: string) {
-    if (dirty) return;
-    setCompany(value);
-    setOptions(null);
-    setOptionsCompany("");
-    setError("");
-    window.localStorage.setItem(`nexora-inventory-company:${session?.tenant_id}`, value);
-  }
   const shown = loadedScope === scope ? records : [],
     loading = busy || loadedScope !== scope;
   if (sessionLoading) return <p role="status">Loading Products permissions…</p>;
@@ -199,24 +183,6 @@ export function ProductsWorkspace({
           </Button>
         )}
         <div className="flex min-w-0 flex-wrap items-end gap-2">
-          <LabeledField label="Company" className="w-full sm:w-72">
-            <select
-              className={productSelectClass}
-              value={company}
-              disabled={editing || dirty}
-              onChange={(e) => changeCompany(e.target.value)}
-            >
-              {companies.length ? (
-                companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">No company available</option>
-              )}
-            </select>
-          </LabeledField>
           {!editing ? (
             <>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setRefresh((n) => n + 1)}>
@@ -236,10 +202,10 @@ export function ProductsWorkspace({
           ) : null}
         </div>
       </div>
-      {error ? (
+      {error || optionsError ? (
         <Alert variant="destructive">
           <AlertDescription>
-            {error}
+            {error || optionsError}
             <Button
               type="button"
               variant="link"
@@ -250,6 +216,24 @@ export function ProductsWorkspace({
             >
               Retry
             </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {company && optionsCompany === company && !options?.currencies.length ? (
+        <Alert>
+          <AlertDescription>
+            No active two-decimal company currency is available. Set up an active currency before adding products.
+            {[
+              "finance.company_currency_profile.read",
+              "finance.company_currency.read",
+              "finance.company_currency_rate.read",
+            ].every((permission) => session?.user.permissions.includes(permission)) ? (
+              <Button type="button" variant="link" onClick={() => onNavigate("finance", "currencies-fx")}>
+                Open currency setup
+              </Button>
+            ) : (
+              " Ask your administrator to review company currency setup."
+            )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -375,17 +359,17 @@ export function ProductsWorkspace({
               ) : null}
             </div>
           ) : view === "grid" ? (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-3">
               {shown.map((product) => (
                 <button
                   key={product.id}
                   type="button"
                   onClick={() => open(product.id)}
-                  className="min-w-0 space-y-4 rounded-xl border border-border bg-card p-4 text-left text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                  className="min-w-0 space-y-2 rounded-xl border border-border bg-card p-3 text-left text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h2 className="break-words text-base font-semibold">{product.name}</h2>
+                      <h2 className="break-words text-sm font-semibold">{product.name}</h2>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {product.code}
                         {product.reference ? ` · ${product.reference}` : ""}
@@ -393,7 +377,7 @@ export function ProductsWorkspace({
                     </div>
                     <Badge variant="outline">{product.type === "goods" ? "Goods" : "Service"}</Badge>
                   </div>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <dl className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <dt className="text-xs text-muted-foreground">Sale price / {product.unit}</dt>
                       <dd className="mt-1 font-medium tabular-nums">
@@ -418,7 +402,16 @@ export function ProductsWorkspace({
             </div>
           ) : (
             <div className="max-w-full overflow-x-auto rounded-xl border border-border bg-card">
-              <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor && loadedScope === scope),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/inventory/views/products-workspace:1" className="w-full min-w-[720px] text-left text-sm">
+              <WorkTable
+                continuation={{
+                  cursor: cursor,
+                  hasMore: !!(cursor && loadedScope === scope),
+                  busy: !!busy,
+                  loadMore: () => void more(),
+                }}
+                tableId="app/features/inventory/views/products-workspace:1"
+                className="w-full min-w-[720px] text-left text-sm"
+              >
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
                     {["Product", "Code", "Type", "Category", "Sale price", "On hand", "Status"].map((label) => (
@@ -454,7 +447,11 @@ export function ProductsWorkspace({
               </WorkTable>
             </div>
           )}
-
+          {view === "grid" && cursor && loadedScope === scope ? (
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void more()}>
+              Load more products
+            </Button>
+          ) : null}
         </>
       )}
     </div>

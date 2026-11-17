@@ -1,5 +1,38 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 — Products creation, compact cards and global company context
+
+- Fixed Inventory's missing transaction-local user context, which hid valid
+  company currencies under runtime RLS and disabled Add New. Product create/edit,
+  automatic codes, currency validation, permissions, idempotency and audit remain.
+  Settings failures retain retry feedback independently of product-list loading.
+- Compacted the existing Product cards and restored grid continuation. Preserved
+  list view, search, filters, stock-state labels, master forms and no-posting rules.
+- Added one real session-company control in the persistent top bar, with loading,
+  retry/error feedback, unsaved-form cancellation and successful-switch record
+  navigation reset. Removed repeated context selectors from Inventory, Purchase
+  and Accounting hierarchy views/forms and repeated context captions in Assets,
+  Taxes and multi-currency views. Business-data company fields remain.
+- Passed **57 unit**, **14 integration** and **11 Chromium** tests, full typecheck,
+  touched-file ESLint/targeted formatting, production builds, theme audit
+  write/check, detector and whitespace checks. The restricted-role regression
+  reproduced the old failure before the fix and verifies revoked/denied access.
+- Live unchanged-account sign-in, Add New in both companies, real company switch,
+  unsaved cancellation and wrong-company HTTP 403 passed. Products list/form passed
+  six light/dark width combinations (1440/768/390px), including an expanded tablet
+  sidebar, with zero Axe violations, overflow, page errors or Inventory failures.
+  Checked seven other workpages for one top-row company control. Visually reviewed
+  desktop/tablet/mobile evidence: `tmp/products-global-company/evidence/`.
+- Localhost uses the guarded compatible source/API with automatic migrations
+  disabled. No credentials, schema, business products or financial records were
+  changed by acceptance; create/save/reload used disposable test data. Full
+  Purchase/Assets activation retains its separate migration gate. No dependency
+  or stylesheet was added/retired. The compatible build retains its earlier eight
+  CSS optimizer warnings; tracked builds have no application build warnings.
+- Exact commands, current build paths and handoff:
+  `docs/superpowers/plans/2026-11-17-products-create-and-global-company.md` and
+  `docs/runbooks/local-startup.md`.
+
 ## 2026-11-17 — Purchase selector default correction
 
 - Fixed the existing Purchase Form's empty product value selecting custom entry

@@ -1,6 +1,7 @@
 # Product creation, compact cards and one company control
 
-Status: Proposed for owner review. No application implementation changes yet.
+Status: Approved by the owner on 17 November 2026; implemented and verified on
+localhost and isolated test data. See the corresponding implementation plan.
 
 ## Requested outcome
 

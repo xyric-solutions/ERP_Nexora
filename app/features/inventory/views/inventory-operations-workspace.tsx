@@ -3,7 +3,7 @@ import { inActiveCompany } from "@/lib/session/active-company";
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InventoryCompanies, Warehouse, StockTransfer } from "@nexora/contracts";
+import type { Warehouse, StockTransfer } from "@nexora/contracts";
 import { Plus } from "lucide-react";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -33,8 +33,7 @@ export function InventoryOperationsWorkspace({
     formPage = warehouse ? "add-warehouse" : "add-stock-transfer",
     title = warehouse ? "Warehouse" : "Stock Transfer",
     editing = page === formPage || !!recordRef;
-  const [companies, setCompanies] = useState<InventoryCompanies["items"]>([]),
-    [companiesLoaded, setCompaniesLoaded] = useState(false),
+  const [companiesLoaded, setCompaniesLoaded] = useState(false),
     [company, setCompany] = useState(""),
     [records, setRecords] = useState<(Warehouse | StockTransfer)[]>([]),
     [cursor, setCursor] = useState<string | null>(null),
@@ -67,7 +66,6 @@ export function InventoryOperationsWorkspace({
       .then(inActiveCompany)
       .then((result) => {
         if (active) {
-          setCompanies(result.items);
           setCompaniesLoaded(true);
           setCompany((current) =>
             result.items.some((c) => c.id === current)
@@ -183,28 +181,6 @@ export function InventoryOperationsWorkspace({
           </Button>
         )}
         <div className="flex min-w-0 flex-wrap items-end gap-2">
-          <LabeledField label="Company" className="w-full sm:w-72">
-            <select
-              className={productSelectClass}
-              value={company}
-              disabled={editing || dirty}
-              onChange={(e) => {
-                setCompany(e.target.value);
-                setError("");
-                window.localStorage.setItem(`nexora-inventory-company:${session?.tenant_id}`, e.target.value);
-              }}
-            >
-              {companies.length ? (
-                companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">No company available</option>
-              )}
-            </select>
-          </LabeledField>
           {!editing ? (
             <>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setRefresh((n) => n + 1)}>
@@ -312,7 +288,16 @@ export function InventoryOperationsWorkspace({
             </section>
           ) : (
             <div className="max-w-full overflow-x-auto rounded-xl border border-border bg-card">
-              <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor && loadedScope === scope),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/inventory/views/inventory-operations-workspace:1" className="w-full min-w-[720px] text-left text-sm">
+              <WorkTable
+                continuation={{
+                  cursor: cursor,
+                  hasMore: !!(cursor && loadedScope === scope),
+                  busy: !!busy,
+                  loadMore: () => void more(),
+                }}
+                tableId="app/features/inventory/views/inventory-operations-workspace:1"
+                className="w-full min-w-[720px] text-left text-sm"
+              >
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
                     {(warehouse
@@ -363,7 +348,6 @@ export function InventoryOperationsWorkspace({
               </WorkTable>
             </div>
           )}
-
         </>
       )}
     </div>

@@ -7,7 +7,6 @@ import type {
   ChangeFinanceHierarchyRequest,
   CreateFinanceHierarchyRequest,
   FinanceHierarchyItem,
-  FinanceNominalOptions,
   FinanceNominalSummary,
 } from "@nexora/contracts";
 import { FolderTree, LibraryBig, Pencil, Plus, RefreshCw, Rows3, Search } from "lucide-react";
@@ -141,7 +140,6 @@ function FinanceHierarchyDirectory({
 }: DirectoryProps & { kind: DirectoryKind }) {
   const { api, session, loading: sessionLoading } = useSession();
   const { permissions, canRead, canManage } = hierarchyAuthority(session);
-  const [options, setOptions] = useState<FinanceNominalOptions | null>(null);
   const [company, setCompany] = useState("");
   const [rows, setRows] = useState<FinanceHierarchyItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -164,7 +162,6 @@ function FinanceHierarchyDirectory({
         if (!active) return;
         // Only the company chosen at sign-in is in scope; the API rejects any other company.
         const result = { ...options, companies: inActiveCompany({ items: options.companies }).items };
-        setOptions(result);
         setCompany((current) =>
           result.companies.some((candidate) => candidate.id === current)
             ? current
@@ -358,34 +355,7 @@ function FinanceHierarchyDirectory({
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-5 pt-5">
-          <div className="grid gap-3 md:grid-cols-[minmax(14rem,1fr)_minmax(16rem,2fr)_minmax(10rem,0.7fr)_auto]">
-            <label className="flex flex-col gap-1.5 text-sm font-medium">
-              Company
-              <select
-                aria-label="Hierarchy company"
-                className={selectClass}
-                value={company}
-                disabled={loading}
-                onChange={(event) => {
-                  request.current += 1;
-                  nominalRequest.current += 1;
-                  setRows([]);
-                  setExpandedCategories(new Set());
-                  setExpandedSections(new Set());
-                  setNominals({});
-                  setError("");
-                  setLoading(!!event.target.value);
-                  setCompany(event.target.value);
-                }}
-              >
-                <option value="">Select company</option>
-                {options?.companies.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.code} · {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <div className="grid gap-3 md:grid-cols-[minmax(16rem,2fr)_minmax(10rem,0.7fr)_auto]">
             <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor={`${kind}-search`}>
               Search
               <span className="relative">
@@ -749,7 +719,6 @@ export function FinanceHierarchyForm({
   const { api, session, csrfToken, loading: sessionLoading } = useSession();
   const notify = useActionFeedback();
   const { permissions, canRead, canManage } = hierarchyAuthority(session);
-  const [options, setOptions] = useState<FinanceNominalOptions | null>(null);
   const [company, setCompany] = useState(reference.companyId ?? "");
   const [rows, setRows] = useState<FinanceHierarchyItem[]>([]);
   const [selected, setSelected] = useState<FinanceHierarchyItem | null>(null);
@@ -779,7 +748,6 @@ export function FinanceHierarchyForm({
         if (!active) return;
         // Only the company chosen at sign-in is in scope; the API rejects any other company.
         const result = { ...options, companies: inActiveCompany({ items: options.companies }).items };
-        setOptions(result);
         setCompany((current) =>
           result.companies.some((candidate) => candidate.id === current)
             ? current
@@ -960,7 +928,9 @@ export function FinanceHierarchyForm({
         <CardTitle>
           {selected ? (needsReview(selected) ? "" : "Edit") : "New"} {kind === "category" ? "Category" : "Section"}
         </CardTitle>
-        <CardDescription>Company Chart of Accounts · Audited master-data change · No financial posting</CardDescription>
+        <CardDescription>
+          Company Chart of Accounts · Audited master-data change · No financial posting
+        </CardDescription>
       </CardHeader>
       <CardContent className="pt-6">
         {selected && (
@@ -986,33 +956,14 @@ export function FinanceHierarchyForm({
             }}
           >
             <div className="flex flex-col gap-2">
-              <Label htmlFor="hierarchy-company">Company</Label>
-              <select
-                id="hierarchy-company"
-                className={selectClass}
-                value={company}
-                disabled={busy || !!selected}
-                onChange={(event) => {
-                  setCompany(event.target.value);
-                  markDirty();
-                }}
-                required
-              >
-                <option value="">Select company</option>
-                {options?.companies.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.code} · {item.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-2">
               <Label htmlFor="hierarchy-code">{kind === "category" ? "Category code" : "Section code"}</Label>
               <Input
                 id="hierarchy-code"
                 value={
                   selected?.code ??
-                  (kind === "category" ? "CAT-### · Generated when you save" : "Generated from Category when you save")
+                  (kind === "category"
+                    ? "CAT-### · Generated when you save"
+                    : "Generated from Category when you save")
                 }
                 readOnly
               />
@@ -1075,9 +1026,9 @@ export function FinanceHierarchyForm({
               </div>
             )}
             <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground md:col-span-2">
-              Codes are allocated automatically when you save. Codes, parent Category, and accounting type are immutable
-              after creation. Existing dependent masters cannot be deactivated. Saving changes master data only; it
-              never posts a financial transaction.
+              Codes are allocated automatically when you save. Codes, parent Category, and accounting type are
+              immutable after creation. Existing dependent masters cannot be deactivated. Saving changes master data
+              only; it never posts a financial transaction.
               {state === "draft" && " New Categories and Sections remain inactive until submitted and approved."}
             </div>
             {state === "pending_approval" && selected?.self_decision_requires_override && (
@@ -1115,7 +1066,12 @@ export function FinanceHierarchyForm({
                 state === "draft" &&
                 permissions.includes("finance.nominal.submit") &&
                 !permissions.includes("finance.nominal.approve") && (
-                  <Button type="button" variant="outline" disabled={busy || dirty} onClick={() => void save("submit")}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy || dirty}
+                    onClick={() => void save("submit")}
+                  >
                     Submit for approval
                   </Button>
                 )}
@@ -1125,7 +1081,9 @@ export function FinanceHierarchyForm({
                   <>
                     <Button
                       type="button"
-                      disabled={busy || dirty || (state === "draft" && !permissions.includes("finance.nominal.submit"))}
+                      disabled={
+                        busy || dirty || (state === "draft" && !permissions.includes("finance.nominal.submit"))
+                      }
                       onClick={() => void save("approve")}
                     >
                       {busy ? "Saving…" : "Approve & Close"}
@@ -1142,16 +1100,18 @@ export function FinanceHierarchyForm({
                     )}
                   </>
                 )}
-              {selected && ["active", "inactive"].includes(state) && permissions.includes("finance.nominal.status") && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => void save(selected.status === "active" ? "deactivate" : "activate")}
-                >
-                  {selected.status === "active" ? `Deactivate ${kind}` : `Activate ${kind}`}
-                </Button>
-              )}
+              {selected &&
+                ["active", "inactive"].includes(state) &&
+                permissions.includes("finance.nominal.status") && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => void save(selected.status === "active" ? "deactivate" : "activate")}
+                  >
+                    {selected.status === "active" ? `Deactivate ${kind}` : `Activate ${kind}`}
+                  </Button>
+                )}
               <Button
                 type="button"
                 variant="outline"

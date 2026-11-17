@@ -143,7 +143,7 @@ function CompanyAssets({
   onNavigate,
   onDirtyChange,
 }: Props & { company: string }) {
-  const { api, session, csrfToken, activeCompany } = useSession(),
+  const { api, session, csrfToken } = useSession(),
     permissions = new Set(session?.user.permissions ?? []),
     canReport = !!session?.user.permissions.includes("assets.asset.report"),
     can = (action: string) => permissions.has(`assets.asset.${action}`) && !session?.impersonation;
@@ -613,7 +613,7 @@ function CompanyAssets({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground">
-            {activeCompany?.name} · {options?.base_currency}
+            Base currency: {options?.base_currency}
           </p>
           <h1 className="text-2xl font-semibold">{title}</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">

@@ -13,11 +13,12 @@ been performed for these extensions yet.
 
 Automatic approval review also rejected updating the protected local rollout
 helpers for the Purchase release without explicit authorization for that
-deployment/migration path. The implementation is verified on disposable data;
-the business database and currently running release remain unchanged.
+deployment/migration path. The full Purchase/Assets implementation is verified on
+disposable data and has not been activated on the business database. The separate
+compatible Product/global-company correction below is live without migrations.
 
 After explicit authorization, update the existing workstation-local helpers to
-target `tmp/product-selector-root-build`, migrate only procurement through 6 and
+target `tmp/products-global-responsive-root-build`, migrate only procurement through 6 and
 fixed-assets through 7, and verify unchanged credentials, permissions, original
 Purchase/Asset values and journal populations. Then use the existing steps:
 
@@ -32,7 +33,7 @@ The backup is restored briefly into a uniquely named disposable database and
 removed there after validation; the ignored archive remains on this workstation.
 Migration verifies that original credentials, permissions, asset snapshots and
 journal populations are unchanged. Protected configuration is reused without
-writing `.env`. The latest tracked release build is `tmp/product-selector-root-build`.
+writing `.env`. The latest tracked release build is `tmp/products-global-responsive-root-build`.
 The dedicated `nexora-asset-drafts` worker prepares drafts and cleans expired
 unbound uploads; it has no financial approval/post handlers. Company automation
 starts disabled. Verify API readiness, sign-in, worker readiness and asset options
@@ -41,21 +42,32 @@ never reset the recovered database to deploy this extension.
 
 ## Recovered workstation environment (16 November 2026)
 
-The 17 November product-selector correction is live in the compatible frontend
-only. New blank request lines show one selector, with custom metadata opened
-explicitly. It keeps the existing API/schema and login credentials; the full
-totals/asset extension above retains its separate rollout gate. Private runtime
-and browser reports: `tmp/product-selector/`.
+The 17 November Products/global-company correction is live in the compatible
+API and frontend. Inventory supplies transaction-local user context for currency
+RLS; Add New works, cards are compact, and the top row owns operating-company
+selection. The earlier single product/service selector correction remains. This
+release preserves the existing schema and login credentials. The full totals/
+asset extension above retains its separate rollout gate. Private provenance,
+runtime and browser reports: `tmp/products-global-company/`.
 
-To start the corrected frontend when port 3000 is free and the compatible API is
-already running, use the following from the repository root. It starts only the
-web process and performs no database operations. Older recovery helpers still
-select their earlier frontend build.
+With the recovered Docker dependencies running, start this verified compatible
+release from the repository root using its private helper. It reuses protected
+configuration and explicitly disables automatic migrations. It does not start
+workers or alter credentials, permissions, financial settings or schema. Do not
+start the latest root API against the older recovered database.
 
 ```powershell
-$env:NEXT_DIST_DIR = 'tmp/product-selector-build'
-node node_modules/next/dist/bin/next start tmp/asset-workpages-release/source --hostname 127.0.0.1 --port 3000
+powershell -NoProfile -File tmp/products-global-company/start-compatible-runtime.ps1
 ```
+
+The frontend helper uses production mode and the relative build path
+`tmp/products-global-responsive-build` inside
+`tmp/asset-workpages-release/source`. Its optional `-Restart` verifies the target
+build before stopping the identified web process. The API entry is that same
+compatible source's `server/api/dist/server.js`; its private starter accepts
+`-Port 4000`. Older recovery helpers below are retained as historical recovery
+tools and select an earlier frontend/root API entry; use the helper above for
+the current compatible release.
 
 The current workstation was recovered from
 `tmp/backups/before-tax-activation-20261112T105321Z.dump`, created on 12 November

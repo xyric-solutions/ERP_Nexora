@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { PassThrough } from "node:stream";
+import { Pool } from "pg";
 import request from "supertest";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDatabasePool, migrateSourceSchema, type DatabasePool } from "../../packages/db/src/index.js";
@@ -544,5 +545,52 @@ suite("Persisted Inventory products", () => {
     await expect(
       pool.query("update organization_unit set name='Unaudited' where tenant_id=$1 and id=$2", [tenant, warehouseA]),
     ).rejects.toMatchObject({ code: "23514" });
+  });
+  it("loads currencies and creates products through a restricted runtime role without leaking user context", async () => {
+    const role = `inventory_rls_${randomUUID().replaceAll("-", "")}`;
+    await pool.query(`create role ${role} nologin nosuperuser nobypassrls`);
+    await pool.query(`grant usage on schema public to ${role}`);
+    await pool.query(`grant select,insert,update,delete on all tables in schema public to ${role}`);
+    await pool.query(`grant usage,select on all sequences in schema public to ${role}`);
+    const target = new URL(bootstrapUrl!);
+    target.pathname = `/${database}`;
+    const restrictedPool = new Pool({ connectionString: target.toString(), options: `-c role=${role}`, max: 1 });
+    const restricted = new SourceInventoryRepository(restrictedPool);
+    try {
+      expect((await restricted.options(ctx, company)).currencies).toContainEqual(
+        expect.objectContaining({ code: "USD" }),
+      );
+      const created = (await restricted.save(ctx, null, input("Restricted runtime product"), key(), key())).record;
+      expect((await restricted.get(ctx, company, created.id)).name).toBe(created.name);
+      const updated = await restricted.save(
+        ctx,
+        created.id,
+        { ...input("Restricted runtime edit"), expected_version: created.version },
+        key(),
+        key(),
+      );
+      expect(updated.record.code).toBe(created.code);
+      expect(updated.record.version).toBe(created.version + 1);
+      const context = await restrictedPool.query("select current_setting('nexora.user_id',true) as user_id");
+      expect(context.rows[0].user_id ?? "").toBe("");
+      expect((await restrictedPool.query("select currency_code from company_currency")).rows).toEqual([]);
+      const denied = { ...ctx, actor: { ...ctx.actor, userId: "unassigned-inventory-user" } };
+      await expect(restricted.options(denied, company)).rejects.toMatchObject({ status: 403 });
+      await expect(restricted.save(denied, null, input(), key(), key())).rejects.toMatchObject({ status: 403 });
+      await expect(restricted.options({ ...ctx, tenantId: "outside-tenant" }, company)).rejects.toMatchObject({
+        status: 403,
+      });
+      expect((await restricted.options(ctx, company)).currencies.length).toBeGreaterThan(0);
+      await pool.query(
+        "update security_user_company_access set revoked_at=now(),revoked_by='r06.last-admin-a',revocation_reason='Restricted Inventory regression: revoke company access' where tenant_id=$1 and company_id=$2 and user_id=$3 and revoked_at is null",
+        [tenant, company, ctx.actor.userId],
+      );
+      await expect(restricted.options(ctx, company)).rejects.toMatchObject({ status: 403 });
+      await expect(restricted.save(ctx, null, input(), key(), key())).rejects.toMatchObject({ status: 403 });
+    } finally {
+      await restrictedPool.end();
+      await pool.query(`drop owned by ${role}`);
+      await pool.query(`drop role ${role}`);
+    }
   });
 });

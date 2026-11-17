@@ -20,7 +20,7 @@ function initials(name: string) {
 
 export function DashboardHeaderControls() {
   const router = useRouter();
-  const { activeCompany, logout, session } = useSession();
+  const { logout, session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
@@ -50,7 +50,6 @@ export function DashboardHeaderControls() {
           <span className="nx-account-menu__identity">
             <strong>{user.display_name}</strong>
             <small>{user.email}</small>
-            {activeCompany ? <small>{activeCompany.name}</small> : null}
           </span>
           <Button
             variant="ghost"

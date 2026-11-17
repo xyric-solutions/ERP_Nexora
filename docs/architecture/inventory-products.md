@@ -6,6 +6,18 @@ Add New. Existing item/create/detail URLs resolve to the corresponding product
 pages. The Warehouse and Stock Transfer work pages have search, pagination,
 Add New and populated creation/edit forms. Other stock prototypes remain hidden.
 
+The operating company is shown once in the persistent ERP top bar. Product,
+warehouse/transfer, Purchase and Accounting hierarchy workpages use that session
+scope without repeating a company selector. Switching uses the authenticated
+company directory and session API, protects unsaved forms and clears record
+navigation after success. Company values that represent business data remain.
+
+Product grid cards use compact spacing and responsive columns. Grid continuation
+has a Load more products action; list continuation retains WorkTable pagination.
+Add New uses real company currency options. Missing settings retain a visible
+retry/setup explanation rather than silently hiding the reason for disabled
+creation. Currency setup is never activated automatically.
+
 One creation/edit form combines the supplied references: identity and sales/
 purchase/manufacture flags, General, Pricing, Inventory and Accounting tabs. It includes
 goods/services, category, unit, reference/barcode, supplier, descriptions, prices,
@@ -43,6 +55,13 @@ role-policy assignment, exact permission and company scope against PostgreSQL.
 The identical existing company-authority SQL is shared with Reference Masters and
 Purchases. Impersonated writes are blocked. Writes require cookie session, CSRF,
 allowed origin, idempotency key, and quoted If-Match on updates.
+
+Inventory sets both authenticated tenant and user transaction-local PostgreSQL
+context. Company currency row-level security requires the user context as well
+as non-revoked company access. This fixes empty currency options and failed
+product saves under the restricted runtime database role without broadening
+permissions or bypassing RLS. Regression coverage uses a non-owner, non-bypass-RLS
+role and verifies create/edit, denied/revoked access and connection-context cleanup.
 
 Warehouse master reads/saves reuse `inventory.bin.read` / `inventory.bin.create`.
 Transfer draft reads use `inventory.stock.read`; saves require both currently

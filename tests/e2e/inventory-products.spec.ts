@@ -10,6 +10,8 @@ import { createApp } from "../../server/api/src/app.js";
 import { SourceInventoryRepository } from "../../server/api/src/modules/inventory/source-repository.js";
 import { SourceProcurementRepository } from "../../server/api/src/modules/procurement/source-repository.js";
 import { SourceReferenceMasterRepository } from "../../server/api/src/modules/master-data/source-repository.js";
+import { SourceTenantAuthenticationRepository } from "../../server/api/src/modules/auth/source-repository.js";
+import AxeBuilder from "@axe-core/playwright";
 import type { TenantAuthApiService, TenantSessionApiService } from "../../server/api/src/modules/auth/tenant-router.js";
 import {
   ensureSourceAuthorizationFixture,
@@ -119,6 +121,7 @@ test.describe("Persisted Inventory product catalog", () => {
       tenantId: tenant,
       userId: account.userId,
       sessionId: "inventory-maker",
+      activeCompanyId: company,
       csrfToken: "c".repeat(43),
       idleExpiresAt: new Date("2099-01-01T00:00:00Z"),
       absoluteExpiresAt: new Date("2099-01-01T00:00:00Z"),
@@ -147,6 +150,7 @@ test.describe("Persisted Inventory product catalog", () => {
       readiness: {},
       authService: authentication,
       sessionService: sessions,
+      sessionCompanies: new SourceTenantAuthenticationRepository(pool),
       inventoryRepository: products,
     });
     server = createServer(app);
@@ -176,6 +180,8 @@ test.describe("Persisted Inventory product catalog", () => {
   test("creates, reloads and edits the combined form with real persistence", async ({ page }) => {
     await page.goto("/#/inventory/products");
     await expect(page.getByText("30 products loaded", { exact: true })).toBeVisible();
+    await expect(page.locator("header.nx-topbar").getByLabel("Company", { exact: true })).toBeVisible();
+    await expect(page.locator("main .nx-content").getByLabel("Company", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Load more products", exact: true }).click();
     await expect(page.getByText("36 products", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Add New", exact: true }).first().click();
@@ -348,6 +354,7 @@ test.describe("Persisted Inventory product catalog", () => {
       test(`${theme} products and form at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await page.addInitScript((theme) => {
+          localStorage.setItem("nexora-prototype-preferences-v2", JSON.stringify({ sidebarCollapsed: false }));
           localStorage.setItem("nexora-theme", theme);
           document.documentElement.dataset.theme = theme;
         }, theme);
@@ -356,8 +363,20 @@ test.describe("Persisted Inventory product catalog", () => {
         await expect(page.getByRole("heading", { name: /Catalog item/ }).first()).toBeVisible();
         await page.evaluate((theme) => {
           document.documentElement.dataset.theme = theme;
+          document.documentElement.classList.toggle("dark", theme === "dark");
           window.scrollTo(0, 0);
         }, theme);
+        const card = page
+          .getByRole("heading", { name: /Catalog item/ })
+          .first()
+          .locator("..")
+          .locator("..")
+          .locator("..");
+        const bounds = await card.boundingBox();
+        expect(bounds!.height).toBeLessThan(190);
+        if (width === 1440) expect(bounds!.width).toBeLessThan(300);
+        await expect(page.locator("header.nx-topbar").getByLabel("Company", { exact: true })).toBeVisible();
+        expect((await new AxeBuilder({ page }).include("main").analyze()).violations).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
         await page.screenshot({
           path: `tmp/inventory-products-evidence/${theme}-${width}-products.png`,
