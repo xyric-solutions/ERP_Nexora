@@ -426,17 +426,13 @@ test.describe("Persisted Inventory product catalog", () => {
         await page.setViewportSize({ width, height: 900 });
         await page.addInitScript((theme) => {
           localStorage.setItem("nexora-prototype-preferences-v2", JSON.stringify({ sidebarCollapsed: false }));
-          localStorage.setItem("nexora-theme", theme);
+          localStorage.setItem("nexora-theme-preference-v1", theme);
           document.documentElement.dataset.theme = theme;
         }, theme);
         await page.goto("/#/inventory/products");
         await expect(page.getByRole("heading", { name: "Products", exact: true })).toBeVisible();
         await expect(page.getByRole("heading", { name: /Catalog item/ }).first()).toBeVisible();
-        await page.evaluate((theme) => {
-          document.documentElement.dataset.theme = theme;
-          document.documentElement.classList.toggle("dark", theme === "dark");
-          window.scrollTo(0, 0);
-        }, theme);
+        await page.evaluate(() => window.scrollTo(0, 0));
         const card = page
           .getByRole("heading", { name: /Catalog item/ })
           .first()
@@ -444,8 +440,15 @@ test.describe("Persisted Inventory product catalog", () => {
           .locator("..")
           .locator("..");
         const bounds = await card.boundingBox();
-        expect(bounds!.height).toBeLessThan(190);
-        if (width === 1440) expect(bounds!.width).toBeLessThan(300);
+        expect(bounds!.height).toBeLessThan(150);
+        if (width >= 768) expect(bounds!.width).toBeLessThanOrEqual(224);
+        const filters = await page.getByRole("region", { name: "Product filters", exact: true }).boundingBox();
+        expect(bounds!.y - (filters!.y + filters!.height)).toBeLessThan(55);
+        if (width === 1440) {
+          const title = await page.getByRole("heading", { name: "Products", exact: true }).boundingBox();
+          const add = await page.getByRole("button", { name: "Add New", exact: true }).first().boundingBox();
+          expect(Math.abs(title!.y + title!.height / 2 - add!.y - add!.height / 2)).toBeLessThan(12);
+        }
         await expect(page.locator("header.nx-topbar").getByLabel("Company", { exact: true })).toBeVisible();
         expect((await new AxeBuilder({ page }).include("main").analyze()).violations).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

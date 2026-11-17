@@ -1,5 +1,33 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Products spacing and card size follow-up
+
+- Corrected inherited browser margins on Products headings, descriptions, result
+  counts and price details; Tailwind Preflight remains intentionally disabled.
+- Title, description and actions share a compact wrapping row. Filters use 36px
+  controls and smaller gaps. Desktop cards stay 224px wide and wrap; phone cards
+  fill the available width. The existing live product measures 224 x 118px on
+  desktop, with 40px from the filter bottom to the first card.
+- Preserved real product data, Add New/detail navigation, filters, grid/list modes,
+  pagination, permissions, currency setup and global company behavior. No API,
+  schema, credentials, financial calculations or stylesheets changed.
+- Verification: four Products unit tests and all 13 Inventory Chromium tests pass.
+  Existing responsive regressions now enforce smaller card dimensions, compact
+  result spacing and desktop title/action alignment. Theme tests initialize the
+  saved preference before rendering. Six live light/dark width checks pass Axe
+  and document-overflow checks; Add New works in both companies, unchanged login
+  succeeds and Unit of Measure conversion remains available.
+- Typecheck, touched-file ESLint/Prettier, theme audit write/check and diff check
+  pass. Tracked and compatible production web builds pass; the latter retains
+  its existing 11 generated-cache CSS optimization warnings.
+- Browser evidence: `tmp/products-compact/` and the existing Inventory E2E
+  evidence folders. Localhost now serves build `xjdFtz8TEJaJvK1GNm_8w` from
+  `tmp/products-compact-build` inside the current compatible source. The API
+  process is unchanged. Guarded startup reads this build from the runtime
+  manifest; the previous build remains available.
+- Safe resume: keep this compact layout and use the current compatible starter
+  in the local runbook. Any future Purchase/Assets rollout remains separate.
+
 ## 2026-11-17 — Inventory Unit of Measure
 
 - Added the Unit of Measure submenu, compact searchable directory, one Add New Unit

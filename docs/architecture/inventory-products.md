@@ -12,7 +12,11 @@ scope without repeating a company selector. Switching uses the authenticated
 company directory and session API, protects unsaved forms and clears record
 navigation after success. Company values that represent business data remain.
 
-Product grid cards use compact spacing and responsive columns. Grid continuation
+The Products title, description and actions share a compact wrapping header.
+Filters use smaller controls and gaps. Card headings, paragraphs and price details
+explicitly reset browser margins because Tailwind Preflight is disabled during
+the migration. Cards wrap at a stable 224px desktop width and fill the available
+width on phones; a small catalogue no longer stretches its cards. Grid continuation
 has a Load more products action; list continuation retains WorkTable pagination.
 Add New uses real company currency options. Missing settings retain a visible
 retry/setup explanation rather than silently hiding the reason for disabled
