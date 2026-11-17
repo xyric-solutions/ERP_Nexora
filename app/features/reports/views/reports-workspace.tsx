@@ -1,7 +1,7 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useId } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { prototypeModules } from "@prototype/shell/config/prototype-data";
@@ -25,8 +25,8 @@ const reportEntries = reportGroups.flatMap((group) => group.pages.map((page) => 
 const domainCopy: Readonly<Record<string, { description: string; metrics: readonly [string, string, string, string] }>> = {
   "sales-reports": { description: "Revenue, orders, invoices, returns, margins and customer performance.", metrics: ["$1.84M invoiced", "$1.46M collected", "$378K outstanding", "7.8% margin variance"] },
   "customer-reports": { description: "Statements, ageing, advances, credit exposure and receipt allocation.", metrics: ["$378K outstanding", "$42K overdue", "$86K advances", "38 debtor days"] },
-  "purchase-reports": { description: "Requisitions through payment, including price and matching exceptions.", metrics: ["$916K ordered", "$742K received", "$64K unmatched", "4.6 days lead variance"] },
-  "supplier-reports": { description: "Statements, liabilities, advances and supplier delivery performance.", metrics: ["$294K payable", "$71K due this week", "$38K advances", "94.2% on-time"] },
+  "purchase-reports": { description: "Requisitions through payment, including price and matching exceptions.", metrics: ["Company records", "Source-linked documents", "Accounting status", "Currency totals"] },
+  "supplier-reports": { description: "Statements, liabilities, advances and supplier delivery performance.", metrics: ["Posted AP balances", "Native currencies", "Independent approval", "Source drill-down"] },
   "inventory-reports": { description: "Balances, valuation, movement, ageing, shortages and count variance.", metrics: ["$2.36M stock value", "$184K slow moving", "23 reorder alerts", "98.7% count accuracy"] },
   "finance-reports": { description: "Ledgers, statements, journals, budgets, ratios and accounting controls.", metrics: ["$4.72M assets", "$1.18M liabilities", "$612K net profit", "99.4% posted"] },
   "manufacturing-reports": { description: "Output, WIP, consumption, efficiency, scrap and production variance.", metrics: ["92.4% attainment", "$486K WIP", "3.1% scrap", "87.6% utilisation"] },
@@ -54,6 +54,7 @@ function groupMetrics(groupId: string) {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- retained as a rollback reference during prototype review.
 function LegacyCatalogue({ context, onNavigate, onAction }: ReportsWorkspaceProps) {
+  const searchId=useId();
   const [query, setQuery] = useState("");
   const [favouritesOnly, setFavouritesOnly] = useState(false);
   const [favourites, setFavourites] = useState<Set<string>>(new Set(["sales-reports", "finance-reports", "inventory-reports"]));
@@ -86,7 +87,7 @@ function LegacyCatalogue({ context, onNavigate, onAction }: ReportsWorkspaceProp
       </header>
 
       <section className="nx-report-centre__assurance" aria-label="Prototype notice">
-        <span>MOCK REVIEW</span>
+        <span>REPORT COVERAGE</span>
         <p>Figures are presentation fixtures. Every report demonstrates filtering and source drill-down without reading Demo Account data.</p>
       </section>
 
@@ -98,9 +99,9 @@ function LegacyCatalogue({ context, onNavigate, onAction }: ReportsWorkspaceProp
       </section>
 
       <section className="nx-report-centre__toolbar" aria-label="Report catalogue filters">
-        <label className="nx-report-centre__search">
+        <label htmlFor={searchId} className="nx-report-centre__search">
           <span>Search reports</span>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, customer statement, ageing, variance..." />
+          <Input id={searchId} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, customer statement, ageing, variance..." />
         </label>
         <label><span>Access</span><select><option>My permitted reports</option><option>Shared with me</option><option>Created by me</option></select></label>
         <button className={`nx-report-centre__favourite-toggle${favouritesOnly ? " is-active" : ""}`} type="button" aria-pressed={favouritesOnly} onClick={() => setFavouritesOnly((value) => !value)}>★ Favourites</button>
@@ -144,6 +145,7 @@ function LegacyCatalogue({ context, onNavigate, onAction }: ReportsWorkspaceProp
 }
 
 function Catalogue({ context, onNavigate, onAction }: ReportsWorkspaceProps) {
+  const searchId=useId();
   const [query, setQuery] = useState("");
   const [selectedGroupId, setSelectedGroupId] = useState("favourites");
   const [favourites, setFavourites] = useState<Set<string>>(new Set([
@@ -187,14 +189,14 @@ function Catalogue({ context, onNavigate, onAction }: ReportsWorkspaceProps) {
       </header>
 
       <section className="nx-report-centre__assurance" aria-label="Prototype notice">
-        <span>MOCK REVIEW</span>
-        <p>Figures are presentation fixtures. Reports demonstrate filters and source drill-down without reading Demo Account data.</p>
+        <span>REPORT COVERAGE</span>
+        <p>Banking, Purchase and Supplier reports read company records. Other report collections may still contain prototype views.</p>
       </section>
 
       <section className="nx-report-centre__toolbar nx-report-centre__toolbar--browser" aria-label="Report catalogue filters">
-        <label className="nx-report-centre__search">
+        <label htmlFor={searchId} className="nx-report-centre__search">
           <span>Search any report</span>
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, statement, ageing, tax, variance..." />
+          <Input id={searchId} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Invoice, statement, ageing, tax, variance..." />
         </label>
         <label><span>Access</span><select><option>My permitted reports</option><option>Shared with me</option><option>Created by me</option></select></label>
         <Button variant="outline" className={`nx-report-centre__favourite-toggle${selectedGroupId === "favourites" && !query ? " is-active" : ""}`} type="button" onClick={() => { setQuery(""); setSelectedGroupId("favourites"); }}>{"\u2605"} Favourites</Button>

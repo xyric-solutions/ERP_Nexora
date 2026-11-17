@@ -1,7 +1,10 @@
 # Purchase payments, Bank posting and connected reports
 
-Status: Proposed for owner review on 18 November 2026. Audit complete; financial
-implementation and live rollout have not started.
+Status: Owner-approved design implemented and verified on 18 November 2026.
+The local business database and port 3000/4000 services remain on the prior
+release pending the renewed release-scope clarification. Existing payments have
+not been posted. Finance permissions and explicit supplier links remain setup
+prerequisites; this work does not grant roles or create supplier master records.
 
 ## Confirmed incident
 

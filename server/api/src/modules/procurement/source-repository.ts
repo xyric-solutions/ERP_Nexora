@@ -1,3 +1,5 @@
+import { purchaseReservationSql } from "./accounting-projection.js";
+import { purchaseAvailableAmount } from "@nexora/contracts";
 import { resolveTax, TaxError } from "../finance/taxes/resolver.js";
 import { productUnitChoices, productUnitSnapshot } from "../inventory/units-repository.js";
 import { InventoryError } from "../inventory/errors.js";
@@ -110,11 +112,13 @@ const documentProjection = `d.id,d.company_id,d.kind,d.code,d.supplier_id,d.appr
  to_char(d.bill_date,'YYYY-MM-DD') as bill_date,d.payment_term,
  d.currency,d.reference,d.notes,d.lines,d.discount_amount::text,d.additional_charges,d.allocations,d.payment_details,d.total_amount::text,d.state,d.row_version as version,
  d.created_by,d.updated_by,d.created_at::text,d.updated_at::text,s.name as supplier_name,source.code as source_code,
- coalesce((select sum((a->>'amount')::numeric+coalesce((a->>'discount')::numeric,0)) from procurement_document payment cross join lateral jsonb_array_elements(payment.allocations) a
- where payment.tenant_id=d.tenant_id and payment.company_id=d.company_id and payment.state='approved' and payment.kind in ('payment','multi_payment') and payment.allocations @> jsonb_build_array(jsonb_build_object('bill_id',d.id)) and a->>'bill_id'=d.id),0)::numeric(20,2)::text as reserved_amount`;
+ ${purchaseReservationSql()}::numeric(20,2)::text as reserved_amount,
+ coalesce((select sum(e.foreign_delta) from finance_subledger_item i join finance_subledger_item_event e on e.tenant_id=i.tenant_id and e.company_id=i.company_id and e.item_id=i.id where i.tenant_id=d.tenant_id and i.company_id=d.company_id and i.source_document_id=d.id and i.side='payable'),d.total_amount)::text as outstanding_amount,
+ financial.id as finance_operation_id,financial.state as finance_state,financial.journal_id as finance_journal_id`;
 const documentJoins = `from procurement_document d left join procurement_supplier s on s.tenant_id=d.tenant_id and s.company_id=d.company_id and s.id=d.supplier_id
  left join security_user_account approver on approver.tenant_id=d.tenant_id and approver.id=d.approver_id
- left join procurement_document source on source.tenant_id=d.tenant_id and source.company_id=d.company_id and source.id=d.source_id`;
+ left join procurement_document source on source.tenant_id=d.tenant_id and source.company_id=d.company_id and source.id=d.source_id
+ left join lateral (select op.id,case when exists(select 1 from finance_subledger_operation r where r.tenant_id=op.tenant_id and r.company_id=op.company_id and r.type='reversal' and r.state='posted' and r.payload->>'operation_id'=op.id) then 'reversed' else op.state end as state,op.journal_id from finance_subledger_operation op where op.tenant_id=d.tenant_id and op.company_id=d.company_id and op.payload->>'source_document_id'=d.id and op.type in ('recognition','purchase_payment') order by (op.state='posted') desc,op.created_at limit 1) financial on true`;
 
 export class SourceProcurementRepository {
   constructor(
@@ -169,10 +173,16 @@ export class SourceProcurementRepository {
       if (company && !authority.rowCount)
         fail("Purchase access is not available for this company.", "COMPANY_ACCESS_DENIED", 403);
       // Serialize approval consumption and edits per company, including partial receipts and payment allocations.
-      if (write)
+      if (write) {
+        // Same lock order as AP posting: availability and instruction reservations
+        // cannot be approved against a concurrently changing financial balance.
+        await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+          `subledger:${context.tenantId}:${company}`,
+        ]);
         await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
           `procurement:${context.tenantId}:${company}`,
         ]);
+      }
       const result = await work(client);
       await client.query("commit");
       return result;
@@ -272,7 +282,7 @@ export class SourceProcurementRepository {
         ).rows,
         bank_accounts: banks.rows,
         can_self_approve: canSelfApprove,
-        execution_mode: "instruction_only" as const,
+        execution_mode: "finance_linked" as const,
       };
     });
   }
@@ -845,7 +855,12 @@ export class SourceProcurementRepository {
           }
         }
         if (parsed.kind === "request") {
-          for (const line of lines) { if (!line.product_id) {delete line.unit_id;delete line.unit_snapshot;} }
+          for (const line of lines) {
+            if (!line.product_id) {
+              delete line.unit_id;
+              delete line.unit_snapshot;
+            }
+          }
           const productIds = [...new Set(lines.flatMap((line) => (line.product_id ? [line.product_id] : [])))];
           if (productIds.length) {
             const products = await client.query<{ id: string; code: string; name: string; uom: string }>(
@@ -855,21 +870,24 @@ export class SourceProcurementRepository {
             );
             if (products.rows.length !== productIds.length)
               fail("A selected product is inactive or unavailable in this company.", "PURCHASE_PRODUCT_INELIGIBLE");
-            const unitChoices = await productUnitChoices(client,context.tenantId,parsed.company_id,productIds);
+            const unitChoices = await productUnitChoices(client, context.tenantId, parsed.company_id, productIds);
             for (const line of lines) {
               const product = products.rows.find((item) => item.id === line.product_id);
               if (product) {
                 line.item_code = product.code;
                 line.product_name = product.name;
                 try {
-                  const snapshot = productUnitSnapshot(unitChoices.get(product.id)!,line.quantity,line.unit_id);
-                  if ((line.create_fixed_asset || line.asset_registration) && snapshot.unit_id!==snapshot.base_unit_id)
+                  const snapshot = productUnitSnapshot(unitChoices.get(product.id)!, line.quantity, line.unit_id);
+                  if (
+                    (line.create_fixed_asset || line.asset_registration) &&
+                    snapshot.unit_id !== snapshot.base_unit_id
+                  )
                     fail("Individual fixed asset registration requires the product's base unit.");
                   line.uom = snapshot.unit_name;
                   line.unit_id = snapshot.unit_id;
                   line.unit_snapshot = snapshot;
                 } catch (error) {
-                  if (error instanceof InventoryError) fail(error.message,error.code,error.status);
+                  if (error instanceof InventoryError) fail(error.message, error.code, error.status);
                   throw error;
                 }
               }
@@ -1371,11 +1389,24 @@ export class SourceProcurementRepository {
         const sourceLine = source.lines.find((item) => item.id === line.source_line_id);
         if (!sourceLine) fail("Every line must reference a line on the selected source.");
         if (sourceLine.unit_snapshot) {
-          const converted = convertUnitQuantity(line.quantity,sourceLine.unit_snapshot,sourceLine.unit_snapshot.base_precision);
-          const entered = convertUnitQuantity(line.quantity,{numerator:"1",denominator:"1"},sourceLine.unit_snapshot.unit_precision);
-          if (!entered.exact || !converted.exact || !/[1-9]/.test(converted.quantity)) fail("The source unit conversion cannot represent this quantity exactly.");
+          const converted = convertUnitQuantity(
+            line.quantity,
+            sourceLine.unit_snapshot,
+            sourceLine.unit_snapshot.base_precision,
+          );
+          const entered = convertUnitQuantity(
+            line.quantity,
+            { numerator: "1", denominator: "1" },
+            sourceLine.unit_snapshot.unit_precision,
+          );
+          if (!entered.exact || !converted.exact || !/[1-9]/.test(converted.quantity))
+            fail("The source unit conversion cannot represent this quantity exactly.");
           line.unit_id = sourceLine.unit_snapshot.unit_id;
-          line.unit_snapshot = {...sourceLine.unit_snapshot,entered_quantity:line.quantity,base_quantity:converted.quantity};
+          line.unit_snapshot = {
+            ...sourceLine.unit_snapshot,
+            entered_quantity: line.quantity,
+            base_quantity: converted.quantity,
+          };
         } else {
           delete line.unit_id;
           delete line.unit_snapshot;
@@ -1461,10 +1492,9 @@ export class SourceProcurementRepository {
       )
         fail("Payments require approved bills in the selected company and currency.", "PAYMENT_BILL_INELIGIBLE");
       vendors.add(bill.supplier_id);
-      const reserved = committing ? scaled(bill.reserved_amount, 2) : 0n;
       if (
         scaled(allocation.amount, 2) + scaled(allocation.discount ?? "0", 2) >
-        scaled(bill.total_amount, 2) - reserved
+        scaled(purchaseAvailableAmount({...bill,reserved_amount:committing?bill.reserved_amount:"0"}),2)
       )
         fail("The amount exceeds the bill amount available for payment instructions.", "PAYMENT_ALLOCATION_EXCEEDED");
       total += scaled(allocation.amount, 2);

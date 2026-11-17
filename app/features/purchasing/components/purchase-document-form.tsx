@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   savePurchaseRequestSchema,
   purchaseTotals,
+  purchaseAvailableAmount,
   inheritPurchaseAdjustments,
   formatPurchaseMoney,
   scaled,
@@ -41,6 +42,7 @@ import { purchaseStateLabels } from "../model/purchase-flow";
 import { paymentEntries, PurchasePaymentDetailsForm } from "./purchase-payment-details";
 import { PurchaseBillDetailsForm } from "./purchase-bill-details";
 import { PurchaseAssetDetailsDialog } from "@/features/fixed-assets/components/purchase-asset-details-dialog";
+import { PurchaseAccounting } from "./purchase-accounting";
 
 const CUSTOM_PRODUCT_VALUE = "__custom_product__";
 const newLine = (): PurchaseLine => ({
@@ -285,8 +287,8 @@ export function PurchaseDocumentForm({
               id: `line-${crypto.randomUUID()}`,
               source_line_id: kind === "bill" && source.kind === "receipt" ? line.source_line_id : (line.id ?? null),
             })),
-        allocations: payment
-          ? [{ bill_id: source.id, amount: money(scaled(source.total_amount, 2) - scaled(source.reserved_amount, 2)) }]
+        allocations: payment && purchaseAvailableAmount(source) !== "0.00"
+          ? [{ bill_id: source.id, amount: purchaseAvailableAmount(source) }]
           : [],
       }));
     },
@@ -1311,7 +1313,7 @@ export function PurchaseDocumentForm({
                 <tbody>
                   {paymentBills.map((bill) => {
                     const allocation = input.allocations.find((item) => item.bill_id === bill.id);
-                    const available = money(scaled(bill.total_amount, 2) - scaled(bill.reserved_amount, 2));
+                    const available = purchaseAvailableAmount(bill);
                     return (
                       <tr
                         key={bill.id}
@@ -2133,18 +2135,8 @@ export function PurchaseDocumentForm({
             : "Approval matches this bill to the approved order and products already received. It does not post an accounts-payable journal."}
         </p>
       ) : null}
-      {record?.kind === "bill" &&
-        record.state === "approved" &&
-        session?.user.permissions.includes("finance.subledger.manage") && (
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy || dirty}
-            onClick={() => onNavigate("supplier-currency-accounts", record.id)}
-          >
-            Prepare bill accounting
-          </Button>
-        )}
+      {record?.state === "approved" && (record.kind === "bill" || payment) ?
+        <PurchaseAccounting key={`${record.id}:${record.version}`} record={record} disabled={busy||dirty} onReview={()=>onNavigate("supplier-currency-accounts",record.id)}/>:null}
       {payment ? (
         <p className="m-0 text-xs text-muted-foreground">
           This is a payment instruction. Approval reserves these allocations; it does not transfer funds or mark the

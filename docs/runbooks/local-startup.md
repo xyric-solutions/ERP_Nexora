@@ -1,44 +1,49 @@
 # Local startup (Windows)
 
-## Purchase adjustments and Integrated Fixed Assets — pending local rollout approval
+## Purchase / Bank integration — verified source, activation pending (18 November 2026)
 
-The integrated extension is implemented and verified on disposable test data.
-The running recovered service still uses the prior deployed version. The new API
-requires procurement migration **0006** and fixed-assets migrations **0003–0007**
-before restart. Do not restart the latest API against the older recovered schema.
-Automatic approval review requires the owner's explicit authorization to copy
-the business database into ignored `tmp/backups` and a disposable local database
-for restore verification. No such backup, migration or service replacement has
-been performed for these extensions yet.
+The approved bridge and reports are implemented. The running business services
+on ports 3000/4000 still use the compatible Unit of Measure release below. A
+renewed release-scope question is pending: push source only, or also activate the
+local database/API/web release. Do not interpret silence as activation approval.
+No existing Purchase instructions were financially posted or supplier parties
+created; credentials, company roles, July 2026–June 2027 and twelve Open periods
+are unchanged.
 
-Automatic approval review also rejected updating the protected local rollout
-helpers for the Purchase release without explicit authorization for that
-deployment/migration path. The full Purchase/Assets implementation is verified on
-disposable data and has not been activated on the business database. The separate
-compatible Product/global-company correction below is live without migrations.
+The final additive schema chain was verified against a restored local backup:
+Finance 39 → 40, Procurement 5 → 6 → 7, Fixed Assets 2 → 3–7; Inventory stays 3.
+All 325 pre-existing table fingerprints were preserved. Do not start the latest
+API against the older business schema. Automatic migrations remain disabled.
+No live migration or service replacement has occurred for these extensions.
 
-After explicit authorization, update the existing workstation-local helpers to
-target `tmp/products-global-responsive-root-build`, migrate only procurement through 6 and
-fixed-assets through 7, and verify unchanged credentials, permissions, original
-Purchase/Asset values and journal populations. Then use the existing steps:
+Local-only evidence and protected helpers are under
+`tmp/purchase-bank-integration/`; backups stay under ignored `tmp/backups/`.
+`backup-verification.json` records the archive checksum, exact migration hashes,
+restore check and data preservation. The preview was checked on ports 3300/4100
+against that restored database, preserving real browser Origin checks. It was
+stopped after verification. Preview acceptance
+does not alter the live API origin policy. Preview records are not production
+posting evidence. Do not use a test-database initializer on the business database.
 
-```powershell
-powershell -NoProfile -File tmp/fixed-assets/backup-before-rollout.ps1
-powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Migrate
-powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Start -Restart
-powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Verify
-```
+Before activation, confirm the selected scope, revalidate candidate source/build
+and migration hashes, stop only the identified old services, apply the exact
+verified chain and start the pinned candidate with protected configuration.
+Check health, sign-in, roles, fiscal periods, original Purchase/Bank values and
+read-only reports. Keep additive migrations if reverting the application; never
+overwrite business evidence with the rehearsal database.
 
-The backup is restored briefly into a uniquely named disposable database and
-removed there after validation; the ignored archive remains on this workstation.
-Migration verifies that original credentials, permissions, asset snapshots and
-journal populations are unchanged. Protected configuration is reused without
-writing `.env`. The latest tracked release build is `tmp/products-global-responsive-root-build`.
-The dedicated `nexora-asset-drafts` worker prepares drafts and cleans expired
-unbound uploads; it has no financial approval/post handlers. Company automation
-starts disabled. Verify API readiness, sign-in, worker readiness and asset options
-after restart. Preserve the earlier recovery helpers/configuration for reference;
-never reset the recovered database to deploy this extension.
+Purchase approval remains commercial approval. An authorized Finance user must
+link each real supplier, configure AP/tax/discount/advance mappings as applicable,
+prepare Bill recognition, obtain independent approval and post it before payment
+settlement. Preparing a Purchase payment creates one linked accounting draft;
+its final governed post creates one journal and Bank credit atomically. Missing
+company-scoped Finance permissions remain explicit setup blockers. Startup and
+verification never grant roles or post historical instructions.
+
+The earlier Purchase discount/freight and integrated Fixed Assets extensions are
+included in the candidate and its required migration chain. Their old rollout
+commands are superseded by this verified chain; they have not been activated on
+the business database. See the [implementation and checks](../superpowers/plans/2026-11-18-purchase-bank-reporting-integration.md).
 
 ## Unit of Measure release (17 November 2026)
 

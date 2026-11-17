@@ -162,6 +162,7 @@ import { MultiCurrencyWorkspace } from "@prototype/features/finance/views/multi-
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
 import { RecordPreviewDrawer } from "@prototype/features/commerce/components/record-preview-drawer";
 import { isReportsWorkspacePage, ReportsWorkspace } from "@prototype/features/reports/views/reports-workspace";
+import { ConnectedReportView, isConnectedReport } from "@prototype/features/reports/views/connected-report";
 import {
   isManufacturingMaturityPage,
   ManufacturingWorkspace,
@@ -3166,6 +3167,9 @@ function PrototypeContentBody(props: PrototypeContentProps) {
   }
   if (context.moduleId === "assets" || (context.moduleId === "reports" && ["asset-register-report","asset-depreciation-report"].includes(context.pageId))) {
     return <FixedAssetsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+  }
+  if (context.moduleId === "reports" && isConnectedReport(context.pageId)) {
+    return <ConnectedReportView key={context.pageId} report={context.pageId} title={context.pageLabel} onNavigate={props.onNavigate}/>;
   }
   if (context.moduleId === "reports" && isReportsWorkspacePage(context.pageId)) {
     return <ReportsWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;

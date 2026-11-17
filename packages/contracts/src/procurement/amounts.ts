@@ -1,4 +1,17 @@
 // Decimal transport helpers shared by the API and its client-side preview.
+import { decimal } from "../finance/exact-money.js";
+
+/** Source forms accept cents. Floor a higher-precision AP remainder so a form
+ * never offers more than is actually outstanding after other reservations. */
+export function purchaseAvailableAmount(document: {
+  total_amount: string;
+  reserved_amount: string;
+  outstanding_amount?: string | undefined;
+}) {
+  const available =
+    decimal(document.outstanding_amount ?? document.total_amount, 8) - decimal(document.reserved_amount, 8);
+  return money(available > 0n ? available / 1000000n : 0n);
+}
 export function scaled(value: string, places: number): bigint {
   if (!new RegExp(`^\\d+(\\.\\d{1,${places}})?$`).test(value)) throw new RangeError("Enter a valid decimal amount.");
   const [whole, fraction = ""] = value.split(".");

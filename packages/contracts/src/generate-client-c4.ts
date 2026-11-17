@@ -15,7 +15,7 @@ const openApi = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
 const client = await format(
   `import type {AssetOptions,AssetWorkspace,AssetDashboard,AssetSources,AssetDetail,AssetCategoryInput,AssetCategory,AssetCreate,FixedAsset,AssetUpdate,AssetAction,AssetEventInput,AssetEvent,AssetEventAction,AssetDepreciationInput,AssetDepreciationRun,AssetDepreciationAction,AssetAttachment,AssetAttachmentInput,AssetCompanyPolicyInput,AssetCompanyPolicy,AssetValuation} from "@nexora/contracts";
 import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions} from "@nexora/contracts";
-import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction} from "@nexora/contracts";
+import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
 import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
 import type {CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrPersonalCorrectionWorkspace,HrReportGovernanceAction,HrReportGovernanceWorkspace,HrReportGovernanceResult} from '@nexora/contracts';
 import type {CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -1294,6 +1294,10 @@ export class NexoraApiClient {
   createTax(payload:TaxInput,csrfToken:string,idempotencyKey:string):Promise<TaxDetail> {return this.request("/api/v1/finance/taxes",{method:"POST",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey},body:JSON.stringify(payload)});}
   updateTax(id:string,payload:TaxUpdate,csrfToken:string,idempotencyKey:string):Promise<TaxDetail> {return this.request("/api/v1/finance/taxes/"+encodeURIComponent(id),{method:"PATCH",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
   changeTaxStatus(id:string,payload:TaxStatus,csrfToken:string,idempotencyKey:string):Promise<TaxDetail> {return this.request("/api/v1/finance/taxes/"+encodeURIComponent(id)+"/status",{method:"POST",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  preparePurchaseAccounting(id: string, payload: PurchaseAccountingPrepare, csrfToken: string, idempotencyKey: string): Promise<SubledgerOperation> {
+    return this.request("/api/v1/finance/subledger/purchase/" + encodeURIComponent(id) + "/prepare", {method:"POST", headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});
+  }
+  getConnectedReport(query: string): Promise<ConnectedReport> { return this.request("/api/v1/finance/subledger/connected-reports" + query); }
   getSubledgerWorkspace(query: string): Promise<SubledgerWorkspace> { return this.request("/api/v1/finance/subledger/workspace" + query); }
   getSubledgerReport(query: string): Promise<SubledgerReport> { return this.request("/api/v1/finance/subledger/reports" + query); }
   createSubledgerParty(payload: SubledgerPartyInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerParty> {

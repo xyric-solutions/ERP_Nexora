@@ -1103,7 +1103,7 @@ run("persistent multi-currency customer/vendor accounting", () => {
           expect.objectContaining({ accountId: taxAccount, debit: adjusted ? "0.11" : "0.10" }),
         ]),
       );
-      await expect(post(input)).rejects.toMatchObject({ code: "SUBLEDGER_CONFLICT" });
+      await expect(post(input)).rejects.toMatchObject({ code: "PURCHASE_ALREADY_LINKED" });
       expect((await workspace("2026-11-30", vendorAccount.id)).total_items).toBe(1);
     },
   );

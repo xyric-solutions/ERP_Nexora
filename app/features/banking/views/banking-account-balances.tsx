@@ -1,7 +1,7 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
 
-import { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, useRef } from "react";
 import type { BankAccountState, BankAccountSummary, BankingCompanyDirectory } from "@nexora/contracts";
 
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,8 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const directoryRequest = useRef(0);
+  const invalidateDirectory=useCallback(()=>{directoryRequest.current+=1;},[]);
 
   useEffect(() => {
     if (sessionLoading || !canRead) return;
@@ -94,6 +96,7 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
   const load = useCallback(
     async (cursor?: string, append = false) => {
       if (!companyId || !canRead) return;
+      const request = ++directoryRequest.current;
       if (append) setLoadingMore(true);
       else setLoading(true);
       try {
@@ -111,19 +114,23 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
           }),
           append ? Promise.resolve(null) : client.summary(companyId),
         ]);
+        if (request !== directoryRequest.current) return;
         setRows((current) => (append ? [...current, ...directory.items] : directory.items));
         setNextCursor(directory.next_cursor);
         if (totals) setSummary(totals.items);
         setError("");
       } catch (caught) {
+        if (request !== directoryRequest.current) return;
         setError(message(caught));
         if (!append) {
           setRows([]);
           setSummary([]);
         }
       } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (request === directoryRequest.current) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
       }
     },
     [bank, canRead, client, companyId, currency, deferredSearch, sortBy, sortDirection, state],
@@ -131,8 +138,18 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
-  }, [load]);
+    const onReturn = () => {
+      if (document.visibilityState === "visible") void load();
+    };
+    window.addEventListener("focus", onReturn);
+    document.addEventListener("visibilitychange", onReturn);
+    return () => {
+      window.clearTimeout(timer);
+      invalidateDirectory();
+      window.removeEventListener("focus", onReturn);
+      document.removeEventListener("visibilitychange", onReturn);
+    };
+  }, [load,invalidateDirectory]);
 
   const banks = useMemo(
     () => [...new Set(rows.map((row) => row.bank_name).filter((name): name is string => name !== null))].sort(),
@@ -250,7 +267,17 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
 
         {rows.length > 0 ? (
           <div className="overflow-x-auto">
-            <WorkTable keyboardScroll continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loading || loadingMore),loadMore:() => void load(nextCursor ?? undefined, true)}} tableId="app/features/banking/views/banking-account-balances:1" className="w-full min-w-[1050px] border-collapse text-left text-sm">
+            <WorkTable
+              keyboardScroll
+              continuation={{
+                cursor: nextCursor,
+                hasMore: !!nextCursor,
+                busy: !!(loading || loadingMore),
+                loadMore: () => void load(nextCursor ?? undefined, true),
+              }}
+              tableId="app/features/banking/views/banking-account-balances:1"
+              className="w-full min-w-[1050px] border-collapse text-left text-sm"
+            >
               <thead className="bg-muted/50 text-xs uppercase tracking-[0.08em] text-muted-foreground">
                 <tr>
                   {[
@@ -334,7 +361,6 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
           <span>
             Showing {rows.length} persisted account{rows.length === 1 ? "" : "s"}
           </span>
-
         </div>
       </section>
     </div>

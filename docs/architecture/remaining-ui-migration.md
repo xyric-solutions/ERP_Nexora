@@ -1,5 +1,39 @@
 # Remaining UI migration checklist
 
+## 2026-11-18 — Purchase accounting bridge and connected reports
+
+- Added the compact accounting panel inside the existing Purchase details/form,
+  source-focused Finance review, and read-only Purchase-owned Bank outgoing rows.
+  No duplicate Bank voucher or payment-entry workflow. Reports use existing shared
+  controls and keyboard-scrollable WorkTable; no feature stylesheet was added or
+  retired. Journal review names nominal accounts without a Dimensions column.
+- Fifteen previously prototype report routes now use company-scoped persistent
+  adapters. Existing live Supplier Statement/Ageing and financial reports remain;
+  seventeen Purchase/Bank/Supplier report routes were checked. Full-filter CSV,
+  print-page disclosure and focus/visibility revalidation use real API data.
+  Missing quotation/quality/comparable-price evidence is explicit, not fabricated.
+- Preserved server authorization, maker/checker, source and operation versions,
+  idempotency, AP/control reconciliation, posting atomicity, reversal and native
+  currency rules. Required supplier linking is manual Finance setup. Existing
+  Purchase payments remain unposted; no roles, login or fiscal periods changed.
+- Passed 81 integration tests across five suites, five focused unit tests,
+  23 contract tests and 11 Bank payment/reconciliation database-security tests.
+  Full typecheck, generated API check, touched-file ESLint, theme write/check,
+  production build and diff check passed. A stale test fixture was corrected to
+  provide its required reconciliation date; production constraints were retained.
+- Preview browser evidence: 29 checks, all seventeen routes, twelve light/dark
+  desktop/tablet/phone cases at 1440/768/390px, zero scoped Axe violations, page
+  errors or business writes. CSV, print and focus refresh passed. Real Purchase,
+  Bank and July–June calendar data remained identical. Private screenshots and
+  results: `tmp/purchase-bank-integration/preview-browser-verification.json`.
+  A final visual check replaced the generic “Unposted” label for aggregate rows
+  without a single linked journal with an em dash.
+- Theme audit covers 131 feature view source files with zero feature font/colour
+  exceptions; it is not a claim about all menu routes. Source is complete. Local
+  business activation remains pending the renewed release-scope clarification;
+  verify the final candidate after activation before marking the release live.
+
+
 ## 2026-11-17 - Compact Journal workspace and review tables
 
 - Compacted the register, manual editor, detail, approval/final review, reversal,

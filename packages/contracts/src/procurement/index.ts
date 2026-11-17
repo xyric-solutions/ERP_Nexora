@@ -22,6 +22,7 @@ export {
   allocatePurchaseAmount,
   formatPurchaseMoney,
   inheritPurchaseAdjustments,
+  purchaseAvailableAmount,
 } from "./amounts.js";
 export { paymentTotals } from "./payment-amounts.js";
 
@@ -210,6 +211,13 @@ export const purchaseDocumentSchema = purchaseTermsSchema.extend({
   request_approver_name: z.string().nullable().optional(),
   source_code: z.string().nullable(),
   reserved_amount: amount.default("0.00"),
+  outstanding_amount: z
+    .string()
+    .regex(/^\d+(\.\d{1,8})?$/)
+    .optional(),
+  finance_operation_id: identity.nullable().optional(),
+  finance_state: z.string().nullable().optional(),
+  finance_journal_id: identity.nullable().optional(),
   events: z
     .array(z.strictObject({ action: z.string(), actor_id: identity, reason: z.string(), occurred_at: z.string() }))
     .default([]),
@@ -319,7 +327,7 @@ export const procurementOptionsSchema = z.strictObject({
     )
     .max(200)
     .optional(),
-  execution_mode: z.literal("instruction_only"),
+  execution_mode: z.enum(["instruction_only", "finance_linked"]),
 });
 export const procurementLookupQuerySchema = z.strictObject({
   company_id: identity,

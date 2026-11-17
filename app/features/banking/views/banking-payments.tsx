@@ -16,6 +16,7 @@ import { useSession } from "@/lib/session/session-provider";
 import { LabeledField } from "@/shared/ui/labeled-field";
 import { BankingApiClient } from "../api/banking-client";
 import { BankAccountCapsule } from "../components/bank-account-capsule";
+import { ConnectedReportView } from "@/features/reports/views/connected-report";
 
 const paymentStates: readonly BankPaymentState[] = ["draft", "submitted", "approved", "rejected", "posted", "reversed"];
 
@@ -232,7 +233,9 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
   useEffect(() => {
     if (!companyId || !canRead) return;
     const timer = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(timer);
+    const onReturn=()=>{if(document.visibilityState==="visible")void load();};
+    window.addEventListener("focus",onReturn);document.addEventListener("visibilitychange",onReturn);
+    return () => {window.clearTimeout(timer);directoryRequest.current++;window.removeEventListener("focus",onReturn);document.removeEventListener("visibilitychange",onReturn);};
   }, [canRead, companyId, load]);
 
   if (sessionLoading) {
@@ -481,6 +484,7 @@ export function BankingPayments({ onOpenPayment, onCreatePayment }: BankingPayme
 
         </footer>
       </section>
+      <ConnectedReportView compact report="purchase-bank-movements" title="Purchase-owned outgoing payments" onNavigate={(module,page,id)=>{window.location.hash=`/${module}/${page}${id?`/${encodeURIComponent(id)}`:""}`;}}/>
     </div>
   );
 }

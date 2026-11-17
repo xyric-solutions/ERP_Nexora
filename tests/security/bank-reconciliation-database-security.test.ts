@@ -378,11 +378,11 @@ run("Bank Statement and Reconciliation database security baseline", () => {
       );
       await client.query(
         `insert into bank_reconciliation
-          (tenant_id,company_id,id,bank_account_id,method,import_id,statement_date,period_start,period_end,
+          (tenant_id,company_id,id,bank_account_id,method,import_id,reconciliation_date,statement_date,period_start,period_end,
            statement_reference,currency,opening_statement_balance,statement_money_in,
            reconstructed_statement_balance,closing_statement_balance,ledger_balance_at_cutoff,
            adjusted_ledger_balance,difference,ledger_population_hash,ledger_calculated_at,prepared_by)
-         values ($1,$2,$3,$4,'statement_import',$5,'2187-10-22','2187-10-01','2187-10-22',
+         values ($1,$2,$3,$4,'statement_import',$5,'2187-10-22','2187-10-22','2187-10-01','2187-10-22',
                  $6,'USD',0,100,100,100,100,100,0,$7,now(),'r06.maker')`,
         [
           sourceTestTenantId,
@@ -484,10 +484,10 @@ run("Bank Statement and Reconciliation database security baseline", () => {
       await expect(
         client.query(
           `insert into bank_reconciliation
-            (tenant_id,company_id,id,bank_account_id,method,import_id,statement_date,period_start,period_end,
+            (tenant_id,company_id,id,bank_account_id,method,import_id,reconciliation_date,statement_date,period_start,period_end,
              statement_reference,currency,opening_statement_balance,closing_statement_balance,
              ledger_population_hash,ledger_calculated_at,prepared_by)
-           values ($1,$2,$3,$4,'statement_import',$5,'2187-11-22','2187-11-01','2187-11-22',
+           values ($1,$2,$3,$4,'statement_import',$5,'2187-11-22','2187-11-22','2187-11-01','2187-11-22',
                    $6,'USD',0,0,$7,now(),'r06.maker')`,
           [
             sourceTestTenantId,

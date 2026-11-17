@@ -41,6 +41,8 @@ import type {
   SubledgerRequest,
   SubledgerOperation,
   SubledgerAction,
+  PurchaseAccountingPrepare,
+  ConnectedReport,
 } from "@nexora/contracts";
 import type { HrLearningWorkspace, HrLearningAction, HrLearningCertificate } from "@nexora/contracts";
 import type {
@@ -4552,6 +4554,25 @@ export class NexoraApiClient {
       },
       body: JSON.stringify(payload),
     });
+  }
+  preparePurchaseAccounting(
+    id: string,
+    payload: PurchaseAccountingPrepare,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<SubledgerOperation> {
+    return this.request("/api/v1/finance/subledger/purchase/" + encodeURIComponent(id) + "/prepare", {
+      method: "POST",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  getConnectedReport(query: string): Promise<ConnectedReport> {
+    return this.request("/api/v1/finance/subledger/connected-reports" + query);
   }
   getSubledgerWorkspace(query: string): Promise<SubledgerWorkspace> {
     return this.request("/api/v1/finance/subledger/workspace" + query);

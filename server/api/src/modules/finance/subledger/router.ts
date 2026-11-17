@@ -1,4 +1,5 @@
 import { Router, type Request } from "express";
+import { z } from "zod";
 import {
   subledgerActionSchema,
   subledgerOperationRequestSchema,
@@ -6,11 +7,14 @@ import {
   subledgerPolicyInputSchema,
   subledgerQuerySchema,
   subledgerReportQuerySchema,
+  purchaseAccountingPrepareSchema,
+  connectedReportQuerySchema,
 } from "@nexora/contracts";
 import { HttpError } from "../../../http/errors.js";
 import { loadBankingSessionContext, type BankingSessionContextDependencies } from "../../banking/session-context.js";
 import { SubledgerError, type SourceSubledgerRepository } from "./source-repository.js";
 import { SubledgerReports } from "./reports.js";
+import { ConnectedReports } from "./connected-reports.js";
 
 export function createSubledgerRouter(
   dependencies: BankingSessionContextDependencies & {
@@ -24,6 +28,7 @@ export function createSubledgerRouter(
     next();
   });
   const reports = new SubledgerReports(dependencies.repository);
+  const connectedReports = new ConnectedReports(dependencies.repository);
   async function handle<T>(work: () => Promise<T>) {
     try {
       return await work();
@@ -53,6 +58,10 @@ export function createSubledgerRouter(
     const query = subledgerReportQuerySchema.parse(req.query);
     res.json(await handle(async () => reports.run(await loadBankingSessionContext(req, dependencies), query)));
   });
+  router.get("/connected-reports", async (req, res) => {
+    const query = connectedReportQuerySchema.parse(req.query);
+    res.json(await handle(async () => connectedReports.run(await loadBankingSessionContext(req, dependencies), query)));
+  });
   router.post("/parties", async (req, res) => {
     const input = subledgerPartyInputSchema.parse(req.body),
       key = guard(req);
@@ -81,6 +90,22 @@ export function createSubledgerRouter(
       .json(
         await handle(async () =>
           dependencies.repository.create(await loadBankingSessionContext(req, dependencies, true), input, key),
+        ),
+      );
+  });
+  router.post("/purchase/:id/prepare", async (req, res) => {
+    const input = purchaseAccountingPrepareSchema.parse(req.body),
+      key = guard(req, input.expected_version);
+    res
+      .status(201)
+      .json(
+        await handle(async () =>
+          dependencies.repository.preparePurchase(
+            await loadBankingSessionContext(req, dependencies, true),
+            z.string().trim().min(1).max(128).parse(req.params.id),
+            input,
+            key,
+          ),
         ),
       );
   });
