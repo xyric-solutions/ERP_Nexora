@@ -2,7 +2,7 @@
 import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
 import { WorkFormLayout } from "@/shared/ui/work-form";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   JournalDetail,
   JournalLineInput,
@@ -28,6 +28,7 @@ import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { FinanceJournalsClient } from "../api/finance-journals-client";
 import { formatJournalAmount, formatJournalDisplayAmount, validateJournalLines } from "../lib/finance-journal-form";
+import { ManualJournalActions, ManualJournalActionError, manualJournalActionVisibility, type ManualJournalActionVisibility, type ManualJournalIntent } from "../lib/manual-journal-actions";
 
 export const financeJournalPages = [
   "journal-register",
@@ -89,11 +90,13 @@ export function FinanceJournalWorkspace({
   page,
   recordRef,
   onDirtyChange,
+  actionVisibility,
 }: {
   page: FinanceJournalPage;
   recordRef?: string;
   onNavigate: Navigate;
   onDirtyChange?: (dirty: boolean) => void;
+  actionVisibility?: Partial<ManualJournalActionVisibility>;
 }) {
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
   const notify = useActionFeedback();
@@ -122,6 +125,7 @@ export function FinanceJournalWorkspace({
     page === "journal-approval" ? "approval" : page === "journal-reversal" ? "reversal" : "all",
   );
   const [drawerDirty, setDrawerDirty] = useState(false);
+  const [drawerBusy, setDrawerBusy] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const displayPreferenceKey = session ? `nexora:journal:display-decimals:${session.tenant_id}:${session.user.id}` : "";
 
@@ -211,6 +215,7 @@ export function FinanceJournalWorkspace({
     onDirtyChange?.(dirty);
   };
   const confirmDrawerClose = (bypass = false) => {
+    if (drawerBusy && !bypass) return false;
     if (bypass || !drawerDirty || typeof window === "undefined") return true;
     return window.confirm("You have unsaved Journal changes. Close the drawer and discard them?");
   };
@@ -257,6 +262,9 @@ export function FinanceJournalWorkspace({
     onNavigate: navigateWithinWorkspace,
     displayDecimalPlaces,
     refreshToken,
+    actionVisibility: { ...manualJournalActionVisibility, ...actionVisibility },
+    impersonating: !!session.impersonation,
+    approvalOverride: session.user.roles.includes("super_administrator") && permissions.has("platform.approval.override"),
   };
   const drawerTitle =
     drawerMode === "create"
@@ -316,8 +324,8 @@ export function FinanceJournalWorkspace({
           portalClassName="relative isolate z-[1300]"
           className="min-w-0 gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]"
         >
-          <SheetHeader className="shrink-0 border-b border-border pr-14">
-            <SheetTitle>{drawerTitle}</SheetTitle>
+          <SheetHeader className="shrink-0 gap-1 border-b border-border p-3! pr-12! [&_h2]:m-0! [&_p]:m-0!">
+            <SheetTitle className="text-lg">{drawerTitle}</SheetTitle>
             <SheetDescription>
               {drawerMode === "create" || drawerMode === "edit"
                 ? "Prepare a balanced draft in the company base currency."
@@ -325,12 +333,13 @@ export function FinanceJournalWorkspace({
             </SheetDescription>
           </SheetHeader>
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4">
-            {drawerMode === "create" || drawerMode === "edit" ? (
+            {(drawerMode === "create" || drawerMode === "edit") && companyId && options?.selected_company_id === companyId ? (
               <ManualJournalForm
                 key={`${companyId}:${selectedJournalId ?? "new"}`}
                 {...common}
                 journalId={selectedJournalId}
                 onDirtyChange={changeDirtyState}
+                onBusyChange={setDrawerBusy}
               />
             ) : null}
             {drawerMode === "detail" ? (
@@ -384,6 +393,9 @@ type Common = {
   onNavigate: Navigate;
   displayDecimalPlaces: number;
   refreshToken: number;
+  actionVisibility: ManualJournalActionVisibility;
+  impersonating: boolean;
+  approvalOverride: boolean;
 };
 
 function WorkspaceHeader({
@@ -724,16 +736,29 @@ function ManualJournalForm({
   journalId,
   onDirtyChange,
   displayDecimalPlaces,
-}: Common & { journalId?: string; onDirtyChange?: (dirty: boolean) => void }) {
+  actionVisibility,
+  impersonating,
+  approvalOverride,
+  onBusyChange,
+}: Common & {
+  journalId?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const [date, setDate] = useState(today());
   const [reference, setReference] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
   const [detail, setDetail] = useState<JournalDetail | null>(null);
   const [busy, setBusy] = useState("");
   const [loadingDetail, setLoadingDetail] = useState(Boolean(journalId));
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [deleteReason, setDeleteReason] = useState("");
-  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [retryIntent, setRetryIntent] = useState<ManualJournalIntent | null>(null);
+  const [actions] = useState(() => new ManualJournalActions());
+  const operation = useRef(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   useEffect(() => {
     onDirtyChange?.(dirty);
@@ -759,186 +784,259 @@ function ManualJournalForm({
         );
         setDirty(false);
       })
-      .catch((caught) => setError(errorText(caught)))
+      .catch((caught) => {
+        setLoadFailed(true);
+        setActionError(errorText(caught));
+      })
       .finally(() => setLoadingDetail(false));
   }, [client, journalId, setError]);
   const decimalPlaces = options?.decimal_places ?? 2;
-  const validation = useMemo(() => validateJournalLines(linePayload(lines), decimalPlaces), [decimalPlaces, lines]);
+  const validation = useMemo(
+    () => validateJournalLines(linePayload(lines), decimalPlaces),
+    [decimalPlaces, lines],
+  );
   const validate = () => {
     const errors = [...validation.errors, ...requiredDimensionErrors(lines, options)];
     if (!date) errors.unshift("Select the Journal date.");
     setValidationErrors(errors);
     return errors.length === 0;
   };
-  const save = async () => {
-    if (!companyId || !validate()) return;
-    setBusy("save");
+  const state = actions.progress?.state ?? detail?.state ?? "draft";
+  const editable = state === "draft" && !busy && !retryIntent && !impersonating;
+  const canSave =
+    !impersonating &&
+    state === "draft" &&
+    permissions.has(detail || actions.progress ? "finance.journal.update" : "finance.journal.create");
+  const canContinue =
+    !impersonating &&
+    (state === "submitted" ||
+      ((canSave || actions.progress?.state === "draft") &&
+        (detail ? detail.capabilities.submit : permissions.has("finance.journal.submit"))));
+  const ownApproval =
+    permissions.has("finance.journal.approve") &&
+    (permissions.has("finance.journal.self_approve") || approvalOverride);
+  const needsReview = actions.review?.capabilities.approve ?? ownApproval;
+  const needsOverride =
+    actions.review?.capabilities.super_admin_override_available ??
+    (ownApproval && !permissions.has("finance.journal.self_approve"));
+  const run = async (intent: ManualJournalIntent) => {
+    if (
+      operation.current ||
+      !companyId ||
+      (retryIntent && retryIntent !== intent) ||
+      (intent === "save" ? !canSave : !canContinue) ||
+      !validate()
+    )
+      return;
+    if (
+      intent === "approve" &&
+      needsReview &&
+      (!confirmed || (needsOverride && overrideReason.trim().length < 3))
+    )
+      return;
+    operation.current = true;
+    onBusyChange?.(true);
+    setBusy(intent);
+    setError("");
+    setActionError("");
     try {
-      const payload = {
-        journal_date: date,
-        ...(reference.trim() ? { reference_number: reference.trim() } : {}),
-        lines: linePayload(lines),
-      };
-      const result = detail?.version
-        ? await client.update(detail.id, { ...payload, expected_version: detail.version }, csrfToken(), key("update"))
-        : await client.create({ ...payload, company_id: companyId }, csrfToken(), key("create"));
+      const result = await actions.run({
+        client,
+        csrfToken,
+        initial: detail,
+        intent,
+        confirmed,
+        reason: overrideReason,
+        payload: {
+          company_id: companyId,
+          journal_date: date,
+          ...(reference.trim() ? { reference_number: reference.trim() } : {}),
+          lines: linePayload(lines),
+        },
+      });
+      if (!result) return;
       setDirty(false);
-      notify("Manual Journal draft saved.");
-      onNavigate("finance", "journal-detail", result.id, { bypassUnsavedGuard: true });
-    } catch (caught) {
-      setError(errorText(caught));
-    } finally {
-      setBusy("");
-    }
-  };
-  const submit = async () => {
-    if (!detail?.version || !validate()) return;
-    setBusy("submit");
-    try {
-      await client.submit(detail.id, { expected_version: detail.version }, csrfToken(), key("submit"));
-      notify("Journal submitted for final review.");
-      onNavigate("finance", "journal-detail", detail.id, { bypassUnsavedGuard: true });
-    } catch (caught) {
-      setError(errorText(caught));
-    } finally {
-      setBusy("");
-    }
-  };
-  const remove = async () => {
-    if (!detail?.version || deleteReason.trim().length < 3 || !deleteConfirmed) return;
-    setBusy("delete");
-    try {
-      await client.delete(
-        detail.id,
-        { expected_version: detail.version, reason: deleteReason.trim() },
-        csrfToken(),
-        key("delete"),
+      setRetryIntent(null);
+      notify(
+        intent === "save"
+          ? "Manual Journal draft saved."
+          : result.state === "posted"
+            ? "Journal approved and posted."
+            : "Journal submitted. Awaiting approval.",
       );
-      setDirty(false);
-      notify("Draft Journal content permanently deleted; audit tombstone retained.");
-      onNavigate("finance", "journal-register", undefined, { bypassUnsavedGuard: true });
+      onNavigate(
+        "finance",
+        intent === "save" ? "journal-detail" : "journal-register",
+        intent === "save" ? result.id : undefined,
+        { bypassUnsavedGuard: true },
+      );
     } catch (caught) {
-      setError(errorText(caught));
+      const uncertain =
+        !(caught instanceof ApiError && caught.status >= 400 && caught.status < 500) &&
+        !(caught instanceof ManualJournalActionError);
+      setRetryIntent(uncertain ? intent : null);
+      setActionError(caught instanceof ManualJournalActionError ? caught.message : errorText(caught));
     } finally {
+      operation.current = false;
+      onBusyChange?.(false);
       setBusy("");
     }
   };
-  const editable = !detail || detail.state === "draft";
-  if (loadingDetail) return <Notice title="Loading Journal" detail="Reading the draft and its current version." />;
+  if (loadingDetail)
+    return <Notice title="Loading Journal" detail="Reading the draft and its current version." />;
+  if (loadFailed) return <Notice title="Journal could not be loaded" detail={actionError} destructive />;
   return (
-    <WorkFormLayout><section className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-3 sm:p-4">
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <Label htmlFor="journal-date">Date *</Label>
-          <Input
-            id="journal-date"
-            type="date"
-            value={date}
-            disabled={!editable}
-            onChange={(event) => {
-              setDate(event.target.value);
-              setDirty(true);
-            }}
-          />
+    <WorkFormLayout>
+      <section
+        data-manual-journal-editor
+        className="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3"
+      >
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor="journal-date">Date *</Label>
+            <Input
+              id="journal-date"
+              type="date"
+              value={date}
+              disabled={!editable}
+              onChange={(event) => {
+                setDate(event.target.value);
+                setConfirmed(false);
+                setDirty(true);
+              }}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="journal-reference">Ref. No.</Label>
+            <Input
+              id="journal-reference"
+              value={reference}
+              disabled={!editable}
+              onChange={(event) => {
+                setReference(event.target.value);
+                setConfirmed(false);
+                setDirty(true);
+              }}
+            />
+          </div>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="journal-reference">Ref. No.</Label>
-          <Input
-            id="journal-reference"
-            value={reference}
-            disabled={!editable}
-            onChange={(event) => {
-              setReference(event.target.value);
-              setDirty(true);
-            }}
-          />
+        <LineEditor
+          lines={lines}
+          options={options}
+          displayDecimalPlaces={displayDecimalPlaces}
+          disabled={!editable}
+          onChange={(value) => {
+            setLines(value);
+            setConfirmed(false);
+            setDirty(true);
+          }}
+        />
+        {actionError ? (
+          <Notice title="Journal action could not be completed" detail={actionError} destructive />
+        ) : null}
+        {validationErrors.length ? (
+          <Alert variant="destructive" role="alert">
+            <AlertTitle>Review the Journal form</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc space-y-1 pl-5 text-destructive">
+                {validationErrors.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="flex justify-end">
+          <div
+            className={`grid w-full max-w-sm grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
+          >
+            <span className="bg-muted px-3 py-2 font-semibold">
+              <span className="mb-1 block text-xs font-normal text-muted-foreground">Total debit</span>
+              {formatJournalDisplayAmount(
+                formatJournalAmount(validation.debit, decimalPlaces),
+                displayDecimalPlaces,
+              )}
+            </span>
+            <span className="bg-muted px-3 py-2 font-semibold">
+              <span className="mb-1 block text-xs font-normal text-muted-foreground">Total credit</span>
+              {formatJournalDisplayAmount(
+                formatJournalAmount(validation.credit, decimalPlaces),
+                displayDecimalPlaces,
+              )}
+            </span>
+          </div>
         </div>
-      </div>
-      <LineEditor
-        lines={lines}
-        options={options}
-        displayDecimalPlaces={displayDecimalPlaces}
-        disabled={!editable}
-        onChange={(value) => {
-          setLines(value);
-          setDirty(true);
-        }}
-      />
-      {validationErrors.length ? (
-        <Alert variant="destructive" role="alert">
-          <AlertTitle>Review the Journal form</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc space-y-1 pl-5 text-destructive">
-              {validationErrors.map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      <div className="flex justify-end">
-        <div
-          className={`grid w-full max-w-sm grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
+        {actionVisibility.approveAndClose && canContinue ? (
+          <div className="grid gap-2 border-t border-border pt-3">
+            <p className="m-0 text-xs text-muted-foreground" role="status">
+              {needsReview
+                ? "Approve & Close saves, submits and posts this Journal after final review."
+                : "Approve & Close saves and submits this Journal. It will remain Awaiting approval for an authorized approver."}
+            </p>
+            {needsReview ? (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="manual-journal-final-review"
+                  checked={confirmed}
+                  disabled={!!busy}
+                  onCheckedChange={(value) => setConfirmed(value === true)}
+                />
+                <Label htmlFor="manual-journal-final-review" className="text-xs font-normal">
+                  Final review confirmed: I verified the date, base-currency lines, nominal accounts, balance
+                  and reference.
+                </Label>
+              </div>
+            ) : null}
+            {needsReview && needsOverride ? (
+              <div className="grid gap-1">
+                <Label htmlFor="manual-journal-override">Self-approval override reason *</Label>
+                <Input
+                  id="manual-journal-override"
+                  value={overrideReason}
+                  maxLength={500}
+                  disabled={!!busy}
+                  onChange={(event) => setOverrideReason(event.target.value)}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {retryIntent ? (
+          <p role="status" className="m-0 text-xs text-muted-foreground">
+            The last request could not be confirmed. Retry the same action to resume safely; your lines are
+            retained.
+          </p>
+        ) : null}
+        <footer
+          aria-label="Manual Journal actions"
+          className="flex flex-wrap justify-end gap-2 border-t border-border pt-3"
         >
-          <span className="bg-muted px-4 py-3 font-semibold">
-            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total debit</span>
-            {formatJournalDisplayAmount(formatJournalAmount(validation.debit, decimalPlaces), displayDecimalPlaces)}
-          </span>
-          <span className="bg-muted px-4 py-3 font-semibold">
-            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total credit</span>
-            {formatJournalDisplayAmount(formatJournalAmount(validation.credit, decimalPlaces), displayDecimalPlaces)}
-          </span>
-        </div>
-      </div>
-      <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
-        <Button variant="outline" onClick={() => onNavigate("finance", "journal-register")}>
-          Cancel
-        </Button>
-        <div className="flex flex-wrap items-end justify-end gap-2">
-          {detail?.capabilities.delete_draft ? (
-            <div className="grid gap-1">
-              <Label htmlFor="delete-reason">Permanent deletion reason</Label>
-              <Input
-                id="delete-reason"
-                value={deleteReason}
-                onChange={(event) => setDeleteReason(event.target.value)}
-              />
-            </div>
-          ) : null}
-          {detail?.capabilities.delete_draft ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="confirm-draft-delete"
-                checked={deleteConfirmed}
-                onCheckedChange={(value) => setDeleteConfirmed(value === true)}
-              />
-              <Label htmlFor="confirm-draft-delete" className="font-normal">
-                Confirm permanent deletion
-              </Label>
-            </div>
-          ) : null}
-          {detail?.capabilities.delete_draft ? (
+          {actionVisibility.saveDraft && canSave ? (
             <Button
-              variant="destructive"
-              disabled={busy !== "" || deleteReason.trim().length < 3 || !deleteConfirmed}
-              onClick={() => void remove()}
+              type="button"
+              variant="outline"
+              disabled={!!busy || (retryIntent !== null && retryIntent !== "save")}
+              onClick={() => void run("save")}
             >
-              Delete draft permanently
+              {busy === "save" ? "Saving…" : "Save Draft"}
             </Button>
           ) : null}
-          {editable && permissions.has(detail ? "finance.journal.update" : "finance.journal.create") ? (
-            <Button variant="outline" disabled={busy !== "" || lines.length < 2} onClick={() => void save()}>
-              {busy === "save" ? "Saving…" : "Save draft"}
+          {actionVisibility.approveAndClose && canContinue ? (
+            <Button
+              type="button"
+              disabled={
+                !!busy ||
+                (retryIntent !== null && retryIntent !== "approve") ||
+                (needsReview && (!confirmed || (needsOverride && overrideReason.trim().length < 3)))
+              }
+              onClick={() => void run("approve")}
+            >
+              {busy === "approve" ? "Processing…" : "Approve & Close"}
             </Button>
           ) : null}
-          {detail?.capabilities.submit ? (
-            <Button disabled={busy !== "" || validation.errors.length > 0} onClick={() => void submit()}>
-              Submit for approval
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </section></WorkFormLayout>
+        </footer>
+      </section>
+    </WorkFormLayout>
   );
 }
 
@@ -960,7 +1058,9 @@ function LineEditor({
   const change = (index: number, field: keyof JournalLineInput, value: string) =>
     onChange(lines.map((line, i) => (i === index ? { ...line, [field]: value } : line)));
   const changeAccount = (index: number, accountId: string) =>
-    onChange(lines.map((line, i) => (i === index ? { ...line, account_id: accountId, dimensions: {} } : line)));
+    onChange(
+      lines.map((line, i) => (i === index ? { ...line, account_id: accountId, dimensions: {} } : line)),
+    );
   const changeDimension = (index: number, dimension: string, value: string) =>
     onChange(
       lines.map((line, i) =>
@@ -974,132 +1074,133 @@ function LineEditor({
       label: `${item.code} · ${item.name}${item.kind === "bank" ? " · Bank" : ""}`,
     }));
   return (
-    <WorkFormLayout><div className="min-w-0">
-      <table className="block w-full table-fixed text-sm xl:table">
-        <caption className="sr-only">Journal lines</caption>
-        <thead className="sr-only bg-primary text-left text-primary-foreground xl:not-sr-only">
-          <tr>
-            <th scope="col" className="w-[24%] px-3 py-3">
-              Nominal Account
-            </th>
-            <th scope="col" className="w-[24%] px-3 py-3">
-              Description
-            </th>
-            <th scope="col" className="w-[18%] px-3 py-3">
-              Required Dimensions
-            </th>
-            <th scope="col" className="w-[13%] px-3 py-3 text-right">
-              Debit
-            </th>
-            <th scope="col" className="w-[13%] px-3 py-3 text-right">
-              Credit
-            </th>
-            <th scope="col" className="w-[8%] px-3 py-3">
-              Action
-            </th>
-          </tr>
-        </thead>
-        <tbody className="grid gap-4 xl:table-row-group">
-          {lines.map((line, index) => (
-            <tr
-              key={line.client_id}
-              className="grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-border p-3 xl:table-row xl:rounded-none xl:border-x-0 xl:border-b-0 xl:p-0"
-            >
-              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Nominal Account · Line {index + 1}
-                </span>
-                <SearchableSelect
-                  label={`Nominal account line ${index + 1}`}
-                  searchLabel={`Search nominal account line ${index + 1}`}
-                  value={line.account_id}
-                  options={nominalOptions}
-                  placeholder="Select nominal"
-                  disabled={disabled}
-                  required
-                  onValueChange={(value) => changeAccount(index, value)}
-                />
-              </td>
-              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Description
-                </span>
-                <Input
-                  aria-label={`Description line ${index + 1}`}
-                  value={line.description}
-                  disabled={disabled}
-                  onChange={(event) => change(index, "description", event.target.value)}
-                />
-              </td>
-              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Required Dimensions
-                </span>
-                {(() => {
-                  const dimensions =
-                    options?.nominals.find((item) => item.id === line.account_id)?.required_dimensions ?? [];
-                  if (dimensions.length === 0) return <span className="text-muted-foreground">—</span>;
-                  return (
-                    <div className="grid gap-2">
-                      {dimensions.map((dimension) => (
-                        <Input
-                          key={dimension}
-                          aria-label={`${dimension.replaceAll("_", " ")} dimension line ${index + 1}`}
-                          placeholder={dimension.replaceAll("_", " ")}
-                          value={line.dimensions[dimension] ?? ""}
-                          disabled={disabled}
-                          onChange={(event) => changeDimension(index, dimension, event.target.value)}
-                        />
-                      ))}
-                    </div>
-                  );
-                })()}
-              </td>
-              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Debit
-                </span>
-                <JournalAmountInput
-                  label={`Debit line ${index + 1}`}
-                  value={line.debit}
-                  displayDecimalPlaces={displayDecimalPlaces}
-                  disabled={disabled}
-                  onChange={(value) => change(index, "debit", value || "0")}
-                />
-              </td>
-              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Credit
-                </span>
-                <JournalAmountInput
-                  label={`Credit line ${index + 1}`}
-                  value={line.credit}
-                  displayDecimalPlaces={displayDecimalPlaces}
-                  disabled={disabled}
-                  onChange={(value) => change(index, "credit", value || "0")}
-                />
-              </td>
-              <td className="col-span-2 flex justify-end xl:table-cell xl:p-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={disabled || lines.length <= 2}
-                  onClick={() => onChange(lines.filter((_, i) => i !== index))}
-                >
-                  Remove
-                </Button>
-              </td>
+    <WorkFormLayout>
+      <div className="min-w-0">
+        <table className="block w-full table-fixed text-sm xl:table">
+          <caption className="sr-only">Journal lines</caption>
+          <thead className="sr-only bg-primary text-left text-primary-foreground xl:not-sr-only">
+            <tr>
+              <th scope="col" className="w-[34%] px-2 py-2">
+                Nominal Account
+              </th>
+              <th scope="col" className="w-[30%] px-2 py-2">
+                Description
+              </th>
+              <th scope="col" className="w-[14%] px-2 py-2 text-right">
+                Debit
+              </th>
+              <th scope="col" className="w-[14%] px-2 py-2 text-right">
+                Credit
+              </th>
+              <th scope="col" className="w-[8%] px-2 py-2">
+                Action
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {!disabled ? (
-        <Button type="button" className="mt-3" variant="outline" onClick={() => onChange([...lines, emptyLine()])}>
-          ＋ Add More
-        </Button>
-      ) : null}
-    </div></WorkFormLayout>
+          </thead>
+          <tbody className="grid gap-2 xl:table-row-group">
+            {lines.map((line, index) => (
+              <tr
+                key={line.client_id}
+                className="grid min-w-0 grid-cols-2 gap-2 rounded-lg border border-border p-3 xl:table-row xl:rounded-none xl:border-x-0 xl:border-b-0 xl:p-0"
+              >
+                <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                    Nominal Account · Line {index + 1}
+                  </span>
+                  <SearchableSelect
+                    label={`Nominal account line ${index + 1}`}
+                    searchLabel={`Search nominal account line ${index + 1}`}
+                    value={line.account_id}
+                    options={nominalOptions}
+                    placeholder="Select nominal"
+                    disabled={disabled}
+                    required
+                    onValueChange={(value) => changeAccount(index, value)}
+                  />
+                  {(() => {
+                    const dimensions =
+                      options?.nominals.find((item) => item.id === line.account_id)?.required_dimensions ??
+                      [];
+                    if (dimensions.length === 0) return null;
+                    return (
+                      <div className="grid gap-1.5">
+                        {dimensions.map((dimension) => (
+                          <Input
+                            key={dimension}
+                            aria-label={`${dimension.replaceAll("_", " ")} dimension line ${index + 1}`}
+                            placeholder={dimension.replaceAll("_", " ")}
+                            value={line.dimensions[dimension] ?? ""}
+                            disabled={disabled}
+                            onChange={(event) => changeDimension(index, dimension, event.target.value)}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </td>
+                <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                    Description
+                  </span>
+                  <Input
+                    aria-label={`Description line ${index + 1}`}
+                    value={line.description}
+                    disabled={disabled}
+                    onChange={(event) => change(index, "description", event.target.value)}
+                  />
+                </td>
+
+                <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                    Debit
+                  </span>
+                  <JournalAmountInput
+                    label={`Debit line ${index + 1}`}
+                    value={line.debit}
+                    displayDecimalPlaces={displayDecimalPlaces}
+                    disabled={disabled}
+                    onChange={(value) => change(index, "debit", value || "0")}
+                  />
+                </td>
+                <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
+                  <span aria-hidden="true" className="text-sm font-medium xl:hidden">
+                    Credit
+                  </span>
+                  <JournalAmountInput
+                    label={`Credit line ${index + 1}`}
+                    value={line.credit}
+                    displayDecimalPlaces={displayDecimalPlaces}
+                    disabled={disabled}
+                    onChange={(value) => change(index, "credit", value || "0")}
+                  />
+                </td>
+                <td className="col-span-2 flex justify-end xl:table-cell xl:p-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled || lines.length <= 2}
+                    onClick={() => onChange(lines.filter((_, i) => i !== index))}
+                  >
+                    Remove
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!disabled ? (
+          <Button
+            type="button"
+            className="mt-3"
+            variant="outline"
+            onClick={() => onChange([...lines, emptyLine()])}
+          >
+            ＋ Add More
+          </Button>
+        ) : null}
+      </div>
+    </WorkFormLayout>
   );
 }
 
@@ -1109,6 +1210,9 @@ function JournalDetailView({
   setError,
   onNavigate,
   displayDecimalPlaces,
+  csrfToken,
+  notify,
+  actionVisibility,
 }: Common & { journalId?: string }) {
   const [detail, setDetail] = useState<JournalDetail | null>(null);
   useEffect(() => {
@@ -1150,6 +1254,10 @@ function JournalDetailView({
           </div>
         </div>
       </section>
+      {actionVisibility.deleteDraft && detail.capabilities.delete_draft ? (
+        <DraftJournalDeletion detail={detail} client={client} csrfToken={csrfToken} notify={notify}
+          setError={setError} onNavigate={onNavigate} />
+      ) : null}
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
           <WorkTable tableId="app/features/finance/views/finance-journals-workspace:3" className="w-full min-w-[760px] text-sm">
@@ -1212,6 +1320,89 @@ function JournalDetailView({
         </ol>
       </section>
     </div>
+  );
+}
+
+function DraftJournalDeletion({
+  detail,
+  client,
+  csrfToken,
+  notify,
+  setError,
+  onNavigate,
+}: Pick<Common, "client" | "csrfToken" | "notify" | "setError" | "onNavigate"> & { detail: JournalDetail }) {
+  const [reason, setReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState("");
+  const pending = useRef(false);
+  const request = useRef<{ body: string; key: string } | null>(null);
+  const remove = async () => {
+    if (
+      pending.current ||
+      !detail.version ||
+      !detail.capabilities.delete_draft ||
+      !confirmed ||
+      reason.trim().length < 3
+    )
+      return;
+    const body = { expected_version: detail.version, reason: reason.trim() };
+    const serialized = JSON.stringify(body);
+    if (request.current?.body !== serialized) request.current = { body: serialized, key: key("delete") };
+    pending.current = true;
+    setBusy(true);
+    setFailure("");
+    try {
+      await client.delete(detail.id, body, csrfToken(), request.current.key);
+      notify("Draft Journal content permanently deleted; audit tombstone retained.");
+      onNavigate("finance", "journal-register", undefined, { bypassUnsavedGuard: true });
+    } catch (caught) {
+      setFailure(errorText(caught));
+      setError(errorText(caught));
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <details className="rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        Draft actions
+      </summary>
+      <div className="mt-3 grid gap-2">
+        {failure ? (
+          <Notice title="Draft deletion could not be completed" detail={failure} destructive />
+        ) : null}
+        <Label htmlFor="delete-reason">Permanent deletion reason</Label>
+        <Input
+          id="delete-reason"
+          value={reason}
+          maxLength={500}
+          disabled={busy}
+          onChange={(event) => setReason(event.target.value)}
+        />
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="confirm-draft-delete"
+            checked={confirmed}
+            disabled={busy}
+            onCheckedChange={(value) => setConfirmed(value === true)}
+          />
+          <Label htmlFor="confirm-draft-delete" className="font-normal">
+            Confirm permanent deletion
+          </Label>
+        </div>
+        <Button
+          type="button"
+          variant="destructive"
+          className="justify-self-start"
+          disabled={busy || !confirmed || reason.trim().length < 3}
+          onClick={() => void remove()}
+        >
+          {busy ? "Deleting…" : "Delete draft permanently"}
+        </Button>
+      </div>
+    </details>
   );
 }
 

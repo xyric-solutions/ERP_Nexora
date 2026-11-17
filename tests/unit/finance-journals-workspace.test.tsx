@@ -59,6 +59,8 @@ const options = {
   decimal_places: 2,
   nominals: [{ id: "nominal-1", code: "1000", name: "Cash", kind: "general" as const, required_dimensions: [] }],
 };
+const defaultPermissions = [...harness.session.user.permissions];
+const defaultRoles = [...harness.session.user.roles];
 
 const submittedJournal: JournalDetail = {
   id: "journal-1",
@@ -138,6 +140,8 @@ function input(element: HTMLInputElement, value: string) {
 
 describe("Finance Journal screens", () => {
   beforeEach(() => {
+    harness.session.user.permissions = [...defaultPermissions];
+    harness.session.user.roles = [...defaultRoles];
     window.localStorage.clear();
     vi.stubGlobal("PointerEvent", MouseEvent);
     vi.stubGlobal(
@@ -308,7 +312,7 @@ describe("Finance Journal screens", () => {
         credit: line.credit === "0.00000000" ? line.credit : "100000.12000000",
       })),
     });
-    harness.api.updateJournal.mockResolvedValue({ id: submittedJournal.id, state: "draft" });
+    harness.api.updateJournal.mockResolvedValue({ id: submittedJournal.id, state: "draft", version: 3 });
     await act(async () =>
       root.render(<FinanceJournalWorkspace page="manual-journal" recordRef="journal-1" onNavigate={vi.fn()} />),
     );
@@ -324,7 +328,7 @@ describe("Finance Journal screens", () => {
     });
     await settle();
     expect(debit.value).toBe("100,000");
-    click("Save draft");
+    click("Save Draft");
     await settle();
     expect(harness.api.updateJournal).toHaveBeenCalledWith(
       "journal-1",
@@ -445,7 +449,11 @@ describe("Finance Journal screens", () => {
     act(() => option.click());
     await settle();
     expect(document.body.querySelector('[aria-label="cost center dimension line 1"]')).not.toBeNull();
-    click("Save draft");
+    expect([...document.querySelectorAll('[data-manual-journal-editor] th')].map(item => item.textContent?.trim()))
+      .toEqual(["Nominal Account", "Description", "Debit", "Credit", "Action"]);
+    expect(document.body.querySelector('[aria-label="cost center dimension line 1"]')?.closest("td"))
+      .toBe(document.body.querySelector('[aria-label="Nominal account line 1"]')?.closest("td"));
+    click("Save Draft");
     await settle();
     expect(document.body.textContent).toContain("enter the required cost center dimension");
     expect(harness.api.createJournal).not.toHaveBeenCalled();
@@ -500,6 +508,110 @@ describe("Finance Journal screens", () => {
     const labels = [...document.querySelectorAll('[role="option"]')].map((item) => item.textContent);
     expect(labels.some((label) => label?.includes("Cash"))).toBe(true);
     expect(labels.some((label) => label?.includes("Operating Bank"))).toBe(false);
+  });
+
+  it("shows only the two configured footer actions and submits a preparer's edited lines", async () => {
+    harness.session.user.permissions.push("finance.journal.submit");
+    const draft = { ...submittedJournal, state: "draft", version: 1,
+      capabilities: { ...submittedJournal.capabilities, update: true, submit: true, approve: false } };
+    harness.api.getJournal.mockResolvedValueOnce(draft).mockResolvedValue({ ...submittedJournal,
+      version: 3, capabilities: { ...submittedJournal.capabilities, approve: false } });
+    harness.api.updateJournal.mockResolvedValue({ id: "journal-1", state: "draft", version: 2 });
+    harness.api.submitJournal.mockResolvedValue({ id: "journal-1", state: "submitted", version: 3 });
+    await act(async () => root.render(<FinanceJournalWorkspace page="manual-journal" recordRef="journal-1" onNavigate={vi.fn()} />));
+    await settle();
+    expect([...document.querySelectorAll('footer[aria-label="Manual Journal actions"] button')].map(button => button.textContent))
+      .toEqual(["Save Draft", "Approve & Close"]);
+    expect(document.body.textContent).not.toContain("Submit for approval");
+    expect(document.body.textContent).toContain("will remain Awaiting approval");
+    const reference = document.body.querySelector('#journal-reference');
+    if (!(reference instanceof HTMLInputElement)) throw new Error("Missing reference");
+    input(reference,"Current edited reference");
+    click("Approve & Close"); await settle();
+    expect(harness.api.updateJournal).toHaveBeenCalledWith("journal-1",expect.objectContaining({reference_number:"Current edited reference"}),"csrf",expect.any(String));
+    expect(harness.api.submitJournal).toHaveBeenCalledWith("journal-1",{expected_version:2},"csrf",expect.any(String));
+    expect(harness.api.decideJournal).not.toHaveBeenCalled();
+    expect(harness.notify).toHaveBeenCalledWith("Journal submitted. Awaiting approval.");
+    expect(document.querySelector('[data-manual-journal-editor]')).toBeNull();
+  });
+
+  it("requires final review and resumes failed approval without saving or submitting again", async () => {
+    harness.session.user.permissions.push("finance.journal.submit","finance.journal.approve","finance.journal.self_approve");
+    harness.api.getJournal.mockResolvedValueOnce({ ...submittedJournal,state:"draft",version:1,
+      capabilities:{...submittedJournal.capabilities,update:true,submit:true} }).mockResolvedValue({...submittedJournal,version:3});
+    harness.api.updateJournal.mockResolvedValue({id:"journal-1",state:"draft",version:2});
+    harness.api.submitJournal.mockResolvedValue({id:"journal-1",state:"submitted",version:3});
+    harness.api.decideJournal.mockRejectedValueOnce(new Error("Response lost")).mockResolvedValue({id:"journal-1",state:"posted",version:4});
+    await act(async () => root.render(<FinanceJournalWorkspace page="manual-journal" recordRef="journal-1" onNavigate={vi.fn()} />));
+    await settle();
+    const approve=[...document.querySelectorAll('button')].find(button=>button.textContent==="Approve & Close");
+    expect(approve?.disabled).toBe(true);
+    const confirmation=document.querySelector('#manual-journal-final-review');
+    if (!(confirmation instanceof HTMLElement)) throw new Error("Missing final review");
+    if (confirmation.getAttribute('aria-checked')!=="true") act(()=>confirmation.click());
+    await settle(); click("Approve & Close"); await settle();
+    expect(document.querySelector('#journal-reference')).toHaveProperty('disabled',true);
+    expect(document.body.textContent).toContain("Retry the same action");
+    click("Approve & Close"); await settle();
+    expect(harness.api.updateJournal).toHaveBeenCalledTimes(1);
+    expect(harness.api.submitJournal).toHaveBeenCalledTimes(1);
+    expect(harness.api.decideJournal.mock.calls[0]).toEqual(harness.api.decideJournal.mock.calls[1]);
+    expect(harness.notify).toHaveBeenCalledWith("Journal approved and posted.");
+    expect(document.querySelector('[data-manual-journal-editor]')).toBeNull();
+  });
+
+  it("can hide optional actions without changing the editor or granting permission", async () => {
+    harness.session.user.permissions.push("finance.journal.submit");
+    await act(async () => root.render(<FinanceJournalWorkspace page="manual-journal" onNavigate={vi.fn()}
+      actionVisibility={{saveDraft:false,approveAndClose:false}} />));
+    await settle();
+    expect(document.querySelector('#journal-date')).not.toBeNull();
+    expect(document.querySelectorAll('footer[aria-label="Manual Journal actions"] button')).toHaveLength(0);
+    expect(harness.api.createJournal).not.toHaveBeenCalled();
+  });
+
+  it("retains override reasons and invalidates final review when journal fields change", async () => {
+    harness.session.user.roles = ["super_administrator"];
+    harness.session.user.permissions.push("finance.journal.submit", "finance.journal.approve", "platform.approval.override");
+    await act(async () => root.render(<FinanceJournalWorkspace page="manual-journal" onNavigate={vi.fn()} />));
+    await settle();
+    const approve = [...document.querySelectorAll("button")].find(button => button.textContent === "Approve & Close");
+    const reason = document.querySelector("#manual-journal-override");
+    const confirmation = document.querySelector("#manual-journal-final-review");
+    const reference = document.querySelector("#journal-reference");
+    if (!(reason instanceof HTMLInputElement) || !(confirmation instanceof HTMLElement) || !(reference instanceof HTMLInputElement))
+      throw new Error("Missing review controls");
+    expect(approve?.disabled).toBe(true);
+    act(() => confirmation.click()); await settle();
+    expect(approve?.disabled).toBe(true);
+    input(reason, "Authorized final review"); await settle();
+    expect(approve?.disabled).toBe(false);
+    input(reference, "Changed after review"); await settle();
+    expect(approve?.disabled).toBe(true);
+    expect(harness.api.createJournal).not.toHaveBeenCalled();
+  });
+
+  it("does not create a replacement for an unreadable journal", async () => {
+    harness.api.getJournal.mockRejectedValue(new Error("Read failed"));
+    await act(async () => root.render(<FinanceJournalWorkspace page="manual-journal" recordRef="journal-1" onNavigate={vi.fn()} />));
+    await settle();
+    expect(document.body.textContent).toContain("Journal could not be loaded");
+    expect(document.querySelector("[data-manual-journal-editor]")).toBeNull();
+    expect(harness.api.createJournal).not.toHaveBeenCalled();
+  });
+
+  it("keeps confirmed permanent deletion in draft details, outside the entry footer", async () => {
+    harness.api.getJournal.mockResolvedValue({ ...submittedJournal,state:"draft",
+      capabilities:{...submittedJournal.capabilities,update:true,delete_draft:true,approve:false,reject:false} });
+    harness.api.deleteJournal.mockResolvedValue({id:"journal-1",deleted:true});
+    await act(async () => root.render(<FinanceJournalWorkspace page="journal-detail" recordRef="journal-1" onNavigate={vi.fn()} />));
+    await settle();
+    const reason=document.querySelector('#delete-reason'),confirmation=document.querySelector('#confirm-draft-delete');
+    if (!(reason instanceof HTMLInputElement)||!(confirmation instanceof HTMLElement)) throw new Error("Missing deletion controls");
+    input(reason,"Duplicate draft"); act(()=>confirmation.click()); await settle();
+    click("Delete draft permanently"); await settle();
+    expect(harness.api.deleteJournal).toHaveBeenCalledWith("journal-1",{expected_version:2,reason:"Duplicate draft"},"csrf",expect.any(String));
+    expect(harness.notify).toHaveBeenCalledWith("Draft Journal content permanently deleted; audit tombstone retained.");
   });
 
   it("keeps one visible Journals menu item while retaining legacy route aliases", () => {

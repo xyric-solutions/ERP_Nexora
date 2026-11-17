@@ -21,6 +21,7 @@ for (const theme of ["light", "dark"] as const) {
             json: {
               status: "authenticated",
               tenant_id: "journal-layout-tenant",
+              active_company: { id: "company-one", code: "ONE", name: "Synthetic Journal company" },
               csrf_token: "c".repeat(43),
               idle_expires_at: "2099-01-01T00:00:00Z",
               absolute_expires_at: "2099-01-01T00:00:00Z",
@@ -29,9 +30,13 @@ for (const theme of ["light", "dark"] as const) {
                 email: "maker@example.invalid",
                 display_name: "Journal Maker",
                 roles: ["super_administrator"],
-                permissions: ["finance.journal.read", "finance.journal.create"],
+                permissions: ["finance.journal.read", "finance.journal.create", "finance.journal.submit"],
               },
             },
+          });
+        if (path === "/api/v1/auth/companies")
+          return route.fulfill({
+            json: { items: [{ id: "company-one", code: "ONE", name: "Synthetic Journal company" }] },
           });
         if (path === "/api/v1/finance/journals/options")
           return route.fulfill({
@@ -57,7 +62,7 @@ for (const theme of ["light", "dark"] as const) {
       await page.goto("/#/finance/journal-register");
       const workspaceHeader = page.locator('header[aria-label="Journal workspace"]');
       await expect(workspaceHeader.getByRole("heading", { name: "Journals", exact: true })).toBeVisible();
-      await expect(workspaceHeader.getByLabel("Company", { exact: true })).toHaveValue("company-one");
+      await expect(workspaceHeader.getByLabel("Company", { exact: true })).toHaveCount(0);
       await expect(workspaceHeader.getByText("Home / Finance / Journals", { exact: true })).toHaveCount(0);
       const headerBox = await workspaceHeader.boundingBox();
       expect(headerBox!.height).toBeLessThanOrEqual(width >= 1024 ? 48 : width >= 640 ? 80 : 124);
@@ -72,6 +77,14 @@ for (const theme of ["light", "dark"] as const) {
       await workspaceHeader.getByRole("button", { name: "＋ New Journal", exact: true }).click();
       const dialog = page.getByRole("dialog", { name: "New Manual Journal", exact: true });
       await expect(dialog).toBeVisible();
+      await expect(dialog.getByRole("columnheader", { name: "Required Dimensions", exact: true })).toHaveCount(0);
+      await expect(dialog.locator('footer[aria-label="Manual Journal actions"] button')).toHaveText([
+        "Save Draft",
+        "Approve & Close",
+      ]);
+      await expect(dialog.getByRole("button", { name: "Cancel", exact: true })).toHaveCount(0);
+      const heading = dialog.locator('[data-slot="sheet-header"]');
+      expect((await heading.boundingBox())!.height).toBeLessThan(width >= 768 ? 90 : 120);
       await dialog.getByRole("button", { name: "Close", exact: true }).click({ trial: true });
       const box = await dialog.boundingBox();
       expect(box!.width).toBeGreaterThanOrEqual(Math.min(width * 0.95, 1280));
@@ -107,17 +120,17 @@ for (const theme of ["light", "dark"] as const) {
       await dialog.getByRole("button", { name: "Remove", exact: true }).last().click();
       await expect(page.getByLabel("Debit line 3", { exact: true })).toHaveCount(0);
       await expect(page.getByLabel("Description line 1", { exact: true })).toHaveValue("Synthetic layout check");
-      await page.getByRole("button", { name: "Save draft", exact: true }).click();
+      await page.getByRole("button", { name: "Save Draft", exact: true }).click();
       await expect(page.getByRole("alert").filter({ hasText: "Review the Journal form" })).toBeVisible();
       expect(writes).toEqual([]);
       const accessibility = await new AxeBuilder({ page }).include('[data-slot="sheet-content"]').analyze();
       expect(accessibility.violations).toEqual([]);
-      await page.getByRole("button", { name: "Save draft", exact: true }).scrollIntoViewIfNeeded();
+      await page.getByRole("button", { name: "Save Draft", exact: true }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: `tmp/journal-layout-evidence/journal-${theme}-${width}.png`, fullPage: true });
       await page.getByLabel("Date *", { exact: true }).scrollIntoViewIfNeeded();
       await page.screenshot({ path: `tmp/journal-layout-evidence/journal-top-${theme}-${width}.png`, fullPage: true });
       page.once("dialog", (confirmation) => confirmation.accept());
-      await page.getByRole("button", { name: "Cancel", exact: true }).click();
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
       await expect(dialog).toHaveCount(0);
       expect(errors).toEqual([]);
     });

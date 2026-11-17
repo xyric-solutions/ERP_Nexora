@@ -1,5 +1,47 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Compact Manual Journal and governed actions
+
+- Updated the existing Finance Journal drawer/shared editor. Removed the Required
+  Dimensions column and empty placeholders; required inputs remain beneath the
+  nominal selector. Five desktop columns and responsive line cards retain exact
+  amounts, dimension/account-change validation and Add/Remove behavior. Local
+  header margin resets, smaller gaps/padding and totals reduce empty space.
+- The manual footer contains only Save Draft and Approve & Close when permitted.
+  Retained close/Escape and unsaved guards; active requests block drawer closure.
+  Draft deletion moved to a detail disclosure with its existing capability,
+  reason and confirmation. `manualJournalActionVisibility` and the workspace's
+  optional `actionVisibility` prop control presentation without granting authority.
+- The Finance-owned action helper saves current edits, submits the returned
+  version and uses server capabilities for approval. Final confirmation and
+  administrator reasons remain required; other preparers receive Awaiting approval.
+  IDs, versions and idempotency keys survive partial failures within the editor;
+  uncertain requests lock editing for retry. Newer unreviewed revisions cannot be
+  posted. Failed actions remain visible in the drawer, with entered lines retained.
+- Passed 42 focused tests using `npm.cmd run test:unit -- tests/unit/manual-journal-actions.test.ts tests/unit/finance-journal-form.test.ts tests/unit/finance-journals-contracts.test.ts tests/unit/finance-journals-workspace.test.tsx`.
+  The existing two finance staging-hardening integration tests also passed using
+  the isolated `tsx tmp/manual-journal/verify-finance.ts` harness. Its fresh database
+  needed EUR adoption from the reference catalogue; no business database was used.
+- Passed all 10 cases in `playwright.cmd test tests/e2e/finance-journal-layout.spec.ts --workers=1`
+  with an existing preview server. Updated stale session/company-directory fixtures;
+  the missing directory initially opened a topbar error that blocked tablet clicks.
+  Final coverage includes dimensions, line editing, validation, close guard and Axe
+  at 1440/768/559/390/320px in light/dark. Real-data preview checks passed 12
+  company/theme/width cases without business writes or page errors.
+- Both `npm.cmd run build:web` production builds passed with isolated outputs.
+  The compatible build retains 13 generated-cache CSS optimizer warnings; the root
+  build had none. `npm.cmd run typecheck`, touched-file ESLint, helper/new-test/E2E
+  formatting, theme audit write/check and `git diff --check` passed. No CSS retired,
+  API/contract/schema/credential changes, new dependencies or live postings.
+- Active compatible web build: `tmp/manual-journal-compact-build`, ID
+  `7nVCXi48nkj28-5O0D4op`. The API retains the Purchase currency context repair;
+  the Bank/Inventory layouts and pending Purchase/Assets rollout boundary remain.
+  Private browser/release evidence: `tmp/manual-journal/`; browser regression
+  screenshots: `tmp/journal-layout-evidence/`. Use the guarded startup runbook.
+  Live acceptance also passed all 12 cases with unchanged login, zero Axe
+  violations/outer overflow and zero business writes/page errors. The existing
+  API process and guarded routine-start health checks remain healthy.
+
 ## 2026-11-17 - Purchase currency fetching
 
 - Repaired the existing shared Procurement options source: transactions now supply
