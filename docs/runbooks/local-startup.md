@@ -54,8 +54,9 @@ powershell -NoProfile -File tmp/units-of-measure/start-live-runtime.ps1
 ```
 
 This guarded private helper uses `tmp/units-of-measure/release/source`, production
-web build `tmp/products-compact-build`, and its compiled API. The compact Products
-follow-up changes only the frontend; the Unit of Measure API/schema remain.
+web build `tmp/inventory-compact-build`, and its compiled API. The compact
+Products/UOM/Warehouse/Stock Transfer follow-up changes only the frontend; the
+Unit of Measure API/schema remain.
 Automatic migrations remain disabled. `-Restart` validates artifacts and known process identities
 before restarting. The previous Products compatible startup entry points now
 forward to this release. See the [executed release evidence](../superpowers/plans/2026-11-17-inventory-units-release.md).

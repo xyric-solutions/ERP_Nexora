@@ -6,6 +6,14 @@ Add New. Existing item/create/detail URLs resolve to the corresponding product
 pages. The Warehouse and Stock Transfer work pages have search, pagination,
 Add New and populated creation/edit forms. Other stock prototypes remain hidden.
 
+Unit of Measure, Warehouse and Stock Transfer use the same compact header rhythm
+as Products: inline wrapping descriptions/actions, 36px filter controls and smaller
+section gaps. Directory rows use 6px vertical cell padding; unit names/codes wrap
+together rather than forcing a second line. The converter and creation/edit form
+headers explicitly reset browser margins and retain readable labels and messages.
+Warehouse/Transfer form fields use smaller layout gaps without changing field
+behavior, validation or the draft-only stock boundary.
+
 The operating company is shown once in the persistent ERP top bar. Product,
 warehouse/transfer, Purchase and Accounting hierarchy workpages use that session
 scope without repeating a company selector. Switching uses the authenticated

@@ -1,5 +1,32 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 - Compact UOM, Warehouse and Stock Transfer
+
+- Extended the approved Products density to the existing Inventory operations and
+  UOM views. Headers wrap titles/descriptions/actions together, filters use 36px
+  controls, and browser heading/paragraph margins are reset locally. Table cells
+  use 6px vertical padding; UOM names and codes share a wrapping line.
+- Tightened the converter and existing UOM/Warehouse/Transfer form headers and
+  field gaps. Kept every field, handler, error/loading/empty state, permission,
+  server query, pagination action, exact conversion and draft-only safeguard.
+  Row actions retain visible focus and a minimum 24px target. No CSS retired.
+- Passed 26 unit tests, all 13 Inventory Chromium tests, repository typecheck,
+  touched-file ESLint, view/test formatting, theme audit write/check and diff check.
+  Browser regressions now check operation header/action alignment, table padding,
+  compact UOM row height, and Axe in both operation directories at all six
+  light/dark width combinations. Both production web builds pass; the compatible
+  build retains its existing 11 generated-cache CSS optimization warnings.
+- Compatible build: `tmp/inventory-compact-build`, ID
+  `ubDuowtqa_Hc7dfYfoMUU`, in `tmp/units-of-measure/release/source`. Frontend
+  only; the existing API process, schema, credentials and business records remain.
+  Previous build/artifacts are retained. Live evidence: `tmp/inventory-compact/`;
+  isolated browser evidence remains in `tmp/inventory-operations-evidence/`.
+- Live acceptance: unchanged real login, all three creation forms in both companies,
+  kg/gram conversion and 18 page/theme/width cases (1440/768/390px) pass with zero
+  Axe violations or outer overflow. No synthetic business records were saved.
+- Safe resume: retain the compact Inventory layouts and use the current guarded
+  compatible starter from the local runbook. Purchase/Assets rollout stays separate.
+
 ## 2026-11-17 - Products spacing and card size follow-up
 
 - Corrected inherited browser margins on Products headings, descriptions, result

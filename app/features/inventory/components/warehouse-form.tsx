@@ -77,12 +77,12 @@ export function WarehouseForm({
         e.preventDefault();
         void form.save(false);
       }}
-      className="min-w-0 space-y-5"
+      className="min-w-0 space-y-3"
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">{form.record ? form.record.name : "New warehouse"}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h2 className="m-0 text-lg font-semibold">{form.record ? form.record.name : "New warehouse"}</h2>
+          <p className="m-0 mt-0.5 text-sm text-muted-foreground">
             {form.record?.code ?? "Warehouse code assigned when saved"}
           </p>
         </div>
@@ -95,9 +95,9 @@ export function WarehouseForm({
       ) : null}
       <fieldset
         disabled={form.saving || !canWrite}
-        className="m-0 min-w-0 space-y-5 rounded-xl border border-border bg-card p-4 sm:p-5"
+        className="m-0 min-w-0 space-y-3 rounded-xl border border-border bg-card p-3 sm:p-4"
       >
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <LabeledField label="Warehouse name *">
             <Input
               maxLength={200}
@@ -155,7 +155,7 @@ export function WarehouseForm({
             </select>
           </LabeledField>
         </div>
-        <div className="grid min-w-0 gap-4 border-t border-border pt-4 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 border-t border-border pt-4 sm:grid-cols-2">
           <LabeledField label="Address">
             <Textarea
               className="min-h-24!"
@@ -177,7 +177,7 @@ export function WarehouseForm({
         </div>
       </fieldset>
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p className="text-sm text-muted-foreground">
+        <p className="m-0 text-sm text-muted-foreground">
           {!canWrite
             ? "Read-only warehouse access."
             : form.dirty

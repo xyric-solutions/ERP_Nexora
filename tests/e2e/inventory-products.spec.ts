@@ -473,6 +473,28 @@ test.describe("Persisted Inventory product catalog", () => {
           await expect(
             page.getByRole("row").filter({ hasText: entry.name === "warehouse" ? "Browser main warehouse" : "ST-001" }),
           ).toBeVisible();
+          const workpageTitle = page.getByRole("heading", {
+            name: entry.name === "warehouse" ? "Warehouse" : "Stock Transfer",
+            exact: true,
+          });
+          const titleBounds = await workpageTitle.boundingBox();
+          const filterBounds = await page
+            .getByRole("region", { name: `${entry.name === "warehouse" ? "Warehouse" : "Stock Transfer"} filters` })
+            .boundingBox();
+          if (width === 1440) {
+            const actionBounds = await page.getByRole("button", { name: "Add New", exact: true }).first().boundingBox();
+            expect(
+              Math.abs(titleBounds!.y + titleBounds!.height / 2 - actionBounds!.y - actionBounds!.height / 2),
+            ).toBeLessThan(12);
+            expect(filterBounds!.y - (actionBounds!.y + actionBounds!.height)).toBeLessThanOrEqual(16);
+          }
+          expect(
+            await page
+              .locator("tbody td")
+              .first()
+              .evaluate((cell) => Number.parseFloat(getComputedStyle(cell).paddingTop)),
+          ).toBeLessThanOrEqual(6);
+          expect((await new AxeBuilder({ page }).include("main .nx-content").analyze()).violations).toEqual([]);
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
           await page.screenshot({
             path: `tmp/inventory-operations-evidence/${theme}-${width}-${entry.name}-workpage.png`,
@@ -492,6 +514,14 @@ test.describe("Persisted Inventory product catalog", () => {
         await expect(page.locator("output")).toHaveText("1000 g");
         const kgRow = page.getByRole("button", { name: /^Kg \(kg\)/ });
         await expect(kgRow).toBeVisible();
+        if (width === 1440) {
+          const unitTitle = await page.getByRole("heading", { name: "Unit of Measure", exact: true }).boundingBox();
+          const unitAction = await page.getByRole("button", { name: "Add New Unit", exact: true }).boundingBox();
+          expect(Math.abs(unitTitle!.y + unitTitle!.height / 2 - unitAction!.y - unitAction!.height / 2)).toBeLessThan(
+            12,
+          );
+          expect((await kgRow.locator("xpath=ancestor::tr").boundingBox())!.height).toBeLessThanOrEqual(44);
+        }
         expect(await kgRow.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
         expect((await new AxeBuilder({ page }).include("main .nx-content").analyze()).violations).toEqual([]);

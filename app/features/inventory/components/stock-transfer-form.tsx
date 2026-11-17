@@ -121,12 +121,12 @@ export function StockTransferForm({
         e.preventDefault();
         void form.save(false);
       }}
-      className="min-w-0 space-y-5"
+      className="min-w-0 space-y-3"
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">{form.record?.code ?? "New stock transfer"}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Prepare a movement between warehouses.</p>
+          <h2 className="m-0 text-lg font-semibold">{form.record?.code ?? "New stock transfer"}</h2>
+          <p className="m-0 mt-0.5 text-sm text-muted-foreground">Prepare a movement between warehouses.</p>
         </div>
         <Badge variant="outline">{form.dirty ? "Unsaved draft" : "Draft"}</Badge>
       </header>
@@ -137,9 +137,9 @@ export function StockTransferForm({
       ) : null}
       <fieldset
         disabled={form.saving || !canWrite}
-        className="m-0 min-w-0 space-y-5 rounded-xl border border-border bg-card p-4 sm:p-5"
+        className="m-0 min-w-0 space-y-3 rounded-xl border border-border bg-card p-3 sm:p-4"
       >
-        <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <ProductLookup
             company={company}
             surface="transfers"
@@ -180,7 +180,7 @@ export function StockTransferForm({
         </div>
         <section className="space-y-3 border-t border-border pt-4" aria-label="Transfer products">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold">Products to transfer</h3>
+            <h3 className="m-0 text-sm font-semibold">Products to transfer</h3>
             {canWrite ? (
               <Button
                 type="button"
@@ -263,7 +263,7 @@ export function StockTransferForm({
         </LabeledField>
       </fieldset>
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p className="max-w-xl text-sm text-muted-foreground">
+        <p className="m-0 max-w-xl text-sm text-muted-foreground">
           Draft only. Stock balances remain unchanged until a controlled transfer is posted.
         </p>
         <div className="flex flex-wrap gap-2">

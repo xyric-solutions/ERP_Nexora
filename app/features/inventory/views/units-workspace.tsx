@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState, useRef } from "react";
+import { cn } from "cn";
 import {
   unitInputSchema,
   unitCategorySchema,
@@ -90,7 +91,12 @@ export function UnitsWorkspace({
       clearTimeout(timer);
     };
   }, [api, company, canRead, search, category, status, refresh]);
-  if (!canRead) return <p role="alert">Your account needs Inventory read permission for this company.</p>;
+  if (!canRead)
+    return (
+      <p role="alert" className="m-0">
+        Your account needs Inventory read permission for this company.
+      </p>
+    );
   if (!company) return <p role="status">Choose your company in the ERP top row.</p>;
   if (editing !== null)
     return (
@@ -126,16 +132,14 @@ export function UnitsWorkspace({
     }
   }
   return (
-    <div className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Unit of Measure</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Manage product units, precision and standard conversions.
-          </p>
+    <div className="min-w-0 space-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 className="m-0 text-lg font-semibold">Unit of Measure</h1>
+          <p className="m-0 text-sm text-muted-foreground">Manage product units, precision and standard conversions.</p>
         </div>
         {canWrite ? (
-          <Button type="button" onClick={() => setEditing("")}>
+          <Button type="button" className="h-9 shrink-0" onClick={() => setEditing("")}>
             <Plus aria-hidden="true" />
             Add New Unit
           </Button>
@@ -151,12 +155,24 @@ export function UnitsWorkspace({
           </AlertDescription>
         </Alert>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr]">
+      <section
+        aria-label="Unit filters"
+        className="grid gap-2 rounded-xl border border-border bg-card p-2.5 sm:grid-cols-[minmax(0,2fr)_1fr_1fr]"
+      >
         <LabeledField label="Search units">
-          <Input placeholder="Name, symbol or code" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input
+            className="h-9"
+            placeholder="Name, symbol or code"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </LabeledField>
         <LabeledField label="Measurement category">
-          <select className={productSelectClass} value={category} onChange={(e) => setCategory(e.target.value)}>
+          <select
+            className={cn(productSelectClass, "h-9")}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
             <option value="">All categories</option>
             {categories.map((c) => (
               <option key={c} value={c}>
@@ -166,13 +182,13 @@ export function UnitsWorkspace({
           </select>
         </LabeledField>
         <LabeledField label="Status">
-          <select className={productSelectClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+          <select className={cn(productSelectClass, "h-9")} value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="">All statuses</option>
           </select>
         </LabeledField>
-      </div>
+      </section>
       {/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- WCAG 2.1.1: the labelled horizontally scrollable unit directory needs its own keyboard focus. */}
       <div
         role="region"
@@ -181,12 +197,12 @@ export function UnitsWorkspace({
         className="overflow-x-auto rounded-lg border border-border focus-visible:outline-2 focus-visible:outline-ring"
       >
         {/* eslint-enable jsx-a11y/no-noninteractive-tabindex */}
-        <table className="w-full text-left text-sm">
+        <table className="w-full border-collapse text-left text-sm">
           <caption className="sr-only">Units of Measure</caption>
           <thead className="border-b border-border bg-muted/40 text-muted-foreground">
             <tr>
               {["Code / Unit", "Category", "Reference conversion", "Precision", "Status"].map((c) => (
-                <th key={c} scope="col" className="px-3 py-2 font-medium">
+                <th key={c} scope="col" className="px-3 py-1.5 font-medium">
                   {c}
                 </th>
               ))}
@@ -195,11 +211,11 @@ export function UnitsWorkspace({
           <tbody>
             {items.map((u) => (
               <tr key={u.id} className="border-b border-border last:border-0">
-                <td className="px-3 py-2">
+                <td className="px-3 py-1.5">
                   <Button
                     type="button"
                     variant="link"
-                    className="h-auto max-w-full flex-col items-start gap-0 whitespace-normal p-0 text-left font-sans text-foreground"
+                    className="h-auto min-h-6 max-w-full flex-wrap items-center gap-x-2 gap-y-0 whitespace-normal p-0 text-left font-sans text-foreground"
                     onClick={() => setEditing(u.id)}
                   >
                     <span>
@@ -211,14 +227,14 @@ export function UnitsWorkspace({
                     </span>
                   </Button>
                 </td>
-                <td className="px-3 py-2">{categoryName(u.category)}</td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-1.5">{categoryName(u.category)}</td>
+                <td className="px-3 py-1.5">
                   {["packaging", "legacy_day"].includes(u.category)
                     ? "Product rule required"
                     : `1 ${u.symbol} = ${u.numerator}/${u.denominator} ${reference[u.category]}`}
                 </td>
-                <td className="px-3 py-2">{u.precision} decimals</td>
-                <td className="px-3 py-2">
+                <td className="px-3 py-1.5">{u.precision} decimals</td>
+                <td className="px-3 py-1.5">
                   <Badge variant="outline">{u.status}</Badge>
                 </td>
               </tr>
@@ -226,7 +242,7 @@ export function UnitsWorkspace({
           </tbody>
         </table>
       </div>
-      <p role="status" className="text-sm text-muted-foreground">
+      <p role="status" className="m-0 text-xs text-muted-foreground">
         {busy
           ? "Loading units…"
           : items.length
@@ -300,10 +316,10 @@ function UnitForm({
         void form.save(true);
       }}
     >
-      <WorkFormLayout>
+      <WorkFormLayout className="space-y-3">
         <header className="space-y-1">
-          <h1 className="text-2xl font-semibold">{form.record ? form.record.name : "Add New Unit"}</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="m-0 text-lg font-semibold">{form.record ? form.record.name : "Add New Unit"}</h1>
+          <p className="m-0 text-sm text-muted-foreground">
             Definitions retain their meaning. Mark unused units inactive; create a replacement to change a definition.
           </p>
         </header>
@@ -321,7 +337,7 @@ function UnitForm({
         ) : null}
         <fieldset
           disabled={!canWrite || form.saving || form.loadFailed}
-          className="grid min-w-0 gap-4 border-0 p-0 sm:grid-cols-2 lg:grid-cols-3"
+          className="m-0 grid min-w-0 gap-3 border-0 p-0 sm:grid-cols-2 lg:grid-cols-3"
         >
           <LabeledField label="Unit code">
             <Input readOnly value={form.record?.code ?? "Assigned automatically on save"} />
@@ -404,7 +420,7 @@ function UnitForm({
             </select>
           </LabeledField>
         </fieldset>
-        <p className="text-sm text-muted-foreground">
+        <p className="m-0 text-sm text-muted-foreground">
           {form.input.category === "packaging"
             ? "Set package contents for each product in its Inventory tab."
             : `1 ${form.input.symbol || "unit"} = ${form.input.numerator}/${form.input.denominator} ${reference[form.input.category]}. For example, 1 Gram = 1/1000 kg.`}
@@ -478,28 +494,28 @@ function UnitConverter({ company, refresh }: { company: string; refresh: number 
     }
   }
   return (
-    <section className="space-y-3 border-t border-border pt-5" aria-labelledby="unit-converter-title">
-      <h2 id="unit-converter-title" className="text-base font-semibold">
+    <section className="space-y-2 border-t border-border pt-3" aria-labelledby="unit-converter-title">
+      <h2 id="unit-converter-title" className="m-0 text-base font-semibold">
         Unit converter
       </h2>
-      <p className="text-sm text-muted-foreground">
+      <p className="m-0 text-sm text-muted-foreground">
         Convert compatible measurements in either direction. Packaging uses the content rules saved on each product.
       </p>
       {error ? (
-        <p role="alert">
+        <p role="alert" className="m-0">
           {error}{" "}
           <Button type="button" variant="outline" size="sm" onClick={() => setRetry((n) => n + 1)}>
             Retry
           </Button>
         </p>
       ) : null}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-3">
         <LabeledField label="Convert quantity">
-          <Input inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          <Input className="h-9" inputMode="decimal" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
         </LabeledField>
         <LabeledField label="From unit">
           <select
-            className={productSelectClass}
+            className={cn(productSelectClass, "h-9")}
             value={from}
             onChange={(e) => {
               const unit = units.find((u) => u.id === e.target.value);
@@ -515,7 +531,11 @@ function UnitConverter({ company, refresh }: { company: string; refresh: number 
           </select>
         </LabeledField>
         <LabeledField label="To unit">
-          <select className={productSelectClass} value={destination?.id ?? ""} onChange={(e) => setTo(e.target.value)}>
+          <select
+            className={cn(productSelectClass, "h-9")}
+            value={destination?.id ?? ""}
+            onChange={(e) => setTo(e.target.value)}
+          >
             {units
               .filter((u) => u.category === source?.category)
               .map((u) => (
@@ -530,7 +550,7 @@ function UnitConverter({ company, refresh }: { company: string; refresh: number 
         {invalid || result || "Choose compatible units to convert."}
       </output>
       {source && destination ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="m-0 text-xs text-muted-foreground">
           1 {source.symbol} = {source.numerator}/{source.denominator} {reference[source.category]}; 1{" "}
           {destination.symbol} = {destination.numerator}/{destination.denominator} {reference[destination.category]}
         </p>
