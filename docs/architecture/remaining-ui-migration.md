@@ -1,5 +1,29 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 — Purchase selector default correction
+
+- Fixed the existing Purchase Form's empty product value selecting custom entry
+  automatically. Blank lines now show one searchable selector. Custom metadata
+  opens only on explicit selection or for existing saved custom metadata;
+  selecting a directory item hides it. API payloads retain real product IDs/null.
+- Preserved shared controls, theme/typography, directory search, independent line
+  state, custom-item persistence, validation and accounting. No new component,
+  dependency, stylesheet or CSS retirement.
+- Passed 37 focused unit tests, one real-API Purchase Chromium test, typecheck,
+  touched-file ESLint/Prettier, theme audit write/check, whitespace checks and
+  production builds for tracked and compatible frontend sources.
+- Localhost serves the corrected compatible frontend. Unchanged-account sign-in,
+  real catalogue search/selection, explicit custom entry and independent new
+  lines passed. Six light/dark views at 1440/768/390px had zero Axe violations,
+  page errors, failed purchase requests or page overflow. Desktop/mobile evidence
+  was visually reviewed: `tmp/product-selector/evidence/`.
+- Latest tracked build: `tmp/product-selector-root-build`. Full totals and asset
+  activation retains the database rollout gate below. The frontend correction
+  did not restart the API or save business documents. Compatible-copy CSS scanning
+  emitted eight optimizer warnings; browser checks found no affected styles.
+  The tracked build had no application build warnings. Exact commands are in the
+  existing Purchase plan.
+
 ## 2026-11-17 — Purchase product selection and amount summary
 
 - Reused the existing real-directory product/service dropdown with its embedded

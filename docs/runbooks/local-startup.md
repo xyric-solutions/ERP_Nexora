@@ -17,7 +17,7 @@ deployment/migration path. The implementation is verified on disposable data;
 the business database and currently running release remain unchanged.
 
 After explicit authorization, update the existing workstation-local helpers to
-target `tmp/purchase-totals-final-build`, migrate only procurement through 6 and
+target `tmp/product-selector-root-build`, migrate only procurement through 6 and
 fixed-assets through 7, and verify unchanged credentials, permissions, original
 Purchase/Asset values and journal populations. Then use the existing steps:
 
@@ -32,7 +32,7 @@ The backup is restored briefly into a uniquely named disposable database and
 removed there after validation; the ignored archive remains on this workstation.
 Migration verifies that original credentials, permissions, asset snapshots and
 journal populations are unchanged. Protected configuration is reused without
-writing `.env`. The latest release build is `tmp/purchase-totals-final-build`.
+writing `.env`. The latest tracked release build is `tmp/product-selector-root-build`.
 The dedicated `nexora-asset-drafts` worker prepares drafts and cleans expired
 unbound uploads; it has no financial approval/post handlers. Company automation
 starts disabled. Verify API readiness, sign-in, worker readiness and asset options
@@ -40,6 +40,22 @@ after restart. Preserve the earlier recovery helpers/configuration for reference
 never reset the recovered database to deploy this extension.
 
 ## Recovered workstation environment (16 November 2026)
+
+The 17 November product-selector correction is live in the compatible frontend
+only. New blank request lines show one selector, with custom metadata opened
+explicitly. It keeps the existing API/schema and login credentials; the full
+totals/asset extension above retains its separate rollout gate. Private runtime
+and browser reports: `tmp/product-selector/`.
+
+To start the corrected frontend when port 3000 is free and the compatible API is
+already running, use the following from the repository root. It starts only the
+web process and performs no database operations. Older recovery helpers still
+select their earlier frontend build.
+
+```powershell
+$env:NEXT_DIST_DIR = 'tmp/product-selector-build'
+node node_modules/next/dist/bin/next start tmp/asset-workpages-release/source --hostname 127.0.0.1 --port 3000
+```
 
 The current workstation was recovered from
 `tmp/backups/before-tax-activation-20261112T105321Z.dump`, created on 12 November

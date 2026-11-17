@@ -89,6 +89,23 @@ async function settle() {
     await new Promise((resolve) => setTimeout(resolve, 0));
   });
 }
+function prepareComboboxDom() {
+  vi.stubGlobal("PointerEvent", MouseEvent);
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  const matches = Element.prototype.matches;
+  vi.spyOn(Element.prototype, "matches").mockImplementation(function (selector) {
+    return selector.includes(":fullscreen") ? false : matches.call(this, selector);
+  });
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, 320, 40));
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+}
 function change(label: string, value: string) {
   const element = container.querySelector(`[aria-label="${label}"]`);
   if (!(element instanceof HTMLInputElement)) throw new Error(`Missing ${label}`);
@@ -138,6 +155,78 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 describe("Persisted Purchase creation and approval form", () => {
+  it("starts with one product box and opens custom fields only after explicit selection", async () => {
+    prepareComboboxDom();
+    harness.api.getPurchaseDocument.mockResolvedValue(record());
+    harness.api.savePurchaseDocument.mockImplementation(async (_id, input) => ({
+      record: { ...record(), ...input, version: 2 },
+    }));
+    await act(async () => root.render(<PurchaseDocumentForm {...props} reference="purchase-one" />));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    });
+    const selector = container.querySelector('[aria-label="Line 1 product"]') as HTMLButtonElement;
+    expect(selector.textContent).toContain("Select product or service");
+    expect(container.querySelector('[aria-label="Line 1 item code"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Line 1 product name"]')).toBeNull();
+    await act(async () => selector.click());
+    const custom = [...document.querySelectorAll('[role="option"]')].find((item) =>
+      item.textContent?.includes("Enter custom product / service"),
+    ) as HTMLElement;
+    expect(custom).toBeDefined();
+    await act(async () => custom.click());
+    change("Line 1 item code", "CUSTOM-001");
+    change("Line 1 product name", "Custom maintenance");
+    await click("Save Draft");
+    expect(harness.api.savePurchaseDocument).toHaveBeenCalledWith(
+      "purchase-one",
+      expect.objectContaining({
+        lines: [
+          expect.objectContaining({ product_id: null, item_code: "CUSTOM-001", product_name: "Custom maintenance" }),
+        ],
+      }),
+      "test-csrf",
+      expect.any(String),
+    );
+  });
+  it("keeps new request lines compact independently", async () => {
+    prepareComboboxDom();
+    await act(async () => root.render(<PurchaseDocumentForm {...props} />));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    });
+    await click("Add line");
+    for (const line of [1, 2]) {
+      expect(container.querySelector(`[aria-label="Line ${line} product"]`)?.textContent).toContain(
+        "Select product or service",
+      );
+      expect(container.querySelector(`[aria-label="Line ${line} item code"]`)).toBeNull();
+      expect(container.querySelector(`[aria-label="Line ${line} product name"]`)).toBeNull();
+    }
+    const selector = container.querySelector('[aria-label="Line 2 product"]') as HTMLButtonElement;
+    await act(async () => selector.click());
+    const custom = [...document.querySelectorAll('[role="option"]')].find((item) =>
+      item.textContent?.includes("Enter custom product / service"),
+    ) as HTMLElement;
+    await act(async () => custom.click());
+    expect(container.querySelector('[aria-label="Line 2 item code"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Line 1 item code"]')).toBeNull();
+  });
+  it("retains saved custom product fields when reopening a record", async () => {
+    const saved = record();
+    saved.lines[0]!.item_code = "CUSTOM-002";
+    harness.api.getPurchaseDocument.mockResolvedValue({
+      ...saved,
+      lines: [{ ...saved.lines[0], product_name: "Saved custom service" }],
+    });
+    await act(async () => root.render(<PurchaseDocumentForm {...props} reference="purchase-one" />));
+    await settle();
+    expect(container.querySelector('[aria-label="Line 1 item code"]')).toHaveProperty("value", "CUSTOM-002");
+    expect(container.querySelector('[aria-label="Line 1 product name"]')).toHaveProperty(
+      "value",
+      "Saved custom service",
+    );
+  });
   it("updates the visible breakdown and persists discounts and taxed freight", async () => {
     harness.api.getPurchaseDocument.mockResolvedValue(record());
     harness.api.savePurchaseDocument.mockImplementation(async (_id, input) => ({
@@ -175,21 +264,7 @@ describe("Persisted Purchase creation and approval form", () => {
     expect(summary.textContent).not.toContain("22.50");
   });
   it("searches the real directory adapter inside the product dropdown without an external search", async () => {
-    vi.stubGlobal("PointerEvent", MouseEvent);
-    vi.stubGlobal(
-      "ResizeObserver",
-      class {
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      },
-    );
-    const matches = Element.prototype.matches;
-    vi.spyOn(Element.prototype, "matches").mockImplementation(function (selector) {
-      return selector.includes(":fullscreen") ? false : matches.call(this, selector);
-    });
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(() => new DOMRect(0, 0, 320, 40));
-    HTMLElement.prototype.scrollIntoView = vi.fn();
+    prepareComboboxDom();
     harness.api.getPurchaseDocument.mockResolvedValue(record());
     harness.api.listPurchaseProducts.mockResolvedValue({
       items: [{ id: "product-a", code: "SVC-001", name: "Maintenance", uom: "Hour" }],
@@ -201,6 +276,13 @@ describe("Persisted Purchase creation and approval form", () => {
     });
     expect(container.querySelector('input[placeholder="Search products"]')).toBeNull();
     const selector = container.querySelector('[aria-label="Line 1 product"]') as HTMLButtonElement;
+    await act(async () => selector.click());
+    const custom = [...document.querySelectorAll('[role="option"]')].find((item) =>
+      item.textContent?.includes("Enter custom product / service"),
+    ) as HTMLElement;
+    await act(async () => custom.click());
+    change("Line 1 item code", "CUSTOM-OLD");
+    change("Line 1 product name", "Old custom item");
     await act(async () => selector.click());
     const search = document.querySelector('[aria-label="Search products and services for line 1"]') as HTMLInputElement;
     expect(search).not.toBeNull();
@@ -219,6 +301,18 @@ describe("Persisted Purchase creation and approval form", () => {
     await act(async () => option.click());
     expect(container.querySelector('[aria-label="Line 1 product"]')?.textContent).toContain("Maintenance");
     expect(container.querySelector('[aria-label="Line 1 unit"]')).toHaveProperty("value", "Hour");
+    expect(container.querySelector('[aria-label="Line 1 item code"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Line 1 product name"]')).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 260));
+    });
+    await act(async () => selector.click());
+    const enterCustom = [...document.querySelectorAll('[role="option"]')].find((item) =>
+      item.textContent?.includes("Enter custom product / service"),
+    ) as HTMLElement;
+    await act(async () => enterCustom.click());
+    expect(container.querySelector('[aria-label="Line 1 item code"]')).toHaveProperty("value", "");
+    expect(container.querySelector('[aria-label="Line 1 product name"]')).toHaveProperty("value", "");
   });
   it("reopens bill dates, recalculates terms from bill date and saves manual due dates", async () => {
     const invoice = {

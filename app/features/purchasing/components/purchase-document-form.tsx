@@ -41,6 +41,7 @@ import { paymentEntries, PurchasePaymentDetailsForm } from "./purchase-payment-d
 import { PurchaseBillDetailsForm } from "./purchase-bill-details";
 import { PurchaseAssetDetailsDialog } from "@/features/fixed-assets/components/purchase-asset-details-dialog";
 
+const CUSTOM_PRODUCT_VALUE = "__custom_product__";
 const newLine = (): PurchaseLine => ({
   id: `line-${crypto.randomUUID()}`,
   source_line_id: null,
@@ -104,6 +105,7 @@ export function PurchaseDocumentForm({
     null,
   );
   const [manualAmounts, setManualAmounts] = useState<Set<string>>(new Set());
+  const [customLines, setCustomLines] = useState<Set<string | number>>(new Set());
   const [selectedPaymentSupplier, setSelectedPaymentSupplier] = useState<Supplier | null>(null);
   const [input, setInput] = useState<SavePurchaseRequest>({
     company_id: company,
@@ -435,6 +437,9 @@ export function PurchaseDocumentForm({
   }
   function updateLine(index: number, patch: Partial<PurchaseLine>) {
     change({ lines: input.lines.map((line, i) => (i === index ? { ...line, ...patch } : line)) });
+  }
+  function isCustomLine(line: PurchaseLine, index: number) {
+    return !line.product_id && (customLines.has(line.id ?? index) || !!(line.item_code || line.product_name));
   }
   function retryKey(action: string, payload: unknown) {
     const body = JSON.stringify(payload),
@@ -1557,11 +1562,11 @@ export function PurchaseDocumentForm({
                           <div className="grid gap-2">
                             <SearchableSelect
                               label={`Line ${index + 1} product`}
-                              value={line.product_id ?? ""}
+                              value={line.product_id ?? (isCustomLine(line, index) ? CUSTOM_PRODUCT_VALUE : "")}
                               placeholder="Select product or service"
                               disabled={!canSave || busy}
                               options={[
-                                { value: "", label: "Custom product / service" },
+                                { value: CUSTOM_PRODUCT_VALUE, label: "Enter custom product / service" },
                                 ...products.items.map((item) => ({
                                   value: item.id,
                                   label: `${item.code} · ${item.name}`,
@@ -1580,6 +1585,19 @@ export function PurchaseDocumentForm({
                               onSearchChange={products.setSearch}
                               loading={products.busy}
                               onValueChange={(value) => {
+                                if (value === CUSTOM_PRODUCT_VALUE) {
+                                  setCustomLines((current) => new Set(current).add(line.id ?? index));
+                                  updateLine(index, {
+                                    product_id: null,
+                                    ...(line.product_id ? { item_code: "", product_name: "" } : {}),
+                                  });
+                                  return;
+                                }
+                                setCustomLines((current) => {
+                                  const next = new Set(current);
+                                  next.delete(line.id ?? index);
+                                  return next;
+                                });
                                 const selected = products.items.find((item) => item.id === value);
                                 if (selected)
                                   updateLine(index, {
@@ -1615,7 +1633,7 @@ export function PurchaseDocumentForm({
                                 </div>
                               }
                             />
-                            {!line.product_id ? (
+                            {isCustomLine(line, index) ? (
                               <div className="grid gap-2">
                                 <Input
                                   aria-label={`Line ${index + 1} item code`}

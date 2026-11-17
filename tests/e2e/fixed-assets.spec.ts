@@ -384,6 +384,13 @@ test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
     ).record;
     await page.goto(`/#/purchases/add-requisition/${draft.id}`);
     const productBox = page.getByLabel("Line 1 product", { exact: true });
+    await expect(productBox).toContainText("Select product or service");
+    await expect(page.getByLabel("Line 1 item code", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Line 1 product name", { exact: true })).toHaveCount(0);
+    await productBox.click();
+    await page.getByRole("option", { name: "Enter custom product / service", exact: true }).click();
+    await expect(page.getByLabel("Line 1 item code", { exact: true })).toBeVisible();
+    await page.getByLabel("Line 1 product name", { exact: true }).fill("Temporary custom entry");
     await productBox.click();
     const search = page.getByLabel("Search products and services for line 1", { exact: true });
     await search.fill("maintenance service");
@@ -393,6 +400,8 @@ test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
     await expect(productBox).toContainText(product.name);
     await expect(search).toHaveCount(0);
     await expect(page.getByLabel("Line 1 unit", { exact: true })).toHaveValue("Hour");
+    await expect(page.getByLabel("Line 1 item code", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Line 1 product name", { exact: true })).toHaveCount(0);
     await page.getByLabel("Line 1 quantity", { exact: true }).fill("2");
     await page.getByLabel("Line 1 tax percent", { exact: true }).fill("10");
     await page.getByLabel("Line 1 discount", { exact: true }).fill("2.00");

@@ -56,6 +56,53 @@ setup. The final runs above passed; no full-repository test-suite claim is made.
 
 ## Local activation boundary
 
+### Selector default correction (17 November follow-up)
+
+The empty product value matched the custom-entry option, opening two metadata
+inputs on every blank line. A distinct UI-only custom choice and per-line state
+now keep new lines compact, while saved custom metadata remains editable. Applied
+the focused correction to tracked source and the compatible localhost source,
+preserving the directory adapter, API payloads, validation and financial logic.
+
+Verification:
+
+- Reproduced the old default with a failing focused test, then passed
+  `npm.cmd run test:unit -- tests/unit/purchase-document-form.test.tsx tests/unit/searchable-select.test.tsx`
+  — **37 tests**. Covers blank/new lines, explicit custom selection, saved custom
+  metadata, switching custom/directory items and payload identity.
+- `npm.cmd run typecheck`;
+  `.\node_modules\.bin\eslint.cmd app/features/purchasing/components/purchase-document-form.tsx tests/unit/purchase-document-form.test.tsx tests/e2e/fixed-assets.spec.ts`;
+  `.\node_modules\.bin\prettier.cmd --check app/features/purchasing/components/purchase-document-form.tsx tests/unit/purchase-document-form.test.tsx tests/e2e/fixed-assets.spec.ts`;
+  `node scripts/audit-ui-theme.mjs --write` / `--check`; `git diff --check` — passed.
+- `NEXT_DIST_DIR=tmp/product-selector-root-build` with `npm.cmd run build:web`
+  — passed; restored canonical generated `next-env.d.ts` imports afterward.
+  Compatible source also passed `npm.cmd run build:web` with its relative
+  `NEXT_DIST_DIR=tmp/product-selector-build`. Eight compatible-copy CSS optimizer
+  warnings were observed; no tracked application build warnings.
+- With the isolated environment above and preview URL `http://127.0.0.1:3214`, ran
+  `.\node_modules\.bin\playwright.cmd test tests/e2e/fixed-assets.spec.ts --workers=1 --grep 'searches products inside the selector'`
+  — **1 passed**. Includes default/custom assertions, real search, persisted
+  discounts/freight/totals and six theme/width combinations.
+- `node tmp/product-selector/verify-live.mjs` with concealed credential input —
+  unchanged-account sign-in, one default control, explicit custom entry,
+  independent new line and real catalogue search/selection passed on localhost.
+  Six responsive theme combinations had zero Axe violations, page errors, failed
+  purchase requests or page overflow. No business document was saved. Reports,
+  compatible-source patch and visually reviewed desktop/mobile evidence are in
+  ignored `tmp/product-selector/`.
+- Whole-file Prettier checks still warn on the historical migration checklist
+  and startup runbook. `prettier.check` against their committed `HEAD` versions
+  confirms both warnings predate this fix; unrelated document formatting was
+  preserved. The changed TS/TSX files and Purchase spec/plan pass formatting.
+
+Only the web process was replaced. The existing API process, business database,
+credentials and protected rollout/migration helpers were not changed. Compatible
+build: `tmp/asset-workpages-release/source/tmp/product-selector-build`. Latest
+tracked build for the separately authorized full rollout:
+`tmp/product-selector-root-build` (supersedes `tmp/purchase-totals-final-build`).
+
+### Full database-backed feature rollout
+
 The current recovered business database/API were not changed. Automatic approval
 review rejected updating protected rollout/migration helpers because approval of
 the feature design did not authorize deployment/migration side effects against

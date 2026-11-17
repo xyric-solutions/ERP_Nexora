@@ -48,6 +48,10 @@ source matching, permissions, validation, and accounting approval/posting steps.
   Search code/name using the existing company-scoped API; support keyboard
   selection, loading, empty, retry and pagination states within the dropdown.
   Keep existing custom-item entry and inherited downstream product selection.
+- New blank lines show only the selection control and its placeholder. Open
+  custom code/name fields only after choosing **Enter custom product / service**,
+  or when reopening saved custom metadata. Selecting a directory item hides
+  these fields. The custom choice is UI state, never a persisted product ID.
 - Add no external product search input or search button. Retain selected labels
   while searching and ensure each line keeps its own selection correctly.
 - Replace the single total row for product documents with a semantic, visually
