@@ -1,4 +1,7 @@
 import { resolveTax, TaxError } from "../finance/taxes/resolver.js";
+import { productUnitChoices, productUnitSnapshot } from "../inventory/units-repository.js";
+import { InventoryError } from "../inventory/errors.js";
+import { convertUnitQuantity } from "@nexora/contracts";
 import { bindPurchaseDocuments } from "../fixed-assets/staged-documents.js";
 import { SourceAssetRepository, AssetError } from "../fixed-assets/source-repository.js";
 import {
@@ -841,6 +844,7 @@ export class SourceProcurementRepository {
           }
         }
         if (parsed.kind === "request") {
+          for (const line of lines) { if (!line.product_id) {delete line.unit_id;delete line.unit_snapshot;} }
           const productIds = [...new Set(lines.flatMap((line) => (line.product_id ? [line.product_id] : [])))];
           if (productIds.length) {
             const products = await client.query<{ id: string; code: string; name: string; uom: string }>(
@@ -850,12 +854,23 @@ export class SourceProcurementRepository {
             );
             if (products.rows.length !== productIds.length)
               fail("A selected product is inactive or unavailable in this company.", "PURCHASE_PRODUCT_INELIGIBLE");
+            const unitChoices = await productUnitChoices(client,context.tenantId,parsed.company_id,productIds);
             for (const line of lines) {
               const product = products.rows.find((item) => item.id === line.product_id);
               if (product) {
                 line.item_code = product.code;
                 line.product_name = product.name;
-                line.uom = product.uom;
+                try {
+                  const snapshot = productUnitSnapshot(unitChoices.get(product.id)!,line.quantity,line.unit_id);
+                  if ((line.create_fixed_asset || line.asset_registration) && snapshot.unit_id!==snapshot.base_unit_id)
+                    fail("Individual fixed asset registration requires the product's base unit.");
+                  line.uom = snapshot.unit_name;
+                  line.unit_id = snapshot.unit_id;
+                  line.unit_snapshot = snapshot;
+                } catch (error) {
+                  if (error instanceof InventoryError) fail(error.message,error.code,error.status);
+                  throw error;
+                }
               }
             }
           }
@@ -1354,6 +1369,16 @@ export class SourceProcurementRepository {
       for (const line of terms.lines) {
         const sourceLine = source.lines.find((item) => item.id === line.source_line_id);
         if (!sourceLine) fail("Every line must reference a line on the selected source.");
+        if (sourceLine.unit_snapshot) {
+          const converted = convertUnitQuantity(line.quantity,sourceLine.unit_snapshot,sourceLine.unit_snapshot.base_precision);
+          const entered = convertUnitQuantity(line.quantity,{numerator:"1",denominator:"1"},sourceLine.unit_snapshot.unit_precision);
+          if (!entered.exact || !converted.exact || !/[1-9]/.test(converted.quantity)) fail("The source unit conversion cannot represent this quantity exactly.");
+          line.unit_id = sourceLine.unit_snapshot.unit_id;
+          line.unit_snapshot = {...sourceLine.unit_snapshot,entered_quantity:line.quantity,base_quantity:converted.quantity};
+        } else {
+          delete line.unit_id;
+          delete line.unit_snapshot;
+        }
         if (
           line.item_code !== sourceLine.item_code ||
           (line.product_id ?? null) !== (sourceLine.product_id ?? null) ||

@@ -1,5 +1,29 @@
 # Remaining UI migration checklist
 
+## 2026-11-17 — Inventory Unit of Measure
+
+- Added the Unit of Measure submenu, compact searchable directory, one Add New Unit
+  action, shared master form and live converter. Reused Product/Purchase/Transfer
+  forms for managed unit selection, product contents and entered/base equivalents.
+- Preserved the single global company context, unsaved guards, real API data,
+  server permissions, immutable history and existing financial/posting boundaries.
+  Definitions are retained; custom unit codes are allocated transactionally.
+- Final verification: 57 unit, 61 integration (including 15 migration regressions),
+  7 contract and 13 Chromium tests; typecheck, touched-file lint, new-file formatting,
+  generated client/catalogue checks, API/web builds, theme write/check and diff check.
+  Six light/dark desktop/tablet/mobile cases have zero Axe violations/outer overflow.
+  Final themed row buttons and active submenu have explicit browser regressions.
+- Zero direct feature font/colour exceptions. A local lint exception permits keyboard
+  focus on the labelled horizontal scroll region, consistent with Purchase and
+  required by the mobile keyboard-access test. No feature CSS was added or retired.
+- Evidence: `tmp/inventory-operations-evidence/*-units.png`. Prepared compatible
+  build: `tmp/units-of-measure/release/source/tmp/uom-complete-build`; its existing
+  generated-cache scanning produces CSS optimizer warnings, recorded in the plan.
+- Safe resume: source is implemented/tested; localhost still runs the prior release
+  against Inventory 2 / Procurement 5 / Assets 2. Review the targeted unit release
+  procedure before backup, Inventory-only migration and service replacement.
+  Preserve the existing login. Do not apply unrelated pending migrations.
+
 ## 2026-11-17 — Products creation, compact cards and global company context
 
 - Fixed Inventory's missing transaction-local user context, which hid valid

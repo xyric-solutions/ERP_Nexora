@@ -1,5 +1,6 @@
 "use client";
 import { WorkForm, WorkFormLayout } from "@/shared/ui/work-form";
+import { ProductUnitSelect } from "@/features/inventory/components/product-unit-select";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -46,7 +47,7 @@ const newLine = (): PurchaseLine => ({
   id: `line-${crypto.randomUUID()}`,
   source_line_id: null,
   item_code: "",
-  product_id: null,
+  product_id: null,unit_id:undefined,unit_snapshot:undefined,
   product_name: "",
   description: "",
   quantity: "1",
@@ -1588,7 +1589,7 @@ export function PurchaseDocumentForm({
                                 if (value === CUSTOM_PRODUCT_VALUE) {
                                   setCustomLines((current) => new Set(current).add(line.id ?? index));
                                   updateLine(index, {
-                                    product_id: null,
+                                    product_id: null,unit_id:undefined,unit_snapshot:undefined,
                                     ...(line.product_id ? { item_code: "", product_name: "" } : {}),
                                   });
                                   return;
@@ -1602,13 +1603,14 @@ export function PurchaseDocumentForm({
                                 if (selected)
                                   updateLine(index, {
                                     product_id: selected.id,
+                                    unit_id: undefined,unit_snapshot: undefined,
                                     item_code: selected.code,
                                     product_name: selected.name,
                                     uom: selected.uom,
                                     description: line.description || selected.name,
                                   });
                                 else if (!value)
-                                  updateLine(index, { product_id: null, item_code: "", product_name: "" });
+                                  updateLine(index, { product_id: null,unit_id:undefined,unit_snapshot:undefined, item_code: "", product_name: "" });
                               }}
                               footer={
                                 <div className="grid gap-1 text-sm">
@@ -1793,6 +1795,10 @@ export function PurchaseDocumentForm({
                         />
                       </td>
                       <td className="p-2">
+                        {line.product_id && kind === "request" ? <ProductUnitSelect surface="purchases" company={company} product={line.product_id} quantity={line.quantity} value={line.unit_id} fallback={line.uom} label={`Line ${index + 1} unit`} disabled={sourceLocked} onChange={(id,name)=>{
+                          if (Number(line.unit_price)>0 && !window.confirm("Change this unit and clear its unit price? Enter the price for the new unit before saving.")) return;
+                          updateLine(index,{unit_id:id,uom:name,unit_price:"0.00",unit_snapshot:undefined});
+                        }}/> : <>
                         <Input
                           aria-label={`Line ${index + 1} unit`}
                           required
@@ -1801,6 +1807,8 @@ export function PurchaseDocumentForm({
                           value={line.uom}
                           onChange={(event) => updateLine(index, { uom: event.target.value })}
                         />
+                        {line.unit_snapshot ? <p className="mt-1 text-xs text-muted-foreground">{line.unit_snapshot.base_quantity} {line.unit_snapshot.base_unit_name}</p>:null}
+                        </>}
                       </td>
                       <td className="p-2">
                         <Input

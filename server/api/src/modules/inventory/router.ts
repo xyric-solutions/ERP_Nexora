@@ -11,6 +11,7 @@ import {
   stockTransferInputSchema,
   updateStockTransferInputSchema,
   inventoryDirectoryQuerySchema,
+  unitInputSchema, unitQuerySchema, unitConversionInputSchema,
 } from "@nexora/contracts";
 import { HttpError } from "../../http/errors.js";
 import { currentRequestContext } from "../../http/request-context.js";
@@ -31,6 +32,7 @@ export type InventoryRepository = Pick<
   | "transfers"
   | "getTransfer"
   | "saveTransfer"
+  | "units"
 >;
 const identity = z.string().trim().min(1).max(128),
   companyQuery = z.strictObject({ company_id: identity });
@@ -72,6 +74,33 @@ export function createInventoryRouter(
     const query = companyQuery.parse(req.query),
       ctx = await loadBankingSessionContext(req, dependencies);
     res.json(await handle(() => dependencies.repository.options(ctx, query.company_id)));
+  });
+  router.get("/units", async (req,res) => {
+    const query=unitQuerySchema.parse(req.query),ctx=await loadBankingSessionContext(req,dependencies);
+    res.json(await handle(()=>dependencies.repository.units.list(ctx,query)));
+  });
+  router.get("/units/product-choices", async (req,res) => {
+    const query=z.strictObject({company_id:identity,product_id:identity,surface:z.enum(["products","purchases","transfers"]).default("products")}).parse(req.query),ctx=await loadBankingSessionContext(req,dependencies);
+    res.json(await handle(()=>dependencies.repository.units.choices(ctx,query.company_id,query.product_id,query.surface)));
+  });
+  router.get("/units/conversion", async (req,res) => {
+    const query=unitConversionInputSchema.parse(req.query),ctx=await loadBankingSessionContext(req,dependencies);
+    res.json(await handle(()=>dependencies.repository.units.convert(ctx,query)));
+  });
+  router.get("/units/:id", async (req,res) => {
+    const query=companyQuery.parse(req.query),ctx=await loadBankingSessionContext(req,dependencies);
+    const record=await handle(()=>dependencies.repository.units.get(ctx,query.company_id,identity.parse(req.params.id)));
+    res.setHeader("etag",`"${record.version}"`).json(record);
+  });
+  router.post("/units", async (req,res) => {
+    const input=unitInputSchema.parse(req.body),key=mutation(req),ctx=await loadBankingSessionContext(req,dependencies,true);
+    const result=await handle(()=>dependencies.repository.units.save(ctx,null,input,key,currentRequestContext().correlationId));
+    res.status(201).setHeader("etag",`"${result.record.version}"`).json(result);
+  });
+  router.patch("/units/:id", async (req,res) => {
+    const input=unitInputSchema.extend({expected_version:z.number().int().positive()}).parse(req.body),key=mutation(req,input.expected_version),ctx=await loadBankingSessionContext(req,dependencies,true);
+    const result=await handle(()=>dependencies.repository.units.save(ctx,identity.parse(req.params.id),input,key,currentRequestContext().correlationId));
+    res.setHeader("etag",`"${result.record.version}"`).json(result);
   });
   router.get("/lookups", async (req, res) => {
     const query = productLookupQuerySchema.parse(req.query),

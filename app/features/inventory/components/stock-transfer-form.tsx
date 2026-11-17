@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { LabeledField } from "@/shared/ui/labeled-field";
 import { ProductLookup } from "./product-lookup";
 import { useInventoryForm } from "./use-inventory-form";
+import { ProductUnitSelect } from "./product-unit-select";
 
 export function StockTransferForm({
   company,
@@ -41,7 +42,7 @@ export function StockTransferForm({
         input: stockTransferInputSchema.strip().parse({
           ...record,
           expected_version: record.version,
-          lines: record.lines.map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
+          lines: record.lines.map((l) => ({ product_id: l.product_id, quantity: l.unit_snapshot?.entered_quantity??l.quantity,...(l.unit_snapshot?{unit_id:l.unit_snapshot.unit_id}:{}) })),
         }),
       };
     },
@@ -213,7 +214,7 @@ export function StockTransferForm({
                   onChange={(id, name, unit) => {
                     form.change((current) => ({
                       ...current,
-                      lines: current.lines.map((l, n) => (n === index ? { ...l, product_id: id ?? "" } : l)),
+                      lines: current.lines.map((l, n) => (n === index ? { product_id: id ?? "",quantity:l.quantity } : l)),
                     }));
                     setProductNames((n) => ({ ...n, [index]: name }));
                     setUnits((n) => ({ ...n, [index]: unit ?? "" }));
@@ -234,7 +235,7 @@ export function StockTransferForm({
                   />
                 </LabeledField>
                 <LabeledField label={`Line ${index + 1} unit`}>
-                  <Input readOnly value={units[index] ?? form.record?.lines[index]?.unit ?? ""} />
+                  {line.product_id ? <ProductUnitSelect surface="transfers" company={company} product={line.product_id} quantity={line.quantity} value={line.unit_id} fallback={units[index]??form.record?.lines[index]?.unit??""} label={`Line ${index+1} unit`} disabled={!canWrite} onChange={(id)=>form.change(current=>({...current,lines:current.lines.map((l,n)=>n===index?{...l,unit_id:id}:l)}))}/> : <Input readOnly value="Select a product"/>}
                 </LabeledField>
                 {canWrite ? (
                   <Button

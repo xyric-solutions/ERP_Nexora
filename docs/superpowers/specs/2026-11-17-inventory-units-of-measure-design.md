@@ -1,6 +1,8 @@
 # Inventory Units of Measure and automatic conversion
 
-Status: Proposed for owner review; implementation has not started.
+Status: Approved by the owner on 17 November 2026. Implemented in source and
+verified in isolated data/previews; targeted localhost release awaits the separate
+database/release review described in the implementation and release plans.
 
 ## Requested outcome and interpretation
 

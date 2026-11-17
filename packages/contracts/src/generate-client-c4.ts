@@ -30,6 +30,7 @@ import type {HrPerformanceParticipationAction,HrPerformanceParticipation} from '
 import type {
   WarehouseInput,Warehouse,WarehouseDirectory,WarehouseMutation,StockTransferInput,StockTransfer,StockTransferDirectory,StockTransferMutation,InventorySurface,
   Product,ProductInput,ProductDirectory,ProductMutation,InventoryCompanies,InventoryOptions,ProductLookupDirectory,
+  MeasurementUnit,UnitInput,UnitDirectory,UnitMutation,UnitConversion,ProductUnits,
   ProcurementCompanies, ProcurementOptions, PurchaseProductDirectory, PurchaseApproverDirectory, PurchaseFlow, PurchaseDocument, PurchaseDirectory, SavePurchaseInput, PurchaseActionRequest, PurchaseMutation, SupplierInput, SupplierDirectory, SupplierMutation,
   BankWorkflowOptions,
   BankSelfApprovalDirectory,BankSelfApprovalOptions,BankSelfApprovalMutation,ChangeBankSelfApprovalRequest,ReassignBankApproverRequest,
@@ -467,6 +468,11 @@ export class NexoraApiClient {
   listSecuritySessionPolicies(): Promise<SecurityPage> { return this.request("/api/v1/security/session_policies"); }
 
   listInventoryCompanies(surface:InventorySurface="products"):Promise<InventoryCompanies> {return this.request(\`/api/v1/inventory/companies?surface=\${encodeURIComponent(surface)}\`);}
+  listMeasurementUnits(query:string):Promise<UnitDirectory>{return this.request(\`/api/v1/inventory/units\${query}\`);}
+  getMeasurementUnit(id:string,company:string):Promise<MeasurementUnit>{return this.request(\`/api/v1/inventory/units/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
+  saveMeasurementUnit(id:string|null,payload:UnitInput,csrf:string,key:string):Promise<UnitMutation>{return this.request(\`/api/v1/inventory/units\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
+  convertMeasurementUnits(query:string):Promise<UnitConversion>{return this.request(\`/api/v1/inventory/units/conversion\${query}\`);}
+  getProductUnits(company:string,product:string,surface:"products"|"purchases"|"transfers"="products"):Promise<ProductUnits>{return this.request(\`/api/v1/inventory/units/product-choices?company_id=\${encodeURIComponent(company)}&product_id=\${encodeURIComponent(product)}&surface=\${surface}\`);}
 
   listWarehouses(query:string):Promise<WarehouseDirectory>{return this.request(\`/api/v1/inventory/warehouses\${query}\`);}
   getWarehouse(id:string,company:string):Promise<Warehouse>{return this.request(\`/api/v1/inventory/warehouses/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}

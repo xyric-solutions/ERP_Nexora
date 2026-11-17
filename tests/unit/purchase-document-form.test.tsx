@@ -12,6 +12,7 @@ const harness = vi.hoisted(() => ({
     savePurchaseDocument: vi.fn(),
     actOnPurchaseDocument: vi.fn(),
     listPurchaseProducts: vi.fn(),
+    getProductUnits: vi.fn(),
     listPurchaseApprovers: vi.fn(),
     listPurchaseSuppliers: vi.fn(),
   },
@@ -135,6 +136,24 @@ beforeEach(() => {
   harness.impersonation = false;
   harness.api.listPurchaseDocuments.mockResolvedValue({ items: [], next_cursor: null });
   harness.api.listPurchaseProducts.mockResolvedValue({ items: [], next_cursor: null });
+  const hour = {
+    id: "Hour",
+    company_id: "company-one",
+    code: "UOM-009",
+    name: "Hour",
+    symbol: "h",
+    category: "time",
+    numerator: "3600",
+    denominator: "1",
+    precision: 4,
+    status: "active",
+    standard: true,
+    version: 1,
+  };
+  harness.api.getProductUnits.mockResolvedValue({
+    base: hour,
+    items: [{ unit: hour, numerator: "1", denominator: "1" }],
+  });
   harness.api.listPurchaseApprovers.mockResolvedValue({ items: [], next_cursor: null });
   harness.api.listPurchaseSuppliers.mockResolvedValue({ items: [], next_cursor: null });
   harness.api.getPurchaseFlow.mockResolvedValue({

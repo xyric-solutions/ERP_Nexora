@@ -12,6 +12,8 @@ import {
   warehouseInputSchema,
   stockTransferInputSchema,
   inventoryDirectoryQuerySchema,
+  unitInputSchema,
+  unitQuerySchema,
 } from "../../packages/contracts/src/index.js";
 import {
   SourceInventoryRepository,
@@ -343,7 +345,39 @@ suite("Persisted Inventory products", () => {
           .send({ ...input("API edited"), expected_version: 1 })
       ).status,
     ).toBe(200);
-    for (const resource of ["warehouses", "transfers"]) {
+    const unitPayload = unitInputSchema.parse({
+      company_id: company,
+      name: "API mass unit",
+      symbol: "amu",
+      category: "mass",
+      numerator: "5",
+    });
+    const unitPost = () =>
+      request(app)
+        .post("/api/v1/inventory/units")
+        .set("cookie", "nexora_session=synthetic")
+        .set("idempotency-key", key());
+    expect((await unitPost().send(unitPayload)).status).toBe(403);
+    const unitCreated = await unitPost().set("x-csrf-token", session.csrfToken).send(unitPayload);
+    expect(unitCreated.status).toBe(201);
+    expect(
+      (
+        await request(app)
+          .patch(`/api/v1/inventory/units/${unitCreated.body.record.id}`)
+          .set("cookie", "nexora_session=synthetic")
+          .set("idempotency-key", key())
+          .set("x-csrf-token", session.csrfToken)
+          .send({ ...unitPayload, status: "inactive", expected_version: 1 })
+      ).status,
+    ).toBe(412);
+    expect(
+      (
+        await request(app)
+          .get(`/api/v1/inventory/units?company_id=${company}&unexpected=true`)
+          .set("cookie", "nexora_session=synthetic")
+      ).status,
+    ).toBe(400);
+    for (const resource of ["warehouses", "transfers", "units"]) {
       expect((await request(app).get(`/api/v1/inventory/${resource}?company_id=${company}`)).status).toBe(401);
       expect(
         (
@@ -545,6 +579,168 @@ suite("Persisted Inventory products", () => {
     await expect(
       pool.query("update organization_unit set name='Unaudited' where tenant_id=$1 and id=$2", [tenant, warehouseA]),
     ).rejects.toMatchObject({ code: "23514" });
+  });
+  it("persists audited units, validates conversion dimensions and protects immutable definitions", async () => {
+    const directory = await repo.units.list(ctx, unitQuerySchema.parse({ company_id: company, limit: 100 }));
+    expect(directory.items.length).toBeGreaterThan(20);
+    const kg = directory.items.find((u) => u.name === "Kg")!,
+      gram = directory.items.find((u) => u.name === "Gram")!,
+      tonne = directory.items.find((u) => u.symbol === "t")!,
+      litre = directory.items.find((u) => u.name === "Litre")!;
+    expect(
+      await repo.units.convert(ctx, { company_id: company, from_id: kg.id, to_id: gram.id, quantity: "2.5" }),
+    ).toMatchObject({ quantity: "2500", exact: true });
+    expect(
+      await repo.units.convert(ctx, { company_id: company, from_id: gram.id, to_id: kg.id, quantity: "250" }),
+    ).toMatchObject({ quantity: "0.25", exact: true });
+    expect(
+      await repo.units.convert(ctx, { company_id: company, from_id: tonne.id, to_id: kg.id, quantity: "1" }),
+    ).toMatchObject({ quantity: "1000", exact: true });
+    await expect(
+      repo.units.convert(ctx, { company_id: company, from_id: kg.id, to_id: litre.id, quantity: "1" }),
+    ).rejects.toMatchObject({ code: "UNIT_VALIDATION_FAILED" });
+    const payload = unitInputSchema.parse({
+        company_id: company,
+        name: "Quintal",
+        symbol: "q",
+        category: "mass",
+        numerator: "100",
+      }),
+      requestKey = key();
+    const created = await repo.units.save(ctx, null, payload, requestKey, key());
+    expect(created.record.code).toMatch(/^UOM-\d{3,}$/);
+    expect(await repo.units.save(ctx, null, payload, requestKey, key())).toEqual(created);
+    await expect(repo.units.save(ctx, null, { ...payload, numerator: "200" }, requestKey, key())).rejects.toMatchObject(
+      { code: "IDEMPOTENCY_CONFLICT" },
+    );
+    await expect(repo.units.save(ctx, null, payload, key(), key())).rejects.toMatchObject({ code: "UNIT_DUPLICATE" });
+    await expect(
+      repo.units.save(ctx, created.record.id, { ...payload, numerator: "200", expected_version: 1 }, key(), key()),
+    ).rejects.toMatchObject({ code: "UNIT_VALIDATION_FAILED" });
+    const saved = await repo.units.save(
+      ctx,
+      created.record.id,
+      { ...payload, status: "inactive", expected_version: 1 },
+      key(),
+      key(),
+    );
+    expect(saved.record).toMatchObject({ status: "inactive", version: 2 });
+    await expect(
+      repo.units.save(ctx, created.record.id, { ...payload, expected_version: 1 }, key(), key()),
+    ).rejects.toMatchObject({ code: "UNIT_VERSION_CONFLICT" });
+    await expect(
+      repo.units.get({ ...ctx, actor: { ...ctx.actor, permissions: [] } }, company, kg.id),
+    ).rejects.toMatchObject({ code: "PERMISSION_DENIED" });
+    await expect(repo.units.get(ctx, "nexora-r06-uat-company-two", kg.id)).rejects.toMatchObject({
+      code: "COMPANY_ACCESS_DENIED",
+    });
+    await expect(
+      repo.units.save(
+        { ...ctx, realActorId: "r06.checker" },
+        null,
+        { ...payload, name: "Impersonation unit", symbol: "imp" },
+        key(),
+        key(),
+      ),
+    ).rejects.toMatchObject({ code: "IMPERSONATION_RESTRICTED" });
+    await expect(
+      pool.query("delete from inventory_unit where tenant_id=$1 and id=$2", [tenant, created.record.id]),
+    ).rejects.toMatchObject({ code: "23514" });
+    await expect(
+      pool.query("update inventory_unit set status='active',row_version=row_version+1 where tenant_id=$1 and id=$2", [
+        tenant,
+        created.record.id,
+      ]),
+    ).rejects.toMatchObject({ code: "23514" });
+  });
+  it("converts product packaging and entered transfer units exactly without posting stock", async () => {
+    const from = (
+      await repo.saveWarehouse(
+        ctx,
+        null,
+        warehouseInputSchema.parse({ company_id: company, name: "Conversion source" }),
+        key(),
+        key(),
+      )
+    ).record.id;
+    const to = (
+      await repo.saveWarehouse(
+        ctx,
+        null,
+        warehouseInputSchema.parse({ company_id: company, name: "Conversion destination" }),
+        key(),
+        key(),
+      )
+    ).record.id;
+    const units = (await repo.units.list(ctx, unitQuerySchema.parse({ company_id: company, limit: 100 }))).items;
+    const kg = units.find((u) => u.name === "Kg")!,
+      gram = units.find((u) => u.name === "Gram")!,
+      box = units.find((u) => u.name === "Box")!;
+    const product = (
+      await repo.save(
+        ctx,
+        null,
+        { ...input("Unit conversion material"), unit: "Kg", packaging_rules: [{ unit_id: box.id, quantity: "25" }] },
+        key(),
+        key(),
+      )
+    ).record;
+    expect((await repo.units.choices(ctx, company, product.id)).items.find((c) => c.unit.id === box.id)).toMatchObject({
+      numerator: "25",
+      denominator: "1",
+    });
+    expect(
+      await repo.units.convert(ctx, {
+        company_id: company,
+        from_id: box.id,
+        to_id: gram.id,
+        quantity: "2",
+        product_id: product.id,
+      }),
+    ).toMatchObject({ quantity: "50000", exact: true });
+    await expect(
+      repo.units.convert(ctx, { company_id: company, from_id: box.id, to_id: kg.id, quantity: "1" }),
+    ).rejects.toMatchObject({ code: "UNIT_VALIDATION_FAILED" });
+    const draft = stockTransferInputSchema.parse({
+      company_id: company,
+      from_warehouse_id: from,
+      to_warehouse_id: to,
+      transfer_date: "2026-11-17",
+      lines: [{ product_id: product.id, quantity: "250", unit_id: gram.id }],
+    });
+    const transfer = (await repo.saveTransfer(ctx, null, draft, key(), key())).record;
+    expect(transfer.lines[0]).toMatchObject({
+      quantity: "0.2500",
+      unit: "Kg",
+      unit_snapshot: { entered_quantity: "250", unit_name: "Gram", base_quantity: "0.25", base_unit_name: "Kg" },
+    });
+    const updated = (
+      await repo.saveTransfer(
+        ctx,
+        transfer.id,
+        { ...draft, expected_version: 1, lines: [{ product_id: product.id, quantity: "2", unit_id: box.id }] },
+        key(),
+        key(),
+      )
+    ).record;
+    expect(updated.lines[0]).toMatchObject({
+      quantity: "50.0000",
+      unit_snapshot: { entered_quantity: "2", base_quantity: "50" },
+    });
+    await expect(
+      repo.saveTransfer(
+        ctx,
+        null,
+        { ...draft, lines: [{ product_id: product.id, quantity: "0.01", unit_id: gram.id }] },
+        key(),
+        key(),
+      ),
+    ).rejects.toMatchObject({ code: "UNIT_VALIDATION_FAILED" });
+    await expect(
+      repo.save(ctx, product.id, { ...input(product.name), unit: "Gram", expected_version: 1 }, key(), key()),
+    ).rejects.toMatchObject({ code: "PRODUCT_VALIDATION_FAILED" });
+    expect(transfer.posted).toBe(false);
+    expect((await pool.query("select count(*)::int as count from journal_entry")).rows[0].count).toBe(0);
   });
   it("loads currencies and creates products through a restricted runtime role without leaking user context", async () => {
     const role = `inventory_rls_${randomUUID().replaceAll("-", "")}`;

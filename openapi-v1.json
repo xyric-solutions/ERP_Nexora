@@ -43180,6 +43180,787 @@
         }
       }
     },
+    "/inventory/units": {
+      "get": {
+        "operationId": "listMeasurementUnits",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string",
+              "maxLength": 32
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "maxLength": 8
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company-authorized persisted product data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitDirectory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createMeasurementUnit",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnitInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Company-authorized persisted product data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/units/product-choices": {
+      "get": {
+        "operationId": "getProductUnits",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "product_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "surface",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "products",
+                "purchases",
+                "transfers"
+              ],
+              "default": "products"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company-authorized persisted product data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductUnits"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/units/conversion": {
+      "get": {
+        "operationId": "convertMeasurementUnits",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "from_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "to_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "quantity",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "product_id",
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company-authorized persisted product data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitConversion"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/inventory/units/{id}": {
+      "get": {
+        "operationId": "getMeasurementUnit",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company-authorized persisted product data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeasurementUnit"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMeasurementUnit",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUnitInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Company-authorized persisted product data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnitMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/inventory/companies": {
       "get": {
         "operationId": "listInventoryCompanies",
@@ -96809,18 +97590,36 @@
           "unit": {
             "default": "Each",
             "type": "string",
-            "enum": [
-              "Each",
-              "Pcs",
-              "Box",
-              "Pack",
-              "Kg",
-              "Gram",
-              "Litre",
-              "Metre",
-              "Hour",
-              "Day"
-            ]
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "unit_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "packaging_rules": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                }
+              },
+              "required": [
+                "unit_id",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
           },
           "sales_enabled": {
             "default": true,
@@ -97122,18 +97921,36 @@
           "unit": {
             "default": "Each",
             "type": "string",
-            "enum": [
-              "Each",
-              "Pcs",
-              "Box",
-              "Pack",
-              "Kg",
-              "Gram",
-              "Litre",
-              "Metre",
-              "Hour",
-              "Day"
-            ]
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "unit_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "packaging_rules": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                }
+              },
+              "required": [
+                "unit_id",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
           },
           "sales_enabled": {
             "default": true,
@@ -97436,18 +98253,36 @@
           "unit": {
             "default": "Each",
             "type": "string",
-            "enum": [
-              "Each",
-              "Pcs",
-              "Box",
-              "Pack",
-              "Kg",
-              "Gram",
-              "Litre",
-              "Metre",
-              "Hour",
-              "Day"
-            ]
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "unit_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "packaging_rules": {
+            "maxItems": 30,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                }
+              },
+              "required": [
+                "unit_id",
+                "quantity"
+              ],
+              "additionalProperties": false
+            }
           },
           "sales_enabled": {
             "default": true,
@@ -97821,18 +98656,36 @@
                 "unit": {
                   "default": "Each",
                   "type": "string",
-                  "enum": [
-                    "Each",
-                    "Pcs",
-                    "Box",
-                    "Pack",
-                    "Kg",
-                    "Gram",
-                    "Litre",
-                    "Metre",
-                    "Hour",
-                    "Day"
-                  ]
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "packaging_rules": {
+                  "maxItems": 30,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "unit_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "quantity": {
+                        "type": "string",
+                        "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                      }
+                    },
+                    "required": [
+                      "unit_id",
+                      "quantity"
+                    ],
+                    "additionalProperties": false
+                  }
                 },
                 "sales_enabled": {
                   "default": true,
@@ -98780,6 +99633,11 @@
                 "quantity": {
                   "type": "string",
                   "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
                 }
               },
               "required": [
@@ -98855,6 +99713,11 @@
                 "quantity": {
                   "type": "string",
                   "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
                 }
               },
               "required": [
@@ -98965,6 +99828,11 @@
                   "type": "string",
                   "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
                 },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
                 "product_code": {
                   "type": "string"
                 },
@@ -98973,6 +99841,71 @@
                 },
                 "unit": {
                   "type": "string"
+                },
+                "unit_snapshot": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "unit_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "unit_name": {
+                          "type": "string"
+                        },
+                        "base_unit_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "base_unit_name": {
+                          "type": "string"
+                        },
+                        "entered_quantity": {
+                          "type": "string"
+                        },
+                        "base_quantity": {
+                          "type": "string"
+                        },
+                        "numerator": {
+                          "type": "string",
+                          "pattern": "^[1-9]\\d{0,35}$"
+                        },
+                        "denominator": {
+                          "type": "string",
+                          "pattern": "^[1-9]\\d{0,35}$"
+                        },
+                        "unit_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        },
+                        "base_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        }
+                      },
+                      "required": [
+                        "unit_id",
+                        "unit_name",
+                        "base_unit_id",
+                        "base_unit_name",
+                        "entered_quantity",
+                        "base_quantity",
+                        "numerator",
+                        "denominator",
+                        "unit_precision",
+                        "base_precision"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": [
@@ -99094,6 +100027,11 @@
                         "type": "string",
                         "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
                       },
+                      "unit_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
                       "product_code": {
                         "type": "string"
                       },
@@ -99102,6 +100040,71 @@
                       },
                       "unit": {
                         "type": "string"
+                      },
+                      "unit_snapshot": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "unit_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "unit_name": {
+                                "type": "string"
+                              },
+                              "base_unit_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "base_unit_name": {
+                                "type": "string"
+                              },
+                              "entered_quantity": {
+                                "type": "string"
+                              },
+                              "base_quantity": {
+                                "type": "string"
+                              },
+                              "numerator": {
+                                "type": "string",
+                                "pattern": "^[1-9]\\d{0,35}$"
+                              },
+                              "denominator": {
+                                "type": "string",
+                                "pattern": "^[1-9]\\d{0,35}$"
+                              },
+                              "unit_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4
+                              },
+                              "base_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "unit_id",
+                              "unit_name",
+                              "base_unit_id",
+                              "base_unit_name",
+                              "entered_quantity",
+                              "base_quantity",
+                              "numerator",
+                              "denominator",
+                              "unit_precision",
+                              "base_precision"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -99235,6 +100238,11 @@
                       "type": "string",
                       "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
                     },
+                    "unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
                     "product_code": {
                       "type": "string"
                     },
@@ -99243,6 +100251,71 @@
                     },
                     "unit": {
                       "type": "string"
+                    },
+                    "unit_snapshot": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "unit_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "unit_name": {
+                              "type": "string"
+                            },
+                            "base_unit_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "base_unit_name": {
+                              "type": "string"
+                            },
+                            "entered_quantity": {
+                              "type": "string"
+                            },
+                            "base_quantity": {
+                              "type": "string"
+                            },
+                            "numerator": {
+                              "type": "string",
+                              "pattern": "^[1-9]\\d{0,35}$"
+                            },
+                            "denominator": {
+                              "type": "string",
+                              "pattern": "^[1-9]\\d{0,35}$"
+                            },
+                            "unit_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4
+                            },
+                            "base_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4
+                            }
+                          },
+                          "required": [
+                            "unit_id",
+                            "unit_name",
+                            "base_unit_id",
+                            "base_unit_name",
+                            "entered_quantity",
+                            "base_quantity",
+                            "numerator",
+                            "denominator",
+                            "unit_precision",
+                            "base_precision"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": [
@@ -99323,6 +100396,874 @@
         ],
         "additionalProperties": false
       },
+      "MeasurementUnit": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "mass",
+              "length",
+              "area",
+              "volume",
+              "count",
+              "time",
+              "packaging",
+              "legacy_day"
+            ]
+          },
+          "numerator": {
+            "default": "1",
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,17}$"
+          },
+          "denominator": {
+            "default": "1",
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,17}$"
+          },
+          "precision": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "status": {
+            "default": "active",
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "standard": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "company_id",
+          "name",
+          "symbol",
+          "category",
+          "numerator",
+          "denominator",
+          "precision",
+          "status",
+          "id",
+          "code",
+          "standard",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "UnitInput": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "mass",
+              "length",
+              "area",
+              "volume",
+              "count",
+              "time",
+              "packaging",
+              "legacy_day"
+            ]
+          },
+          "numerator": {
+            "default": "1",
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,17}$"
+          },
+          "denominator": {
+            "default": "1",
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,17}$"
+          },
+          "precision": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "status": {
+            "default": "active",
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "company_id",
+          "name",
+          "symbol",
+          "category",
+          "numerator",
+          "denominator",
+          "precision",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "UpdateUnitInput": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "symbol": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "mass",
+              "length",
+              "area",
+              "volume",
+              "count",
+              "time",
+              "packaging",
+              "legacy_day"
+            ]
+          },
+          "numerator": {
+            "default": "1",
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,17}$"
+          },
+          "denominator": {
+            "default": "1",
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,17}$"
+          },
+          "precision": {
+            "default": 4,
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "status": {
+            "default": "active",
+            "type": "string",
+            "enum": [
+              "active",
+              "inactive"
+            ]
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "company_id",
+          "name",
+          "symbol",
+          "category",
+          "numerator",
+          "denominator",
+          "precision",
+          "status",
+          "expected_version"
+        ],
+        "additionalProperties": false
+      },
+      "UnitDirectory": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "company_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "symbol": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "mass",
+                    "length",
+                    "area",
+                    "volume",
+                    "count",
+                    "time",
+                    "packaging",
+                    "legacy_day"
+                  ]
+                },
+                "numerator": {
+                  "default": "1",
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,17}$"
+                },
+                "denominator": {
+                  "default": "1",
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,17}$"
+                },
+                "precision": {
+                  "default": 4,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4
+                },
+                "status": {
+                  "default": "active",
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "inactive"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "standard": {
+                  "type": "boolean"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "company_id",
+                "name",
+                "symbol",
+                "category",
+                "numerator",
+                "denominator",
+                "precision",
+                "status",
+                "id",
+                "code",
+                "standard",
+                "version"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "additionalProperties": false
+      },
+      "UnitMutation": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "record": {
+            "type": "object",
+            "properties": {
+              "company_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "symbol": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "mass",
+                  "length",
+                  "area",
+                  "volume",
+                  "count",
+                  "time",
+                  "packaging",
+                  "legacy_day"
+                ]
+              },
+              "numerator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "denominator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "precision": {
+                "default": 4,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "status": {
+                "default": "active",
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "standard": {
+                "type": "boolean"
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "company_id",
+              "name",
+              "symbol",
+              "category",
+              "numerator",
+              "denominator",
+              "precision",
+              "status",
+              "id",
+              "code",
+              "standard",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "audit_event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "record",
+          "audit_event_id"
+        ],
+        "additionalProperties": false
+      },
+      "UnitConversion": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "string"
+          },
+          "exact": {
+            "type": "boolean"
+          },
+          "from": {
+            "type": "object",
+            "properties": {
+              "company_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "symbol": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "mass",
+                  "length",
+                  "area",
+                  "volume",
+                  "count",
+                  "time",
+                  "packaging",
+                  "legacy_day"
+                ]
+              },
+              "numerator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "denominator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "precision": {
+                "default": 4,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "status": {
+                "default": "active",
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "standard": {
+                "type": "boolean"
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "company_id",
+              "name",
+              "symbol",
+              "category",
+              "numerator",
+              "denominator",
+              "precision",
+              "status",
+              "id",
+              "code",
+              "standard",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "to": {
+            "type": "object",
+            "properties": {
+              "company_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "symbol": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "mass",
+                  "length",
+                  "area",
+                  "volume",
+                  "count",
+                  "time",
+                  "packaging",
+                  "legacy_day"
+                ]
+              },
+              "numerator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "denominator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "precision": {
+                "default": 4,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "status": {
+                "default": "active",
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "standard": {
+                "type": "boolean"
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "company_id",
+              "name",
+              "symbol",
+              "category",
+              "numerator",
+              "denominator",
+              "precision",
+              "status",
+              "id",
+              "code",
+              "standard",
+              "version"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "quantity",
+          "exact",
+          "from",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "ProductUnits": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "base": {
+            "type": "object",
+            "properties": {
+              "company_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "symbol": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16
+              },
+              "category": {
+                "type": "string",
+                "enum": [
+                  "mass",
+                  "length",
+                  "area",
+                  "volume",
+                  "count",
+                  "time",
+                  "packaging",
+                  "legacy_day"
+                ]
+              },
+              "numerator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "denominator": {
+                "default": "1",
+                "type": "string",
+                "pattern": "^[1-9]\\d{0,17}$"
+              },
+              "precision": {
+                "default": 4,
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "status": {
+                "default": "active",
+                "type": "string",
+                "enum": [
+                  "active",
+                  "inactive"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "standard": {
+                "type": "boolean"
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "company_id",
+              "name",
+              "symbol",
+              "category",
+              "numerator",
+              "denominator",
+              "precision",
+              "status",
+              "id",
+              "code",
+              "standard",
+              "version"
+            ],
+            "additionalProperties": false
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "unit": {
+                  "type": "object",
+                  "properties": {
+                    "company_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 32
+                    },
+                    "symbol": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 16
+                    },
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "mass",
+                        "length",
+                        "area",
+                        "volume",
+                        "count",
+                        "time",
+                        "packaging",
+                        "legacy_day"
+                      ]
+                    },
+                    "numerator": {
+                      "default": "1",
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,17}$"
+                    },
+                    "denominator": {
+                      "default": "1",
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,17}$"
+                    },
+                    "precision": {
+                      "default": 4,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    },
+                    "status": {
+                      "default": "active",
+                      "type": "string",
+                      "enum": [
+                        "active",
+                        "inactive"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "code": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "standard": {
+                      "type": "boolean"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "company_id",
+                    "name",
+                    "symbol",
+                    "category",
+                    "numerator",
+                    "denominator",
+                    "precision",
+                    "status",
+                    "id",
+                    "code",
+                    "standard",
+                    "version"
+                  ],
+                  "additionalProperties": false
+                },
+                "numerator": {
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,35}$"
+                },
+                "denominator": {
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,35}$"
+                }
+              },
+              "required": [
+                "unit",
+                "numerator",
+                "denominator"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "base",
+          "items"
+        ],
+        "additionalProperties": false
+      },
       "InventoryOptions": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
@@ -99349,19 +101290,100 @@
           "units": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "Each",
-                "Pcs",
-                "Box",
-                "Pack",
-                "Kg",
-                "Gram",
-                "Litre",
-                "Metre",
-                "Hour",
-                "Day"
-              ]
+              "type": "string"
+            }
+          },
+          "measurement_units": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "company_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 32
+                },
+                "symbol": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "mass",
+                    "length",
+                    "area",
+                    "volume",
+                    "count",
+                    "time",
+                    "packaging",
+                    "legacy_day"
+                  ]
+                },
+                "numerator": {
+                  "default": "1",
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,17}$"
+                },
+                "denominator": {
+                  "default": "1",
+                  "type": "string",
+                  "pattern": "^[1-9]\\d{0,17}$"
+                },
+                "precision": {
+                  "default": 4,
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4
+                },
+                "status": {
+                  "default": "active",
+                  "type": "string",
+                  "enum": [
+                    "active",
+                    "inactive"
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "standard": {
+                  "type": "boolean"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "company_id",
+                "name",
+                "symbol",
+                "category",
+                "numerator",
+                "denominator",
+                "precision",
+                "status",
+                "id",
+                "code",
+                "standard",
+                "version"
+              ],
+              "additionalProperties": false
             }
           },
           "stock_mode": {
@@ -99427,18 +101449,36 @@
               "unit": {
                 "default": "Each",
                 "type": "string",
-                "enum": [
-                  "Each",
-                  "Pcs",
-                  "Box",
-                  "Pack",
-                  "Kg",
-                  "Gram",
-                  "Litre",
-                  "Metre",
-                  "Hour",
-                  "Day"
-                ]
+                "minLength": 1,
+                "maxLength": 32
+              },
+              "unit_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "packaging_rules": {
+                "maxItems": 30,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "quantity": {
+                      "type": "string",
+                      "pattern": "^\\d{1,12}(\\.\\d{1,4})?$"
+                    }
+                  },
+                  "required": [
+                    "unit_id",
+                    "quantity"
+                  ],
+                  "additionalProperties": false
+                }
               },
               "sales_enabled": {
                 "default": true,
@@ -100912,6 +102952,69 @@
                   "minLength": 1,
                   "maxLength": 32
                 },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "unit_snapshot": {
+                  "type": "object",
+                  "properties": {
+                    "unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "unit_name": {
+                      "type": "string"
+                    },
+                    "base_unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "base_unit_name": {
+                      "type": "string"
+                    },
+                    "entered_quantity": {
+                      "type": "string"
+                    },
+                    "base_quantity": {
+                      "type": "string"
+                    },
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,35}$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,35}$"
+                    },
+                    "unit_precision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    },
+                    "base_precision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    }
+                  },
+                  "required": [
+                    "unit_id",
+                    "unit_name",
+                    "base_unit_id",
+                    "base_unit_name",
+                    "entered_quantity",
+                    "base_quantity",
+                    "numerator",
+                    "denominator",
+                    "unit_precision",
+                    "base_precision"
+                  ],
+                  "additionalProperties": false
+                },
                 "unit_price": {
                   "type": "string",
                   "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
@@ -102347,6 +104450,69 @@
                   "minLength": 1,
                   "maxLength": 32
                 },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "unit_snapshot": {
+                  "type": "object",
+                  "properties": {
+                    "unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "unit_name": {
+                      "type": "string"
+                    },
+                    "base_unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "base_unit_name": {
+                      "type": "string"
+                    },
+                    "entered_quantity": {
+                      "type": "string"
+                    },
+                    "base_quantity": {
+                      "type": "string"
+                    },
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,35}$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,35}$"
+                    },
+                    "unit_precision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    },
+                    "base_precision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    }
+                  },
+                  "required": [
+                    "unit_id",
+                    "unit_name",
+                    "base_unit_id",
+                    "base_unit_name",
+                    "entered_quantity",
+                    "base_quantity",
+                    "numerator",
+                    "denominator",
+                    "unit_precision",
+                    "base_precision"
+                  ],
+                  "additionalProperties": false
+                },
                 "unit_price": {
                   "type": "string",
                   "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
@@ -103701,6 +105867,69 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 32
+                      },
+                      "unit_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "unit_snapshot": {
+                        "type": "object",
+                        "properties": {
+                          "unit_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "unit_name": {
+                            "type": "string"
+                          },
+                          "base_unit_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "base_unit_name": {
+                            "type": "string"
+                          },
+                          "entered_quantity": {
+                            "type": "string"
+                          },
+                          "base_quantity": {
+                            "type": "string"
+                          },
+                          "numerator": {
+                            "type": "string",
+                            "pattern": "^[1-9]\\d{0,35}$"
+                          },
+                          "denominator": {
+                            "type": "string",
+                            "pattern": "^[1-9]\\d{0,35}$"
+                          },
+                          "unit_precision": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4
+                          },
+                          "base_precision": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4
+                          }
+                        },
+                        "required": [
+                          "unit_id",
+                          "unit_name",
+                          "base_unit_id",
+                          "base_unit_name",
+                          "entered_quantity",
+                          "base_quantity",
+                          "numerator",
+                          "denominator",
+                          "unit_precision",
+                          "base_precision"
+                        ],
+                        "additionalProperties": false
                       },
                       "unit_price": {
                         "type": "string",
@@ -105066,6 +107295,69 @@
                   "minLength": 1,
                   "maxLength": 32
                 },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "unit_snapshot": {
+                  "type": "object",
+                  "properties": {
+                    "unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "unit_name": {
+                      "type": "string"
+                    },
+                    "base_unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "base_unit_name": {
+                      "type": "string"
+                    },
+                    "entered_quantity": {
+                      "type": "string"
+                    },
+                    "base_quantity": {
+                      "type": "string"
+                    },
+                    "numerator": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,35}$"
+                    },
+                    "denominator": {
+                      "type": "string",
+                      "pattern": "^[1-9]\\d{0,35}$"
+                    },
+                    "unit_precision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    },
+                    "base_precision": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4
+                    }
+                  },
+                  "required": [
+                    "unit_id",
+                    "unit_name",
+                    "base_unit_id",
+                    "base_unit_name",
+                    "entered_quantity",
+                    "base_quantity",
+                    "numerator",
+                    "denominator",
+                    "unit_precision",
+                    "base_precision"
+                  ],
+                  "additionalProperties": false
+                },
                 "unit_price": {
                   "type": "string",
                   "pattern": "^\\d{1,12}(\\.\\d{1,2})?$"
@@ -106191,6 +108483,69 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 32
+                    },
+                    "unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "unit_snapshot": {
+                      "type": "object",
+                      "properties": {
+                        "unit_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "unit_name": {
+                          "type": "string"
+                        },
+                        "base_unit_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "base_unit_name": {
+                          "type": "string"
+                        },
+                        "entered_quantity": {
+                          "type": "string"
+                        },
+                        "base_quantity": {
+                          "type": "string"
+                        },
+                        "numerator": {
+                          "type": "string",
+                          "pattern": "^[1-9]\\d{0,35}$"
+                        },
+                        "denominator": {
+                          "type": "string",
+                          "pattern": "^[1-9]\\d{0,35}$"
+                        },
+                        "unit_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        },
+                        "base_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        }
+                      },
+                      "required": [
+                        "unit_id",
+                        "unit_name",
+                        "base_unit_id",
+                        "base_unit_name",
+                        "entered_quantity",
+                        "base_quantity",
+                        "numerator",
+                        "denominator",
+                        "unit_precision",
+                        "base_precision"
+                      ],
+                      "additionalProperties": false
                     },
                     "unit_price": {
                       "type": "string",

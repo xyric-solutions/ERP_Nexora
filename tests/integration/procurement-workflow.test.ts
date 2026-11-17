@@ -1054,6 +1054,78 @@ suite("Database-backed Purchase and Supplier workflow", () => {
       code: "PURCHASE_PRODUCT_INELIGIBLE",
     });
   });
+  it("keeps commercial amounts unchanged while converting request units and partial downstream base quantities", async () => {
+    const inventory = new SourceInventoryRepository(pool);
+    const inventoryActor = {
+      ...maker,
+      actor: { ...maker.actor, permissions: [...permissions, "inventory.item.create"] },
+    };
+    const units = (
+      await pool.query<{ id: string; name: string }>(
+        "select id,name from inventory_unit where tenant_id=$1 and company_id=$2",
+        [tenant, company],
+      )
+    ).rows;
+    const gram = units.find((u) => u.name === "Gram")!;
+    const product = (
+      await inventory.save(
+        inventoryActor,
+        null,
+        productInputSchema.parse({
+          company_id: company,
+          name: "Conversion purchase material",
+          currency: "USD",
+          unit: "Kg",
+        }),
+        key(),
+        key(),
+      )
+    ).record;
+    const requestTerms = terms("request", undefined, null, "250");
+    requestTerms.lines[0] = {
+      ...requestTerms.lines[0]!,
+      product_id: product.id,
+      unit_id: gram.id,
+      uom: "forged",
+      unit_price: "2.00",
+      tax_percent: "10",
+    };
+    const requisition = await approved(requestTerms);
+    expect(requisition.lines[0]).toMatchObject({
+      uom: "Gram",
+      quantity: "250",
+      unit_price: "2.00",
+      unit_snapshot: { base_quantity: "0.25", base_unit_name: "Kg", unit_name: "Gram" },
+    });
+    expect(requisition.total_amount).toBe("550.00");
+    // Purchase users can read eligible unit choices without Inventory management rights.
+    expect((await inventory.units.choices(maker, company, product.id, "purchases")).base.name).toBe("Kg");
+    const rfq = await approved(terms("rfq", requisition, null, "250"));
+    const po = await approved(terms("order", rfq, supplierA, "250"));
+    const first = await approved(terms("receipt", po, supplierA, "100"));
+    expect(first.lines[0]!.unit_snapshot?.base_quantity).toBe("0.1");
+    const invoice = await approved(terms("bill", po, supplierA, "100"));
+    expect(invoice.total_amount).toBe("220.00");
+    expect(invoice.lines[0]).toMatchObject({
+      uom: "Gram",
+      unit_snapshot: { base_quantity: "0.1", entered_quantity: "100", numerator: "1", denominator: "1000" },
+    });
+    const changedUnit = terms("receipt", po, supplierA, "100");
+    changedUnit.lines[0]!.uom = "Kg";
+    await expect(save(changedUnit)).rejects.toMatchObject({ code: "PURCHASE_VALIDATION_FAILED" });
+    await expect(approved(terms("receipt", po, supplierA, "151"))).rejects.toMatchObject({
+      code: "PURCHASE_QUANTITY_EXCEEDED",
+    });
+    const forged = terms("request", undefined, null, "1");
+    forged.lines[0] = {
+      ...forged.lines[0]!,
+      product_id: product.id,
+      unit_id: gram.id,
+      unit_snapshot: { ...invoice.lines[0]!.unit_snapshot!, base_quantity: "999" },
+    };
+    const corrected = await save(forged);
+    expect(corrected.lines[0]!.unit_snapshot?.base_quantity).toBe("0.001");
+  });
   it("returns the complete linked Request-to-Bill progress from any stage with scoped pagination and exact status counts", async () => {
     const requisition = await approved(terms("request"));
     const rfq = await approved(terms("rfq", requisition));

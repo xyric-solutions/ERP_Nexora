@@ -15,7 +15,7 @@ import {
   productInputSchema,
   productSchema,
   productMutationSchema,
-  productUnits,
+  convertUnitQuantity,
   type ProductInput,
   type ProductQuery,
   type ProductLookupQuery,
@@ -24,17 +24,11 @@ import {
 import type { Pool, PoolClient } from "pg";
 import type { ReferenceMasterContext } from "../master-data/source-repository.js";
 import { companyAuthoritySql } from "../security/company-authority.js";
+import { InventoryError } from "./errors.js";
+export { InventoryError } from "./errors.js";
+import { SourceUnitRepository, companyUnits, productUnitChoices, productUnitSnapshot } from "./units-repository.js";
 
 export type InventoryContext = ReferenceMasterContext;
-export class InventoryError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    message: string,
-  ) {
-    super(message);
-  }
-}
 function fail(message: string, code = "PRODUCT_VALIDATION_FAILED", status = 409): never {
   throw new InventoryError(status, code, message);
 }
@@ -78,7 +72,13 @@ const accountTypes: Record<"stock_account" | "income_account" | "expense_account
 };
 
 export class SourceInventoryRepository {
-  constructor(private readonly pool: Pool) {}
+  readonly units: SourceUnitRepository;
+  constructor(private readonly pool: Pool) {
+    this.units = new SourceUnitRepository(
+      (context,company,write,work,permission) => this.transaction(context,company,write,work,permission),
+      (client,context,id,company,before,after,action,correlation) => this.audit(client,context,"unit",id,company,before,after,action,correlation),
+    );
+  }
   private async transaction<T>(
     context: InventoryContext,
     company: string | null,
@@ -162,7 +162,8 @@ export class SourceInventoryRepository {
         "select c.code,c.name from company_currency cc join currency c on c.tenant_id=cc.tenant_id and c.code=cc.currency_code where cc.tenant_id=$1 and cc.company_id=$2 and cc.status='active' and c.status='active' and c.decimal_places=2 order by cc.is_base desc,c.code limit 100",
         [context.tenantId, company],
       );
-      return { currencies: result.rows, units: [...productUnits], stock_mode: "opening_plan" as const };
+      const measurement_units = await companyUnits(client,context.tenantId,company);
+      return { currencies: result.rows, units: measurement_units.filter(u=>u.status==="active").map(u=>u.name), measurement_units, stock_mode: "opening_plan" as const };
     });
   }
   private cursor(cursor: string | undefined, scope: unknown): string | null {
@@ -339,6 +340,27 @@ export class SourceInventoryRepository {
         return productMutationSchema.parse(replay.rows[0]!.result);
       }
       const before = id ? await this.load(client, context.tenantId, parsed.company_id, id) : null;
+      const catalogue = await companyUnits(client, context.tenantId, parsed.company_id);
+      const selectedUnit = catalogue.find(u => u.name === parsed.unit);
+      if (!selectedUnit || (selectedUnit.status !== "active" && before?.unit !== parsed.unit) || (parsed.unit_id && parsed.unit_id !== selectedUnit.id))
+        fail("Choose an active unit from this company's Unit of Measure catalogue.");
+      parsed.unit_id = selectedUnit.id;
+      if (!convertUnitQuantity(parsed.opening_quantity,{numerator:"1",denominator:"1"},selectedUnit.precision).exact)
+        fail("Opening quantity exceeds this unit's permitted decimal places.");
+      const rules = parsed.packaging_rules ?? [];
+      if (new Set(rules.map(r=>r.unit_id)).size !== rules.length) fail("Use one content rule per packaging unit.");
+      for (const rule of rules) {
+        const retained = before?.packaging_rules?.some(r=>r.unit_id===rule.unit_id && r.quantity===rule.quantity);
+        const packaging = catalogue.find(u=>u.id===rule.unit_id && (u.status==="active" || retained));
+        if (!packaging || (packaging.category!=="packaging" && !(selectedUnit.category==="legacy_day" && packaging.category==="time")) || packaging.id===selectedUnit.id)
+          fail("Choose an active packaging unit, or an explicit time rule for a legacy service day.");
+        if (!convertUnitQuantity(rule.quantity,{numerator:"1",denominator:"1"},selectedUnit.precision).exact)
+          fail("Package contents exceed the product base unit's permitted decimal places.");
+      }
+      if (before && (before.unit !== parsed.unit || JSON.stringify(before.packaging_rules??[]) !== JSON.stringify(rules))) {
+        const used = await client.query("select 1 where exists(select 1 from inventory_transfer_line where tenant_id=$1 and company_id=$2 and product_id=$3) or exists(select 1 from procurement_document d where d.tenant_id=$1 and d.company_id=$2 and d.lines @> jsonb_build_array(jsonb_build_object('product_id',$3::text)))",[context.tenantId,parsed.company_id,id]);
+        if (used.rowCount) fail("This product is referenced by documents. Its base unit and packaging rules must retain their meaning.");
+      }
       await this.validateReferences(client, context.tenantId, parsed);
       const {
         company_id,
@@ -461,7 +483,7 @@ export class SourceInventoryRepository {
   private async audit(
     client: PoolClient,
     context: InventoryContext,
-    entity: "product" | "warehouse" | "transfer",
+    entity: "product" | "warehouse" | "transfer" | "unit",
     id: string,
     company: string,
     before: unknown,
@@ -810,14 +832,19 @@ export class SourceInventoryRepository {
         );
       }
       const units = new Map(products.rows.map((p) => [p.id, p.unit]));
+      const choices = await productUnitChoices(client,context.tenantId,parsed.company_id,products.rows.map(p=>p.id));
+      const converted = parsed.lines.map(line => {
+        const unit_snapshot = productUnitSnapshot(choices.get(line.product_id)!,line.quantity,line.unit_id);
+        return {...line,quantity:unit_snapshot.base_quantity,unit:units.get(line.product_id),unit_snapshot};
+      });
       // One bounded insert avoids a round trip per line; the server supplies each product's saved unit.
       await client.query(
-        "insert into inventory_transfer_line(tenant_id,company_id,transfer_id,line_no,product_id,quantity,unit) select $1,$2,$3,x.ordinality::int,x.value->>'product_id',(x.value->>'quantity')::numeric,x.value->>'unit' from jsonb_array_elements($4::jsonb) with ordinality as x(value,ordinality)",
+        "insert into inventory_transfer_line(tenant_id,company_id,transfer_id,line_no,product_id,quantity,unit,unit_snapshot) select $1,$2,$3,x.ordinality::int,x.value->>'product_id',(x.value->>'quantity')::numeric,x.value->>'unit',x.value->'unit_snapshot' from jsonb_array_elements($4::jsonb) with ordinality as x(value,ordinality)",
         [
           context.tenantId,
           parsed.company_id,
           recordId,
-          JSON.stringify(parsed.lines.map((l) => ({ ...l, unit: units.get(l.product_id) }))),
+          JSON.stringify(converted),
         ],
       );
       const record = await this.loadTransfer(client, context.tenantId, parsed.company_id, recordId),
@@ -839,4 +866,4 @@ export class SourceInventoryRepository {
 const warehouseProjection =
   "w.id,w.company_id,w.code,w.name,w.location_id,l.name as location_name,w.address,w.contact_name,w.phone,w.email,w.notes,w.status,w.row_version as version,w.created_at::text,w.updated_at::text";
 const transferProjection = `t.id,t.company_id,t.code,t.from_warehouse_id,t.to_warehouse_id,to_char(t.transfer_date,'YYYY-MM-DD') as transfer_date,t.reference,t.notes,t.state,false as posted,t.row_version as version,f.name as from_warehouse_name,d.name as to_warehouse_name,t.created_at::text,t.updated_at::text,
- coalesce((select jsonb_agg(jsonb_build_object('product_id',l.product_id,'quantity',l.quantity::text,'product_code',p.code,'product_name',p.name,'unit',l.unit) order by l.line_no) from inventory_transfer_line l join inventory_product p on p.tenant_id=l.tenant_id and p.company_id=l.company_id and p.id=l.product_id where l.tenant_id=t.tenant_id and l.company_id=t.company_id and l.transfer_id=t.id),'[]'::jsonb) as lines`;
+ coalesce((select jsonb_agg(jsonb_build_object('product_id',l.product_id,'quantity',l.quantity::text,'product_code',p.code,'product_name',p.name,'unit',l.unit,'unit_snapshot',l.unit_snapshot) order by l.line_no) from inventory_transfer_line l join inventory_product p on p.tenant_id=l.tenant_id and p.company_id=l.company_id and p.id=l.product_id where l.tenant_id=t.tenant_id and l.company_id=t.company_id and l.transfer_id=t.id),'[]'::jsonb) as lines`;

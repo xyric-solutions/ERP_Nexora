@@ -152,6 +152,7 @@ import { HrLoanBenefitsWorkspace } from "@prototype/features/hr/views/hr-benefit
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
 import { InventoryOperationsWorkspace } from "@prototype/features/inventory/views/inventory-operations-workspace";
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
+import { UnitsWorkspace } from "@prototype/features/inventory/views/units-workspace";
 import { FixedAssetsWorkspace } from "@/features/fixed-assets/views/fixed-assets-workspace";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { PurchaseAssetReturnsWorkspace, isPurchaseAssetReturnPage } from "@/features/purchasing/views/purchase-asset-returns";
@@ -3171,6 +3172,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
   }
 
   if (context.moduleId === "inventory") {
+    if (context.pageId === "units-of-measure") return <UnitsWorkspace recordRef={context.recordRef} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
     if (["warehouses", "add-warehouse", "stock-transfers", "add-stock-transfer"].includes(context.pageId))
       return (
         <InventoryOperationsWorkspace

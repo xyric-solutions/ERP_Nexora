@@ -64,7 +64,9 @@ const navigationPageId = (moduleId: string, pageId: string) =>
     : moduleId === "purchases" && ["purchase-bill-returns", "purchase-refunds"].includes(pageId)
       ? "purchase-returns"
     : moduleId === "inventory"
-    ? ["warehouses", "add-warehouse"].includes(pageId)
+    ? pageId === "units-of-measure"
+      ? "units-of-measure"
+      : ["warehouses", "add-warehouse"].includes(pageId)
       ? "warehouses"
       : ["stock-transfers", "add-stock-transfer"].includes(pageId)
         ? "stock-transfers"

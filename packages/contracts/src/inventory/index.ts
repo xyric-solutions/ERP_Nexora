@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { unitSchema, packagingRuleSchema, unitSnapshotSchema } from "./units.js";
+export * from "./units.js";
 
 const identity = z.string().trim().min(1).max(128);
 const text = (max: number) => z.string().trim().max(max).default("");
@@ -18,7 +20,9 @@ const productFieldsSchema = z.strictObject({
   category: text(120),
   reference: text(120),
   barcode: text(120),
-  unit: z.enum(productUnits).default("Each"),
+  unit: z.string().trim().min(1).max(32).default("Each"),
+  unit_id: z.string().min(1).max(128).optional(),
+  packaging_rules: z.array(packagingRuleSchema).max(30).optional(),
   sales_enabled: z.boolean().default(true),
   purchase_enabled: z.boolean().default(true),
   manufacture_enabled: z.boolean().default(false),
@@ -108,7 +112,8 @@ export const inventoryCompaniesSchema = z.strictObject({
 });
 export const inventoryOptionsSchema = z.strictObject({
   currencies: z.array(z.strictObject({ code: z.string(), name: z.string() })),
-  units: z.array(z.enum(productUnits)),
+  units: z.array(z.string()),
+  measurement_units: z.array(unitSchema).optional(),
   stock_mode: z.literal("opening_plan"),
 });
 export const productMutationSchema = z.strictObject({ record: productSchema, audit_event_id: identity });
@@ -184,6 +189,7 @@ export const warehouseMutationSchema = z.strictObject({ record: warehouseSchema,
 export const transferLineInputSchema = z.strictObject({
   product_id: identity,
   quantity: quantity.refine((v) => Number(v) > 0, "Quantity must be greater than zero."),
+  unit_id: identity.optional(),
 });
 const transferFields = z.strictObject({
   company_id: identity,
@@ -219,7 +225,7 @@ export const stockTransferSchema = transferFields.omit({ expected_version: true,
   created_at: z.string(),
   updated_at: z.string(),
   lines: z.array(
-    transferLineInputSchema.extend({ product_code: z.string(), product_name: z.string(), unit: z.string() }),
+    transferLineInputSchema.extend({ product_code: z.string(), product_name: z.string(), unit: z.string(), unit_snapshot: unitSnapshotSchema.nullable().optional() }),
   ),
 });
 export const stockTransferDirectorySchema = z.strictObject({

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { unitSnapshotSchema } from "../inventory/units.js";
 import { taxSnapshotSchema } from "../finance/taxes.js";
 import { supplierProfileSchema } from "./supplier-profile.js";
 import { billPaymentTermSchema } from "./bill-payment-terms.js";
@@ -48,6 +49,8 @@ export const purchaseLineSchema = z.strictObject({
   description: z.string().trim().min(1).max(500),
   quantity,
   uom: z.string().trim().min(1).max(32),
+  unit_id: identity.optional(),
+  unit_snapshot: unitSnapshotSchema.optional(),
   unit_price: amount,
   discount_amount: amount.optional(),
   allocated_discount_amount: amount

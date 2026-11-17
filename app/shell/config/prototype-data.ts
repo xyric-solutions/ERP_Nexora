@@ -241,6 +241,7 @@ export const prototypeModules = [
     groups: [
       g("products", "Products", [
         p("products", "Products"),
+        p("units-of-measure", "Unit of Measure"),
         p("stock-transfers", "Stock Transfer"),
         p("warehouses", "Warehouse"),
       ]),

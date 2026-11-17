@@ -233,6 +233,41 @@ test.describe("Persisted Inventory product catalog", () => {
     expect(result.rows[0]).toEqual({ row_version: 2, opening: "5.2500", count: 2 });
     expect((await pool.query("select count(*)::int as count from journal_entry")).rows[0].count).toBe(0);
   });
+  test("manages units and converts standard measurements in both directions with real persistence", async ({
+    page,
+  }) => {
+    await page.goto("/#/inventory/units-of-measure");
+    await expect(page.getByRole("heading", { name: "Unit of Measure", exact: true })).toBeVisible();
+    await expect(page.locator(".nx-submenu-link--active").filter({ hasText: "Unit of Measure" })).toBeVisible();
+    await page.getByLabel("From unit", { exact: true }).selectOption({ label: "Kg (kg)" });
+    await page.getByLabel("To unit", { exact: true }).selectOption({ label: "Gram (g)" });
+    await page.getByLabel("Convert quantity", { exact: true }).fill("2.5");
+    await expect(page.locator("output")).toHaveText("2500 g");
+    await page.getByLabel("From unit", { exact: true }).selectOption({ label: "Gram (g)" });
+    await page.getByLabel("To unit", { exact: true }).selectOption({ label: "Kg (kg)" });
+    await page.getByLabel("Convert quantity", { exact: true }).fill("250");
+    await expect(page.locator("output")).toHaveText("0.25 kg");
+    await page.getByLabel("From unit", { exact: true }).selectOption({ label: "Metric Tonne (1000 kg) (t)" });
+    await page.getByLabel("To unit", { exact: true }).selectOption({ label: "Kg (kg)" });
+    await page.getByLabel("Convert quantity", { exact: true }).fill("1");
+    await expect(page.locator("output")).toHaveText("1000 kg");
+    expect((await new AxeBuilder({ page }).include("main .nx-content").analyze()).violations).toEqual([]);
+    await page.getByRole("button", { name: "Add New Unit", exact: true }).click();
+    await page.getByLabel("Unit name *", { exact: true }).fill("Browser Quintal");
+    await page.getByLabel("Symbol *", { exact: true }).fill("bq");
+    await page.getByLabel("Reference units (numerator)", { exact: true }).fill("100");
+    await page.getByRole("button", { name: "Save Unit", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Unit of Measure", exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByLabel("Search units", { exact: true }).fill("Browser Quintal");
+    await page.getByRole("button", { name: /Browser Quintal/ }).click();
+    await expect(page.getByLabel("Unit name *", { exact: true })).toHaveValue("Browser Quintal");
+    await expect(page.getByLabel("Reference units (numerator)", { exact: true })).toBeDisabled();
+    await page.getByLabel("Status", { exact: true }).selectOption("inactive");
+    await page.getByRole("button", { name: "Save Unit", exact: true }).click();
+    await page.getByLabel("Status", { exact: true }).selectOption("inactive");
+    await expect(page.getByRole("button", { name: /Browser Quintal/ })).toBeVisible();
+  });
   test("validates hidden-tab fields, preserves edits on failure and protects unsaved changes", async ({ page }) => {
     await page.goto("/#/inventory/add-product");
     await page.getByLabel("Product name *", { exact: true }).fill("Validation service");
@@ -336,7 +371,7 @@ test.describe("Persisted Inventory product catalog", () => {
     await page.getByRole("button", { name: "ST-001", exact: true }).click();
     await page.reload();
     await expect(page.getByLabel("Line 1 quantity *", { exact: true })).toHaveValue("1.2500");
-    await expect(page.getByLabel("Line 1 unit", { exact: true })).toHaveValue("Each");
+    await expect(page.getByLabel("Line 1 unit", { exact: true }).locator("option:checked")).toHaveText("Each (ea)");
     await page.getByLabel("Line 1 quantity *", { exact: true }).fill("2.5");
     await page.getByRole("button", { name: "Save Draft", exact: true }).click();
     await expect(page.getByRole("button", { name: "Save Draft", exact: true })).toBeDisabled();
@@ -348,6 +383,42 @@ test.describe("Persisted Inventory product catalog", () => {
     ).rows[0];
     expect(transfer).toEqual({ state: "draft", quantity: "2.5000", events: 2 });
     expect((await pool.query("select count(*)::int as count from journal_entry")).rows[0].count).toBe(0);
+  });
+  test("saves product pack contents and reloads entered transfer units with their base equivalent", async ({
+    page,
+  }) => {
+    await page.goto("/#/inventory/add-product");
+    await page.getByLabel("Product name *", { exact: true }).fill("Browser bulk material");
+    await page.getByLabel("Unit", { exact: true }).selectOption("Kg");
+    await page.getByRole("tab", { name: "Inventory", exact: true }).click();
+    await page.getByRole("button", { name: "Add Packaging Rule", exact: true }).click();
+    const box = (
+      await pool.query<{ id: string }>(
+        "select id from inventory_unit where tenant_id=$1 and company_id=$2 and name='Box'",
+        [tenant, company],
+      )
+    ).rows[0]!.id;
+    await page.getByLabel("Packaging unit 1", { exact: true }).selectOption(box);
+    await page.getByLabel("Contents in Kg 1", { exact: true }).fill("25");
+    await page.getByRole("button", { name: "Save & Close", exact: true }).click();
+    await expect(page).toHaveURL(/#\/inventory\/products$/);
+    await page.goto("/#/inventory/add-stock-transfer");
+    await page.getByLabel("From warehouse *", { exact: true }).click();
+    await page.getByRole("button", { name: /Browser main warehouse$/ }).click();
+    await page.getByLabel("To warehouse *", { exact: true }).click();
+    await page.getByRole("button", { name: /Browser branch warehouse$/ }).click();
+    await page.getByLabel("Line 1 product *", { exact: true }).click();
+    await page.getByLabel("Search line 1 product *", { exact: true }).fill("Browser bulk material");
+    await page.getByRole("button", { name: /Browser bulk material$/ }).click();
+    await page.getByLabel("Line 1 unit", { exact: true }).selectOption(box);
+    await page.getByLabel("Line 1 quantity *", { exact: true }).fill("2");
+    await expect(page.getByText("50 Kg", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Save Draft", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save Draft", exact: true })).toBeDisabled();
+    await page.reload();
+    await expect(page.getByLabel("Line 1 quantity *", { exact: true })).toHaveValue("2");
+    await expect(page.getByLabel("Line 1 unit", { exact: true }).locator("option:checked")).toHaveText("Box (box)");
+    await expect(page.getByText("50 Kg", { exact: true })).toBeVisible();
   });
   for (const theme of ["light", "dark"] as const)
     for (const width of [1440, 768, 390])
@@ -413,5 +484,17 @@ test.describe("Persisted Inventory product catalog", () => {
             fullPage: true,
           });
         }
+        await page.goto("/#/inventory/units-of-measure");
+        await expect(page.getByRole("heading", { name: "Unit of Measure", exact: true })).toBeVisible();
+        await expect(page.locator("output")).toHaveText("1000 g");
+        const kgRow = page.getByRole("button", { name: /^Kg \(kg\)/ });
+        await expect(kgRow).toBeVisible();
+        expect(await kgRow.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        expect((await new AxeBuilder({ page }).include("main .nx-content").analyze()).violations).toEqual([]);
+        await page.screenshot({
+          path: `tmp/inventory-operations-evidence/${theme}-${width}-units.png`,
+          fullPage: true,
+        });
       });
 });
