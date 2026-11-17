@@ -2,9 +2,9 @@
 
 Approved design: ../specs/2026-11-17-inventory-units-of-measure-design.md.
 
-Status: Source implementation and isolated verification complete. Local activation
-awaits review of `2026-11-17-inventory-units-release.md`; no business database
-writes or service replacement were performed.
+Status: Implemented, verified and activated on localhost on 17 November 2026
+after explicit owner approval. The targeted release applied only Inventory 3;
+Procurement 5 and Fixed Assets 2 remain. See `2026-11-17-inventory-units-release.md`.
 
 1. Add exact rational conversion contracts/helpers and regression tests.
 2. Add additive Inventory migration, protected catalogue persistence, audited
@@ -66,7 +66,11 @@ Passed:
   `tmp/inventory-operations-evidence/`; fixed the detected native-button theme and
   navigation integration defects, then confirmed the final output.
 
-Canonical `next-env.d.ts` paths were restored after isolated builds. Login/runtime
-configuration is unchanged. Local read-only inspection confirms Inventory 2,
-Procurement 5, Assets 2 and no unit table. The exact backup/migration/restart and
-rollback procedure is prepared separately for owner review.
+Canonical `next-env.d.ts` paths were restored after isolated builds. Protected
+configuration and login credentials are unchanged. Approved activation verified
+a full backup restore and preservation of 321 existing table fingerprints, then
+applied only Inventory 3 and started the tested compatible build. Live acceptance
+verified both companies, unchanged sign-in, standard conversions, Product/Purchase/
+Transfer forms, wrong-company denial and six responsive light/dark cases with zero
+Axe violations. No synthetic business documents were saved. Startup helpers now
+retain this release. Private evidence: `tmp/units-of-measure/`.

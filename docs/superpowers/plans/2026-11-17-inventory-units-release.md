@@ -1,14 +1,14 @@
 # Unit of Measure: targeted local release procedure
 
-Status: Prepared for owner review. Not executed against the recovered business database.
+Status: Approved by the owner and executed on 17 November 2026. Unit of Measure is active on localhost.
 
 ## Reviewed scope and current state
 
 Read-only inspection on 17 November 2026 confirmed `nexora_local_recovery` has
 Inventory 2, Purchase/Procurement 5 and Fixed Assets 2. `inventory_unit` is absent.
-The running web/API still use the previous verified compatible release. Login and
-protected runtime configuration remain unchanged. No business database write,
-backup, restore or service replacement has been performed for this feature.
+This was the pre-release state. The approved release below has now been executed;
+the web/API use the tested unit-compatible release, with Inventory 3 installed.
+Login and protected runtime configuration remain unchanged.
 
 The prepared source is `tmp/units-of-measure/release/source`, derived from the
 existing compatible source with only the approved unit changes applied. Purchase
@@ -88,3 +88,34 @@ Browser evidence is under `tmp/inventory-products-evidence` and
 local build scan emits generated-cache CSS optimizer warnings already present in
 the compatible build workflow. Route/theme verification is recorded in the
 implementation plan. Root production builds complete without those warnings.
+
+## Executed release evidence
+
+- Approved release completed on 17 November 2026. Production build ID remains
+  `6iP_WnyyTYJrbamyd8mqi`; API readiness and localhost login return HTTP 200.
+- The application role could not lock a protected login-directory table for the
+  initial dump. That attempt stopped before migration. The existing protected
+  database-owner credential was then used for backup/restore and migration only;
+  application permissions and runtime configuration were not changed.
+- Archive: `tmp/units-of-measure/backups/pre-uom-1794916327321.dump`
+  (3,437,949 bytes); SHA-256
+  `4e00123de828505bc0fe200878ff26205d664c92cfcb9b2287df91375a6fecc9`.
+  A disposable restore matched all 321 existing table fingerprints and the full
+  migration ledger; the disposable database was removed and the archive retained.
+- Only Inventory advanced from 2 to 3. Procurement remains 5, Fixed Assets 2; all
+  other module versions remain. Existing row fingerprints match the backup after
+  migration, including protected credentials, financial values and audit history.
+  The nullable transfer snapshot is excluded from legacy-row hash comparison.
+- Installed 27 standard definitions and 54 company units; the existing product has
+  its matching base-unit reference. Automatic migrations remain disabled.
+- `node tmp/units-of-measure/verify-live.mjs` passed using concealed password input:
+  unchanged real login, both companies, kg/gram in both directions, tonne/kg,
+  server conversion, Product Add New, Purchase Request and Transfer forms, one
+  global company selector, wrong-company 403 and unsaved-switch cancellation.
+  Six light/dark widths (1440/768/390px) pass Axe and document-overflow checks.
+  No synthetic business records were saved. Private reports/screenshots remain
+  under `tmp/units-of-measure/`.
+- Current starter: `tmp/units-of-measure/start-live-runtime.ps1`. The documented
+  older compatible entry points forward to it; manifests identify the new source.
+  Prior source/build artifacts and the verified archive are retained. The separate
+  pending Purchase/Assets release was not deployed by this operation.

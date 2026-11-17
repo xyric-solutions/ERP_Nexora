@@ -19,10 +19,13 @@
 - Evidence: `tmp/inventory-operations-evidence/*-units.png`. Prepared compatible
   build: `tmp/units-of-measure/release/source/tmp/uom-complete-build`; its existing
   generated-cache scanning produces CSS optimizer warnings, recorded in the plan.
-- Safe resume: source is implemented/tested; localhost still runs the prior release
-  against Inventory 2 / Procurement 5 / Assets 2. Review the targeted unit release
-  procedure before backup, Inventory-only migration and service replacement.
-  Preserve the existing login. Do not apply unrelated pending migrations.
+- Activated on localhost after explicit owner approval: restore-verified backup,
+  Inventory 3 only, Procurement 5 / Assets 2 retained, and 321 existing table
+  fingerprints preserved. Both companies pass real-login/conversion/form checks;
+  six live responsive light/dark cases have zero Axe violations/outer overflow.
+  Evidence and current guarded startup helpers: `tmp/units-of-measure/`.
+- Safe resume: use the current compatible startup helper in the local runbook.
+  Preserve the existing login and do not apply unrelated pending migrations.
 
 ## 2026-11-17 — Products creation, compact cards and global company context
 

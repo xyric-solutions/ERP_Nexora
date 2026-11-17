@@ -64,9 +64,11 @@ partial-quantity snapshots. Existing tax, discounts, charges, posting and indivi
 asset registration safeguards remain. Transfers store their base quantity and remain
 unposted drafts; forms restore the original entered unit/quantity when reloaded.
 
-The source feature is implemented and validated in isolated databases/previews.
-Localhost activation requires Inventory migration 3 and the compatible release;
-see the [targeted release procedure](../superpowers/plans/2026-11-17-inventory-units-release.md).
+The feature is active on localhost after owner-approved backup/restore verification
+and Inventory migration 3. Procurement remains at 5 and Fixed Assets at 2. Existing
+records and login credentials were retained. Live acceptance covers both companies,
+conversions, existing forms and company isolation; see the
+[targeted release procedure](../superpowers/plans/2026-11-17-inventory-units-release.md).
 
 The client uses generated contracts through the independent API:
 `GET /api/v1/inventory/companies`, `/options`, `/lookups`, `/products`,

@@ -40,13 +40,32 @@ starts disabled. Verify API readiness, sign-in, worker readiness and asset optio
 after restart. Preserve the earlier recovery helpers/configuration for reference;
 never reset the recovered database to deploy this extension.
 
+## Unit of Measure release (17 November 2026)
+
+The owner-approved Unit of Measure release is active on localhost. Its verified
+backup restored successfully before applying only Inventory migration 3.
+Procurement remains at 5 and Fixed Assets at 2; the separate extension above
+remains pending. Existing credentials, records and permissions are preserved.
+
+With the recovered Docker dependencies running, start the current release with:
+
+```powershell
+powershell -NoProfile -File tmp/units-of-measure/start-live-runtime.ps1
+```
+
+This guarded private helper uses `tmp/units-of-measure/release/source`, production
+web build `tmp/uom-complete-build`, and its compiled API. Automatic migrations
+remain disabled. `-Restart` validates artifacts and known process identities
+before restarting. The previous Products compatible startup entry points now
+forward to this release. See the [executed release evidence](../superpowers/plans/2026-11-17-inventory-units-release.md).
+
 ## Recovered workstation environment (16 November 2026)
 
 The 17 November Products/global-company correction is live in the compatible
 API and frontend. Inventory supplies transaction-local user context for currency
 RLS; Add New works, cards are compact, and the top row owns operating-company
-selection. The earlier single product/service selector correction remains. This
-release preserves the existing schema and login credentials. The full totals/
+selection. The earlier single product/service selector correction remains. That
+Products correction preserved the existing schema and login credentials. The full totals/
 asset extension above retains its separate rollout gate. Private provenance,
 runtime and browser reports: `tmp/products-global-company/`.
 
@@ -60,14 +79,9 @@ start the latest root API against the older recovered database.
 powershell -NoProfile -File tmp/products-global-company/start-compatible-runtime.ps1
 ```
 
-The frontend helper uses production mode and the relative build path
-`tmp/products-global-responsive-build` inside
-`tmp/asset-workpages-release/source`. Its optional `-Restart` verifies the target
-build before stopping the identified web process. The API entry is that same
-compatible source's `server/api/dist/server.js`; its private starter accepts
-`-Port 4000`. Older recovery helpers below are retained as historical recovery
-tools and select an earlier frontend/root API entry; use the helper above for
-the current compatible release.
+The compatible starter above now forwards to the current Unit of Measure release
+described above. Older recovery helpers below remain historical recovery tools
+and select an earlier frontend/root API; do not use them for routine startup.
 
 The current workstation was recovered from
 `tmp/backups/before-tax-activation-20261112T105321Z.dump`, created on 12 November

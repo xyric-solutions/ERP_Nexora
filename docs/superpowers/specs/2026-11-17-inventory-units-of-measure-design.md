@@ -1,8 +1,8 @@
 # Inventory Units of Measure and automatic conversion
 
-Status: Approved by the owner on 17 November 2026. Implemented in source and
-verified in isolated data/previews; targeted localhost release awaits the separate
-database/release review described in the implementation and release plans.
+Status: Approved and implemented. The owner separately approved the targeted
+localhost release, activated on 17 November 2026 after backup/restore verification
+and Inventory-only migration. Existing login and financial calculations are retained.
 
 ## Requested outcome and interpretation
 
