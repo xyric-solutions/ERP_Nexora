@@ -1,6 +1,7 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { SupplierProfileCrypto } from "../../server/api/src/modules/procurement/supplier-profile-crypto.js";
 import { PassThrough } from "node:stream";
+import { Pool } from "pg";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -198,6 +199,98 @@ suite("Database-backed Purchase and Supplier workflow", () => {
     await approved(terms("receipt", po, supplier, quantity));
     return approved(terms("bill", po, supplier, quantity));
   }
+  it("fetches Purchase currencies under runtime RLS without leaking company or user context", async () => {
+    const role = `purchase_rls_${randomUUID().replaceAll("-", "")}`;
+    await pool.query(`create role ${role} nologin nosuperuser nobypassrls`);
+    await pool.query(`grant usage on schema public to ${role}`);
+    await pool.query(`grant select on all tables in schema public to ${role}`);
+    const target = new URL(bootstrapUrl!);
+    target.pathname = `/${database}`;
+    const restrictedPool = new Pool({ connectionString: target.toString(), options: `-c role=${role}`, max: 1 });
+    const restricted = new SourceProcurementRepository(restrictedPool, profileCrypto);
+    const assertClearedContext = async () => {
+      const result = await restrictedPool.query(
+        "select current_setting('nexora.user_id',true) as user_id,current_setting('nexora.tenant_id',true) as tenant_id",
+      );
+      expect(result.rows[0].user_id ?? "").toBe("");
+      expect(result.rows[0].tenant_id ?? "").toBe("");
+      expect((await restrictedPool.query("select currency_code from company_currency")).rows).toEqual([]);
+    };
+    try {
+      const expected = (await repo.options(maker, company)).currencies;
+      expect(expected).toContainEqual(expect.objectContaining({ code: "USD" }));
+      expect((await restricted.options(maker, company)).currencies).toEqual(expected);
+      await assertClearedContext();
+      await expect(restricted.options(maker, "outside-company")).rejects.toMatchObject({ status: 403 });
+      await assertClearedContext();
+      const unassigned = { ...maker, actor: { ...maker.actor, userId: "unassigned-purchase-user" } };
+      await expect(restricted.options(unassigned, company)).rejects.toMatchObject({ status: 403 });
+      await expect(restricted.options({ ...maker, tenantId: "outside-tenant" }, company)).rejects.toMatchObject({
+        status: 403,
+      });
+      await assertClearedContext();
+      expect((await restricted.options(checker, company)).currencies).toEqual(expected);
+      await assertClearedContext();
+    } finally {
+      await restrictedPool.end();
+      await pool.query(`drop owned by ${role}`);
+      await pool.query(`drop role ${role}`);
+    }
+  });
+  it("persists discounts and freight and allocates their remaining cents across partial receipts and bills", async () => {
+    const expenseId = `purchase-freight-${key()}`;
+    await pool.query(
+      "insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$1,'Synthetic freight','expense',false,'active',now())",
+      [expenseId, tenant, company],
+    );
+    const request = await approved({
+      ...terms("request", undefined, null, "3"),
+      discount_amount: "0.02",
+      lines: [{ ...terms("request", undefined, null, "3").lines[0]!, unit_price: "1.00", discount_amount: "0.01" }],
+      additional_charges: [
+        {
+          id: "freight",
+          type: "freight",
+          description: "Synthetic freight",
+          amount: "0.01",
+          tax_percent: "0",
+          nominal_account_id: expenseId,
+        },
+      ],
+    });
+    const orderInput = terms("order", request, supplierA, "3");
+    const po = await approved({
+      ...orderInput,
+      discount_amount: request.discount_amount,
+      additional_charges: request.additional_charges,
+    });
+    expect(po.total_amount).toBe("2.98");
+    const receipt = await approved(terms("receipt", po, supplierA, "1"));
+    const first = await approved(terms("bill", po, supplierA, "1"));
+    const secondDraft = await save(terms("bill", po, supplierA, "2"));
+    const secondSubmitted = await submit(secondDraft);
+    await expect(approve(secondSubmitted)).rejects.toMatchObject({ code: "PURCHASE_RECEIPT_MATCH_REQUIRED" });
+    await approved(terms("receipt", po, supplierA, "2"));
+    const second = await approve(secondSubmitted);
+    expect(Number(first.total_amount) + Number(second.total_amount)).toBe(2.98);
+    expect(Number(first.additional_charges![0]!.amount) + Number(second.additional_charges![0]!.amount)).toBe(0.01);
+    expect(Number(receipt.discount_amount) + Number(second.discount_amount)).toBe(0.02);
+    const loaded = await repo.get(maker, company, second.id);
+    expect(loaded).toMatchObject({
+      discount_amount: second.discount_amount,
+      additional_charges: second.additional_charges,
+      total_amount: second.total_amount,
+    });
+    const origin = await repo.get(maker, company, po.id);
+    expect(origin.source_consumption?.bill.lines[0]).toMatchObject({
+      quantity: "3",
+      line_discount: "0.01",
+      document_discount: "0.02",
+    });
+    await expect(save({ ...terms("request", undefined, null), discount_amount: "1000" })).rejects.toMatchObject({
+      code: "PURCHASE_VALIDATION_FAILED",
+    });
+  });
   it("filters supplier bills before pagination and binds cursors to the supplier", async () => {
     const first = await bill(supplierA),
       other = await bill(supplierB),
@@ -999,6 +1092,78 @@ suite("Database-backed Purchase and Supplier workflow", () => {
     await expect(save({ ...input, lines: [{ ...input.lines[0]!, product_id: "unavailable" }] })).rejects.toMatchObject({
       code: "PURCHASE_PRODUCT_INELIGIBLE",
     });
+  });
+  it("keeps commercial amounts unchanged while converting request units and partial downstream base quantities", async () => {
+    const inventory = new SourceInventoryRepository(pool);
+    const inventoryActor = {
+      ...maker,
+      actor: { ...maker.actor, permissions: [...permissions, "inventory.item.create"] },
+    };
+    const units = (
+      await pool.query<{ id: string; name: string }>(
+        "select id,name from inventory_unit where tenant_id=$1 and company_id=$2",
+        [tenant, company],
+      )
+    ).rows;
+    const gram = units.find((u) => u.name === "Gram")!;
+    const product = (
+      await inventory.save(
+        inventoryActor,
+        null,
+        productInputSchema.parse({
+          company_id: company,
+          name: "Conversion purchase material",
+          currency: "USD",
+          unit: "Kg",
+        }),
+        key(),
+        key(),
+      )
+    ).record;
+    const requestTerms = terms("request", undefined, null, "250");
+    requestTerms.lines[0] = {
+      ...requestTerms.lines[0]!,
+      product_id: product.id,
+      unit_id: gram.id,
+      uom: "forged",
+      unit_price: "2.00",
+      tax_percent: "10",
+    };
+    const requisition = await approved(requestTerms);
+    expect(requisition.lines[0]).toMatchObject({
+      uom: "Gram",
+      quantity: "250",
+      unit_price: "2.00",
+      unit_snapshot: { base_quantity: "0.25", base_unit_name: "Kg", unit_name: "Gram" },
+    });
+    expect(requisition.total_amount).toBe("550.00");
+    // Purchase users can read eligible unit choices without Inventory management rights.
+    expect((await inventory.units.choices(maker, company, product.id, "purchases")).base.name).toBe("Kg");
+    const rfq = await approved(terms("rfq", requisition, null, "250"));
+    const po = await approved(terms("order", rfq, supplierA, "250"));
+    const first = await approved(terms("receipt", po, supplierA, "100"));
+    expect(first.lines[0]!.unit_snapshot?.base_quantity).toBe("0.1");
+    const invoice = await approved(terms("bill", po, supplierA, "100"));
+    expect(invoice.total_amount).toBe("220.00");
+    expect(invoice.lines[0]).toMatchObject({
+      uom: "Gram",
+      unit_snapshot: { base_quantity: "0.1", entered_quantity: "100", numerator: "1", denominator: "1000" },
+    });
+    const changedUnit = terms("receipt", po, supplierA, "100");
+    changedUnit.lines[0]!.uom = "Kg";
+    await expect(save(changedUnit)).rejects.toMatchObject({ code: "PURCHASE_VALIDATION_FAILED" });
+    await expect(approved(terms("receipt", po, supplierA, "151"))).rejects.toMatchObject({
+      code: "PURCHASE_QUANTITY_EXCEEDED",
+    });
+    const forged = terms("request", undefined, null, "1");
+    forged.lines[0] = {
+      ...forged.lines[0]!,
+      product_id: product.id,
+      unit_id: gram.id,
+      unit_snapshot: { ...invoice.lines[0]!.unit_snapshot!, base_quantity: "999" },
+    };
+    const corrected = await save(forged);
+    expect(corrected.lines[0]!.unit_snapshot?.base_quantity).toBe("0.001");
   });
   it("returns the complete linked Request-to-Bill progress from any stage with scoped pagination and exact status counts", async () => {
     const requisition = await approved(terms("request"));

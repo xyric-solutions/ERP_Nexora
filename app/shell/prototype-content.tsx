@@ -154,14 +154,17 @@ import { InventoryOperationsWorkspace } from "@prototype/features/inventory/view
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
 import { ManufacturingLiveWorkspace } from "@prototype/features/manufacturing/views/manufacturing-live-workspace";
 import { isManufacturingLivePage } from "@prototype/features/manufacturing/model/manufacturing";
+import { UnitsWorkspace } from "@prototype/features/inventory/views/units-workspace";
 import { FixedAssetsWorkspace } from "@/features/fixed-assets/views/fixed-assets-workspace";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
+import { PurchaseAssetReturnsWorkspace, isPurchaseAssetReturnPage } from "@/features/purchasing/views/purchase-asset-returns";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
 import { MultiCurrencyWorkspace } from "@prototype/features/finance/views/multi-currency-workspace";
 import { MasterDataForm, isMatureMasterDataForm } from "@prototype/features/master-data/views/master-data-form";
 import { RecordPreviewDrawer } from "@prototype/features/commerce/components/record-preview-drawer";
 import { isReportsWorkspacePage, ReportsWorkspace } from "@prototype/features/reports/views/reports-workspace";
+import { ConnectedReportView, isConnectedReport } from "@prototype/features/reports/views/connected-report";
 import {
   isManufacturingMaturityPage,
   ManufacturingWorkspace,
@@ -3161,14 +3164,21 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     return <MultiCurrencyWorkspace operational key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" ? context.recordRef : undefined} />;
   }
 
+  if (context.moduleId === "purchases" && isPurchaseAssetReturnPage(context.pageId)) {
+    return <PurchaseAssetReturnsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+  }
   if (context.moduleId === "assets" || (context.moduleId === "reports" && ["asset-register-report","asset-depreciation-report"].includes(context.pageId))) {
     return <FixedAssetsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+  }
+  if (context.moduleId === "reports" && isConnectedReport(context.pageId)) {
+    return <ConnectedReportView key={context.pageId} report={context.pageId} title={context.pageLabel} onNavigate={props.onNavigate}/>;
   }
   if (context.moduleId === "reports" && isReportsWorkspacePage(context.pageId)) {
     return <ReportsWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
 
   if (context.moduleId === "inventory") {
+    if (context.pageId === "units-of-measure") return <UnitsWorkspace recordRef={context.recordRef} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
     if (["warehouses", "add-warehouse", "stock-transfers", "add-stock-transfer"].includes(context.pageId))
       return (
         <InventoryOperationsWorkspace

@@ -13,6 +13,7 @@ export const subledgerQuerySchema = z.strictObject({
   party_id: id.optional(),
   side: subledgerSideSchema.optional(),
   currency: currency.optional(),
+  source_document_id: id.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).max(1000000).default(0),
 });
@@ -54,7 +55,7 @@ export const subledgerRecognitionSchema = z.strictObject({
   monetary: z.boolean().default(true),
   bank_account_id: id.optional(),
   source_document_id: id.optional(),
-  original_item_id:id.optional(),
+  original_item_id: id.optional(),
   counter_account_id: id.optional(),
   tax_definition_id: id.optional(),
   tax_amount: amount.optional(),
@@ -92,12 +93,41 @@ export const subledgerRevaluationSchema = z.strictObject({
   party_id: id.optional(),
 });
 export const subledgerReversalSchema = z.strictObject({ ...common, type: z.literal("reversal"), operation_id: id });
+/** Source-owned group: amounts and suppliers are always resolved on the server. */
+export const purchaseAccountingPrepareSchema = z.strictObject({
+  company_id: id,
+  expected_version: z.number().int().positive(),
+  expected_operation_version: z.number().int().positive().optional(),
+  discount_account_id: id.optional(),
+  advance_account_id: id.optional(),
+  advance_monetary: z.boolean().optional(),
+  tax_definition_id: id.optional(),
+  additional_tax_definition_id: id.optional(),
+  tax_account_id: id.optional(),
+  bank_fee: amount.default("0"),
+});
+export const purchasePaymentOperationSchema = z.strictObject({
+  ...common,
+  type: z.literal("purchase_payment"),
+  side: z.literal("payable"),
+  source_document_id: id,
+  source_version: z.number().int().positive(),
+  currency,
+  discount_account_id: id.optional(),
+  advance_account_id: id.optional(),
+  advance_monetary: z.boolean().optional(),
+  tax_definition_id: id.optional(),
+  additional_tax_definition_id: id.optional(),
+  bank_fee: amount.default("0"),
+});
+export type PurchaseAccountingPrepare = z.input<typeof purchaseAccountingPrepareSchema>;
 export const subledgerOperationInputSchema = z.discriminatedUnion("type", [
   subledgerRecognitionSchema,
   subledgerSettlementSchema,
   subledgerOffsetSchema,
   subledgerRevaluationSchema,
   subledgerReversalSchema,
+  purchasePaymentOperationSchema,
 ]);
 /** Requests may omit bank-derived currency; persisted operations remain canonical. */
 export const subledgerOperationRequestSchema = z.discriminatedUnion("type", [
@@ -178,6 +208,28 @@ export const subledgerPreviewSchema = z.strictObject({
     }),
   ),
   item: subledgerItemSchema.omit({ journal_id: true }).nullable(),
+  additional_items: z
+    .array(subledgerItemSchema.omit({ journal_id: true }))
+    .max(100)
+    .optional(),
+  source_evidence: z.string().optional(),
+  purchase_suppliers: z
+    .array(
+      z.strictObject({
+        supplier_id: id,
+        party_id: id,
+        name: z.string(),
+        currency,
+        gross: amount,
+        allocated: amount,
+        discount: amount,
+        withholding: amount,
+        advance: amount,
+        net: amount,
+      }),
+    )
+    .max(100)
+    .optional(),
   sources: z.array(subledgerItemSchema),
   realized_gain: signedAmount,
   unrealized_gain: signedAmount,
@@ -232,7 +284,7 @@ export const subledgerWorkspaceSchema = z.strictObject({
   banks: z.array(z.strictObject({ id, name: z.string(), currency })),
   currencies: z.array(z.strictObject({ code: currency, decimal_places: z.number().int() })),
 });
-export const subledgerReportQuerySchema = subledgerQuerySchema.extend({
+export const subledgerReportQuerySchema = subledgerQuerySchema.omit({ source_document_id: true }).extend({
   from: date.optional(),
   report: z.enum(["statement", "fx", "trial_balance", "general_ledger", "profit_loss", "balance_sheet"]),
   presentation_currency: currency.optional(),

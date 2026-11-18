@@ -6,6 +6,7 @@ import {
   decideJournalRequestSchema,
   deleteJournalRequestSchema,
   journalOptionsSchema,
+  journalPostingEligibilityQuerySchema,
   recurringJournalOccurrenceSchema,
 } from "../../packages/contracts/src/finance/journals.js";
 import { buildOpenApiDocument } from "../../packages/contracts/src/openapi-c4.js";
@@ -16,6 +17,17 @@ const balancedLines = [
 ];
 
 describe("Finance Journal contracts", () => {
+  it("requires an explicit company and valid calendar date for eligibility reads", () => {
+    expect(
+      journalPostingEligibilityQuerySchema.safeParse({ company_id: "company", journal_date: "2026-11-17" }).success,
+    ).toBe(true);
+    for (const input of [
+      { journal_date: "2026-11-17" },
+      { company_id: "company", journal_date: "2026-02-30" },
+      { company_id: "company", journal_date: "2026-11-17", post: true },
+    ])
+      expect(journalPostingEligibilityQuerySchema.safeParse(input).success).toBe(false);
+  });
   it("accepts a bounded base-currency Manual Journal draft", () => {
     expect(
       createJournalRequestSchema.parse({
@@ -113,6 +125,7 @@ describe("Finance Journal contracts", () => {
   it("publishes all governed Journal paths in OpenAPI", () => {
     const paths = buildOpenApiDocument().paths;
     expect(paths).toHaveProperty("/finance/journals");
+    expect(paths).toHaveProperty("/finance/journals/posting_eligibility");
     expect(paths).toHaveProperty("/finance/journals/{journalId}/decision");
     expect(paths).toHaveProperty("/finance/journals/{journalId}/reversal");
     expect(paths).toHaveProperty("/finance/recurring-journals");

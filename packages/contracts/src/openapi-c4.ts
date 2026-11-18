@@ -22,6 +22,7 @@ import {
   manufacturingOrderActionSchema,
 } from "./manufacturing/index.js";
 import { inventoryPaths } from "./inventory/openapi.js";
+import { unitSchema,unitInputSchema,unitDirectorySchema,unitMutationSchema,unitConversionSchema,productUnitsSchema } from "./inventory/units.js";
 import { fixedAssetPaths } from "./fixed-assets/openapi.js";
 import {
   warehouseInputSchema,
@@ -8089,6 +8090,13 @@ export function buildOpenApiDocument() {
         StockTransferDirectory: schema(stockTransferDirectorySchema),
         StockTransferMutation: schema(stockTransferMutationSchema),
         InventoryCompanies: schema(inventoryCompaniesSchema),
+        MeasurementUnit: schema(unitSchema),
+        UnitInput: schema(unitInputSchema),
+        UpdateUnitInput: schema(unitInputSchema.extend({expected_version:z.number().int().positive()})),
+        UnitDirectory: schema(unitDirectorySchema),
+        UnitMutation: schema(unitMutationSchema),
+        UnitConversion: schema(unitConversionSchema),
+        ProductUnits: schema(productUnitsSchema),
         InventoryOptions: schema(inventoryOptionsSchema),
         ProductMutation: schema(productMutationSchema),
         ProductLookupDirectory: schema(productLookupDirectorySchema),

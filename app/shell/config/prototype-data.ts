@@ -206,6 +206,7 @@ export const prototypeModules = [
         p("purchase-orders", "Purchase Order", "list", "live"),
         p("goods-receipts", "Receive Products", "list", "live"),
         p("purchase-bills", "Bills", "list", "live"),
+        p("purchase-returns", "Purchase Returns", "workflow", "live"),
         p("payments", "Payment", "list", "live"),
         p("multi-vendor-payments", "Multi-vendor Payment", "list", "live"),
         p("suppliers", "Suppliers", "list", "live"),
@@ -220,6 +221,8 @@ export const prototypeModules = [
           p("add-purchase-order", "Purchase Order", "form", "live", true),
           p("add-goods-receipt", "Receive Products", "form", "live", true),
           p("add-purchase-bill", "Bill", "form", "live", true),
+          p("purchase-bill-returns", "Purchase Return", "workflow", "live", true),
+          p("purchase-refunds", "Vendor Refunds", "workflow", "live", true),
           p("add-payment", "Payment", "form", "live", true),
           p("add-multi-vendor-payment", "Multi-vendor Payment", "form", "live", true),
           p("add-supplier", "Add Supplier", "form", "live", true),
@@ -239,6 +242,7 @@ export const prototypeModules = [
     groups: [
       g("products", "Products", [
         p("products", "Products"),
+        p("units-of-measure", "Unit of Measure"),
         p("stock-transfers", "Stock Transfer"),
         p("warehouses", "Warehouse"),
       ]),
@@ -686,21 +690,21 @@ export const prototypeModules = [
     modes: allModes,
     groups: [
       g("asset-register", "Asset Register", [
-        p("assets-dashboard", "Assets Dashboard", "dashboard", "live"),
-        p("asset-classes", "Asset Classes & Policies", "settings", "live"),
+        p("asset-classes", "Asset Classes and Policies", "settings", "live"),
+        p("assets", "Asset Register", "list", "live"),
         p("asset-policies", "Asset Policies", "settings", "live"),
-        p("assets", "Fixed Asset Register", "list", "live"),
-        p("add-asset", "Add Asset", "form", "live"),
-        p("asset-detail", "Asset Detail", "detail", "live"),
-        p("asset-acquisition", "Register Posted Acquisitions", "form", "live"),
-        p("capitalisation", "Asset Approval & Activation", "approval", "live"),
-        p("asset-transfer", "Transfer & Assignment", "form", "live"),
-        p("asset-return", "Vendor Returns", "form", "live"),
-        p("asset-refund", "Vendor Refunds", "form", "live"),
+        p("asset-transfer", "Transfer and Assignment", "list", "live"),
         p("asset-maintenance", "Maintenance", "form", "live"),
         p("asset-verification", "Physical Verification", "form", "live"),
         p("asset-reports", "Asset Reports", "report", "live"),
       ]),
+      g("asset-records", "Asset Records", [
+        p("add-asset", "Add New Asset", "form", "live", true),
+        p("asset-detail", "Asset Details", "detail", "live", true),
+        p("asset-acquisition", "Register Posted Acquisitions", "form", "live", true),
+        p("capitalisation", "Asset Approval and Activation", "approval", "live", true),
+      ], true),
+      g("asset-overview", "Overview", [p("assets-dashboard", "Assets Dashboard", "dashboard", "live")]),
       g("measurement", "Measurement", [
         p("depreciation-run", "Depreciation Run", "workflow", "live"),
         p("asset-revaluation", "Impairment Assessments", "approval", "live"),
@@ -1393,6 +1397,8 @@ export function findPrototypeModule(moduleId: string) {
  * instead of silently falling back to a module's first page.
  */
 const retiredPageRedirects: Record<string, readonly [moduleId: string, pageId: string, recordRef?: string]> = {
+  "assets:asset-return": ["purchases", "purchase-returns"],
+  "assets:asset-refund": ["purchases", "purchase-refunds"],
   // Payroll › Loans & Advances retired 13 Nov 2026: Employee Lifecycle › Loan Requests is the single place.
   "hr:employee-loans": ["hr", "loans-benefits"],
   "finance:accounting-events": ["reports", "journal-register-report"],
@@ -1512,7 +1518,7 @@ export function findPrototypePage(
       "service-entry": "add-goods-receipt",
       "three-way-match": "purchase-bills",
       "match-exceptions": "purchase-bills",
-      "supplier-returns": "goods-receipts",
+      "supplier-returns": "purchase-returns",
       "procurement-reports": "purchase-orders",
     };
     pageId = aliases[pageId ?? ""] ?? pageId;

@@ -1,36 +1,124 @@
 # Local startup (Windows)
 
-## Integrated Fixed Assets rollout — pending local backup approval
+## Purchase / Bank integration — verified source, activation pending (18 November 2026)
 
-The integrated extension is implemented and verified on disposable test data.
-The running recovered service still uses the prior deployed version. The new API
-and asset-only worker require fixed-assets migrations **0003–0007** before restart.
-Automatic approval review requires the owner's explicit authorization to copy
-the business database into ignored `tmp/backups` and a disposable local database
-for restore verification. No such backup, migration or service replacement has
-been performed for this extension yet.
+The approved bridge and reports are implemented. The running business services
+on ports 3000/4000 still use the compatible Unit of Measure release below. A
+renewed release-scope question is pending: push source only, or also activate the
+local database/API/web release. Do not interpret silence as activation approval.
+No existing Purchase instructions were financially posted or supplier parties
+created; credentials, company roles, July 2026–June 2027 and twelve Open periods
+are unchanged.
 
-After that approval, the prepared workstation-local steps are:
+The final additive schema chain was verified against a restored local backup:
+Finance 39 → 40, Procurement 5 → 6 → 7, Fixed Assets 2 → 3–7; Inventory stays 3.
+All 325 pre-existing table fingerprints were preserved. Do not start the latest
+API against the older business schema. Automatic migrations remain disabled.
+No live migration or service replacement has occurred for these extensions.
+
+Local-only evidence and protected helpers are under
+`tmp/purchase-bank-integration/`; backups stay under ignored `tmp/backups/`.
+`backup-verification.json` records the archive checksum, exact migration hashes,
+restore check and data preservation. The preview was checked on ports 3300/4100
+against that restored database, preserving real browser Origin checks. It was
+stopped after verification. Preview acceptance
+does not alter the live API origin policy. Preview records are not production
+posting evidence. Do not use a test-database initializer on the business database.
+
+Before activation, confirm the selected scope, revalidate candidate source/build
+and migration hashes, stop only the identified old services, apply the exact
+verified chain and start the pinned candidate with protected configuration.
+Check health, sign-in, roles, fiscal periods, original Purchase/Bank values and
+read-only reports. Keep additive migrations if reverting the application; never
+overwrite business evidence with the rehearsal database.
+
+Purchase approval remains commercial approval. An authorized Finance user must
+link each real supplier, configure AP/tax/discount/advance mappings as applicable,
+prepare Bill recognition, obtain independent approval and post it before payment
+settlement. Preparing a Purchase payment creates one linked accounting draft;
+its final governed post creates one journal and Bank credit atomically. Missing
+company-scoped Finance permissions remain explicit setup blockers. Startup and
+verification never grant roles or post historical instructions.
+
+The earlier Purchase discount/freight and integrated Fixed Assets extensions are
+included in the candidate and its required migration chain. Their old rollout
+commands are superseded by this verified chain; they have not been activated on
+the business database. See the [implementation and checks](../superpowers/plans/2026-11-18-purchase-bank-reporting-integration.md).
+
+## Unit of Measure release (17 November 2026)
+
+The owner-approved Unit of Measure release is active on localhost. Its verified
+backup restored successfully before applying only Inventory migration 3.
+Procurement remains at 5 and Fixed Assets at 2; the separate extension above
+remains pending. Existing credentials, records and permissions are preserved.
+
+With the recovered Docker dependencies running, start the current release with:
 
 ```powershell
-powershell -NoProfile -File tmp/fixed-assets/backup-before-rollout.ps1
-powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Migrate
-powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Start -Restart
-powershell -NoProfile -File tmp/fixed-assets/local-runtime.ps1 -Action Verify
+powershell -NoProfile -File tmp/units-of-measure/start-live-runtime.ps1
 ```
 
-The backup is restored briefly into a uniquely named disposable database and
-removed there after validation; the ignored archive remains on this workstation.
-Migration verifies that original credentials, permissions, asset snapshots and
-journal populations are unchanged. Protected configuration is reused without
-writing `.env`. The latest extension release build is `tmp/asset-header-current-build`.
-The dedicated `nexora-asset-drafts` worker prepares drafts and cleans expired
-unbound uploads; it has no financial approval/post handlers. Company automation
-starts disabled. Verify API readiness, sign-in, worker readiness and asset options
-after restart. Preserve the earlier recovery helpers/configuration for reference;
-never reset the recovered database to deploy this extension.
+This guarded private helper uses `tmp/units-of-measure/release/source`, production
+web build `tmp/journal-compact-final-build` (ID `2c4YRsVHQ5beFK1oeIEs_`), and its
+compiled API. The compact Products/UOM/Warehouse/Stock Transfer and all Bank
+menus follow-ups change only the frontend; the Unit of Measure API/schema remain.
+The approved compact Manual Journal editor is also active: Save Draft and
+Approve & Close reuse the existing governed APIs; required dimensions remain
+conditional beneath the account selector, and optional actions have Finance-owned
+visibility configuration. No journals are posted by startup or verification.
+Approve & Close now displays and focuses missing requirements instead of silently
+remaining disabled. Fiscal-year proposals follow the stored company calendar or
+saved first-year setup month. The current July 2026–June 2027 year is unchanged.
+The owner explicitly requested opening every month of that year: all twelve are
+now Open, with eleven audited reopenings and October retained as already Open.
+Opening the periods did not post existing Journals or change Bank balances.
+The 17 November Journal/Bank reliability repair is also active in the compatible
+API and frontend. Journal/recurring and Bank last-movement dates retain calendar
+days. The Journal API exposes read-only period eligibility; forms distinguish
+Awaiting approval and actual period blockers from posted Bank effects. Approval
+refreshes the check and posting still validates inside its transaction. The
+reliability repair did not post Journals or change Bank balances. No migration,
+permission grant, financial posting or worker startup was performed. Both builds,
+focused tests and 12 preview plus 12 live read-only cases passed. Private runtime
+and rollback evidence is under `tmp/journal-bank-reliability/`. The
+Journal compaction follow-up is live throughout the register, manual/recurring
+forms, details, final review and reversal. Dimensions columns are removed from
+read-only line tables; required input validation and stored data remain intact.
+The compatible build has 15 generated-cache CSS optimization warnings. Private
+evidence is under `tmp/journal-compact/`. The launcher probes an exclusive loopback
+socket because Windows can return stale Listen rows with OwningProcess=0.
+
+The compatible API also includes the 17 November Purchase currency-fetch repair:
+Procurement transactions set both authenticated tenant and user context so the
+existing company-currency security policy returns the permitted options. The
+repair requires no schema migration, credential change or frontend replacement.
+Automatic migrations remain disabled. `-Restart` validates artifacts and known process identities
+before restarting. The previous Products compatible startup entry points now
+forward to this release. See the [executed release evidence](../superpowers/plans/2026-11-17-inventory-units-release.md).
 
 ## Recovered workstation environment (16 November 2026)
+
+The 17 November Products/global-company correction is live in the compatible
+API and frontend. Inventory supplies transaction-local user context for currency
+RLS; Add New works, cards are compact, and the top row owns operating-company
+selection. The earlier single product/service selector correction remains. That
+Products correction preserved the existing schema and login credentials. The full totals/
+asset extension above retains its separate rollout gate. Private provenance,
+runtime and browser reports: `tmp/products-global-company/`.
+
+With the recovered Docker dependencies running, start this verified compatible
+release from the repository root using its private helper. It reuses protected
+configuration and explicitly disables automatic migrations. It does not start
+workers or alter credentials, permissions, financial settings or schema. Do not
+start the latest root API against the older recovered database.
+
+```powershell
+powershell -NoProfile -File tmp/products-global-company/start-compatible-runtime.ps1
+```
+
+The compatible starter above now forwards to the current Unit of Measure release
+described above. Older recovery helpers below remain historical recovery tools
+and select an earlier frontend/root API; do not use them for routine startup.
 
 The current workstation was recovered from
 `tmp/backups/before-tax-activation-20261112T105321Z.dump`, created on 12 November

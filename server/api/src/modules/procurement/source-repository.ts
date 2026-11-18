@@ -1,4 +1,9 @@
+import { purchaseReservationSql } from "./accounting-projection.js";
+import { purchaseAvailableAmount } from "@nexora/contracts";
 import { resolveTax, TaxError } from "../finance/taxes/resolver.js";
+import { productUnitChoices, productUnitSnapshot } from "../inventory/units-repository.js";
+import { InventoryError } from "../inventory/errors.js";
+import { convertUnitQuantity } from "@nexora/contracts";
 import { bindPurchaseDocuments } from "../fixed-assets/staged-documents.js";
 import { SourceAssetRepository, AssetError } from "../fixed-assets/source-repository.js";
 import {
@@ -12,6 +17,7 @@ import { SupplierProfileCrypto, isEncryptedSupplierProfile } from "./supplier-pr
 import { evaluateApprovalActor } from "@nexora/auth";
 import {
   purchaseDocumentSchema,
+  purchaseConsumptionSchema,
   purchaseMutationSchema,
   purchaseFlowSchema,
   supplierSchema,
@@ -45,6 +51,8 @@ import type { ReferenceMasterContext } from "../master-data/source-repository.js
 import { writeApprovalOverrideEvent } from "../security/approval-override-writer.js";
 import {
   documentTotal,
+  purchaseTotals,
+  inheritPurchaseAdjustments,
   scaled,
   money,
   paymentTotals,
@@ -66,6 +74,13 @@ export class ProcurementError extends Error {
 }
 function fail(message: string, code = "PURCHASE_VALIDATION_FAILED", status = 409): never {
   throw new ProcurementError(status, code, message);
+}
+function hasPurchaseAdjustments(document: SavePurchaseRequest) {
+  return (
+    scaled(document.discount_amount ?? "0", 2) > 0n ||
+    !!document.additional_charges?.length ||
+    document.lines.some((line) => scaled(line.discount_amount ?? "0", 2) > 0n)
+  );
 }
 const prefixes: Record<PurchaseKind, string> = {
   request: "PRQ",
@@ -95,13 +110,15 @@ function digest(value: unknown): string {
 const documentProjection = `d.id,d.company_id,d.kind,d.code,d.supplier_id,d.approver_id,coalesce(nullif(btrim(approver.display_name),''),approver.id) as approver_name,d.source_id,d.invited_supplier_ids,
  to_char(d.document_date,'YYYY-MM-DD') as document_date,to_char(d.due_date,'YYYY-MM-DD') as due_date,
  to_char(d.bill_date,'YYYY-MM-DD') as bill_date,d.payment_term,
- d.currency,d.reference,d.notes,d.lines,d.allocations,d.payment_details,d.total_amount::text,d.state,d.row_version as version,
+ d.currency,d.reference,d.notes,d.lines,d.discount_amount::text,d.additional_charges,d.allocations,d.payment_details,d.total_amount::text,d.state,d.row_version as version,
  d.created_by,d.updated_by,d.created_at::text,d.updated_at::text,s.name as supplier_name,source.code as source_code,
- coalesce((select sum((a->>'amount')::numeric+coalesce((a->>'discount')::numeric,0)) from procurement_document payment cross join lateral jsonb_array_elements(payment.allocations) a
- where payment.tenant_id=d.tenant_id and payment.company_id=d.company_id and payment.state='approved' and payment.kind in ('payment','multi_payment') and payment.allocations @> jsonb_build_array(jsonb_build_object('bill_id',d.id)) and a->>'bill_id'=d.id),0)::numeric(20,2)::text as reserved_amount`;
+ ${purchaseReservationSql()}::numeric(20,2)::text as reserved_amount,
+ coalesce((select sum(e.foreign_delta) from finance_subledger_item i join finance_subledger_item_event e on e.tenant_id=i.tenant_id and e.company_id=i.company_id and e.item_id=i.id where i.tenant_id=d.tenant_id and i.company_id=d.company_id and i.source_document_id=d.id and i.side='payable'),d.total_amount)::text as outstanding_amount,
+ financial.id as finance_operation_id,financial.state as finance_state,financial.journal_id as finance_journal_id`;
 const documentJoins = `from procurement_document d left join procurement_supplier s on s.tenant_id=d.tenant_id and s.company_id=d.company_id and s.id=d.supplier_id
  left join security_user_account approver on approver.tenant_id=d.tenant_id and approver.id=d.approver_id
- left join procurement_document source on source.tenant_id=d.tenant_id and source.company_id=d.company_id and source.id=d.source_id`;
+ left join procurement_document source on source.tenant_id=d.tenant_id and source.company_id=d.company_id and source.id=d.source_id
+ left join lateral (select op.id,case when exists(select 1 from finance_subledger_operation r where r.tenant_id=op.tenant_id and r.company_id=op.company_id and r.type='reversal' and r.state='posted' and r.payload->>'operation_id'=op.id) then 'reversed' else op.state end as state,op.journal_id from finance_subledger_operation op where op.tenant_id=d.tenant_id and op.company_id=d.company_id and op.payload->>'source_document_id'=d.id and op.type in ('recognition','purchase_payment') order by (op.state='posted') desc,op.created_at limit 1) financial on true`;
 
 export class SourceProcurementRepository {
   constructor(
@@ -143,6 +160,7 @@ export class SourceProcurementRepository {
     try {
       await client.query("begin");
       await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select set_config('nexora.user_id',$1,true)", [context.actor.userId]);
       await client.query("select pg_advisory_xact_lock_shared(hashtextextended($1,0))", [
         `nexora:security:admin:${context.tenantId}`,
       ]);
@@ -155,10 +173,16 @@ export class SourceProcurementRepository {
       if (company && !authority.rowCount)
         fail("Purchase access is not available for this company.", "COMPANY_ACCESS_DENIED", 403);
       // Serialize approval consumption and edits per company, including partial receipts and payment allocations.
-      if (write)
+      if (write) {
+        // Same lock order as AP posting: availability and instruction reservations
+        // cannot be approved against a concurrently changing financial balance.
+        await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+          `subledger:${context.tenantId}:${company}`,
+        ]);
         await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
           `procurement:${context.tenantId}:${company}`,
         ]);
+      }
       const result = await work(client);
       await client.query("commit");
       return result;
@@ -258,7 +282,7 @@ export class SourceProcurementRepository {
         ).rows,
         bank_accounts: banks.rows,
         can_self_approve: canSelfApprove,
-        execution_mode: "instruction_only" as const,
+        execution_mode: "finance_linked" as const,
       };
     });
   }
@@ -379,6 +403,14 @@ export class SourceProcurementRepository {
       const approver = await this.requestApprover(client, context.tenantId, company, id);
       return purchaseDocumentSchema.parse({
         ...record,
+        ...(record.kind === "order"
+          ? {
+              source_consumption: {
+                receipt: await this.sourceAdjustmentDocuments(client, context.tenantId, company, id, "receipt", null),
+                bill: await this.sourceAdjustmentDocuments(client, context.tenantId, company, id, "bill", null),
+              },
+            }
+          : {}),
         request_approver_id: approver?.id ?? null,
         request_approver_name: approver?.name ?? null,
       });
@@ -730,13 +762,76 @@ export class SourceProcurementRepository {
               }
             : {}),
         }));
-        for (const line of lines) {
+        if (["receipt", "bill"].includes(parsed.kind) && parsed.source_id) {
+          const source = await this.load(client, context.tenantId, parsed.company_id, parsed.source_id);
+          if (hasPurchaseAdjustments(source)) {
+            const siblings = await this.sourceAdjustmentDocuments(
+              client,
+              context.tenantId,
+              parsed.company_id,
+              parsed.source_id,
+              parsed.kind,
+              id,
+            );
+            try {
+              const inherited = inheritPurchaseAdjustments(source, lines, siblings);
+              lines.splice(0, lines.length, ...inherited.lines);
+              parsed.discount_amount = inherited.discount_amount;
+              parsed.additional_charges = inherited.additional_charges.map((charge) => ({
+                ...charge,
+                id: `${source.id}:${charge.source_charge_id}`,
+              }));
+            } catch (error) {
+              return fail(error instanceof Error ? error.message : "Refresh the approved source amounts.");
+            }
+          } else {
+            parsed.discount_amount = "0.00";
+            parsed.additional_charges = [];
+            for (const line of lines) {
+              line.discount_amount = "0.00";
+              line.allocated_discount_amount = "0.00";
+            }
+          }
+        }
+        let breakdown: ReturnType<typeof purchaseTotals>;
+        try {
+          breakdown = purchaseTotals(lines, parsed);
+        } catch (error) {
+          return fail(error instanceof Error ? error.message : "Enter valid purchase amounts.");
+        }
+        const charges = (parsed.additional_charges ?? []).map((charge) => ({ ...charge }));
+        for (const charge of charges) {
+          if (!charge.tax_definition_id) {
+            delete charge.tax_snapshot;
+            continue;
+          }
+          try {
+            const snapshot = await resolveTax(client, {
+              tenant: context.tenantId,
+              company: parsed.company_id,
+              definition: charge.tax_definition_id,
+              date: parsed.bill_date ?? parsed.document_date,
+              module: "purchases",
+              trigger: "recognition",
+              currency: parsed.currency,
+              precision: 2,
+              basis: charge.amount,
+            });
+            if (snapshot.treatment !== "recoverable") fail("Purchase charges support recoverable input tax.");
+            charge.tax_snapshot = snapshot;
+            charge.tax_percent = snapshot.rate;
+          } catch (error) {
+            if (error instanceof TaxError) fail(error.message, error.code, error.status);
+            throw error;
+          }
+        }
+        for (const [lineIndex, line] of lines.entries()) {
           if (!line.tax_definition_id) {
             delete line.tax_snapshot;
             continue;
           }
           try {
-            const basis = money((scaled(line.quantity, 4) * scaled(line.unit_price, 2) + 5000n) / 10000n);
+            const basis = breakdown.lines[lineIndex]!.net;
             const snapshot = await resolveTax(client, {
               tenant: context.tenantId,
               company: parsed.company_id,
@@ -760,6 +855,12 @@ export class SourceProcurementRepository {
           }
         }
         if (parsed.kind === "request") {
+          for (const line of lines) {
+            if (!line.product_id) {
+              delete line.unit_id;
+              delete line.unit_snapshot;
+            }
+          }
           const productIds = [...new Set(lines.flatMap((line) => (line.product_id ? [line.product_id] : [])))];
           if (productIds.length) {
             const products = await client.query<{ id: string; code: string; name: string; uom: string }>(
@@ -769,12 +870,26 @@ export class SourceProcurementRepository {
             );
             if (products.rows.length !== productIds.length)
               fail("A selected product is inactive or unavailable in this company.", "PURCHASE_PRODUCT_INELIGIBLE");
+            const unitChoices = await productUnitChoices(client, context.tenantId, parsed.company_id, productIds);
             for (const line of lines) {
               const product = products.rows.find((item) => item.id === line.product_id);
               if (product) {
                 line.item_code = product.code;
                 line.product_name = product.name;
-                line.uom = product.uom;
+                try {
+                  const snapshot = productUnitSnapshot(unitChoices.get(product.id)!, line.quantity, line.unit_id);
+                  if (
+                    (line.create_fixed_asset || line.asset_registration) &&
+                    snapshot.unit_id !== snapshot.base_unit_id
+                  )
+                    fail("Individual fixed asset registration requires the product's base unit.");
+                  line.uom = snapshot.unit_name;
+                  line.unit_id = snapshot.unit_id;
+                  line.unit_snapshot = snapshot;
+                } catch (error) {
+                  if (error instanceof InventoryError) fail(error.message, error.code, error.status);
+                  throw error;
+                }
               }
             }
           }
@@ -792,6 +907,7 @@ export class SourceProcurementRepository {
         const terms = {
           ...parsed,
           lines,
+          additional_charges: charges,
           payment_details: details,
           bill_date: billDate ?? null,
           payment_term: paymentTerm ?? null,
@@ -800,7 +916,7 @@ export class SourceProcurementRepository {
           terms.bill_date ??= terms.document_date;
           if (terms.payment_term) {
             try {
-              terms.due_date = billPaymentSchedule(terms.bill_date, terms.payment_term, documentTotal(lines)).at(
+              terms.due_date = billPaymentSchedule(terms.bill_date, terms.payment_term, documentTotal(lines, terms)).at(
                 -1,
               )!.due_date;
             } catch {
@@ -852,15 +968,17 @@ export class SourceProcurementRepository {
           details ? JSON.stringify(details) : null,
           terms.bill_date,
           terms.payment_term,
+          parsed.discount_amount ?? "0.00",
+          JSON.stringify(charges),
         ];
         if (id)
           await client.query(
-            `update procurement_document set supplier_id=$6,source_id=$7,invited_supplier_ids=$8,document_date=$9,due_date=$10,currency=$11,reference=$12,notes=$13,lines=$14,allocations=$15,total_amount=$16,updated_by=$17,approver_id=$18,payment_details=$19,bill_date=$20,payment_term=$21,updated_at=clock_timestamp(),row_version=row_version+1,state='draft' where tenant_id=$1 and company_id=$2 and id=$3 and kind=$4 and code=$5`,
+            `update procurement_document set supplier_id=$6,source_id=$7,invited_supplier_ids=$8,document_date=$9,due_date=$10,currency=$11,reference=$12,notes=$13,lines=$14,allocations=$15,total_amount=$16,updated_by=$17,approver_id=$18,payment_details=$19,bill_date=$20,payment_term=$21,discount_amount=$22,additional_charges=$23,updated_at=clock_timestamp(),row_version=row_version+1,state='draft' where tenant_id=$1 and company_id=$2 and id=$3 and kind=$4 and code=$5`,
             values,
           );
         else
           await client.query(
-            `insert into procurement_document(tenant_id,company_id,id,kind,code,supplier_id,source_id,invited_supplier_ids,document_date,due_date,currency,reference,notes,lines,allocations,total_amount,created_by,updated_by,approver_id,payment_details,bill_date,payment_term) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17,$18,$19,$20,$21)`,
+            `insert into procurement_document(tenant_id,company_id,id,kind,code,supplier_id,source_id,invited_supplier_ids,document_date,due_date,currency,reference,notes,lines,allocations,total_amount,created_by,updated_by,approver_id,payment_details,bill_date,payment_term,discount_amount,additional_charges) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17,$18,$19,$20,$21,$22,$23)`,
             values,
           );
         const record = await this.load(client, context.tenantId, parsed.company_id, documentId);
@@ -882,6 +1000,32 @@ export class SourceProcurementRepository {
       },
     );
   }
+  private async sourceAdjustmentDocuments(
+    client: PoolClient,
+    tenant: string,
+    company: string,
+    source: string,
+    kind: PurchaseKind,
+    id: string | null,
+  ) {
+    const lines = await client.query(
+      `select l->>'source_line_id' as source_line_id,sum((l->>'quantity')::numeric)::text as quantity,
+       sum(coalesce((l->>'discount_amount')::numeric,0))::text as line_discount,
+       sum(coalesce((l->>'allocated_discount_amount')::numeric,0))::text as document_discount
+       from procurement_document d cross join lateral jsonb_array_elements(d.lines) l
+       where d.tenant_id=$1 and d.company_id=$2 and d.source_id=$3 and d.kind=$4 and d.state='approved' and d.id<>coalesce($5,'')
+       group by l->>'source_line_id' order by l->>'source_line_id'`,
+      [tenant, company, source, kind, id],
+    );
+    const charges = await client.query(
+      `select c->>'source_charge_id' as source_charge_id,sum((c->>'amount')::numeric)::text as amount
+       from procurement_document d cross join lateral jsonb_array_elements(d.additional_charges) c
+       where d.tenant_id=$1 and d.company_id=$2 and d.source_id=$3 and d.kind=$4 and d.state='approved' and d.id<>coalesce($5,'')
+       group by c->>'source_charge_id' order by c->>'source_charge_id'`,
+      [tenant, company, source, kind, id],
+    );
+    return purchaseConsumptionSchema.parse({ lines: lines.rows, charges: charges.rows });
+  }
   private async validate(
     client: PoolClient,
     tenant: string,
@@ -891,6 +1035,16 @@ export class SourceProcurementRepository {
     context: ProcurementContext,
     checkAssetCreationAuthority = true,
   ): Promise<string> {
+    if (
+      !["receipt", "bill"].includes(terms.kind) &&
+      terms.lines.some((line) => line.allocated_discount_amount !== undefined)
+    )
+      fail("Allocated purchase discounts belong to source-matched receipts and bills.");
+    if (
+      ["payment", "multi_payment"].includes(terms.kind) &&
+      (scaled(terms.discount_amount ?? "0", 2) !== 0n || terms.additional_charges?.length)
+    )
+      fail("Purchase discounts and charges do not belong to payment allocations.");
     if (terms.kind !== "bill" && (terms.bill_date || terms.payment_term))
       fail("Bill dates and payment terms belong to supplier bills.", "INVALID_BILL_PAYMENT_TERM", 400);
     const dateBasis = terms.kind === "bill" ? (terms.bill_date ?? terms.document_date) : terms.document_date;
@@ -903,7 +1057,9 @@ export class SourceProcurementRepository {
     if (terms.kind === "bill" && terms.payment_term) {
       let dueDate: string;
       try {
-        dueDate = billPaymentSchedule(dateBasis, terms.payment_term, documentTotal(terms.lines)).at(-1)!.due_date;
+        dueDate = billPaymentSchedule(dateBasis, terms.payment_term, documentTotal(terms.lines, terms)).at(
+          -1,
+        )!.due_date;
       } catch {
         return fail("Enter a valid bill payment schedule.", "INVALID_BILL_PAYMENT_TERM", 400);
       }
@@ -930,6 +1086,55 @@ export class SourceProcurementRepository {
     if (terms.payment_details) fail("Payment details belong to payment instructions.");
     if (terms.allocations.length) fail("Bill allocations belong to Payment forms.");
     if (!terms.lines.length) fail("Enter at least one product or service line.");
+    let breakdown: ReturnType<typeof purchaseTotals>;
+    try {
+      breakdown = purchaseTotals(terms.lines, terms);
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : "Enter valid purchase amounts.");
+    }
+    const charges = terms.additional_charges ?? [];
+    if (new Set(charges.map((charge) => charge.id)).size !== charges.length)
+      fail("Each additional charge needs a unique identity.");
+    for (const charge of charges) {
+      if (
+        charge.nominal_account_id &&
+        !(
+          await client.query(
+            "select 1 from account where tenant_id=$1 and company_id=$2 and id=$3 and status='active' and type='expense' and not is_header and not reconciliation_required",
+            [tenant, terms.company_id, charge.nominal_account_id],
+          )
+        ).rowCount
+      )
+        fail("Select an active expense account in this company for the charge.");
+      if (committing && !charge.nominal_account_id)
+        fail("Select an expense account for every additional charge before approval.");
+      if (!charge.tax_definition_id) continue;
+      try {
+        const resolved = await resolveTax(client, {
+          tenant,
+          company: terms.company_id,
+          definition: charge.tax_definition_id,
+          date: dateBasis,
+          module: "purchases",
+          trigger: "recognition",
+          currency: terms.currency,
+          precision: 2,
+          basis: charge.amount,
+        });
+        if (
+          resolved.treatment !== "recoverable" ||
+          !charge.tax_snapshot ||
+          resolved.revision !== charge.tax_snapshot.revision ||
+          resolved.account_id !== charge.tax_snapshot.account_id ||
+          resolved.amount !== charge.tax_snapshot.amount ||
+          resolved.rate !== charge.tax_percent
+        )
+          fail("The governed charge tax changed. Save a refreshed draft before approval.", "TAX_SNAPSHOT_CHANGED");
+      } catch (error) {
+        if (error instanceof TaxError) fail(error.message, error.code, error.status);
+        throw error;
+      }
+    }
     const requestedUnits = terms.lines.reduce(
       (count, line) => count + (line.create_fixed_asset ? (line.asset_registration?.units.length ?? 0) : 0),
       0,
@@ -938,7 +1143,7 @@ export class SourceProcurementRepository {
       fail(
         "A bill can automatically register at most 100 individual assets. Split larger acquisitions into separate bills.",
       );
-    for (const line of terms.lines) {
+    for (const [lineIndex, line] of terms.lines.entries()) {
       if (line.asset_registration && !line.create_fixed_asset)
         fail("Clear saved registration details when automatic creation is disabled.");
       if (line.nominal_account_id) {
@@ -1017,7 +1222,7 @@ export class SourceProcurementRepository {
       }
       if (
         scaled(line.quantity, 4) !== BigInt(line.asset_registration.units.length) * 10000n ||
-        unitTotal !== (scaled(line.quantity, 4) * scaled(line.unit_price, 2) + 5000n) / 10000n
+        unitTotal !== scaled(breakdown.lines[lineIndex]!.net, 2)
       )
         fail("Asset unit count and costs must reconcile exactly with the purchase line.");
     }
@@ -1034,14 +1239,14 @@ export class SourceProcurementRepository {
       ).rowCount !== assetCategoryIds.length
     )
       fail("Select active asset categories in this company.");
-    for (const line of terms.lines) {
+    for (const [lineIndex, line] of terms.lines.entries()) {
       if (line.asset_category_id) {
         if (scaled(line.quantity, 4) % 10000n !== 0n)
           fail("Individually registered fixed assets require a whole-number quantity.");
       }
       if (!line.tax_definition_id) continue;
       try {
-        const basis = money((scaled(line.quantity, 4) * scaled(line.unit_price, 2) + 5000n) / 10000n);
+        const basis = breakdown.lines[lineIndex]!.net;
         const resolved = await resolveTax(client, {
           tenant,
           company: terms.company_id,
@@ -1095,6 +1300,60 @@ export class SourceProcurementRepository {
           "PURCHASE_SOURCE_INELIGIBLE",
         );
       if (source.currency !== terms.currency) fail("The currency must match the source document.");
+      if ((terms.kind === "receipt" || terms.kind === "bill") && hasPurchaseAdjustments(source)) {
+        const siblings = await this.sourceAdjustmentDocuments(
+          client,
+          tenant,
+          terms.company_id,
+          source.id,
+          terms.kind,
+          id,
+        );
+        try {
+          const inherited = inheritPurchaseAdjustments(source, terms.lines, siblings);
+          if (
+            scaled(terms.discount_amount ?? "0", 2) !== scaled(inherited.discount_amount, 2) ||
+            inherited.lines.some(
+              (line, index) =>
+                scaled(line.discount_amount, 2) !== scaled(terms.lines[index]!.discount_amount ?? "0", 2) ||
+                scaled(line.allocated_discount_amount, 2) !==
+                  scaled(terms.lines[index]!.allocated_discount_amount ?? "0", 2),
+            ) ||
+            (terms.additional_charges ?? []).length !== inherited.additional_charges.length ||
+            inherited.additional_charges.some((charge) => {
+              const actual = terms.additional_charges?.find(
+                (item) => item.source_charge_id === charge.source_charge_id,
+              );
+              return (
+                !actual ||
+                scaled(actual.amount, 2) !== scaled(charge.amount, 2) ||
+                actual.type !== charge.type ||
+                actual.description !== charge.description ||
+                actual.nominal_account_id !== charge.nominal_account_id ||
+                actual.tax_definition_id !== charge.tax_definition_id ||
+                scaled(actual.tax_percent, 2) !== scaled(charge.tax_percent, 2)
+              );
+            })
+          )
+            fail(
+              "Source discount or charge allocations changed. Save a refreshed draft before approval.",
+              "PURCHASE_ADJUSTMENT_MISMATCH",
+            );
+        } catch (error) {
+          if (error instanceof ProcurementError) throw error;
+          fail(
+            error instanceof Error ? error.message : "Refresh the source allocations.",
+            "PURCHASE_ADJUSTMENT_MISMATCH",
+          );
+        }
+      }
+      if (
+        (terms.kind === "receipt" || terms.kind === "bill") &&
+        !hasPurchaseAdjustments(source) &&
+        (hasPurchaseAdjustments(terms) ||
+          terms.lines.some((line) => scaled(line.allocated_discount_amount ?? "0", 2) > 0n))
+      )
+        fail("Receipt and bill adjustments must match the approved order.", "PURCHASE_ADJUSTMENT_MISMATCH");
       if (source.supplier_id && source.supplier_id !== terms.supplier_id)
         fail("The supplier must match the source document.");
       if (source.kind === "rfq" && terms.supplier_id && !source.invited_supplier_ids.includes(terms.supplier_id))
@@ -1129,6 +1388,29 @@ export class SourceProcurementRepository {
       for (const line of terms.lines) {
         const sourceLine = source.lines.find((item) => item.id === line.source_line_id);
         if (!sourceLine) fail("Every line must reference a line on the selected source.");
+        if (sourceLine.unit_snapshot) {
+          const converted = convertUnitQuantity(
+            line.quantity,
+            sourceLine.unit_snapshot,
+            sourceLine.unit_snapshot.base_precision,
+          );
+          const entered = convertUnitQuantity(
+            line.quantity,
+            { numerator: "1", denominator: "1" },
+            sourceLine.unit_snapshot.unit_precision,
+          );
+          if (!entered.exact || !converted.exact || !/[1-9]/.test(converted.quantity))
+            fail("The source unit conversion cannot represent this quantity exactly.");
+          line.unit_id = sourceLine.unit_snapshot.unit_id;
+          line.unit_snapshot = {
+            ...sourceLine.unit_snapshot,
+            entered_quantity: line.quantity,
+            base_quantity: converted.quantity,
+          };
+        } else {
+          delete line.unit_id;
+          delete line.unit_snapshot;
+        }
         if (
           line.item_code !== sourceLine.item_code ||
           (line.product_id ?? null) !== (sourceLine.product_id ?? null) ||
@@ -1170,7 +1452,7 @@ export class SourceProcurementRepository {
           fail("Bill quantities exceed products received and not yet billed.", "PURCHASE_RECEIPT_MATCH_REQUIRED");
       }
     }
-    const total = documentTotal(terms.lines);
+    const total = documentTotal(terms.lines, terms);
     if (["order", "bill"].includes(terms.kind) && total === "0.00")
       fail("A Purchase Order or bill must have a positive amount.");
     return total;
@@ -1210,10 +1492,9 @@ export class SourceProcurementRepository {
       )
         fail("Payments require approved bills in the selected company and currency.", "PAYMENT_BILL_INELIGIBLE");
       vendors.add(bill.supplier_id);
-      const reserved = committing ? scaled(bill.reserved_amount, 2) : 0n;
       if (
         scaled(allocation.amount, 2) + scaled(allocation.discount ?? "0", 2) >
-        scaled(bill.total_amount, 2) - reserved
+        scaled(purchaseAvailableAmount({...bill,reserved_amount:committing?bill.reserved_amount:"0"}),2)
       )
         fail("The amount exceeds the bill amount available for payment instructions.", "PAYMENT_ALLOCATION_EXCEEDED");
       total += scaled(allocation.amount, 2);

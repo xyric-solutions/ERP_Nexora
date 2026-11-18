@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { unitSnapshotSchema } from "../inventory/units.js";
 import { taxSnapshotSchema } from "../finance/taxes.js";
 import { supplierProfileSchema } from "./supplier-profile.js";
 import { billPaymentTermSchema } from "./bill-payment-terms.js";
@@ -12,7 +13,17 @@ export {
   supplierMailingAddress,
 } from "./supplier-profile.js";
 export type { SupplierProfile, SupplierBankAccount } from "./supplier-profile.js";
-export { scaled, money, lineTotal, documentTotal } from "./amounts.js";
+export {
+  scaled,
+  money,
+  lineTotal,
+  documentTotal,
+  purchaseTotals,
+  allocatePurchaseAmount,
+  formatPurchaseMoney,
+  inheritPurchaseAdjustments,
+  purchaseAvailableAmount,
+} from "./amounts.js";
 export { paymentTotals } from "./payment-amounts.js";
 
 const identity = z.string().trim().min(1).max(128);
@@ -39,11 +50,47 @@ export const purchaseLineSchema = z.strictObject({
   description: z.string().trim().min(1).max(500),
   quantity,
   uom: z.string().trim().min(1).max(32),
+  unit_id: identity.optional(),
+  unit_snapshot: unitSnapshotSchema.optional(),
   unit_price: amount,
+  discount_amount: amount.optional(),
+  allocated_discount_amount: amount
+    .optional()
+    .describe("Server-verified share of an approved source purchase discount on a partial receipt or bill."),
   tax_percent: z
     .string()
     .regex(/^\d{1,3}(\.\d{1,2})?$/)
     .refine((value) => Number(value) <= 100),
+});
+export const purchaseChargeSchema = z.strictObject({
+  id: identity,
+  source_charge_id: identity.nullable().optional(),
+  type: z.enum(["freight", "other"]),
+  description: z.string().trim().min(1).max(500),
+  amount,
+  nominal_account_id: identity.optional(),
+  tax_definition_id: identity.optional(),
+  tax_snapshot: taxSnapshotSchema.optional(),
+  tax_percent: z
+    .string()
+    .regex(/^\d{1,3}(\.\d{1,2})?$/)
+    .refine((value) => Number(value) <= 100),
+});
+export type PurchaseCharge = z.infer<typeof purchaseChargeSchema>;
+export const purchaseConsumptionSchema = z.strictObject({
+  lines: z
+    .array(
+      z.strictObject({
+        source_line_id: identity,
+        quantity: z.string().regex(/^\d+(\.\d{1,4})?$/),
+        line_discount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+        document_discount: z.string().regex(/^\d+(\.\d{1,2})?$/),
+      }),
+    )
+    .max(100),
+  charges: z
+    .array(z.strictObject({ source_charge_id: identity, amount: z.string().regex(/^\d+(\.\d{1,2})?$/) }))
+    .max(30),
 });
 export const purchaseAllocationSchema = z.strictObject({
   bill_id: identity,
@@ -104,6 +151,8 @@ export const purchaseTermsSchema = z.strictObject({
   reference: z.string().trim().max(128).default(""),
   notes: z.string().trim().max(2000).default(""),
   lines: z.array(purchaseLineSchema).max(100).default([]),
+  discount_amount: amount.optional(),
+  additional_charges: z.array(purchaseChargeSchema).max(30).optional(),
   allocations: z.array(purchaseAllocationSchema).max(100).default([]),
   payment_details: purchasePaymentDetailsSchema.nullable().optional(),
 });
@@ -144,6 +193,9 @@ export const purchaseActionRequestSchema = z
       context.addIssue({ code: "custom", path: ["reason"], message: "A reason is required for this action." });
   });
 export const purchaseDocumentSchema = purchaseTermsSchema.extend({
+  source_consumption: z
+    .strictObject({ receipt: purchaseConsumptionSchema, bill: purchaseConsumptionSchema })
+    .optional(),
   id: identity,
   code: z.string(),
   state: purchaseStateSchema,
@@ -159,6 +211,13 @@ export const purchaseDocumentSchema = purchaseTermsSchema.extend({
   request_approver_name: z.string().nullable().optional(),
   source_code: z.string().nullable(),
   reserved_amount: amount.default("0.00"),
+  outstanding_amount: z
+    .string()
+    .regex(/^\d+(\.\d{1,8})?$/)
+    .optional(),
+  finance_operation_id: identity.nullable().optional(),
+  finance_state: z.string().nullable().optional(),
+  finance_journal_id: identity.nullable().optional(),
   events: z
     .array(z.strictObject({ action: z.string(), actor_id: identity, reason: z.string(), occurred_at: z.string() }))
     .default([]),
@@ -268,7 +327,7 @@ export const procurementOptionsSchema = z.strictObject({
     )
     .max(200)
     .optional(),
-  execution_mode: z.literal("instruction_only"),
+  execution_mode: z.enum(["instruction_only", "finance_linked"]),
 });
 export const procurementLookupQuerySchema = z.strictObject({
   company_id: identity,

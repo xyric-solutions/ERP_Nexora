@@ -3,7 +3,8 @@ import { inActiveCompany } from "@/lib/session/active-company";
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InventoryCompanies, Warehouse, StockTransfer } from "@nexora/contracts";
+import { cn } from "cn";
+import type { Warehouse, StockTransfer } from "@nexora/contracts";
 import { Plus } from "lucide-react";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -33,8 +34,7 @@ export function InventoryOperationsWorkspace({
     formPage = warehouse ? "add-warehouse" : "add-stock-transfer",
     title = warehouse ? "Warehouse" : "Stock Transfer",
     editing = page === formPage || !!recordRef;
-  const [companies, setCompanies] = useState<InventoryCompanies["items"]>([]),
-    [companiesLoaded, setCompaniesLoaded] = useState(false),
+  const [companiesLoaded, setCompaniesLoaded] = useState(false),
     [company, setCompany] = useState(""),
     [records, setRecords] = useState<(Warehouse | StockTransfer)[]>([]),
     [cursor, setCursor] = useState<string | null>(null),
@@ -67,7 +67,6 @@ export function InventoryOperationsWorkspace({
       .then(inActiveCompany)
       .then((result) => {
         if (active) {
-          setCompanies(result.items);
           setCompaniesLoaded(true);
           setCompany((current) =>
             result.items.some((c) => c.id === current)
@@ -156,12 +155,12 @@ export function InventoryOperationsWorkspace({
       </Alert>
     );
   return (
-    <div className="min-w-0 space-y-5">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+    <div className="min-w-0 space-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-2">
         {!editing ? (
-          <div>
-            <h1 className="text-xl font-semibold">{title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="m-0 text-lg font-semibold">{title}</h1>
+            <p className="m-0 text-sm text-muted-foreground">
               {warehouse
                 ? "Manage warehouse locations and contact details."
                 : "Prepare draft product movements between warehouses."}
@@ -182,36 +181,20 @@ export function InventoryOperationsWorkspace({
             {title}
           </Button>
         )}
-        <div className="flex min-w-0 flex-wrap items-end gap-2">
-          <LabeledField label="Company" className="w-full sm:w-72">
-            <select
-              className={productSelectClass}
-              value={company}
-              disabled={editing || dirty}
-              onChange={(e) => {
-                setCompany(e.target.value);
-                setError("");
-                window.localStorage.setItem(`nexora-inventory-company:${session?.tenant_id}`, e.target.value);
-              }}
-            >
-              {companies.length ? (
-                companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">No company available</option>
-              )}
-            </select>
-          </LabeledField>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {!editing ? (
             <>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setRefresh((n) => n + 1)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                disabled={busy}
+                onClick={() => setRefresh((n) => n + 1)}
+              >
                 Refresh
               </Button>
               {canCreate ? (
-                <Button type="button" disabled={!company} onClick={() => open()}>
+                <Button type="button" className="h-9" disabled={!company} onClick={() => open()}>
                   <Plus aria-hidden="true" />
                   Add New
                 </Button>
@@ -263,10 +246,11 @@ export function InventoryOperationsWorkspace({
         <>
           <section
             aria-label={`${title} filters`}
-            className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3"
+            className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card p-2.5"
           >
-            <LabeledField label={`Search ${title.toLowerCase()}`} className="w-full sm:max-w-md">
+            <LabeledField label={`Search ${title.toLowerCase()}`} className="w-full sm:max-w-md sm:flex-1">
               <Input
+                className="h-9"
                 maxLength={160}
                 value={search}
                 placeholder={warehouse ? "Code, name or location" : "Code, reference or warehouse"}
@@ -275,7 +259,11 @@ export function InventoryOperationsWorkspace({
             </LabeledField>
             {warehouse ? (
               <LabeledField label="Status" className="w-full sm:w-40">
-                <select className={productSelectClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+                <select
+                  className={cn(productSelectClass, "h-9")}
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
                   <option value="">All statuses</option>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
@@ -283,21 +271,21 @@ export function InventoryOperationsWorkspace({
               </LabeledField>
             ) : null}
           </section>
-          <p role="status" className="text-sm text-muted-foreground">
+          <p role="status" className="m-0 text-xs text-muted-foreground">
             {loading
               ? "Loading records…"
               : `${shown.length} ${warehouse ? "warehouse" : "transfer"}${shown.length === 1 ? "" : "s"}${cursor ? " loaded" : ""}`}
           </p>
           {!loading && !shown.length ? (
-            <section className="space-y-3 rounded-xl border border-dashed border-border px-5 py-10 text-center">
-              <h2 className="text-base font-semibold">
+            <section className="space-y-2 rounded-xl border border-dashed border-border px-4 py-6 text-center">
+              <h2 className="m-0 text-base font-semibold">
                 {search
                   ? "No matching records"
                   : warehouse
                     ? "Create your first warehouse"
                     : "Create your first stock transfer"}
               </h2>
-              <p className="text-sm text-muted-foreground">
+              <p className="m-0 text-sm text-muted-foreground">
                 {search
                   ? "Try another name, code or reference."
                   : warehouse
@@ -312,14 +300,23 @@ export function InventoryOperationsWorkspace({
             </section>
           ) : (
             <div className="max-w-full overflow-x-auto rounded-xl border border-border bg-card">
-              <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor && loadedScope === scope),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/inventory/views/inventory-operations-workspace:1" className="w-full min-w-[720px] text-left text-sm">
+              <WorkTable
+                continuation={{
+                  cursor: cursor,
+                  hasMore: !!(cursor && loadedScope === scope),
+                  busy: !!busy,
+                  loadMore: () => void more(),
+                }}
+                tableId="app/features/inventory/views/inventory-operations-workspace:1"
+                className="w-full min-w-[720px] border-collapse text-left text-sm"
+              >
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
                     {(warehouse
                       ? ["Code", "Warehouse", "Location", "Contact", "Status"]
                       : ["Code", "Date", "From warehouse", "To warehouse", "Products", "Status"]
                     ).map((label) => (
-                      <th key={label} scope="col" className="px-4 py-3 font-medium">
+                      <th key={label} scope="col" className="px-3 py-1.5 font-medium">
                         {label}
                       </th>
                     ))}
@@ -328,10 +325,10 @@ export function InventoryOperationsWorkspace({
                 <tbody>
                   {shown.map((record) => (
                     <tr key={record.id} className="border-t border-border hover:bg-accent">
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-1.5">
                         <button
                           type="button"
-                          className="font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                          className="min-h-6 border-0 bg-transparent p-0 text-left font-sans text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                           onClick={() => open(record.id)}
                         >
                           {record.code}
@@ -339,20 +336,20 @@ export function InventoryOperationsWorkspace({
                       </td>
                       {"from_warehouse_id" in record ? (
                         <>
-                          <td className="px-4 py-3">{record.transfer_date}</td>
-                          <td className="px-4 py-3">{record.from_warehouse_name}</td>
-                          <td className="px-4 py-3">{record.to_warehouse_name}</td>
-                          <td className="px-4 py-3 tabular-nums">{record.lines.length}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-1.5">{record.transfer_date}</td>
+                          <td className="px-3 py-1.5">{record.from_warehouse_name}</td>
+                          <td className="px-3 py-1.5">{record.to_warehouse_name}</td>
+                          <td className="px-3 py-1.5 tabular-nums">{record.lines.length}</td>
+                          <td className="px-3 py-1.5">
                             <Badge variant="outline">Draft · Not posted</Badge>
                           </td>
                         </>
                       ) : (
                         <>
-                          <td className="px-4 py-3">{record.name}</td>
-                          <td className="px-4 py-3">{record.location_name ?? "—"}</td>
-                          <td className="px-4 py-3">{record.contact_name || record.phone || "—"}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-1.5">{record.name}</td>
+                          <td className="px-3 py-1.5">{record.location_name ?? "—"}</td>
+                          <td className="px-3 py-1.5">{record.contact_name || record.phone || "—"}</td>
+                          <td className="px-3 py-1.5">
                             <Badge variant="outline">{record.status}</Badge>
                           </td>
                         </>
@@ -363,7 +360,6 @@ export function InventoryOperationsWorkspace({
               </WorkTable>
             </div>
           )}
-
         </>
       )}
     </div>

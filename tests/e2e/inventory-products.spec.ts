@@ -10,6 +10,8 @@ import { createApp } from "../../server/api/src/app.js";
 import { SourceInventoryRepository } from "../../server/api/src/modules/inventory/source-repository.js";
 import { SourceProcurementRepository } from "../../server/api/src/modules/procurement/source-repository.js";
 import { SourceReferenceMasterRepository } from "../../server/api/src/modules/master-data/source-repository.js";
+import { SourceTenantAuthenticationRepository } from "../../server/api/src/modules/auth/source-repository.js";
+import AxeBuilder from "@axe-core/playwright";
 import type { TenantAuthApiService, TenantSessionApiService } from "../../server/api/src/modules/auth/tenant-router.js";
 import {
   ensureSourceAuthorizationFixture,
@@ -119,6 +121,7 @@ test.describe("Persisted Inventory product catalog", () => {
       tenantId: tenant,
       userId: account.userId,
       sessionId: "inventory-maker",
+      activeCompanyId: company,
       csrfToken: "c".repeat(43),
       idleExpiresAt: new Date("2099-01-01T00:00:00Z"),
       absoluteExpiresAt: new Date("2099-01-01T00:00:00Z"),
@@ -147,6 +150,7 @@ test.describe("Persisted Inventory product catalog", () => {
       readiness: {},
       authService: authentication,
       sessionService: sessions,
+      sessionCompanies: new SourceTenantAuthenticationRepository(pool),
       inventoryRepository: products,
     });
     server = createServer(app);
@@ -176,6 +180,8 @@ test.describe("Persisted Inventory product catalog", () => {
   test("creates, reloads and edits the combined form with real persistence", async ({ page }) => {
     await page.goto("/#/inventory/products");
     await expect(page.getByText("30 products loaded", { exact: true })).toBeVisible();
+    await expect(page.locator("header.nx-topbar").getByLabel("Company", { exact: true })).toBeVisible();
+    await expect(page.locator("main .nx-content").getByLabel("Company", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: "Load more products", exact: true }).click();
     await expect(page.getByText("36 products", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Add New", exact: true }).first().click();
@@ -226,6 +232,41 @@ test.describe("Persisted Inventory product catalog", () => {
     );
     expect(result.rows[0]).toEqual({ row_version: 2, opening: "5.2500", count: 2 });
     expect((await pool.query("select count(*)::int as count from journal_entry")).rows[0].count).toBe(0);
+  });
+  test("manages units and converts standard measurements in both directions with real persistence", async ({
+    page,
+  }) => {
+    await page.goto("/#/inventory/units-of-measure");
+    await expect(page.getByRole("heading", { name: "Unit of Measure", exact: true })).toBeVisible();
+    await expect(page.locator(".nx-submenu-link--active").filter({ hasText: "Unit of Measure" })).toBeVisible();
+    await page.getByLabel("From unit", { exact: true }).selectOption({ label: "Kg (kg)" });
+    await page.getByLabel("To unit", { exact: true }).selectOption({ label: "Gram (g)" });
+    await page.getByLabel("Convert quantity", { exact: true }).fill("2.5");
+    await expect(page.locator("output")).toHaveText("2500 g");
+    await page.getByLabel("From unit", { exact: true }).selectOption({ label: "Gram (g)" });
+    await page.getByLabel("To unit", { exact: true }).selectOption({ label: "Kg (kg)" });
+    await page.getByLabel("Convert quantity", { exact: true }).fill("250");
+    await expect(page.locator("output")).toHaveText("0.25 kg");
+    await page.getByLabel("From unit", { exact: true }).selectOption({ label: "Metric Tonne (1000 kg) (t)" });
+    await page.getByLabel("To unit", { exact: true }).selectOption({ label: "Kg (kg)" });
+    await page.getByLabel("Convert quantity", { exact: true }).fill("1");
+    await expect(page.locator("output")).toHaveText("1000 kg");
+    expect((await new AxeBuilder({ page }).include("main .nx-content").analyze()).violations).toEqual([]);
+    await page.getByRole("button", { name: "Add New Unit", exact: true }).click();
+    await page.getByLabel("Unit name *", { exact: true }).fill("Browser Quintal");
+    await page.getByLabel("Symbol *", { exact: true }).fill("bq");
+    await page.getByLabel("Reference units (numerator)", { exact: true }).fill("100");
+    await page.getByRole("button", { name: "Save Unit", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Unit of Measure", exact: true })).toBeVisible();
+    await page.reload();
+    await page.getByLabel("Search units", { exact: true }).fill("Browser Quintal");
+    await page.getByRole("button", { name: /Browser Quintal/ }).click();
+    await expect(page.getByLabel("Unit name *", { exact: true })).toHaveValue("Browser Quintal");
+    await expect(page.getByLabel("Reference units (numerator)", { exact: true })).toBeDisabled();
+    await page.getByLabel("Status", { exact: true }).selectOption("inactive");
+    await page.getByRole("button", { name: "Save Unit", exact: true }).click();
+    await page.getByLabel("Status", { exact: true }).selectOption("inactive");
+    await expect(page.getByRole("button", { name: /Browser Quintal/ })).toBeVisible();
   });
   test("validates hidden-tab fields, preserves edits on failure and protects unsaved changes", async ({ page }) => {
     await page.goto("/#/inventory/add-product");
@@ -330,7 +371,7 @@ test.describe("Persisted Inventory product catalog", () => {
     await page.getByRole("button", { name: "ST-001", exact: true }).click();
     await page.reload();
     await expect(page.getByLabel("Line 1 quantity *", { exact: true })).toHaveValue("1.2500");
-    await expect(page.getByLabel("Line 1 unit", { exact: true })).toHaveValue("Each");
+    await expect(page.getByLabel("Line 1 unit", { exact: true }).locator("option:checked")).toHaveText("Each (ea)");
     await page.getByLabel("Line 1 quantity *", { exact: true }).fill("2.5");
     await page.getByRole("button", { name: "Save Draft", exact: true }).click();
     await expect(page.getByRole("button", { name: "Save Draft", exact: true })).toBeDisabled();
@@ -343,21 +384,73 @@ test.describe("Persisted Inventory product catalog", () => {
     expect(transfer).toEqual({ state: "draft", quantity: "2.5000", events: 2 });
     expect((await pool.query("select count(*)::int as count from journal_entry")).rows[0].count).toBe(0);
   });
+  test("saves product pack contents and reloads entered transfer units with their base equivalent", async ({
+    page,
+  }) => {
+    await page.goto("/#/inventory/add-product");
+    await page.getByLabel("Product name *", { exact: true }).fill("Browser bulk material");
+    await page.getByLabel("Unit", { exact: true }).selectOption("Kg");
+    await page.getByRole("tab", { name: "Inventory", exact: true }).click();
+    await page.getByRole("button", { name: "Add Packaging Rule", exact: true }).click();
+    const box = (
+      await pool.query<{ id: string }>(
+        "select id from inventory_unit where tenant_id=$1 and company_id=$2 and name='Box'",
+        [tenant, company],
+      )
+    ).rows[0]!.id;
+    await page.getByLabel("Packaging unit 1", { exact: true }).selectOption(box);
+    await page.getByLabel("Contents in Kg 1", { exact: true }).fill("25");
+    await page.getByRole("button", { name: "Save & Close", exact: true }).click();
+    await expect(page).toHaveURL(/#\/inventory\/products$/);
+    await page.goto("/#/inventory/add-stock-transfer");
+    await page.getByLabel("From warehouse *", { exact: true }).click();
+    await page.getByRole("button", { name: /Browser main warehouse$/ }).click();
+    await page.getByLabel("To warehouse *", { exact: true }).click();
+    await page.getByRole("button", { name: /Browser branch warehouse$/ }).click();
+    await page.getByLabel("Line 1 product *", { exact: true }).click();
+    await page.getByLabel("Search line 1 product *", { exact: true }).fill("Browser bulk material");
+    await page.getByRole("button", { name: /Browser bulk material$/ }).click();
+    await page.getByLabel("Line 1 unit", { exact: true }).selectOption(box);
+    await page.getByLabel("Line 1 quantity *", { exact: true }).fill("2");
+    await expect(page.getByText("50 Kg", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Save Draft", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save Draft", exact: true })).toBeDisabled();
+    await page.reload();
+    await expect(page.getByLabel("Line 1 quantity *", { exact: true })).toHaveValue("2");
+    await expect(page.getByLabel("Line 1 unit", { exact: true }).locator("option:checked")).toHaveText("Box (box)");
+    await expect(page.getByText("50 Kg", { exact: true })).toBeVisible();
+  });
   for (const theme of ["light", "dark"] as const)
     for (const width of [1440, 768, 390])
       test(`${theme} products and form at ${width}px`, async ({ page }) => {
         await page.setViewportSize({ width, height: 900 });
         await page.addInitScript((theme) => {
-          localStorage.setItem("nexora-theme", theme);
+          localStorage.setItem("nexora-prototype-preferences-v2", JSON.stringify({ sidebarCollapsed: false }));
+          localStorage.setItem("nexora-theme-preference-v1", theme);
           document.documentElement.dataset.theme = theme;
         }, theme);
         await page.goto("/#/inventory/products");
         await expect(page.getByRole("heading", { name: "Products", exact: true })).toBeVisible();
         await expect(page.getByRole("heading", { name: /Catalog item/ }).first()).toBeVisible();
-        await page.evaluate((theme) => {
-          document.documentElement.dataset.theme = theme;
-          window.scrollTo(0, 0);
-        }, theme);
+        await page.evaluate(() => window.scrollTo(0, 0));
+        const card = page
+          .getByRole("heading", { name: /Catalog item/ })
+          .first()
+          .locator("..")
+          .locator("..")
+          .locator("..");
+        const bounds = await card.boundingBox();
+        expect(bounds!.height).toBeLessThan(150);
+        if (width >= 768) expect(bounds!.width).toBeLessThanOrEqual(224);
+        const filters = await page.getByRole("region", { name: "Product filters", exact: true }).boundingBox();
+        expect(bounds!.y - (filters!.y + filters!.height)).toBeLessThan(55);
+        if (width === 1440) {
+          const title = await page.getByRole("heading", { name: "Products", exact: true }).boundingBox();
+          const add = await page.getByRole("button", { name: "Add New", exact: true }).first().boundingBox();
+          expect(Math.abs(title!.y + title!.height / 2 - add!.y - add!.height / 2)).toBeLessThan(12);
+        }
+        await expect(page.locator("header.nx-topbar").getByLabel("Company", { exact: true })).toBeVisible();
+        expect((await new AxeBuilder({ page }).include("main").analyze()).violations).toEqual([]);
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
         await page.screenshot({
           path: `tmp/inventory-products-evidence/${theme}-${width}-products.png`,
@@ -380,6 +473,28 @@ test.describe("Persisted Inventory product catalog", () => {
           await expect(
             page.getByRole("row").filter({ hasText: entry.name === "warehouse" ? "Browser main warehouse" : "ST-001" }),
           ).toBeVisible();
+          const workpageTitle = page.getByRole("heading", {
+            name: entry.name === "warehouse" ? "Warehouse" : "Stock Transfer",
+            exact: true,
+          });
+          const titleBounds = await workpageTitle.boundingBox();
+          const filterBounds = await page
+            .getByRole("region", { name: `${entry.name === "warehouse" ? "Warehouse" : "Stock Transfer"} filters` })
+            .boundingBox();
+          if (width === 1440) {
+            const actionBounds = await page.getByRole("button", { name: "Add New", exact: true }).first().boundingBox();
+            expect(
+              Math.abs(titleBounds!.y + titleBounds!.height / 2 - actionBounds!.y - actionBounds!.height / 2),
+            ).toBeLessThan(12);
+            expect(filterBounds!.y - (actionBounds!.y + actionBounds!.height)).toBeLessThanOrEqual(16);
+          }
+          expect(
+            await page
+              .locator("tbody td")
+              .first()
+              .evaluate((cell) => Number.parseFloat(getComputedStyle(cell).paddingTop)),
+          ).toBeLessThanOrEqual(6);
+          expect((await new AxeBuilder({ page }).include("main .nx-content").analyze()).violations).toEqual([]);
           expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
           await page.screenshot({
             path: `tmp/inventory-operations-evidence/${theme}-${width}-${entry.name}-workpage.png`,
@@ -394,5 +509,25 @@ test.describe("Persisted Inventory product catalog", () => {
             fullPage: true,
           });
         }
+        await page.goto("/#/inventory/units-of-measure");
+        await expect(page.getByRole("heading", { name: "Unit of Measure", exact: true })).toBeVisible();
+        await expect(page.locator("output")).toHaveText("1000 g");
+        const kgRow = page.getByRole("button", { name: /^Kg \(kg\)/ });
+        await expect(kgRow).toBeVisible();
+        if (width === 1440) {
+          const unitTitle = await page.getByRole("heading", { name: "Unit of Measure", exact: true }).boundingBox();
+          const unitAction = await page.getByRole("button", { name: "Add New Unit", exact: true }).boundingBox();
+          expect(Math.abs(unitTitle!.y + unitTitle!.height / 2 - unitAction!.y - unitAction!.height / 2)).toBeLessThan(
+            12,
+          );
+          expect((await kgRow.locator("xpath=ancestor::tr").boundingBox())!.height).toBeLessThanOrEqual(44);
+        }
+        expect(await kgRow.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgba(0, 0, 0, 0)");
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+        expect((await new AxeBuilder({ page }).include("main .nx-content").analyze()).violations).toEqual([]);
+        await page.screenshot({
+          path: `tmp/inventory-operations-evidence/${theme}-${width}-units.png`,
+          fullPage: true,
+        });
       });
 });

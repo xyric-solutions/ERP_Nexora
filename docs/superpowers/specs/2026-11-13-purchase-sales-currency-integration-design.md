@@ -56,3 +56,27 @@ errors visible to the user.
 Baseline: 64 focused unit tests and 6 currency/subledger contract tests passed.
 No shared database migrations, environment edits or financial posting are part
 of implementation verification; integration fixtures use disposable databases.
+
+## 17 November 2026: Purchase currency-fetch repair
+
+The owner requested currency fetching across Purchases. All document kinds and
+supplier currency controls already consume the shared Procurement options API;
+the company currency query is secured by `company_currency_scope_access`, which
+requires both authenticated tenant and user transaction settings. The Purchase
+repository supplied only the tenant setting, so restricted runtime connections
+received an empty currency list despite valid company access.
+
+Reuse that existing integration and set the authenticated user's identity with
+transaction-local `set_config` beside the tenant setting. This follows Inventory's
+existing pattern. Do not introduce frontend lists, direct Accounting permission
+requirements or another currency endpoint. New documents retain base-first active
+currency options; source-linked documents and saved history retain their currency;
+payments retain the bank's currency. Returns retain their existing accounting
+currency rules. Existing company and permission checks remain in force.
+
+Verify options with a restricted role, denial for another company/user/tenant,
+and cleared settings after commit and rollback on reused connections. Run the
+Purchase integration and frontend unit suites. Patch and compile only the same
+context repair in the active compatible API source; preserve its schema version,
+frontend build, credentials and existing financial workflows. No migration or
+business-data mutation is required for local activation or browser acceptance.

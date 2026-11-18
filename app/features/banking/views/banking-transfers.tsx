@@ -123,10 +123,10 @@ export function BankingTransfers({
   if (!canRead) return <Notice title="Permission required" detail="banking.transfer.read is required." />;
 
   return (
-    <div className="space-y-5" aria-busy={loading}>
-      <header className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5 shadow-sm lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Banking &amp; Treasury</p>
+    <div className="space-y-3" aria-busy={loading}>
+      <header className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="sr-only">Banking &amp; Treasury</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Bank Transfers</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Same-company Bank Account movements with governed FX evidence and separate approval and posting.
@@ -145,12 +145,12 @@ export function BankingTransfers({
         ) : null}
       </header>
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <div className="grid gap-3 border-b border-border bg-muted/25 p-4 md:grid-cols-2">
+        <div className="grid gap-3 border-b border-border bg-muted/25 p-3 md:grid-cols-2">
           <label htmlFor="transfer-directory-state" className="grid gap-1 text-sm font-medium">
             State
             <select
               id="transfer-directory-state"
-              className="h-10 rounded-md border border-input bg-background px-3"
+              className="h-9 rounded-md border border-input bg-background px-3"
               value={state}
               onChange={(event) => setState(event.target.value as BankTransferState | "")}
             >
@@ -174,7 +174,7 @@ export function BankingTransfers({
           </label>
         </div>
         {noCompany ? (
-          <div className="p-4">
+          <div className="p-3">
             <Notice
               title="Company unavailable"
               detail="Your session has no authorized company for Bank Transfers."
@@ -183,17 +183,17 @@ export function BankingTransfers({
           </div>
         ) : null}
         {error ? (
-          <div className="p-4">
+          <div className="p-3">
             <Notice title="Bank Transfers could not be loaded" detail={error} destructive />
           </div>
         ) : null}
         <div className="overflow-x-auto">
-          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loadingMore),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-transfers:1" className="min-w-[980px] w-full text-sm">
+          <WorkTable keyboardScroll continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loadingMore),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-transfers:1" className="min-w-[980px] w-full text-sm">
             <thead className="bg-muted/50 text-left">
               <tr>
                 {["Reference", "Date", "From Bank", "To Bank", "Source amount", "Base total", "Lines", "State"].map(
                   (item) => (
-                    <th className="px-4 py-3 font-semibold" key={item}>
+                    <th className="px-4 py-1.5 font-semibold" key={item}>
                       {item}
                     </th>
                   ),
@@ -210,7 +210,7 @@ export function BankingTransfers({
               ) : null}
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1.5">
                     <button
                       type="button"
                       className="font-semibold text-primary hover:underline"
@@ -219,17 +219,17 @@ export function BankingTransfers({
                       {row.reference}
                     </button>
                   </td>
-                  <td className="px-4 py-3">{row.posting_date}</td>
-                  <td className="max-w-56 px-4 py-3">{row.source_bank_summary}</td>
-                  <td className="max-w-56 px-4 py-3">{row.destination_bank_summary}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1.5">{row.posting_date}</td>
+                  <td className="max-w-56 px-4 py-1.5">{row.source_bank_summary}</td>
+                  <td className="max-w-56 px-4 py-1.5">{row.destination_bank_summary}</td>
+                  <td className="px-4 py-1.5">
                     {row.source_totals.map((total) => `${total.currency} ${total.amount}`).join(" · ")}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1.5">
                     {row.base_currency} {row.base_total}
                   </td>
-                  <td className="px-4 py-3">{row.line_count}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-1.5">{row.line_count}</td>
+                  <td className="px-4 py-1.5">
                     <Badge
                       variant={
                         row.state === "posted" ? "default" : row.state === "rejected" ? "destructive" : "outline"

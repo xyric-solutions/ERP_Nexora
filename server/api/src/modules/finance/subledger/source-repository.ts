@@ -2,7 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import {
-  purchaseLineSchema,
+  purchaseDocumentSchema,
+  purchaseTotals,
   calculateTax,
   absolute,
   convertMinor,
@@ -21,6 +22,7 @@ import {
   subledgerPolicySchema,
   subledgerWorkspaceSchema,
   subledgerPreviewSchema,
+  purchaseAccountingPrepareSchema,
   type SubledgerAction,
   type SubledgerInput,
   type SubledgerRequest,
@@ -39,6 +41,7 @@ import { SourceAssetRepository, AssetError } from "../../fixed-assets/source-rep
 import { registerPostedPurchase } from "../../fixed-assets/purchase-registration.js";
 import { resolveTax, recordTaxApplications, reverseTaxApplications, TaxError } from "../taxes/resolver.js";
 import { itemBalancesSql, itemBalanceParameters } from "./queries.js";
+import { previewPurchasePayment, purchaseSource, purchaseParty, nativePurchaseAmount } from "./purchase-bridge.js";
 import {
   resolveCompanyBaseCurrency,
   resolveCompanyCurrencyAuthority,
@@ -518,7 +521,8 @@ export class SourceSubledgerRepository {
       const operationFilter = `tenant_id=$1 and company_id=$2 and operation_date<=$3::date
         and ($4::text is null or payload->>'side'=$4 or type='reversal')
         and ($5::text is null or payload->>'party_id'=$5 or type='revaluation' or type='reversal')
-        and ($6::text is null or payload->>'currency'=$6 or payload->>'payment_currency'=$6 or type in ('offset','reversal'))`;
+        and ($6::text is null or payload->>'currency'=$6 or payload->>'payment_currency'=$6 or type in ('offset','reversal'))
+        and ($7::text is null or payload->>'source_document_id'=$7)`;
       const operationValues = [
         context.tenantId,
         query.company_id,
@@ -526,10 +530,11 @@ export class SourceSubledgerRepository {
         query.side ?? null,
         query.party_id ?? null,
         query.currency ?? null,
+        query.source_document_id ?? null,
       ];
       const operations = (
         await client.query<OperationRow>(
-          `select ${operationProjection} from finance_subledger_operation where ${operationFilter} order by created_at desc,id limit $7 offset $8`,
+          `select ${operationProjection} from finance_subledger_operation where ${operationFilter} order by created_at desc,id limit $8 offset $9`,
           [...operationValues, query.limit, query.offset],
         )
       ).rows.map((row) => this.operation(row));
@@ -597,7 +602,12 @@ export class SourceSubledgerRepository {
     input: SubledgerInput,
     id: string,
     code: string,
+    deferBankCash = false,
   ): Promise<Preview> {
+    if (input.type === "purchase_payment")
+      return previewPurchasePayment(client, context, input, id, code, (child, childId, childCode) =>
+        this.preview(client, context, child, childId, childCode, true),
+      );
     const policy = (await this.policy(client, context.tenantId, input.company_id))!;
     const base = await resolveCompanyBaseCurrency(client, context.tenantId, input.company_id);
     const result: Preview = {
@@ -682,7 +692,7 @@ export class SourceSubledgerRepository {
           "Later bank activity exists. Use the current posting date or a governed correction.",
           "BANK_DATE_CONFLICT",
         );
-      if (dbMinor(position.balance, scale) + cash < -dbMinor(account.overdraft_limit, scale))
+      if (!deferBankCash && dbMinor(position.balance, scale) + cash < -dbMinor(account.overdraft_limit, scale))
         reject("This payment exceeds the bank's available balance and approved overdraft.", "BANK_INSUFFICIENT_FUNDS");
     };
     if (input.type === "reversal") {
@@ -796,21 +806,34 @@ export class SourceSubledgerRepository {
         reject("A governed tax cannot be combined with manual tax overrides or an advance.");
       const sourceTaxDocument = input.source_document_id
         ? (
-            await client.query<{ lines: unknown; date: string }>(
-              "select lines,coalesce(bill_date,document_date)::text as date from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved' for share",
+            await client.query<{ lines: unknown; discount_amount: string; additional_charges: unknown; date: string }>(
+              "select lines,discount_amount::text,additional_charges,coalesce(bill_date,document_date)::text as date from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved' for share",
               [context.tenantId, input.company_id, input.source_document_id],
             )
           ).rows[0]
         : undefined;
-      const sourceTaxLines = sourceTaxDocument ? purchaseLineSchema.array().parse(sourceTaxDocument.lines) : [];
-      const sourceGoverned = sourceTaxLines.some((line) => line.tax_definition_id);
+      const sourceTerms = sourceTaxDocument
+        ? purchaseDocumentSchema.pick({ lines: true, discount_amount: true, additional_charges: true }).parse({
+            lines: sourceTaxDocument.lines,
+            discount_amount: sourceTaxDocument.discount_amount,
+            additional_charges: sourceTaxDocument.additional_charges,
+          })
+        : null;
+      const sourceTaxLines = sourceTerms?.lines ?? [];
+      const sourceCharges = sourceTerms?.additional_charges ?? [];
+      const sourceAmounts = sourceTerms ? purchaseTotals(sourceTaxLines, sourceTerms) : null;
+      const sourceTaxEntries = [
+        ...sourceTaxLines.map((line, index) => ({ line, net: sourceAmounts!.lines[index]!.net })),
+        ...sourceCharges.map((line, index) => ({ line, net: sourceAmounts!.charges[index]!.net })),
+      ];
+      const sourceGoverned = sourceTaxEntries.some(({ line }) => line.tax_definition_id);
       const governedTaxes = [];
       if (sourceGoverned) {
         if (input.tax_amount !== undefined || input.tax_account_id)
           reject("An approved governed bill resolves its own tax mappings; manual overrides are not allowed.");
         let sourceBasis = 0n;
-        for (const line of sourceTaxLines) {
-          const units = divideRounded(decimal(line.quantity, 4) * decimal(line.unit_price, 2), 10000n);
+        for (const { line, net } of sourceTaxEntries) {
+          const units = decimal(net, 2);
           sourceBasis += units;
           if (!line.tax_definition_id) {
             if (decimal(line.tax_percent, 2) !== 0n)
@@ -898,7 +921,7 @@ export class SourceSubledgerRepository {
         const advanceBank = await bank(input.bank_account_id, input.currency);
         await checkBankCash(advanceBank, -signed * orientation, a.sourceDecimalPlaces);
         counter = advanceBank.account_id;
-        if (!input.monetary) {
+        if (input.counter_account_id || !input.monetary) {
           if (!input.counter_account_id) reject("Select the nonmonetary advance control account explicitly.");
           const advanceAccount = (
             await client.query<{ type: string }>(
@@ -936,9 +959,8 @@ export class SourceSubledgerRepository {
       }
       if (input.source_document_id) {
         const source = (
-          await client.query<{ currency: string; total: string; net: string }>(
-            `select d.currency,d.total_amount::text as total,
-          (select sum(round((l->>'quantity')::numeric*(l->>'unit_price')::numeric,2))::text from jsonb_array_elements(d.lines) l) as net
+          await client.query<{ currency: string; total: string }>(
+            `select d.currency,d.total_amount::text as total
           from procurement_document d join finance_subledger_party p
           on p.tenant_id=d.tenant_id and p.company_id=d.company_id and p.source_supplier_id=d.supplier_id
           where d.tenant_id=$1 and d.company_id=$2 and d.id=$3 and p.id=$4 and d.kind='bill' and d.state='approved'`,
@@ -951,7 +973,9 @@ export class SourceSubledgerRepository {
           !source ||
           source.currency !== input.currency ||
           decimal(source.total, 8) !== decimal(decimalText(withholding ? basis : positive, a.sourceDecimalPlaces), 8) ||
-          decimal(source.total, 8) - decimal(source.net, 8) !==
+          !sourceAmounts ||
+          decimal(source.total, 8) !== decimal(sourceAmounts.total, 8) ||
+          decimal(source.total, 8) - decimal(sourceAmounts.net, 8) !==
             decimal(decimalText(withholding ? 0n : tax, a.sourceDecimalPlaces), 8)
         )
           reject("The source must be this supplier's approved bill with matching currency and amount.");
@@ -1018,7 +1042,7 @@ export class SourceSubledgerRepository {
       if (
         input.side === "payable" &&
         input.kind === "invoice" &&
-        sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id)
+        (sourceCharges.length > 0 || sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id))
       ) {
         if (input.counter_account_id)
           reject("The approved bill resolves its asset categories. Clear the manual purchase accounting override.");
@@ -1033,14 +1057,17 @@ export class SourceSubledgerRepository {
           )
         ).rows;
         let allocated = 0n;
-        for (const line of sourceTaxLines) {
+        for (const [lineIndex, line] of sourceTaxLines.entries()) {
           const category = line.asset_category_id
             ? categories.find((item) => item.id === line.asset_category_id)
             : undefined;
           if (line.asset_category_id && !category)
             reject("An approved asset category or its accounting account is no longer active.");
-          const unitsAtSource = divideRounded(decimal(line.quantity, 4) * decimal(line.unit_price, 2), 10000n),
-            native = decimal(decimalText(unitsAtSource, 2), a.sourceDecimalPlaces);
+          const unitsAtSource = decimal(sourceAmounts!.lines[lineIndex]!.net, 2),
+            native = decimal(
+              nativePurchaseAmount(decimalText(unitsAtSource, 2), a.sourceDecimalPlaces),
+              a.sourceDecimalPlaces,
+            );
           allocated += native;
           add(
             line.nominal_account_id ?? category?.asset_account_id ?? counter,
@@ -1051,6 +1078,21 @@ export class SourceSubledgerRepository {
           );
           if (native > 0n && line.asset_category_id && line.id)
             result.lines[result.lines.length - 1]!.dimensions = { purchase_line_id: line.id };
+        }
+        for (const charge of sourceCharges) {
+          if (
+            !charge.nominal_account_id ||
+            !(
+              await client.query(
+                "select 1 from account where tenant_id=$1 and company_id=$2 and id=$3 and status='active' and type='expense' and not is_header and not reconciliation_required",
+                [context.tenantId, input.company_id, charge.nominal_account_id],
+              )
+            ).rowCount
+          )
+            reject("The approved charge requires an active expense account in this company.");
+          const native = decimal(nativePurchaseAmount(charge.amount, a.sourceDecimalPlaces), a.sourceDecimalPlaces);
+          allocated += native;
+          add(charge.nominal_account_id, native, input.currency, a, `${code} ${charge.description}`);
         }
         if (allocated !== (withholding ? signed + signedTax : signed - signedTax))
           reject("Approved bill acquisition allocations do not match its net accounting amount.");
@@ -1458,13 +1500,37 @@ export class SourceSubledgerRepository {
                 : { ...request, currency: bank.currency };
           }
           const input = subledgerOperationInputSchema.parse(normalized);
+          if (input.type === "purchase_payment")
+            reject("Prepare source-owned payments from the Purchase accounting action.");
           const id = randomUUID();
           const prefix =
             input.type === "recognition"
               ? `${input.side === "receivable" ? "AR" : "AP"}${input.kind === "invoice" ? "I" : input.kind === "credit_note" ? "C" : "A"}`
-              : ({ settlement: "SET", offset: "OFF", revaluation: "FXR", reversal: "REV" } as const)[input.type];
+              : (
+                  {
+                    settlement: "SET",
+                    purchase_payment: "PSET",
+                    offset: "OFF",
+                    revaluation: "FXR",
+                    reversal: "REV",
+                  } as const
+                )[input.type];
           const code = await this.code(client, context.tenantId, input.company_id, prefix);
           const preview = await this.preview(client, context, input, id, code);
+          if (
+            input.type === "recognition" &&
+            input.source_document_id &&
+            (
+              await client.query(
+                "select 1 from finance_subledger_operation where tenant_id=$1 and company_id=$2 and type='recognition' and payload->>'source_document_id'=$3 limit 1",
+                [context.tenantId, input.company_id, input.source_document_id],
+              )
+            ).rowCount
+          )
+            reject(
+              "This Purchase Bill already has a financial operation. Open its existing review instead.",
+              "PURCHASE_ALREADY_LINKED",
+            );
           await client.query(
             "insert into finance_subledger_operation(tenant_id,company_id,id,code,type,operation_date,maker_id,payload,preview) values($1,$2,$3,$4,$5,$6,$7,$8,$9)",
             [
@@ -1480,6 +1546,190 @@ export class SourceSubledgerRepository {
             ],
           );
           await this.audit(client, context, input.company_id, "created", id, input.reason, preview);
+          return this.operation(await this.loadOperation(client, context.tenantId, input.company_id, id));
+        },
+      ),
+    );
+  }
+
+  /** Non-posting source adoption, serialized with AP allocations and idempotency. */
+  async preparePurchase(
+    context: BankingActorContext,
+    documentId: string,
+    raw: z.input<typeof purchaseAccountingPrepareSchema>,
+    key: string,
+  ) {
+    const input = purchaseAccountingPrepareSchema.parse(raw);
+    return this.transaction(context, input.company_id, "finance.subledger.manage", true, (client) =>
+      this.idempotent(
+        client,
+        context,
+        input.company_id,
+        key,
+        { action: "prepare_purchase", documentId, input },
+        (value) => subledgerOperationSchema.parse(value),
+        async () => {
+          if (
+            !(
+              await client.query(companyAuthoritySql, [
+                context.tenantId,
+                context.actor.userId,
+                input.company_id,
+                "procurement.document.read",
+              ])
+            ).rowCount
+          )
+            reject("Purchase read access is required in this company.", "PERMISSION_DENIED", 403);
+          const source = await purchaseSource(client, context.tenantId, input.company_id, documentId);
+          if (source.version !== input.expected_version)
+            reject("The Purchase source changed. Reload before preparing accounting.", "STALE_VERSION");
+          if (source.state !== "approved" || !["bill", "payment", "multi_payment"].includes(source.kind))
+            reject("Approve a Bill or supplier payment instruction before preparing its accounting.");
+          const linked = (
+            await client.query<{ operation_id: string }>(
+              `select op.id as operation_id from finance_subledger_operation op left join procurement_accounting_link link on link.tenant_id=op.tenant_id and link.company_id=op.company_id and link.operation_id=op.id
+               where op.tenant_id=$1 and op.company_id=$2 and (link.document_id=$3 or (op.type='recognition' and op.payload->>'source_document_id'=$3))
+               order by (op.state='posted') desc,(link.document_id is not null) desc,op.created_at,op.id limit 1`,
+              [context.tenantId, input.company_id, documentId],
+            )
+          ).rows[0];
+          const previous = linked
+            ? await this.loadOperation(client, context.tenantId, input.company_id, linked.operation_id)
+            : undefined;
+          if (previous && input.expected_operation_version === undefined) return this.operation(previous);
+          if (input.expected_operation_version !== undefined) {
+            if (!previous || previous.version !== input.expected_operation_version)
+              reject("The financial draft changed. Reopen it before updating mappings.", "STALE_VERSION");
+            if (previous.maker_id !== context.actor.userId)
+              reject("Only the financial draft's maker may update its mappings.", "MAKER_REQUIRED", 403);
+            if (!["draft", "rejected"].includes(previous.state))
+              reject(
+                "Reject the financial review before changing accounting mappings. Posted operations require reversal.",
+                "PURCHASE_ACCOUNTING_REVIEW_LOCKED",
+              );
+          }
+          let payload: SubledgerInput;
+          if (source.kind === "bill") {
+            if (!source.supplier_id) reject("The Bill requires a supplier.");
+            const party = await purchaseParty(client, context.tenantId, input.company_id, source.supplier_id);
+            const totals = purchaseTotals(source.lines, source);
+            const currency = await resolveCompanyCurrencyAuthority(client, {
+              tenantId: context.tenantId,
+              companyId: input.company_id,
+              sourceCurrency: source.currency,
+              effectiveOnOrBefore: source.bill_date ?? source.document_date,
+            });
+            const governed =
+              source.lines.some((line) => line.tax_definition_id) ||
+              source.additional_charges?.some((line) => line.tax_definition_id);
+            const tax = decimal(source.total_amount, 8) - decimal(totals.net, 8);
+            payload = subledgerOperationInputSchema.parse({
+              company_id: input.company_id,
+              type: "recognition",
+              side: "payable",
+              party_id: party,
+              kind: "invoice",
+              currency: source.currency,
+              amount: nativePurchaseAmount(governed ? totals.net : source.total_amount, currency.sourceDecimalPlaces),
+              date: source.bill_date ?? source.document_date,
+              due_date: source.due_date ?? source.bill_date ?? source.document_date,
+              reference: source.code,
+              reason: `Recognize approved Purchase ${source.code}`,
+              source_document_id: source.id,
+              ...(!governed && tax > 0n
+                ? {
+                    tax_amount: nativePurchaseAmount(decimalText(tax, 8), currency.sourceDecimalPlaces),
+                    tax_account_id: input.tax_account_id,
+                  }
+                : {}),
+            });
+          } else
+            payload = subledgerOperationInputSchema.parse({
+              company_id: input.company_id,
+              type: "purchase_payment",
+              side: "payable",
+              source_document_id: source.id,
+              source_version: source.version,
+              currency: source.currency,
+              date: source.document_date,
+              reference: source.code,
+              reason: `Settle approved Purchase ${source.code}`,
+              discount_account_id: input.discount_account_id,
+              advance_account_id: input.advance_account_id,
+              advance_monetary: input.advance_monetary,
+              tax_definition_id: input.tax_definition_id,
+              additional_tax_definition_id: input.additional_tax_definition_id,
+              bank_fee: input.bank_fee,
+            });
+          if (previous) {
+            const stored = subledgerOperationInputSchema.parse(previous.input);
+            if (stored.type === "purchase_payment")
+              payload = {
+                ...stored,
+                discount_account_id: input.discount_account_id,
+                advance_account_id: input.advance_account_id,
+                advance_monetary: input.advance_monetary,
+                tax_definition_id: input.tax_definition_id,
+                additional_tax_definition_id: input.additional_tax_definition_id,
+                bank_fee: input.bank_fee,
+              };
+            else if (stored.type === "recognition") payload = { ...stored, tax_account_id: input.tax_account_id };
+            else reject("This operation is not a source accounting draft.");
+          }
+          const id = previous?.id ?? randomUUID(),
+            code =
+              previous?.code ??
+              (await this.code(client, context.tenantId, input.company_id, source.kind === "bill" ? "API" : "PSET"));
+          const preview = await this.preview(client, context, payload, id, code);
+          if (previous) {
+            await client.query(
+              "insert into procurement_accounting_link(tenant_id,company_id,document_id,operation_id,source_version,created_by) values($1,$2,$3,$4,$5,$6) on conflict(tenant_id,company_id,document_id) do nothing",
+              [context.tenantId, input.company_id, source.id, id, source.version, context.actor.userId],
+            );
+            await client.query(
+              "update finance_subledger_operation set payload=$4,preview=$5,state='draft',preview_hash=null,approver_id=null,version=version+1,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3",
+              [context.tenantId, input.company_id, id, JSON.stringify(payload), JSON.stringify(preview)],
+            );
+          } else {
+            await client.query(
+              "insert into finance_subledger_operation(tenant_id,company_id,id,code,type,operation_date,maker_id,payload,preview) values($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+              [
+                context.tenantId,
+                input.company_id,
+                id,
+                code,
+                payload.type,
+                payload.date,
+                context.actor.userId,
+                JSON.stringify(payload),
+                JSON.stringify(preview),
+              ],
+            );
+            await client.query(
+              "insert into procurement_accounting_link(tenant_id,company_id,document_id,operation_id,source_version,created_by) values($1,$2,$3,$4,$5,$6)",
+              [context.tenantId, input.company_id, source.id, id, source.version, context.actor.userId],
+            );
+          }
+          await this.audit(
+            client,
+            context,
+            input.company_id,
+            previous ? "purchase_draft_revised" : "purchase_prepared",
+            id,
+            payload.reason,
+            {
+              source_id: source.id,
+              source_version: source.version,
+              ...(previous
+                ? {
+                    previous_version: previous.version,
+                    previous_input: previous.input,
+                    previous_preview: previous.preview,
+                  }
+                : {}),
+              preview,
+            },
+          );
           return this.operation(await this.loadOperation(client, context.tenantId, input.company_id, id));
         },
       ),
@@ -1608,7 +1858,14 @@ export class SourceSubledgerRepository {
                   externalIdempotencyKey: `subledger:${id}`,
                   transactionCurrency: recalculated.base_currency,
                   lines: recalculated.lines satisfies FinanceMultiCurrencyPostingLine[],
-                  payloadHashMaterial: { operation_id: id, approved_hash: row.preview_hash!, reason: input.reason },
+                  payloadHashMaterial: {
+                    operation_id: id,
+                    approved_hash: row.preview_hash!,
+                    reason: input.reason,
+                    ...(payload.type === "purchase_payment"
+                      ? { payment_reference: payload.reference, purchase_document_id: payload.source_document_id }
+                      : {}),
+                  },
                 })
               ).journalId;
             }
@@ -1642,8 +1899,10 @@ export class SourceSubledgerRepository {
                 },
               });
             }
-            if (recalculated.item) {
-              const item = recalculated.item;
+            for (const item of [
+              ...(recalculated.item ? [recalculated.item] : []),
+              ...(recalculated.additional_items ?? []),
+            ]) {
               await client.query(
                 `insert into finance_subledger_item(tenant_id,company_id,id,code,operation_id,party_id,side,kind,currency,base_currency,decimal_places,base_decimal_places,document_date,due_date,original_amount,original_base,monetary,control_account_id,journal_id,rate,rate_id,source_document_id)
             values(${Array.from({ length: 22 }, (_, i) => `$${i + 1}`).join(",")})`,

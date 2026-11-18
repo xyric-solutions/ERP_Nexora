@@ -12,6 +12,8 @@ import type {
   JournalDirectoryQuery,
   JournalMutationResult,
   JournalOptions,
+  JournalPostingEligibility,
+  JournalPostingEligibilityQuery,
   RecurringJournalDirectory,
   RecurringJournalDirectoryQuery,
   RecurringJournalOccurrenceDirectory,
@@ -24,7 +26,8 @@ import type {
 import type { Pool, PoolClient } from "pg";
 import { writeApprovalOverrideEvent, ApprovalOverrideWriterError } from "../../security/approval-override-writer.js";
 import { resolveCompanyBaseCurrency, CompanyCurrencyAuthorityError } from "../currencies/company-authority.js";
-import { FinancePostingService } from "../posting/service.js";
+import { SourceFinancePostingRepository } from "../posting/source-repository.js";
+import { resolveFinancePostingPeriod, FinancePostingService } from "../posting/service.js";
 import { FinancePostingError, createFinanceTransactionClient } from "../posting/types.js";
 
 export interface FinanceJournalActorContext {
@@ -49,7 +52,7 @@ interface ManualRow {
   id: string;
   company_id: string;
   draft_number: string;
-  journal_date: Date | string;
+  journal_date: string;
   reference_number: string | null;
   base_currency: string;
   base_decimal_places: number;
@@ -98,10 +101,10 @@ interface RecurringRow {
   name: string;
   schedule: "monthly" | "quarterly";
   status: "active" | "inactive";
-  start_date: Date | string;
-  end_date: Date | string | null;
-  next_scheduled_date: Date | string | null;
-  last_generated_date: Date | string | null;
+  start_date: string;
+  end_date: string | null;
+  next_scheduled_date: string | null;
+  last_generated_date: string | null;
   base_currency: string;
   reference_pattern: string | null;
   narration: string;
@@ -113,8 +116,8 @@ interface RecurringRow {
 const amountScale = 8;
 const baseRate = "1.000000000000000000";
 
-function dateText(value: Date | string): string {
-  return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
+function dateText(value: string): string {
+  return value.slice(0, 10);
 }
 function dateTime(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -294,7 +297,7 @@ export class SourceFinanceJournalRepository {
     const suffix = lock ? " for update" : "";
     const row = (
       await client.query<ManualRow>(
-        `select id,company_id,draft_number,journal_date,reference_number,base_currency,base_decimal_places,
+        `select id,company_id,draft_number,journal_date::text,reference_number,base_currency,base_decimal_places,
               state,row_version::text,maker_user_id,submitted_at,rejection_reason,approval_note,
               accounting_event_id,journal_entry_id,reversal_accounting_event_id,reversal_journal_entry_id,
               recurring_template_id
@@ -305,6 +308,49 @@ export class SourceFinanceJournalRepository {
     if (!row) throw new FinanceJournalError(404, "JOURNAL_NOT_FOUND", "The Manual Journal was not found.");
     await this.scoped(client, context, row.company_id, "finance.journal.read");
     return row;
+  }
+
+  private async eligibility(
+    client: PoolClient,
+    tenantId: string,
+    query: JournalPostingEligibilityQuery,
+  ): Promise<JournalPostingEligibility> {
+    let period: JournalPostingEligibility["period"] = null;
+    try {
+      await resolveCompanyBaseCurrency(client, tenantId, query.company_id, false);
+      const authority = new SourceFinancePostingRepository();
+      const periods = await authority.loadPeriods(
+        await createFinanceTransactionClient(client),
+        tenantId,
+        query.company_id,
+        query.journal_date,
+        false,
+      );
+      period = periods.length === 1 ? periods[0]! : null;
+      resolveFinancePostingPeriod(periods);
+      return { ...query, eligible: true, blocker: null, period };
+    } catch (error) {
+      if (!(error instanceof FinancePostingError || error instanceof CompanyCurrencyAuthorityError)) throw error;
+      const message =
+        period && period.status !== "open"
+          ? "The Finance period for " +
+            query.journal_date +
+            " is " +
+            (period.status === "soft_close" ? "Soft Closed" : "Locked") +
+            ". An authorized period manager must open it before posting. This Journal has not affected Bank balances."
+          : error.message;
+      return { ...query, eligible: false, blocker: { code: error.code, message }, period };
+    }
+  }
+
+  postingEligibility(
+    context: FinanceJournalActorContext,
+    query: JournalPostingEligibilityQuery,
+  ): Promise<JournalPostingEligibility> {
+    return this.transaction(context, async (client) => {
+      await this.scoped(client, context, query.company_id, "finance.journal.read");
+      return this.eligibility(client, context.tenantId, query);
+    });
   }
 
   private async lines(client: PoolClient, tenantId: string, journalId: string): Promise<LineRow[]> {
@@ -624,7 +670,7 @@ export class SourceFinanceJournalRepository {
     return this.transaction(context, async (client) => {
       const manual = (
         await client.query<ManualRow>(
-          `select id,company_id,draft_number,journal_date,reference_number,base_currency,base_decimal_places,state,row_version::text,
+          `select id,company_id,draft_number,journal_date::text,reference_number,base_currency,base_decimal_places,state,row_version::text,
                 maker_user_id,submitted_at,rejection_reason,approval_note,accounting_event_id,journal_entry_id,
                 reversal_accounting_event_id,reversal_journal_entry_id,recurring_template_id
            from manual_journal where tenant_id=$1 and id=$2`,
@@ -674,6 +720,14 @@ export class SourceFinanceJournalRepository {
           submitted_at: manual.submitted_at ? dateTime(manual.submitted_at) : null,
           can_open_owner_workflow: true,
           base_decimal_places: manual.base_decimal_places,
+          ...(["draft", "submitted"].includes(manual.state)
+            ? {
+                posting_eligibility: await this.eligibility(client, context.tenantId, {
+                  company_id: manual.company_id,
+                  journal_date: manual.journal_date,
+                }),
+              }
+            : {}),
           approval_note: manual.approval_note,
           rejection_reason: manual.rejection_reason,
           posted_entry_number: manual.journal_entry_id,
@@ -711,14 +765,14 @@ export class SourceFinanceJournalRepository {
           id: string;
           company_id: string;
           entry_number: string;
-          posting_date: Date | string;
+          posting_date: string;
           status: "posted" | "reversed";
           source_type: string;
           source_id: string;
           base_currency: string;
           created_by: string;
         }>(
-          `select entry.id,entry.company_id,coalesce(entry.entry_number,entry.id) as entry_number,entry.posting_date,entry.status,
+          `select entry.id,entry.company_id,coalesce(entry.entry_number,entry.id) as entry_number,entry.posting_date::text,entry.status,
                 event.source_type,event.source_id,coalesce(event.payload->'resolved'->>'base_currency','XXX') as base_currency,
                 entry.created_by
            from journal_entry entry join accounting_event event on event.tenant_id=entry.tenant_id
@@ -1330,7 +1384,7 @@ export class SourceFinanceJournalRepository {
   ): Promise<RecurringRow> {
     const row = (
       await client.query<RecurringRow>(
-        `select id,company_id,name,schedule,status,start_date,end_date,next_scheduled_date,last_generated_date,base_currency,reference_pattern,narration,row_version::text,lines,updated_at from recurring_journal_template where tenant_id=$1 and id=$2${lock ? " for update" : ""}`,
+        `select id,company_id,name,schedule,status,start_date::text,end_date::text,next_scheduled_date::text,last_generated_date::text,base_currency,reference_pattern,narration,row_version::text,lines,updated_at from recurring_journal_template where tenant_id=$1 and id=$2${lock ? " for update" : ""}`,
         [context.tenantId, id],
       )
     ).rows[0];
@@ -1359,7 +1413,7 @@ export class SourceFinanceJournalRepository {
       }
       values.push(query.limit + 1, offset);
       const rows = await client.query<RecurringRow>(
-        `select id,company_id,name,schedule,status,start_date,end_date,next_scheduled_date,last_generated_date,base_currency,reference_pattern,narration,row_version::text,lines,updated_at from recurring_journal_template where tenant_id=$1 and company_id=$2 and created_by is not null${status} order by name,id limit $${values.length - 1} offset $${values.length}`,
+        `select id,company_id,name,schedule,status,start_date::text,end_date::text,next_scheduled_date::text,last_generated_date::text,base_currency,reference_pattern,narration,row_version::text,lines,updated_at from recurring_journal_template where tenant_id=$1 and company_id=$2 and created_by is not null${status} order by name,id limit $${values.length - 1} offset $${values.length}`,
         values,
       );
       return {
@@ -1405,7 +1459,7 @@ export class SourceFinanceJournalRepository {
       );
       const id = `recurring-journal-${randomUUID()}`;
       await client.query(
-        `insert into recurring_journal_template(tenant_id,company_id,id,name,schedule,lines,status,start_date,end_date,next_scheduled_date,base_currency,reference_pattern,narration,created_by,updated_by) values($1,$2,$3,$4,$5,$6::jsonb,'inactive',$7,$8,$7,$9,$10,$11,$12,$12)`,
+        `insert into recurring_journal_template(tenant_id,company_id,id,name,schedule,lines,status,start_date,end_date,next_scheduled_date,base_currency,reference_pattern,narration,created_by,updated_by,created_at) values($1,$2,$3,$4,$5,$6::jsonb,'inactive',$7,$8,$7,$9,$10,$11,$12,$12,clock_timestamp())`,
         [
           context.tenantId,
           input.company_id,
@@ -1578,14 +1632,14 @@ export class SourceFinanceJournalRepository {
       const offset = cursorOffset(cursor);
       const rows = await client.query<{
         id: string;
-        scheduled_date: Date | string;
+        scheduled_date: string;
         state: "pending" | "draft_created" | "draft_deleted" | "failed" | "exhausted";
         manual_journal_id: string | null;
         attempt_count: number;
         last_error_code: string | null;
         updated_at: Date | string;
       }>(
-        `select id,scheduled_date,state,manual_journal_id,attempt_count,last_error_code,updated_at from recurring_journal_occurrence where tenant_id=$1 and template_id=$2 order by scheduled_date desc,id limit $3 offset $4`,
+        `select id,scheduled_date::text,state,manual_journal_id,attempt_count,last_error_code,updated_at from recurring_journal_occurrence where tenant_id=$1 and template_id=$2 order by scheduled_date desc,id limit $3 offset $4`,
         [context.tenantId, id, limit + 1, offset],
       );
       return {

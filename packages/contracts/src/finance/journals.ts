@@ -34,6 +34,23 @@ export const journalLineSchema = journalLineInputSchema.extend({
 });
 
 export const journalOptionsQuerySchema = z.strictObject({ company_id: identifier.optional() });
+export const journalPostingEligibilityQuerySchema = z.strictObject({ company_id: identifier, journal_date: date });
+export const journalPostingEligibilitySchema = z.strictObject({
+  company_id: identifier,
+  journal_date: date,
+  eligible: z.boolean(),
+  blocker: z.strictObject({ code: z.string(), message: z.string() }).nullable(),
+  period: z
+    .strictObject({
+      id: identifier,
+      status: z.enum(["open", "soft_close", "closed"]),
+      period_number: z.number().int(),
+      fiscal_year: z.number().int(),
+    })
+    .nullable(),
+});
+export type JournalPostingEligibilityQuery = z.infer<typeof journalPostingEligibilityQuerySchema>;
+export type JournalPostingEligibility = z.infer<typeof journalPostingEligibilitySchema>;
 export const journalOptionsSchema = z.strictObject({
   companies: z.array(z.strictObject({ id: identifier, code: z.string(), name: z.string() })).max(100),
   selected_company_id: identifier.nullable(),
@@ -97,6 +114,7 @@ export const journalEventSchema = z.strictObject({
 });
 
 export const journalDetailSchema = journalSummarySchema.extend({
+  posting_eligibility: journalPostingEligibilitySchema.optional(),
   base_decimal_places: z.number().int().min(0).max(8),
   approval_note: z.string().max(500).nullable(),
   rejection_reason: z.string().max(500).nullable(),

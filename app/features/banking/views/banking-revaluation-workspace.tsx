@@ -257,10 +257,10 @@ function RevaluationRegister({
   }
 
   return (
-    <div className="space-y-4" aria-busy={loading}>
-      <header className="flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Banking &amp; Treasury</p>
+    <div className="space-y-3" aria-busy={loading}>
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <p className="sr-only">Banking &amp; Treasury</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-tight">Bank Revaluation</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Governed foreign-currency bank balance remeasurement in each company&apos;s base currency.
@@ -283,11 +283,11 @@ function RevaluationRegister({
       ) : null}
 
       <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        <div className="grid gap-3 border-b border-border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-7">
+        <div className="grid gap-3 border-b border-border bg-muted/20 p-3 sm:grid-cols-2 xl:grid-cols-7">
           <Filter label="Currency">
             <select
               aria-label="Currency"
-              className="h-10 rounded-md border border-input bg-background px-3"
+              className="h-9 rounded-md border border-input bg-background px-3"
               value={currency}
               onChange={(event) => setCurrency(event.target.value)}
             >
@@ -302,7 +302,7 @@ function RevaluationRegister({
           <Filter label="Bank">
             <select
               aria-label="Bank account"
-              className="h-10 rounded-md border border-input bg-background px-3"
+              className="h-9 rounded-md border border-input bg-background px-3"
               value={bankAccountId}
               onChange={(event) => setBankAccountId(event.target.value)}
             >
@@ -317,7 +317,7 @@ function RevaluationRegister({
           <Filter label="Status">
             <select
               aria-label="Status"
-              className="h-10 rounded-md border border-input bg-background px-3"
+              className="h-9 rounded-md border border-input bg-background px-3"
               value={state}
               onChange={(event) => setState(event.target.value as BankRevaluationState | "")}
             >
@@ -370,8 +370,8 @@ function RevaluationRegister({
         </div>
 
         <div className="overflow-x-auto">
-          <WorkTable continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loadingMore),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-revaluation-workspace:1" className="w-full min-w-[1120px] text-sm">
-            <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
+          <WorkTable keyboardScroll continuation={{cursor:nextCursor,hasMore:!!(nextCursor),busy:!!(loadingMore),loadMore:() => void loadMore()}} tableId="app/features/banking/views/banking-revaluation-workspace:1" className="w-full min-w-[1120px] text-sm">
+            <thead className="bg-muted text-left text-muted-foreground">
               <tr>
                 {[
                   "Voucher",
@@ -385,7 +385,7 @@ function RevaluationRegister({
                   "Status",
                   "Reversal",
                 ].map((heading) => (
-                  <th key={heading} scope="col" className="px-3 py-3 font-semibold">
+                  <th key={heading} scope="col" className="px-3 py-1.5 font-semibold">
                     {heading}
                   </th>
                 ))}
@@ -401,7 +401,7 @@ function RevaluationRegister({
               ) : null}
               {rows.map((row) => (
                 <tr key={row.id} className="border-t border-border hover:bg-muted/30">
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-1.5">
                     <button
                       type="button"
                       className="font-semibold text-primary hover:underline"
@@ -413,16 +413,16 @@ function RevaluationRegister({
                       <span className="block text-xs text-muted-foreground">{row.external_reference}</span>
                     ) : null}
                   </td>
-                  <td className="px-3 py-3">{row.revaluation_date}</td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-1.5">{row.revaluation_date}</td>
+                  <td className="px-3 py-1.5">
                     {row.currency} / {row.base_currency}
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-1.5">
                     {row.account_count} bank account{row.account_count === 1 ? "" : "s"}
                   </td>
-                  <td className="px-3 py-3 tabular-nums">{row.closing_rate}</td>
-                  <td className="px-3 py-3 tabular-nums">{amount(row.foreign_balance, row.currency)}</td>
-                  <td className="px-3 py-3 tabular-nums">{amount(row.revalued_base_balance, row.base_currency)}</td>
+                  <td className="px-3 py-1.5 tabular-nums">{row.closing_rate}</td>
+                  <td className="px-3 py-1.5 tabular-nums">{amount(row.foreign_balance, row.currency)}</td>
+                  <td className="px-3 py-1.5 tabular-nums">{amount(row.revalued_base_balance, row.base_currency)}</td>
                   <td
                     className={
                       row.direction === "loss"
@@ -432,10 +432,10 @@ function RevaluationRegister({
                   >
                     {gainLoss(row.gain_loss_amount, row.base_currency, row.direction)}
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-1.5">
                     <Badge variant={stateVariant(row.state)}>{stateLabel(row.state)}</Badge>
                   </td>
-                  <td className="px-3 py-3 capitalize">{row.reversal_state.replaceAll("_", " ")}</td>
+                  <td className="px-3 py-1.5 capitalize">{row.reversal_state.replaceAll("_", " ")}</td>
                 </tr>
               ))}
             </tbody>
@@ -683,8 +683,8 @@ function RevaluationForm({
   const sameMaker = detail?.maker_user_id === currentUserId;
 
   return (
-    <WorkFormLayout><div className="space-y-4" aria-busy={loading || Boolean(busy)}>
-      <header className="flex flex-col gap-4 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
+    <WorkFormLayout><div className="space-y-3" aria-busy={loading || Boolean(busy)}>
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
         <div>
           <button
             type="button"
@@ -723,13 +723,13 @@ function RevaluationForm({
         />
       ) : null}
 
-      <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
         <h2 className="border-b border-border pb-3 text-lg font-semibold">Search</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Currency" htmlFor="revaluation-currency" required>
             <select
               id="revaluation-currency"
-              className="h-10 rounded-md border border-input bg-background px-3"
+              className="h-9 rounded-md border border-input bg-background px-3"
               value={currency}
               disabled={!editable}
               onChange={(event) => {
@@ -776,8 +776,8 @@ function RevaluationForm({
         </div>
       </section>
 
-      <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-3">
+      <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
+        <div className="grid gap-3 md:grid-cols-3">
           <Field label="Ref. No." htmlFor="revaluation-reference">
             <Input
               id="revaluation-reference"
@@ -801,7 +801,7 @@ function RevaluationForm({
           <Field label="Approver" htmlFor="revaluation-approver" required>
             <select
               id="revaluation-approver"
-              className="h-10 rounded-md border border-input bg-background px-3"
+              className="h-9 rounded-md border border-input bg-background px-3"
               value={approverId}
               disabled={!editable}
               required
@@ -838,7 +838,7 @@ function RevaluationForm({
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[960px] text-sm">
-                <thead className="bg-[var(--nx-info-soft)] text-[var(--nx-emphasis-text)]">
+                <thead className="bg-muted text-muted-foreground">
                   <tr>
                     {[
                       "Account Code",
@@ -848,7 +848,7 @@ function RevaluationForm({
                       "Revalued Balance",
                       "Revalued Gain / Loss",
                     ].map((heading) => (
-                      <th key={heading} scope="col" className="px-3 py-3 text-left font-semibold">
+                      <th key={heading} scope="col" className="px-3 py-1.5 text-left font-semibold">
                         {heading}
                       </th>
                     ))}
@@ -864,16 +864,16 @@ function RevaluationForm({
                   ) : null}
                   {evidence.lines.map((line) => (
                     <tr key={line.bank_account_id} className="border-t border-border">
-                      <td className="px-3 py-3">{line.bank_account_code}</td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-1.5">{line.bank_account_code}</td>
+                      <td className="px-3 py-1.5">
                         <strong>{line.bank_account_name}</strong>
                         <span className="block text-xs text-muted-foreground">{line.bank_name}</span>
                       </td>
-                      <td className="px-3 py-3 tabular-nums">{amount(line.foreign_balance, line.currency)}</td>
-                      <td className="px-3 py-3 tabular-nums">
+                      <td className="px-3 py-1.5 tabular-nums">{amount(line.foreign_balance, line.currency)}</td>
+                      <td className="px-3 py-1.5 tabular-nums">
                         {amount(line.carrying_base_balance, evidence.base_currency)}
                       </td>
-                      <td className="px-3 py-3 tabular-nums">
+                      <td className="px-3 py-1.5 tabular-nums">
                         {amount(line.revalued_base_balance, evidence.base_currency)}
                       </td>
                       <td
@@ -890,19 +890,19 @@ function RevaluationForm({
                 </tbody>
                 <tfoot className="border-t-2 border-border bg-muted/30 font-semibold">
                   <tr>
-                    <td colSpan={2} className="px-3 py-3">
+                    <td colSpan={2} className="px-3 py-1.5">
                       Totals
                     </td>
-                    <td className="px-3 py-3 tabular-nums">
+                    <td className="px-3 py-1.5 tabular-nums">
                       {amount(evidence.totals.foreign_balance, evidence.currency)}
                     </td>
-                    <td className="px-3 py-3 tabular-nums">
+                    <td className="px-3 py-1.5 tabular-nums">
                       {amount(evidence.totals.carrying_base_balance, evidence.base_currency)}
                     </td>
-                    <td className="px-3 py-3 tabular-nums">
+                    <td className="px-3 py-1.5 tabular-nums">
                       {amount(evidence.totals.revalued_base_balance, evidence.base_currency)}
                     </td>
-                    <td className="px-3 py-3 tabular-nums">
+                    <td className="px-3 py-1.5 tabular-nums">
                       {gainLoss(
                         evidence.totals.net_gain_loss,
                         evidence.base_currency,
@@ -926,8 +926,8 @@ function RevaluationForm({
       </section>
 
       {detail ? (
-        <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-2xl flex-1">
               <Label htmlFor="revaluation-action-reason">Action reason</Label>
               <Textarea
@@ -992,7 +992,7 @@ function RevaluationForm({
       ) : null}
 
       {detail?.accounting_preview ? (
-        <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
           <h2 className="text-lg font-semibold">Accounting preview</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Posting date {detail.accounting_preview.posting_date} · period {detail.accounting_preview.period_id}
@@ -1001,19 +1001,19 @@ function RevaluationForm({
             <table className="w-full min-w-[680px] text-sm">
               <thead className="bg-muted/50">
                 <tr>
-                  <th className="px-3 py-2 text-left">Nominal</th>
-                  <th className="px-3 py-2 text-left">Description</th>
-                  <th className="px-3 py-2 text-right">Debit</th>
-                  <th className="px-3 py-2 text-right">Credit</th>
+                  <th className="px-3 py-1.5 text-left">Nominal</th>
+                  <th className="px-3 py-1.5 text-left">Description</th>
+                  <th className="px-3 py-1.5 text-right">Debit</th>
+                  <th className="px-3 py-1.5 text-right">Credit</th>
                 </tr>
               </thead>
               <tbody>
                 {detail.accounting_preview.lines.map((line, index) => (
                   <tr className="border-t border-border" key={`${line.nominal_id}-${index}`}>
-                    <td className="px-3 py-2">{line.nominal_code}</td>
-                    <td className="px-3 py-2">{line.description}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{amount(line.debit, detail.base_currency)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums">{amount(line.credit, detail.base_currency)}</td>
+                    <td className="px-3 py-1.5">{line.nominal_code}</td>
+                    <td className="px-3 py-1.5">{line.description}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{amount(line.debit, detail.base_currency)}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums">{amount(line.credit, detail.base_currency)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1023,7 +1023,7 @@ function RevaluationForm({
       ) : null}
 
       {detail ? (
-        <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
           <h2 className="text-lg font-semibold">Audit history</h2>
           {events.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">No lifecycle events were returned.</p>

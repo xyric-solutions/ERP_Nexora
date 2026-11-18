@@ -216,8 +216,8 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
   const currency = account?.currency ?? detail?.lines[0]?.currency ?? "USD";
 
   return (
-    <div className="space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-3">
+    <div className="space-y-3">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
         <div>
           <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {onBack ? (
@@ -264,7 +264,7 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
         </Alert>
       ) : null}
 
-      <section className="grid gap-3 rounded-lg border border-border bg-card p-4 md:grid-cols-3 xl:grid-cols-6">
+      <section className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-3 xl:grid-cols-6">
         <select
           aria-label="Bank account"
           className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
@@ -349,18 +349,18 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
           </section>
 
           <section className="overflow-x-auto rounded-lg border border-border bg-card">
-            <WorkTable tableId="app/features/banking/views/banking-statement-live:1" className="w-full min-w-[1080px] border-collapse text-sm">
+            <WorkTable keyboardScroll tableId="app/features/banking/views/banking-statement-live:1" className="w-full min-w-[1080px] border-collapse text-sm">
               <thead className="bg-primary text-primary-foreground">
                 <tr>
-                  <th className="px-3 py-2 text-left font-medium">Date</th>
-                  <th className="px-3 py-2 text-left font-medium">Reference</th>
-                  <th className="px-3 py-2 text-left font-medium">Type</th>
-                  <th className="px-3 py-2 text-left font-medium">Account</th>
-                  <th className="px-3 py-2 text-left font-medium">Payment Mode</th>
-                  <th className="px-3 py-2 text-left font-medium">Details</th>
-                  <th className="px-3 py-2 text-right font-medium">Money in</th>
-                  <th className="px-3 py-2 text-right font-medium">Money out</th>
-                  <th className="px-3 py-2 text-left font-medium">Status</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Date</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Reference</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Type</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Account</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Payment Mode</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Details</th>
+                  <th className="px-3 py-1.5 text-right font-medium">Money in</th>
+                  <th className="px-3 py-1.5 text-right font-medium">Money out</th>
+                  <th className="px-3 py-1.5 text-left font-medium">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -373,19 +373,19 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
                 ) : (
                   detail.lines.map((line) => (
                     <tr key={line.id} className="border-t border-border">
-                      <td className="px-3 py-2">{line.transaction_date ?? "—"}</td>
-                      <td className="px-3 py-2">{line.reference ?? "—"}</td>
-                      <td className="px-3 py-2">{line.transaction_type ?? "—"}</td>
-                      <td className="px-3 py-2">{line.account_text ?? "—"}</td>
-                      <td className="px-3 py-2">{line.payment_mode ?? "—"}</td>
-                      <td className="max-w-72 px-3 py-2">{line.details ?? "—"}</td>
-                      <td className="px-3 py-2 text-right tabular-nums">
+                      <td className="px-3 py-1.5">{line.transaction_date ?? "—"}</td>
+                      <td className="px-3 py-1.5">{line.reference ?? "—"}</td>
+                      <td className="px-3 py-1.5">{line.transaction_type ?? "—"}</td>
+                      <td className="px-3 py-1.5">{line.account_text ?? "—"}</td>
+                      <td className="px-3 py-1.5">{line.payment_mode ?? "—"}</td>
+                      <td className="max-w-72 px-3 py-1.5">{line.details ?? "—"}</td>
+                      <td className="px-3 py-1.5 text-right tabular-nums">
                         {line.direction === "money_in" && line.amount ? formatAmount(line.amount, line.currency) : "—"}
                       </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
+                      <td className="px-3 py-1.5 text-right tabular-nums">
                         {line.direction === "money_out" && line.amount ? formatAmount(line.amount, line.currency) : "—"}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-1.5">
                         <Badge
                           variant={
                             line.inclusion_state === "excluded" || line.validation_state === "error"
@@ -436,7 +436,7 @@ export function LiveBankStatement({ accountId, onAction, onReconcile, onBack }: 
 
 function Summary({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <article className="rounded-lg border border-border bg-card p-4">
+    <article className="rounded-lg border border-border bg-card p-3">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <strong className="mt-1 block text-lg font-semibold tabular-nums">{value}</strong>
       <small className="mt-1 block text-xs text-muted-foreground">{detail}</small>

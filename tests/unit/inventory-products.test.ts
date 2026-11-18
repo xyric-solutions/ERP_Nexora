@@ -16,7 +16,7 @@ describe("Inventory product catalog", () => {
         .filter((g) => !g.hiddenFromNavigation)
         .flatMap((g) => g.pages.filter((p) => !p.hiddenFromNavigation))
         .map((p) => p.label),
-    ).toEqual(["Products", "Stock Transfer", "Warehouse"]);
+    ).toEqual(["Products", "Unit of Measure", "Stock Transfer", "Warehouse"]);
     expect(findPrototypePage("inventory", "items").page.id).toBe("products");
     expect(findPrototypePage("inventory", "add-item").page.id).toBe("add-product");
     expect(findPrototypePage("inventory", "item-detail").page.id).toBe("product-detail");

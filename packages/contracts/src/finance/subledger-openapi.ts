@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { connectedReportIds, connectedReportSchema } from "./connected-reports.js";
 import {
   subledgerActionSchema,
   subledgerOperationRequestSchema,
@@ -9,6 +10,7 @@ import {
   subledgerPolicySchema,
   subledgerWorkspaceSchema,
   subledgerReportSchema,
+  purchaseAccountingPrepareSchema,
 } from "./subledger.js";
 
 export function subledgerPaths() {
@@ -54,11 +56,37 @@ export function subledgerPaths() {
     responses: { [status]: { description: "Validated financial result", content: json(output) }, ...errors },
   });
   return {
+    "/finance/subledger/connected-reports": {
+      get: {
+        operationId: "getConnectedReport",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          ...query.filter((parameter) => !["side", "party_id"].includes(parameter.name)),
+          { in: "query", name: "report", required: true, schema: { type: "string", enum: connectedReportIds } },
+          ...["from", "bank_id", "supplier_id"].map((name) => ({
+            in: "query",
+            name,
+            required: false,
+            schema: { type: "string" },
+          })),
+        ],
+        responses: {
+          200: {
+            description: "Persistent company report with native currency totals before pagination",
+            content: json(connectedReportSchema),
+          },
+          ...errors,
+        },
+      },
+    },
     "/finance/subledger/workspace": {
       get: {
         operationId: "getSubledgerWorkspace",
         security: [{ cookieAuth: [] }],
-        parameters: query,
+        parameters: [
+          ...query,
+          { in: "query", name: "source_document_id", required: false, schema: { type: "string" } },
+        ],
         responses: {
           200: {
             description: "Company currency balances and financial workflow",
@@ -107,6 +135,16 @@ export function subledgerPaths() {
     },
     "/finance/subledger/operations": {
       post: post("createSubledgerOperation", subledgerOperationRequestSchema, subledgerOperationSchema, false, 201),
+    },
+    "/finance/subledger/purchase/{documentId}/prepare": {
+      post: {
+        ...post("preparePurchaseAccounting", purchaseAccountingPrepareSchema, subledgerOperationSchema, true, 201),
+        parameters: [
+          ...mutation,
+          { in: "header", name: "if-match", required: true, schema: { type: "string" } },
+          { in: "path", name: "documentId", required: true, schema: { type: "string" } },
+        ],
+      },
     },
     "/finance/subledger/operations/{operationId}/actions": {
       post: {

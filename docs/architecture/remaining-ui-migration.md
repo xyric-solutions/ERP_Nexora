@@ -1,5 +1,448 @@
 # Remaining UI migration checklist
 
+## 2026-11-18 — Purchase accounting bridge and connected reports
+
+- Added the compact accounting panel inside the existing Purchase details/form,
+  source-focused Finance review, and read-only Purchase-owned Bank outgoing rows.
+  No duplicate Bank voucher or payment-entry workflow. Reports use existing shared
+  controls and keyboard-scrollable WorkTable; no feature stylesheet was added or
+  retired. Journal review names nominal accounts without a Dimensions column.
+- Fifteen previously prototype report routes now use company-scoped persistent
+  adapters. Existing live Supplier Statement/Ageing and financial reports remain;
+  seventeen Purchase/Bank/Supplier report routes were checked. Full-filter CSV,
+  print-page disclosure and focus/visibility revalidation use real API data.
+  Missing quotation/quality/comparable-price evidence is explicit, not fabricated.
+- Preserved server authorization, maker/checker, source and operation versions,
+  idempotency, AP/control reconciliation, posting atomicity, reversal and native
+  currency rules. Required supplier linking is manual Finance setup. Existing
+  Purchase payments remain unposted; no roles, login or fiscal periods changed.
+- Passed 81 integration tests across five suites, five focused unit tests,
+  23 contract tests and 11 Bank payment/reconciliation database-security tests.
+  Full typecheck, generated API check, touched-file ESLint, theme write/check,
+  production build and diff check passed. A stale test fixture was corrected to
+  provide its required reconciliation date; production constraints were retained.
+- Preview browser evidence: 29 checks, all seventeen routes, twelve light/dark
+  desktop/tablet/phone cases at 1440/768/390px, zero scoped Axe violations, page
+  errors or business writes. CSV, print and focus refresh passed. Real Purchase,
+  Bank and July–June calendar data remained identical. Private screenshots and
+  results: `tmp/purchase-bank-integration/preview-browser-verification.json`.
+  A final visual check replaced the generic “Unposted” label for aggregate rows
+  without a single linked journal with an em dash.
+- Theme audit covers 131 feature view source files with zero feature font/colour
+  exceptions; it is not a claim about all menu routes. Source is complete. Local
+  business activation remains pending the renewed release-scope clarification;
+  verify the final candidate after activation before marking the release live.
+
+
+## 2026-11-17 - Compact Journal workspace and review tables
+
+- Compacted the register, manual editor, detail, approval/final review, reversal,
+  recurring template editor and generation history. Journal-owned control sizing
+  is 32px, field gaps and table padding are smaller, and both drawer families use
+  the available width. Shared ERP controls and stylesheets are unchanged.
+- Register filters respond to their container width. The reference search no
+  longer collapses beside fixed-width selects and dates. Existing server filters,
+  local table tools, pagination, display precision and actions remain available.
+- Removed Dimensions headers/cells from detail and shared approval/reversal line
+  tables, including posted/reversed detail. Persisted dimensions and conditional
+  required inputs beneath the nominal selector remain intact. No approval,
+  final-review, validation, permission, idempotency or posting rule changed.
+- Recurring fields now have associated labels. Read-only line tables provide a
+  named, keyboard-focusable scroll region at narrow widths; the narrowly scoped
+  lint exception documents this WCAG keyboard-scrolling requirement.
+- Passed 40 focused unit tests and all 10 expanded Chromium cases at
+  1440/768/559/390/320px in light/dark, covering manual, detail, approval, posted
+  detail, reversal and recurring forms. Final checks found no Axe violations,
+  form overflow or business writes. Initial checks exposed the legacy control
+  height, tablet action width, recurring labels and keyboard scrolling, now fixed.
+- Root and compatible production builds, typecheck, changed-file lint, browser
+  test formatting, theme write/check and diff check pass. The compatible build
+  emits 15 generated-cache CSS optimizer warnings; source font/palette exceptions
+  remain zero. Journal non-render statements in 15 functions are unchanged.
+- Six real-data preview and six live cases passed with unchanged Journal/Bank data and all
+  twelve FY July 2026-June 2027 periods still Open. Private browser/release
+  evidence is in `tmp/journal-compact/` and `tmp/journal-layout-evidence/`.
+- Active compatible frontend: `tmp/journal-compact-final-build`, ID
+  `2c4YRsVHQ5beFK1oeIEs_`, web 18488. API 25556 and its schema are unchanged.
+  The local launcher now checks an exclusive loopback socket instead of stale
+  Windows Listen rows with OwningProcess=0. No migration, permission grant,
+  journal posting, balance change or worker startup accompanied this UI release.
+- Commands: `npm.cmd run test:unit -- tests/unit/finance-journals-workspace.test.tsx tests/unit/manual-journal-actions.test.ts tests/unit/journal-posting-status.test.tsx`;
+  `playwright.cmd test tests/e2e/finance-journal-layout.spec.ts --workers=1`;
+  `npm.cmd run build:web` in root and compatible release; `npm.cmd run typecheck`;
+  changed-file ESLint; `node scripts/audit-ui-theme.mjs --write` and `--check`;
+  browser-test Prettier check; `git diff --check`. Existing Markdown formatting
+  warnings were also confirmed on HEAD; unrelated document formatting is retained.
+
+## 2026-11-17 - Journal and Bank reliability repair
+
+- Added a feature-owned posting-status notice to the existing Manual Journal,
+  detail and approval views. Submitted badges now say Awaiting approval; the
+  notice explains actual period blockers and unposted ledger/Bank effects.
+  No duplicate form, refresh button or CSS file.
+- Added a company/date read-only Journal eligibility API using existing currency/
+  period authority. Approval refreshes eligibility; posting retains its atomic
+  checks. Validation, final review, permissions, self-approval, idempotency, draft
+  save and recovery of existing submitted records are preserved.
+- SQL date projections preserve Journal/recurring dates, posting commands,
+  recurring generation and Bank last movement. The template insert supplies its
+  required creation timestamp. No historical data rewrite or worker startup.
+- Passed 65 focused unit tests; 7 OpenAPI contract tests; the expanded 2-test
+  Journal suite under UTC and Asia/Karachi; and all 10 Chromium cases across
+  light/dark at 1440/768/559/390/320px with zero Axe violations. The first browser
+  pass found low contrast from destructive description opacity; the new notice
+  now uses semantic foreground text and passed the confirmation.
+- Both production builds, typecheck, changed-file lint, helper/new-test formatting,
+  contract generation/check, theme write/check and diff check pass. The compatible
+  build reports 14 generated-cache CSS optimization warnings. No new source font/
+  palette exception. Evidence: `tmp/journal-bank-reliability/` and
+  `tmp/journal-layout-evidence/`.
+- Real-API acceptance passed 12 preview and 12 live company/theme/width cases:
+  unchanged Journal versions/amounts/states, corrected displayed dates, fresh Bank
+  reads on return, fiscal defaults, no overflow/page errors and no business writes.
+  July-June and November Soft Closed remain unchanged.
+- Active compatible build: `tmp/journal-bank-reliability-build`, ID
+  `PSy2nsWoHy5j9KLDht-ZH`; API 25556, web 29416. No migrations. Purchase/AP, stock
+  and Sales integration work remains in `2026-11-17-integration-audit.md`; the
+  broader Purchase/Asset rollout remains pending.
+
+## 2026-11-17 - Journal approval feedback and July–June defaults
+
+- Repaired the apparent inactive Approve & Close action. It remains clickable
+  outside pending requests and validates line descriptions, dimensions, balance,
+  explicit final review and override reasons together. Errors are visible and
+  focused in the drawer. No confirmation is implied by clicking the button; the
+  existing mutation helper, permissions and posting rules remain unchanged.
+- Removed the hardcoded January proposal from Finance fiscal setup. Stored company
+  calendars determine the next year, and initial setup supplies the first-year
+  month. With neither source, the proposal remains empty. The calendar covering
+  today is selected by default; explicit selections and typed proposals remain.
+- Live inspection confirmed the current company year already spans 1 July 2026
+  through 30 June 2027. November is Soft Closed independently of that year range.
+  No dates or period statuses were changed; reopening November awaits the owner's
+  explicit choice. Organisation setup remains the existing browser prototype
+  preference for first-year proposals; persisted calendars remain API authority.
+- Passed 55 focused tests using `npm.cmd run test:unit -- tests/unit/finance-fiscal-defaults.test.ts tests/unit/finance-fiscal-periods.test.tsx tests/unit/fiscal-calendars.test.ts tests/unit/manual-journal-actions.test.ts tests/unit/finance-journals-workspace.test.tsx`.
+  All 10 `playwright.cmd test tests/e2e/finance-journal-layout.spec.ts --workers=1`
+  cases passed, including clickable approval, focused errors, dimensions and Axe
+  at five light/dark widths. Both production builds, typecheck, changed-file lint,
+  helper/new-test/browser-test formatting, theme write/check and diff check pass.
+  The compatible build retains its 13 generated-cache CSS optimizer warnings.
+- Active compatible frontend: `tmp/journal-repair-build`, ID
+  `yzUiqCrb20qKW2veAAgcw`. Private evidence: `tmp/journal-repair/`.
+  Read-only preview and live acceptance each passed 12 company/theme/width cases
+  plus real fiscal-year default checks, with zero Axe violations, overflow, page
+  errors or business writes. Routine guarded startup remains healthy.
+  No API/schema/credential changes, synthetic business records or live postings.
+  Preserve the Purchase currency repair and the pending Purchase/Assets boundary.
+
+## 2026-11-17 - Compact Manual Journal and governed actions
+
+- Updated the existing Finance Journal drawer/shared editor. Removed the Required
+  Dimensions column and empty placeholders; required inputs remain beneath the
+  nominal selector. Five desktop columns and responsive line cards retain exact
+  amounts, dimension/account-change validation and Add/Remove behavior. Local
+  header margin resets, smaller gaps/padding and totals reduce empty space.
+- The manual footer contains only Save Draft and Approve & Close when permitted.
+  Retained close/Escape and unsaved guards; active requests block drawer closure.
+  Draft deletion moved to a detail disclosure with its existing capability,
+  reason and confirmation. `manualJournalActionVisibility` and the workspace's
+  optional `actionVisibility` prop control presentation without granting authority.
+- The Finance-owned action helper saves current edits, submits the returned
+  version and uses server capabilities for approval. Final confirmation and
+  administrator reasons remain required; other preparers receive Awaiting approval.
+  IDs, versions and idempotency keys survive partial failures within the editor;
+  uncertain requests lock editing for retry. Newer unreviewed revisions cannot be
+  posted. Failed actions remain visible in the drawer, with entered lines retained.
+- Passed 42 focused tests using `npm.cmd run test:unit -- tests/unit/manual-journal-actions.test.ts tests/unit/finance-journal-form.test.ts tests/unit/finance-journals-contracts.test.ts tests/unit/finance-journals-workspace.test.tsx`.
+  The existing two finance staging-hardening integration tests also passed using
+  the isolated `tsx tmp/manual-journal/verify-finance.ts` harness. Its fresh database
+  needed EUR adoption from the reference catalogue; no business database was used.
+- Passed all 10 cases in `playwright.cmd test tests/e2e/finance-journal-layout.spec.ts --workers=1`
+  with an existing preview server. Updated stale session/company-directory fixtures;
+  the missing directory initially opened a topbar error that blocked tablet clicks.
+  Final coverage includes dimensions, line editing, validation, close guard and Axe
+  at 1440/768/559/390/320px in light/dark. Real-data preview checks passed 12
+  company/theme/width cases without business writes or page errors.
+- Both `npm.cmd run build:web` production builds passed with isolated outputs.
+  The compatible build retains 13 generated-cache CSS optimizer warnings; the root
+  build had none. `npm.cmd run typecheck`, touched-file ESLint, helper/new-test/E2E
+  formatting, theme audit write/check and `git diff --check` passed. No CSS retired,
+  API/contract/schema/credential changes, new dependencies or live postings.
+- Active compatible web build: `tmp/manual-journal-compact-build`, ID
+  `7nVCXi48nkj28-5O0D4op`. The API retains the Purchase currency context repair;
+  the Bank/Inventory layouts and pending Purchase/Assets rollout boundary remain.
+  Private browser/release evidence: `tmp/manual-journal/`; browser regression
+  screenshots: `tmp/journal-layout-evidence/`. Use the guarded startup runbook.
+  Live acceptance also passed all 12 cases with unchanged login, zero Axe
+  violations/outer overflow and zero business writes/page errors. The existing
+  API process and guarded routine-start health checks remain healthy.
+
+## 2026-11-17 - Purchase currency fetching
+
+- Repaired the existing shared Procurement options source: transactions now supply
+  authenticated user context alongside tenant context. Company-currency RLS had
+  correctly returned no rows when the user setting was missing. No form, currency
+  list, permission, API contract or accounting calculation was duplicated/changed.
+- Reproduced the empty list with a failing restricted-role integration test, then
+  passed all 31 tests in `npm.cmd run test:integration -- tests/integration/procurement-workflow.test.ts`.
+  The regression covers company/user/tenant denial and settings cleared after
+  commit/rollback on a reused connection. An initial full run timed out in fixture
+  setup; the isolated retry passed. All fixture mutations use disposable databases.
+- `npm.cmd run test:unit -- <eight tests/unit/purchase-*.test.ts[x] files>` passed
+  85 of 86 tests. The existing workflow-navigation expectation omits Purchase
+  Returns and fails independently of this backend-only change; it remains unchanged.
+  Root and compatible `npm.cmd run build --workspace @nexora/api`,
+  `npm.cmd run typecheck`, changed-file ESLint, integration-test Prettier check and
+  `git diff --check` passed. No frontend source changed or web rebuild was needed.
+- Live read-only acceptance covered both companies, five document forms, both
+  payment forms and supplier currency options. Purchase currencies now match the
+  existing Inventory options: USD/AED/PKR and USD/PKR respectively. Base-first
+  defaults and bank-derived payment currency remain; login succeeds unchanged.
+  No business writes or page errors occurred. Evidence: `tmp/purchase-currency/`.
+- Applied only this context repair to the compatible API source and compiled it.
+  The guarded API restart retained the compact Bank/Inventory web build, database
+  schema and credentials; readiness and routine-start health checks passed.
+  Keep the separate Purchase/Assets extension rollout pending as before.
+
+## 2026-11-17 - Compact Bank menus and linked pages
+
+- Applied the approved Inventory density to all seven Bank menus and existing
+  linked entry/detail pages. A feature-owned layout, enabled only on Bank routes,
+  resets legacy margins, uses 18px headings, reduces panel/form gaps to 12px,
+  and gives directory controls 36px heights and rows 6px vertical padding.
+  Balance summaries are smaller; editable transaction controls retain their sizes.
+- Preserved handlers, API contracts, permissions, lifecycle states, calculations,
+  global company selection and existing login. AST comparison of the 19 modified
+  existing source files confirms presentation-only differences. No business records
+  were written, migrations applied or CSS files retired. Revaluation headers now
+  use matching semantic colours; wide Bank tables use existing keyboard scrolling.
+- Passed 96 unit tests across 16 files and all 30 Bank Chromium tests. Browser
+  fixtures now include the current active-company contract and Transfer date field.
+  Real-data preview checks covered both companies' seven menus and 26 linked
+  pages. The final 42 light/dark desktop/tablet/mobile cases have no outer overflow:
+  41 passed Axe immediately, and the remaining Reconciliation tablet case passed
+  after its finite button transition settled. Original findings remain in evidence.
+- Root and compatible production builds, typecheck, touched-file ESLint,
+  helper/header/test formatting, theme audit write/check and diff check pass.
+  Compatible build emitted 13 generated-cache CSS optimization warnings; the root
+  build had none. Whole-Bank lint also found 10 pre-existing label warnings in the
+  unchanged batch-entry, reconciliation-worksheet and historical statement files.
+- Active compatible frontend: `tmp/bank-compact-final-build`, ID
+  `JXLcwu_wh60i_uKqRhsdf`, inside `tmp/units-of-measure/release/source`.
+  The existing API and schema remain. Local evidence: `tmp/bank-compact/`, including
+  presentation proof, browser reports and the settled accessibility confirmation.
+  Live acceptance passed unchanged sign-in, all seven menus, payment/receipt/
+  transfer entry navigation and isolation from Inventory; no business writes or
+  page errors occurred. The guarded routine starter also passed its health check.
+- Reproduction commands: `npm.cmd run test:unit -- <tests/unit/banking-*.test.tsx>`,
+  `playwright.cmd test tests/e2e/bank-compact-forms.spec.ts tests/e2e/bank-transfer-menu.spec.ts --workers=1`
+  with `PLAYWRIGHT_USE_EXISTING_WEB=true` and `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3219`,
+  `npm.cmd run build:web` (isolated root and compatible output directories),
+  `npm.cmd run typecheck`, `eslint <changed TS/TSX files>`,
+  `prettier --check <helper/header/two browser specs>`,
+  `node scripts/audit-ui-theme.mjs --write`,
+  `node scripts/audit-ui-theme.mjs --check` and `git diff --check`.
+- Safe resume: retain these compact Bank/Inventory layouts and use the guarded
+  starter in the local runbook. The separate Purchase/Assets rollout remains pending.
+
+## 2026-11-17 - Compact UOM, Warehouse and Stock Transfer
+
+- Extended the approved Products density to the existing Inventory operations and
+  UOM views. Headers wrap titles/descriptions/actions together, filters use 36px
+  controls, and browser heading/paragraph margins are reset locally. Table cells
+  use 6px vertical padding; UOM names and codes share a wrapping line.
+- Tightened the converter and existing UOM/Warehouse/Transfer form headers and
+  field gaps. Kept every field, handler, error/loading/empty state, permission,
+  server query, pagination action, exact conversion and draft-only safeguard.
+  Row actions retain visible focus and a minimum 24px target. No CSS retired.
+- Passed 26 unit tests, all 13 Inventory Chromium tests, repository typecheck,
+  touched-file ESLint, view/test formatting, theme audit write/check and diff check.
+  Browser regressions now check operation header/action alignment, table padding,
+  compact UOM row height, and Axe in both operation directories at all six
+  light/dark width combinations. Both production web builds pass; the compatible
+  build retains its existing 11 generated-cache CSS optimization warnings.
+- Compatible build: `tmp/inventory-compact-build`, ID
+  `ubDuowtqa_Hc7dfYfoMUU`, in `tmp/units-of-measure/release/source`. Frontend
+  only; the existing API process, schema, credentials and business records remain.
+  Previous build/artifacts are retained. Live evidence: `tmp/inventory-compact/`;
+  isolated browser evidence remains in `tmp/inventory-operations-evidence/`.
+- Live acceptance: unchanged real login, all three creation forms in both companies,
+  kg/gram conversion and 18 page/theme/width cases (1440/768/390px) pass with zero
+  Axe violations or outer overflow. No synthetic business records were saved.
+- Safe resume: retain the compact Inventory layouts and use the current guarded
+  compatible starter from the local runbook. Purchase/Assets rollout stays separate.
+
+## 2026-11-17 - Products spacing and card size follow-up
+
+- Corrected inherited browser margins on Products headings, descriptions, result
+  counts and price details; Tailwind Preflight remains intentionally disabled.
+- Title, description and actions share a compact wrapping row. Filters use 36px
+  controls and smaller gaps. Desktop cards stay 224px wide and wrap; phone cards
+  fill the available width. The existing live product measures 224 x 118px on
+  desktop, with 40px from the filter bottom to the first card.
+- Preserved real product data, Add New/detail navigation, filters, grid/list modes,
+  pagination, permissions, currency setup and global company behavior. No API,
+  schema, credentials, financial calculations or stylesheets changed.
+- Verification: four Products unit tests and all 13 Inventory Chromium tests pass.
+  Existing responsive regressions now enforce smaller card dimensions, compact
+  result spacing and desktop title/action alignment. Theme tests initialize the
+  saved preference before rendering. Six live light/dark width checks pass Axe
+  and document-overflow checks; Add New works in both companies, unchanged login
+  succeeds and Unit of Measure conversion remains available.
+- Typecheck, touched-file ESLint/Prettier, theme audit write/check and diff check
+  pass. Tracked and compatible production web builds pass; the latter retains
+  its existing 11 generated-cache CSS optimization warnings.
+- Browser evidence: `tmp/products-compact/` and the existing Inventory E2E
+  evidence folders. Localhost now serves build `xjdFtz8TEJaJvK1GNm_8w` from
+  `tmp/products-compact-build` inside the current compatible source. The API
+  process is unchanged. Guarded startup reads this build from the runtime
+  manifest; the previous build remains available.
+- Safe resume: keep this compact layout and use the current compatible starter
+  in the local runbook. Any future Purchase/Assets rollout remains separate.
+
+## 2026-11-17 — Inventory Unit of Measure
+
+- Added the Unit of Measure submenu, compact searchable directory, one Add New Unit
+  action, shared master form and live converter. Reused Product/Purchase/Transfer
+  forms for managed unit selection, product contents and entered/base equivalents.
+- Preserved the single global company context, unsaved guards, real API data,
+  server permissions, immutable history and existing financial/posting boundaries.
+  Definitions are retained; custom unit codes are allocated transactionally.
+- Final verification: 57 unit, 61 integration (including 15 migration regressions),
+  7 contract and 13 Chromium tests; typecheck, touched-file lint, new-file formatting,
+  generated client/catalogue checks, API/web builds, theme write/check and diff check.
+  Six light/dark desktop/tablet/mobile cases have zero Axe violations/outer overflow.
+  Final themed row buttons and active submenu have explicit browser regressions.
+- Zero direct feature font/colour exceptions. A local lint exception permits keyboard
+  focus on the labelled horizontal scroll region, consistent with Purchase and
+  required by the mobile keyboard-access test. No feature CSS was added or retired.
+- Evidence: `tmp/inventory-operations-evidence/*-units.png`. Prepared compatible
+  build: `tmp/units-of-measure/release/source/tmp/uom-complete-build`; its existing
+  generated-cache scanning produces CSS optimizer warnings, recorded in the plan.
+- Activated on localhost after explicit owner approval: restore-verified backup,
+  Inventory 3 only, Procurement 5 / Assets 2 retained, and 321 existing table
+  fingerprints preserved. Both companies pass real-login/conversion/form checks;
+  six live responsive light/dark cases have zero Axe violations/outer overflow.
+  Evidence and current guarded startup helpers: `tmp/units-of-measure/`.
+- Safe resume: use the current compatible startup helper in the local runbook.
+  Preserve the existing login and do not apply unrelated pending migrations.
+
+## 2026-11-17 — Products creation, compact cards and global company context
+
+- Fixed Inventory's missing transaction-local user context, which hid valid
+  company currencies under runtime RLS and disabled Add New. Product create/edit,
+  automatic codes, currency validation, permissions, idempotency and audit remain.
+  Settings failures retain retry feedback independently of product-list loading.
+- Compacted the existing Product cards and restored grid continuation. Preserved
+  list view, search, filters, stock-state labels, master forms and no-posting rules.
+- Added one real session-company control in the persistent top bar, with loading,
+  retry/error feedback, unsaved-form cancellation and successful-switch record
+  navigation reset. Removed repeated context selectors from Inventory, Purchase
+  and Accounting hierarchy views/forms and repeated context captions in Assets,
+  Taxes and multi-currency views. Business-data company fields remain.
+- Passed **57 unit**, **14 integration** and **11 Chromium** tests, full typecheck,
+  touched-file ESLint/targeted formatting, production builds, theme audit
+  write/check, detector and whitespace checks. The restricted-role regression
+  reproduced the old failure before the fix and verifies revoked/denied access.
+- Live unchanged-account sign-in, Add New in both companies, real company switch,
+  unsaved cancellation and wrong-company HTTP 403 passed. Products list/form passed
+  six light/dark width combinations (1440/768/390px), including an expanded tablet
+  sidebar, with zero Axe violations, overflow, page errors or Inventory failures.
+  Checked seven other workpages for one top-row company control. Visually reviewed
+  desktop/tablet/mobile evidence: `tmp/products-global-company/evidence/`.
+- Localhost uses the guarded compatible source/API with automatic migrations
+  disabled. No credentials, schema, business products or financial records were
+  changed by acceptance; create/save/reload used disposable test data. Full
+  Purchase/Assets activation retains its separate migration gate. No dependency
+  or stylesheet was added/retired. The compatible build retains its earlier eight
+  CSS optimizer warnings; tracked builds have no application build warnings.
+- Exact commands, current build paths and handoff:
+  `docs/superpowers/plans/2026-11-17-products-create-and-global-company.md` and
+  `docs/runbooks/local-startup.md`.
+
+## 2026-11-17 — Purchase selector default correction
+
+- Fixed the existing Purchase Form's empty product value selecting custom entry
+  automatically. Blank lines now show one searchable selector. Custom metadata
+  opens only on explicit selection or for existing saved custom metadata;
+  selecting a directory item hides it. API payloads retain real product IDs/null.
+- Preserved shared controls, theme/typography, directory search, independent line
+  state, custom-item persistence, validation and accounting. No new component,
+  dependency, stylesheet or CSS retirement.
+- Passed 37 focused unit tests, one real-API Purchase Chromium test, typecheck,
+  touched-file ESLint/Prettier, theme audit write/check, whitespace checks and
+  production builds for tracked and compatible frontend sources.
+- Localhost serves the corrected compatible frontend. Unchanged-account sign-in,
+  real catalogue search/selection, explicit custom entry and independent new
+  lines passed. Six light/dark views at 1440/768/390px had zero Axe violations,
+  page errors, failed purchase requests or page overflow. Desktop/mobile evidence
+  was visually reviewed: `tmp/product-selector/evidence/`.
+- Latest tracked build: `tmp/product-selector-root-build`. Full totals and asset
+  activation retains the database rollout gate below. The frontend correction
+  did not restart the API or save business documents. Compatible-copy CSS scanning
+  emitted eight optimizer warnings; browser checks found no affected styles.
+  The tracked build had no application build warnings. Exact commands are in the
+  existing Purchase plan.
+
+## 2026-11-17 — Purchase product selection and amount summary
+
+- Reused the existing real-directory product/service dropdown with its embedded
+  code/name search, keyboard selection, custom items, error/retry and pagination.
+  No duplicate product search control, form, stylesheet or dependency was added.
+- Updated the existing Purchase Form with line discounts, an expandable overall
+  discount/freight/expense section and a distinct live Total Purchase Amount
+  summary. Incomplete amounts do not reuse a stale saved total. Existing approval,
+  source identity, Purchase Return and individual asset detail actions remain.
+- Shared exact-decimal calculations now cover persisted adjustments, discounted
+  tax snapshots, partial source allocation, installment schedules, AP matching,
+  charge expense debits, individual asset costs and CSV output. Procurement 0006
+  is additive; old records, versions and audit evidence survive the tested upgrade.
+- Passed **66 focused unit**, **91 integration**, **7 contract** and **11 Chromium**
+  tests, full typecheck, production build, touched-file ESLint, API/catalogue checks,
+  theme audit write/check and whitespace review. Purchase acceptance included six
+  light/dark combinations at 1440/768/390px with zero Axe violations or page
+  overflow. Desktop and mobile screenshots were visually reviewed.
+- Exact commands and results: `docs/superpowers/plans/2026-11-17-purchase-search-and-totals.md`.
+  Private browser evidence: `tmp/purchase-totals/evidence/`. No CSS was retired;
+  shared semantic colours and typography remain in use.
+- The tested release is `tmp/purchase-totals-final-build`. Localhost still uses
+  the prior compatible release. Automatic review requires explicit authorization
+  for protected rollout-helper updates, a private database backup/restore check,
+  procurement 0006 and the earlier approved asset migrations before activation.
+  Login details and business data were not changed by this implementation.
+
+## 2026-11-16 — Fixed Assets workpage consolidation
+
+- Classes and Policies is first and Asset Register second. Their single primary
+  actions are **Add New Asset Class and Policy** and **Add New Asset**.
+  Transfer and Assignment is a history workpage with an **Asset Transfer** action,
+  current location/project context and a cancelable destination form.
+- Removed separate asset creation/details/acquisition/approval sidebar entries
+  using hidden internal routes. Register records retain status-driven independent
+  submission, approval and activation. Existing deep links and source references
+  remain usable; no editable status field bypasses lifecycle rules.
+- Asset vendor returns/refunds now open under Purchase. Approved Bills provide a
+  **Purchase Return** entry with a source-bill check; the Purchase Returns workpage
+  also handles direct bank-acquired assets. Old asset return/refund links redirect
+  to Purchase; asset histories and existing credit/refund services remain intact.
+- Preserved shared Tailwind/shadcn controls, semantic typography/colours,
+  permissions, source allocations and posting controls. The compatible local
+  frontend includes existing opt-in table keyboard support after live tablet
+  acceptance found its older scroll region could not receive focus.
+- Passed **38 unit**, **25 integration**, **10 Chromium** tests, typecheck,
+  production builds, touched-file ESLint, catalogue generation/check, theme audit
+  write/check and diff checks. Live verification passed **18** responsive
+  light/dark views with zero Axe violations and no page overflow, plus menu,
+  create/cancel, transfer and Purchase return navigation checks in both companies.
+- Evidence and exact commands:
+  `docs/superpowers/plans/2026-11-16-fixed-assets-workpage-consolidation.md` and
+  ignored `tmp/asset-workpages-release/evidence/`. Static audit: zero direct
+  font/colour exceptions across 129 feature views (not a menu-screen percentage).
+- Local workpages are updated. The integrated database extension below retains
+  its separate rollout gate. General stock/non-asset Purchase Returns are outside
+  this asset-return relocation.
+
 ## 2026-11-16 — Fixed Assets header actions
 
 - Removed the redundant **Asset register** shortcut and **Refresh** button from

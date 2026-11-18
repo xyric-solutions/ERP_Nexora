@@ -3,7 +3,8 @@ import { inActiveCompany } from "@/lib/session/active-company";
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { InventoryCompanies, InventoryOptions, Product } from "@nexora/contracts";
+import { cn } from "cn";
+import type { InventoryOptions, Product } from "@nexora/contracts";
 import { LayoutGrid, List, Plus, Search, Package } from "lucide-react";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -26,9 +27,9 @@ export function ProductsWorkspace({
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { api, session, loading: sessionLoading } = useSession();
-  const [companies, setCompanies] = useState<InventoryCompanies["items"]>([]),
-    [company, setCompany] = useState(""),
+  const [company, setCompany] = useState(""),
     [options, setOptions] = useState<InventoryOptions | null>(null),
+    [optionsError, setOptionsError] = useState(""),
     [optionsCompany, setOptionsCompany] = useState(""),
     [companiesLoaded, setCompaniesLoaded] = useState(false);
   const [records, setRecords] = useState<Product[]>([]),
@@ -64,17 +65,8 @@ export function ProductsWorkspace({
       .then(inActiveCompany)
       .then((r) => {
         if (active) {
-          setCompanies(r.items);
           setCompaniesLoaded(true);
-          setCompany((current) =>
-            r.items.some((c) => c.id === current)
-              ? current
-              : (r.items.find(
-                  (c) => c.id === window.localStorage.getItem(`nexora-inventory-company:${session?.tenant_id}`),
-                )?.id ??
-                r.items[0]?.id ??
-                ""),
-          );
+          setCompany(r.items[0]?.id ?? "");
         }
       })
       .catch((e) => {
@@ -93,10 +85,11 @@ export function ProductsWorkspace({
         if (active) {
           setOptions(r);
           setOptionsCompany(company);
+          setOptionsError("");
         }
       })
       .catch((e) => {
-        if (active) setError(productError(e));
+        if (active) setOptionsError(productError(e));
       });
     return () => {
       active = false;
@@ -158,14 +151,6 @@ export function ProductsWorkspace({
   function open(id?: string) {
     onNavigate("inventory", "add-product", id);
   }
-  function changeCompany(value: string) {
-    if (dirty) return;
-    setCompany(value);
-    setOptions(null);
-    setOptionsCompany("");
-    setError("");
-    window.localStorage.setItem(`nexora-inventory-company:${session?.tenant_id}`, value);
-  }
   const shown = loadedScope === scope ? records : [],
     loading = busy || loadedScope !== scope;
   if (sessionLoading) return <p role="status">Loading Products permissions…</p>;
@@ -176,12 +161,12 @@ export function ProductsWorkspace({
       </Alert>
     );
   return (
-    <div className="min-w-0 space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="min-w-0 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         {!editing ? (
-          <div>
-            <h1 className="text-xl font-semibold">Products</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Manage goods, services, prices and stock settings.</p>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="m-0 text-lg font-semibold">Products</h1>
+            <p className="m-0 text-sm text-muted-foreground">Manage goods, services, prices and stock settings.</p>
           </div>
         ) : (
           <Button
@@ -198,33 +183,22 @@ export function ProductsWorkspace({
             Products
           </Button>
         )}
-        <div className="flex min-w-0 flex-wrap items-end gap-2">
-          <LabeledField label="Company" className="w-full sm:w-72">
-            <select
-              className={productSelectClass}
-              value={company}
-              disabled={editing || dirty}
-              onChange={(e) => changeCompany(e.target.value)}
-            >
-              {companies.length ? (
-                companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.code} · {c.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">No company available</option>
-              )}
-            </select>
-          </LabeledField>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {!editing ? (
             <>
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setRefresh((n) => n + 1)}>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                disabled={busy}
+                onClick={() => setRefresh((n) => n + 1)}
+              >
                 Refresh
               </Button>
               {canCreate ? (
                 <Button
                   type="button"
+                  className="h-9"
                   disabled={!company || optionsCompany !== company || !options?.currencies.length}
                   onClick={() => open()}
                 >
@@ -236,10 +210,10 @@ export function ProductsWorkspace({
           ) : null}
         </div>
       </div>
-      {error ? (
+      {error || optionsError ? (
         <Alert variant="destructive">
           <AlertDescription>
-            {error}
+            {error || optionsError}
             <Button
               type="button"
               variant="link"
@@ -250,6 +224,24 @@ export function ProductsWorkspace({
             >
               Retry
             </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      {company && optionsCompany === company && !options?.currencies.length ? (
+        <Alert>
+          <AlertDescription>
+            No active two-decimal company currency is available. Set up an active currency before adding products.
+            {[
+              "finance.company_currency_profile.read",
+              "finance.company_currency.read",
+              "finance.company_currency_rate.read",
+            ].every((permission) => session?.user.permissions.includes(permission)) ? (
+              <Button type="button" variant="link" onClick={() => onNavigate("finance", "currencies-fx")}>
+                Open currency setup
+              </Button>
+            ) : (
+              " Ask your administrator to review company currency setup."
+            )}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -282,16 +274,16 @@ export function ProductsWorkspace({
         <>
           <section
             aria-label="Product filters"
-            className="grid min-w-0 gap-3 rounded-xl border border-border bg-card p-3 sm:grid-cols-2 xl:grid-cols-[minmax(15rem,2fr)_1fr_1fr_1fr_auto]"
+            className="grid min-w-0 gap-2 rounded-xl border border-border bg-card p-2.5 sm:grid-cols-2 xl:grid-cols-[minmax(12rem,2fr)_1fr_1fr_1fr_auto]"
           >
             <LabeledField label="Search products">
               <div className="relative">
                 <Search
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-3 top-3 size-4 text-muted-foreground"
+                  className="pointer-events-none absolute left-3 top-2.5 size-4 text-muted-foreground"
                 />
                 <Input
-                  className="pl-9"
+                  className="h-9 pl-9"
                   aria-label="Search products"
                   maxLength={160}
                   value={search}
@@ -301,14 +293,18 @@ export function ProductsWorkspace({
               </div>
             </LabeledField>
             <LabeledField label="Product type">
-              <select className={productSelectClass} value={type} onChange={(e) => setType(e.target.value)}>
+              <select className={cn(productSelectClass, "h-9")} value={type} onChange={(e) => setType(e.target.value)}>
                 <option value="">All types</option>
                 <option value="goods">Goods</option>
                 <option value="service">Services</option>
               </select>
             </LabeledField>
             <LabeledField label="Status">
-              <select className={productSelectClass} value={status} onChange={(e) => setStatus(e.target.value)}>
+              <select
+                className={cn(productSelectClass, "h-9")}
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
                 <option value="">All statuses</option>
                 <option value="active">Active</option>
                 <option value="inactive">Inactive</option>
@@ -316,6 +312,7 @@ export function ProductsWorkspace({
             </LabeledField>
             <LabeledField label="Category">
               <Input
+                className="h-9"
                 maxLength={120}
                 placeholder="Exact category"
                 value={category}
@@ -325,6 +322,7 @@ export function ProductsWorkspace({
             <div role="group" aria-label="Product view" className="flex items-end gap-1">
               <Button
                 type="button"
+                size="icon-lg"
                 variant={view === "grid" ? "secondary" : "outline"}
                 aria-pressed={view === "grid"}
                 aria-label="Grid view"
@@ -334,6 +332,7 @@ export function ProductsWorkspace({
               </Button>
               <Button
                 type="button"
+                size="icon-lg"
                 variant={view === "list" ? "secondary" : "outline"}
                 aria-pressed={view === "list"}
                 aria-label="List view"
@@ -343,13 +342,13 @@ export function ProductsWorkspace({
               </Button>
             </div>
           </section>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-            <p role="status">
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <p role="status" className="m-0">
               {loading
                 ? "Loading products…"
                 : `${shown.length} product${shown.length === 1 ? "" : "s"}${cursor ? " loaded" : ""}`}
             </p>
-            <p>On-hand quantities require posted stock.</p>
+            <p className="m-0">On-hand quantities require posted stock.</p>
           </div>
           {!loading && !shown.length ? (
             <div className="space-y-3 rounded-xl border border-dashed border-border px-5 py-12 text-center">
@@ -375,28 +374,28 @@ export function ProductsWorkspace({
               ) : null}
             </div>
           ) : view === "grid" ? (
-            <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="flex min-w-0 flex-wrap items-start gap-2">
               {shown.map((product) => (
                 <button
                   key={product.id}
                   type="button"
                   onClick={() => open(product.id)}
-                  className="min-w-0 space-y-4 rounded-xl border border-border bg-card p-4 text-left text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+                  className="w-full min-w-0 space-y-2 rounded-xl border border-border bg-card p-2.5 text-left text-foreground transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring sm:w-56"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h2 className="break-words text-base font-semibold">{product.name}</h2>
-                      <p className="mt-1 text-xs text-muted-foreground">
+                      <h2 className="m-0 break-words text-sm font-semibold leading-5">{product.name}</h2>
+                      <p className="m-0 mt-0.5 break-words text-xs text-muted-foreground">
                         {product.code}
                         {product.reference ? ` · ${product.reference}` : ""}
                       </p>
                     </div>
                     <Badge variant="outline">{product.type === "goods" ? "Goods" : "Service"}</Badge>
                   </div>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <dl className="m-0 grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <dt className="text-xs text-muted-foreground">Sale price / {product.unit}</dt>
-                      <dd className="mt-1 font-medium tabular-nums">
+                      <dd className="m-0 mt-0.5 font-medium tabular-nums">
                         {product.currency}{" "}
                         {Number(product.sale_price).toLocaleString(undefined, {
                           minimumFractionDigits: 2,
@@ -406,7 +405,7 @@ export function ProductsWorkspace({
                     </div>
                     <div>
                       <dt className="text-xs text-muted-foreground">On hand</dt>
-                      <dd className="mt-1">{product.track_inventory ? "Not posted" : "Not tracked"}</dd>
+                      <dd className="m-0 mt-0.5">{product.track_inventory ? "Not posted" : "Not tracked"}</dd>
                     </div>
                   </dl>
                   <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
@@ -418,7 +417,16 @@ export function ProductsWorkspace({
             </div>
           ) : (
             <div className="max-w-full overflow-x-auto rounded-xl border border-border bg-card">
-              <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor && loadedScope === scope),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/inventory/views/products-workspace:1" className="w-full min-w-[720px] text-left text-sm">
+              <WorkTable
+                continuation={{
+                  cursor: cursor,
+                  hasMore: !!(cursor && loadedScope === scope),
+                  busy: !!busy,
+                  loadMore: () => void more(),
+                }}
+                tableId="app/features/inventory/views/products-workspace:1"
+                className="w-full min-w-[720px] text-left text-sm"
+              >
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
                     {["Product", "Code", "Type", "Category", "Sale price", "On hand", "Status"].map((label) => (
@@ -454,7 +462,11 @@ export function ProductsWorkspace({
               </WorkTable>
             </div>
           )}
-
+          {view === "grid" && cursor && loadedScope === scope ? (
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void more()}>
+              Load more products
+            </Button>
+          ) : null}
         </>
       )}
     </div>

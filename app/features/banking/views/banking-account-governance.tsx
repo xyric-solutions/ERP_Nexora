@@ -472,7 +472,7 @@ export function BankAccountApprovals() {
             Independent checker queue. Only PostgreSQL-backed pending records are shown.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="flex justify-end gap-3">
             <Button variant="outline" disabled={loading} type="button" onClick={() => void refresh()}>
               Refresh
@@ -500,7 +500,7 @@ export function BankAccountApprovals() {
             <GovernanceState title="Queue clear" detail="No bank account is awaiting approval for this company." />
           ) : (
             <div className="overflow-x-auto">
-              <WorkTable tableId="app/features/banking/views/banking-account-governance:1" className="w-full text-left text-sm">
+              <WorkTable keyboardScroll tableId="app/features/banking/views/banking-account-governance:1" className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="p-3">Reference</th>
@@ -546,7 +546,7 @@ export function BankAccountApprovals() {
             {selected ? `${selected.reference} · version ${selected.version}` : "Select a pending account."}
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           {selected ? (
             <>
               <dl className="grid grid-cols-[130px_1fr] gap-x-3 gap-y-2 text-sm">
@@ -679,7 +679,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
     return <GovernanceState title="Select a bank account" detail="Open a persisted record from Account Balances." />;
   return (
     <Card>
-      <CardHeader className="flex-row items-start justify-between gap-4">
+      <CardHeader className="flex-row items-start justify-between gap-3">
         <div>
           <CardTitle>{account?.account_name ?? (loading ? "Loading bank account…" : "Bank account")}</CardTitle>
           <CardDescription>
@@ -690,7 +690,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
           Back to balances
         </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         {error ? (
           <Alert variant="destructive">
             <AlertTitle>Request failed</AlertTitle>
@@ -699,7 +699,7 @@ export function BankAccountDetailWorkspace({ accountId, onBack }: { accountId: s
         ) : null}
         {account ? (
           <>
-            <dl className="grid gap-3 rounded-lg border border-border bg-muted/20 p-4 sm:grid-cols-2 xl:grid-cols-4">
+            <dl className="grid gap-3 rounded-lg border border-border bg-muted/20 p-3 sm:grid-cols-2 xl:grid-cols-4">
               {[
                 ["Bank", `${account.bank_name}${account.branch ? ` · ${account.branch}` : ""}`],
                 ["Account number", account.account_number_masked],

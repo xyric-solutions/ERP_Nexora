@@ -212,15 +212,15 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
   const lastRow = records.length ? firstRow + records.length - 1 : 0;
 
   return (
-    <section aria-labelledby="statement-import-register-heading" className="space-y-4">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <div>
+    <section aria-labelledby="statement-import-register-heading" className="space-y-3">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
           <h1 id="statement-import-register-heading" className="text-2xl font-semibold tracking-tight">
             Import Statement
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">Review imported Bank Statements or start a new upload.</p>
         </div>
-        <Button type="button" disabled={!canCreate} className="min-w-36 rounded-full" onClick={onAddNew}>
+        <Button type="button" disabled={!canCreate} className="h-9 rounded-full" onClick={onAddNew}>
           <Plus aria-hidden="true" className="size-4" />
           Add New
         </Button>
@@ -290,23 +290,23 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
 
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <WorkTable paging={false} tableId="app/features/banking/views/banking-statement-import-register:1" className="w-full min-w-[980px] border-collapse text-sm">
+          <WorkTable keyboardScroll paging={false} tableId="app/features/banking/views/banking-statement-import-register:1" className="w-full min-w-[980px] border-collapse text-sm">
             <thead className="bg-primary text-primary-foreground">
               <tr>
-                <th className="w-12 px-3 py-3 text-center">
+                <th className="w-12 px-3 py-1.5 text-center">
                   <Checkbox
                     aria-label="Select all statement imports"
                     checked={records.length > 0 && selected.size === records.length}
                     onCheckedChange={(checked) => toggleAll(checked === true)}
                   />
                 </th>
-                <th className="px-3 py-3 text-left font-medium">ID</th>
-                <th className="px-3 py-3 text-left font-medium">Bank</th>
-                <th className="px-3 py-3 text-left font-medium">From Date</th>
-                <th className="px-3 py-3 text-left font-medium">To Date</th>
-                <th className="px-3 py-3 text-left font-medium">Ref. No.</th>
-                <th className="px-3 py-3 text-left font-medium">Status</th>
-                <th className="px-3 py-3 text-center font-medium">Action</th>
+                <th className="px-3 py-1.5 text-left font-medium">ID</th>
+                <th className="px-3 py-1.5 text-left font-medium">Bank</th>
+                <th className="px-3 py-1.5 text-left font-medium">From Date</th>
+                <th className="px-3 py-1.5 text-left font-medium">To Date</th>
+                <th className="px-3 py-1.5 text-left font-medium">Ref. No.</th>
+                <th className="px-3 py-1.5 text-left font-medium">Status</th>
+                <th className="px-3 py-1.5 text-center font-medium">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -326,24 +326,24 @@ export function BankingStatementImportRegister({ onAddNew, onOpen }: BankingStat
               ) : null}
               {records.map((record) => (
                 <tr key={record.id} className="border-t border-border hover:bg-muted/40">
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-1.5 text-center">
                     <Checkbox
                       aria-label={`Select statement ${record.statement_reference}`}
                       checked={selected.has(record.id)}
                       onCheckedChange={(checked) => toggleRecord(record.id, checked === true)}
                     />
                   </td>
-                  <td className="px-3 py-3 font-medium text-primary">{record.id}</td>
-                  <td className="px-3 py-3">{record.bank_account_name}</td>
-                  <td className="px-3 py-3 tabular-nums">{formatDate(record.statement_date_from)}</td>
-                  <td className="px-3 py-3 tabular-nums">{formatDate(record.statement_date_to)}</td>
-                  <td className="px-3 py-3">{record.statement_reference}</td>
-                  <td className="px-3 py-3">
+                  <td className="px-3 py-1.5 font-medium text-primary">{record.id}</td>
+                  <td className="px-3 py-1.5">{record.bank_account_name}</td>
+                  <td className="px-3 py-1.5 tabular-nums">{formatDate(record.statement_date_from)}</td>
+                  <td className="px-3 py-1.5 tabular-nums">{formatDate(record.statement_date_to)}</td>
+                  <td className="px-3 py-1.5">{record.statement_reference}</td>
+                  <td className="px-3 py-1.5">
                     <Badge variant={record.state === "rejected" ? "destructive" : "outline"}>
                       {stateLabel(record.state)}
                     </Badge>
                   </td>
-                  <td className="px-3 py-3 text-center">
+                  <td className="px-3 py-1.5 text-center">
                     <Button
                       type="button"
                       size="sm"

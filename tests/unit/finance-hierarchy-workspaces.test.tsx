@@ -3,6 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setActiveCompanyId } from "../../app/lib/session/active-company.js";
 import {
   FinanceCategories,
   FinanceHierarchyForm,
@@ -92,6 +93,7 @@ function change(id: string, value: string) {
 }
 
 beforeEach(() => {
+  setActiveCompanyId(null);
   vi.resetAllMocks();
   harness.canApprove = true;
   harness.api.listFinanceNominalOptions.mockResolvedValue({
@@ -142,6 +144,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  setActiveCompanyId(null);
   act(() => root.unmount());
   container.remove();
   vi.restoreAllMocks();
@@ -249,11 +252,19 @@ describe("Chart of Accounts hierarchy workspaces", () => {
     );
     await settle();
     act(() => container.querySelector<HTMLButtonElement>("[data-finance-master-trigger]")!.click());
-    const company = container.querySelector<HTMLSelectElement>('[aria-label="Hierarchy company"]')!;
-    act(() => {
-      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(company, "company-2");
-      company.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    expect(container.querySelector('[aria-label="Hierarchy company"]')).toBeNull();
+    setActiveCompanyId("company-2");
+    await act(async () =>
+      root.render(
+        <FinanceSections
+          key="company-2"
+          onCreate={vi.fn()}
+          onEdit={vi.fn()}
+          onOpenNominal={vi.fn()}
+          onStandardChart={vi.fn()}
+        />,
+      ),
+    );
     await settle();
     act(() => container.querySelector<HTMLButtonElement>("[data-finance-master-trigger]")!.click());
     await settle();

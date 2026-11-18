@@ -557,7 +557,7 @@ export function BankingReconciliationWorkspace({
 
   if (!reconciliationId && !detail) {
     return (
-      <section className="space-y-4" aria-labelledby="new-reconciliation-heading">
+      <section className="space-y-3" aria-labelledby="new-reconciliation-heading">
         <header className="border-b border-border pb-3">
           <h1 id="new-reconciliation-heading" className="text-2xl font-semibold">
             Reconciliation Balance
@@ -578,7 +578,7 @@ export function BankingReconciliationWorkspace({
             <AlertDescription>Your session has no authorized company for bank reconciliations.</AlertDescription>
           </Alert>
         ) : null}
-        <div className="grid gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 rounded-lg border border-border bg-card p-3 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Bank Account">
             <select
               aria-label="Bank account"
@@ -688,7 +688,7 @@ export function BankingReconciliationWorkspace({
           </Field>
         </div>
         {setup ? (
-          <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-3 sm:grid-cols-2 lg:grid-cols-4">
             <Summary
               label="Opening Balance"
               value={formatAmount(setup.opening_statement_balance, setup.currency)}
@@ -762,8 +762,8 @@ export function BankingReconciliationWorkspace({
   );
 
   return (
-    <section className="space-y-4" aria-labelledby="reconciliation-heading">
-      <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-3">
+    <section className="space-y-3" aria-labelledby="reconciliation-heading">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-3">
         <div>
           <button type="button" className="text-sm text-primary hover:underline" onClick={onBack}>
             ← Reconciliations
@@ -912,7 +912,7 @@ export function BankingReconciliationWorkspace({
       </div>
 
       {detail.method === "manual_tick" ? (
-        <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <section className="space-y-3 rounded-lg border border-border bg-card p-3">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h2 className="text-sm font-semibold">Unreconciled Bank Transactions</h2>
@@ -931,7 +931,7 @@ export function BankingReconciliationWorkspace({
             </Field>
           </div>
           <div className="overflow-x-auto">
-            <WorkTable tableId="app/features/banking/views/banking-reconciliation-live:1" className="w-full min-w-[980px] border-collapse text-sm">
+            <WorkTable keyboardScroll tableId="app/features/banking/views/banking-reconciliation-live:1" className="w-full min-w-[980px] border-collapse text-sm">
               <thead className="bg-primary text-primary-foreground">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium">Rec</th>
@@ -1151,7 +1151,7 @@ export function BankingReconciliationWorkspace({
           </p>
         </div>
         {!immutable ? (
-          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 p-3 md:grid-cols-2 xl:grid-cols-5">
             <select
               aria-label="Adjustment kind"
               className="h-8 rounded-lg border border-input bg-background px-2 text-sm"
@@ -1222,7 +1222,7 @@ export function BankingReconciliationWorkspace({
           )}
         </div>
         {detail.adjustments.length ? (
-          <div className="border-t border-border p-4">
+          <div className="border-t border-border p-3">
             <Input
               aria-label="Adjustment decision reason"
               maxLength={500}
@@ -1280,7 +1280,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function Summary({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <article className="rounded-lg border border-border bg-card p-4">
+    <article className="rounded-lg border border-border bg-card p-3">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <strong className="mt-1 block text-lg font-semibold tabular-nums">{value}</strong>
       <small className="mt-1 block text-xs text-muted-foreground">{detail}</small>
@@ -1293,7 +1293,7 @@ function EvidenceTable({ title, columns, children }: { title: string; columns: s
     <section className="min-w-0 overflow-hidden rounded-lg border border-border bg-card">
       <h2 className="border-b border-border px-4 py-3 text-sm font-semibold">{title}</h2>
       <div className="overflow-x-auto">
-        <WorkTable tableId="app/features/banking/views/banking-reconciliation-live:2" className="w-full min-w-[720px] border-collapse text-sm">
+        <WorkTable keyboardScroll tableId="app/features/banking/views/banking-reconciliation-live:2" className="w-full min-w-[720px] border-collapse text-sm">
           <thead className="bg-primary text-primary-foreground">
             <tr>
               {columns.map((column) => (

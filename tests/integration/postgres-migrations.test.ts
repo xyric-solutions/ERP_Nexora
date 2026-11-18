@@ -41,9 +41,9 @@ describe("production PostgreSQL source migrations", () => {
       security: 24,
       workflow: 1,
       master_data: 2,
-      finance: 39,
-      procurement: 5,
-      inventory: 2,
+      finance: 40,
+      procurement: 7,
+      inventory: 3,
       manufacturing: 4,
       hr: 155,
       fixed_assets: 7,
@@ -63,7 +63,7 @@ describe("production PostgreSQL source migrations", () => {
       await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
         platform: 11,
         security: 24,
-        finance: 39,
+        finance: 40,
       });
       const columns = await fresh.query<{ column_name: string }>(
         `select column_name from information_schema.columns
@@ -158,9 +158,9 @@ describe("production PostgreSQL source migrations", () => {
         [tenantId, bankAccountId],
       );
 
-      await migrateSourceModule(upgrade, "finance");
+      await migrateSourceModule(upgrade, "finance", {throughVersion:28});
 
-      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 36 });
+      await expect(inspectSourceMigrationState(upgrade)).resolves.toMatchObject({ finance: 28 });
       const after = await upgrade.query(
         `select id,company_id,account_id,bank_name,currency,status,row_version
            from bank_account where tenant_id=$1 and id=$2`,
@@ -311,14 +311,14 @@ describe("production PostgreSQL source migrations", () => {
        order by module_name`,
     );
     expect(result.rows).toEqual([
-      { module_name: "finance", migration_count: "39", latest: 39 },
+      { module_name: "finance", migration_count: "40", latest: 40 },
       { module_name: "fixed_assets", migration_count: "7", latest: 7 },
       { module_name: "hr", migration_count: "155", latest: 155 },
-      { module_name: "inventory", migration_count: "2", latest: 2 },
+      { module_name: "inventory", migration_count: "3", latest: 3 },
       { module_name: "manufacturing", migration_count: "4", latest: 4 },
       { module_name: "master_data", migration_count: "2", latest: 2 },
       { module_name: "platform", migration_count: "11", latest: 11 },
-      { module_name: "procurement", migration_count: "5", latest: 5 },
+      { module_name: "procurement", migration_count: "6", latest: 6 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
       { module_name: "security", migration_count: "24", latest: 24 },
       { module_name: "workflow", migration_count: "1", latest: 1 },

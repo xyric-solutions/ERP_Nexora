@@ -41,6 +41,8 @@ import type {
   SubledgerRequest,
   SubledgerOperation,
   SubledgerAction,
+  PurchaseAccountingPrepare,
+  ConnectedReport,
 } from "@nexora/contracts";
 import type { HrLearningWorkspace, HrLearningAction, HrLearningCertificate } from "@nexora/contracts";
 import type {
@@ -95,6 +97,12 @@ import type {
   ManufacturingOrderDirectory,
   ManufacturingOrderMutation,
   ManufacturingOrderAction,
+  MeasurementUnit,
+  UnitInput,
+  UnitDirectory,
+  UnitMutation,
+  UnitConversion,
+  ProductUnits,
   ProcurementCompanies,
   ProcurementOptions,
   PurchaseProductDirectory,
@@ -151,6 +159,7 @@ import type {
   JournalDetail,
   JournalMutationResult,
   JournalDeleteResult,
+  JournalPostingEligibility,
   CreateJournalRequest,
   UpdateJournalRequest,
   DeleteJournalRequest,
@@ -714,6 +723,35 @@ export class NexoraApiClient {
 
   listInventoryCompanies(surface: InventorySurface = "products"): Promise<InventoryCompanies> {
     return this.request(`/api/v1/inventory/companies?surface=${encodeURIComponent(surface)}`);
+  }
+  listMeasurementUnits(query: string): Promise<UnitDirectory> {
+    return this.request(`/api/v1/inventory/units${query}`);
+  }
+  getMeasurementUnit(id: string, company: string): Promise<MeasurementUnit> {
+    return this.request(`/api/v1/inventory/units/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`);
+  }
+  saveMeasurementUnit(id: string | null, payload: UnitInput, csrf: string, key: string): Promise<UnitMutation> {
+    return this.request(`/api/v1/inventory/units${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${payload.expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  convertMeasurementUnits(query: string): Promise<UnitConversion> {
+    return this.request(`/api/v1/inventory/units/conversion${query}`);
+  }
+  getProductUnits(
+    company: string,
+    product: string,
+    surface: "products" | "purchases" | "transfers" = "products",
+  ): Promise<ProductUnits> {
+    return this.request(
+      `/api/v1/inventory/units/product-choices?company_id=${encodeURIComponent(company)}&product_id=${encodeURIComponent(product)}&surface=${surface}`,
+    );
   }
 
   listWarehouses(query: string): Promise<WarehouseDirectory> {
@@ -1520,6 +1558,9 @@ export class NexoraApiClient {
   }
   getJournalOptions(query = ""): Promise<JournalOptions> {
     return this.request(`/api/v1/finance/journals/options${query}`);
+  }
+  getJournalPostingEligibility(query: string): Promise<JournalPostingEligibility> {
+    return this.request(`/api/v1/finance/journals/posting_eligibility${query}`);
   }
   listJournals(query: string): Promise<JournalDirectory> {
     return this.request(`/api/v1/finance/journals${query}`);
@@ -4633,6 +4674,25 @@ export class NexoraApiClient {
       },
       body: JSON.stringify(payload),
     });
+  }
+  preparePurchaseAccounting(
+    id: string,
+    payload: PurchaseAccountingPrepare,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<SubledgerOperation> {
+    return this.request("/api/v1/finance/subledger/purchase/" + encodeURIComponent(id) + "/prepare", {
+      method: "POST",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  getConnectedReport(query: string): Promise<ConnectedReport> {
+    return this.request("/api/v1/finance/subledger/connected-reports" + query);
   }
   getSubledgerWorkspace(query: string): Promise<SubledgerWorkspace> {
     return this.request("/api/v1/finance/subledger/workspace" + query);

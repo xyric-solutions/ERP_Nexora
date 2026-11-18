@@ -1,9 +1,12 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import type { AuthenticatedAccount } from "../../packages/auth/src/index.js";
+import { PostgresRecurringJournalGenerationRepository } from "../../server/worker/src/jobs/recurring-journal-generation.js";
+import { SourceBankingRepository } from "../../server/api/src/modules/banking/source-repository.js";
+import { BankingIdentifierCrypto } from "../../server/api/src/modules/banking/crypto.js";
 import { SourceFinanceJournalRepository } from "../../server/api/src/modules/finance/journals/source-repository.js";
 import { SourceFinanceNominalRepository } from "../../server/api/src/modules/finance/nominals/source-repository.js";
 import {
@@ -184,6 +187,7 @@ run("Finance Journal staging hardening", () => {
       "finance.journal.reverse",
       "finance.journal.approve",
       "finance.recurring_journal.manage",
+      "finance.recurring_journal.read",
       "platform.approval.override",
       ...nominalPermissions,
     ];
@@ -351,7 +355,7 @@ run("Finance Journal staging hardening", () => {
     expect(journalOptions.nominals.some((nominal) => nominal.id === foreignBankNominal.id)).toBe(false);
     const createInput = {
       company_id: companyId,
-      journal_date: "2026-10-29",
+      journal_date: "2026-10-01",
       reference_number: `Lifecycle ${suffix}`,
       lines: [
         { account_id: bankNominal.id, description: "Capital deposited", debit: "25.00", credit: "0", dimensions: {} },
@@ -396,6 +400,64 @@ run("Finance Journal staging hardening", () => {
         `correlation-missing-override-${suffix}`,
       ),
     ).rejects.toMatchObject({ code: "APPROVAL_OVERRIDE_REASON_REQUIRED" });
+    const bankRepository = new SourceBankingRepository(
+      pool,
+      new BankingIdentifierCrypto(randomBytes(32).toString("base64"), "integration-ephemeral"),
+    );
+    const bankQuery = {
+      company_id: companyId,
+      ledger_account_id: bankNominal.id,
+      sort_by: "account_name" as const,
+      sort_direction: "asc" as const,
+      limit: 25,
+    };
+    const banks = () => bankRepository.listAccounts(maker, bankQuery);
+    expect(Number((await banks()).items[0]!.ledger_balance)).toBe(0);
+    expect((await journalRepository.get(maker, created.id)).journal_date).toBe(createInput.journal_date);
+    const eligibleQuery = { company_id: companyId, journal_date: createInput.journal_date };
+    expect(await journalRepository.postingEligibility(maker, eligibleQuery)).toMatchObject({
+      eligible: true,
+      blocker: null,
+      period: { id: periodId, status: "open" },
+    });
+    await expect(journalRepository.postingEligibility(restricted, eligibleQuery)).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(
+      journalRepository.postingEligibility({ ...maker, actor: { ...maker.actor, permissions: [] } }, eligibleQuery),
+    ).rejects.toMatchObject({ status: 403 });
+    await expect(
+      journalRepository.postingEligibility(maker, { ...eligibleQuery, company_id: "outside-company" }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(
+      await journalRepository.postingEligibility(maker, { ...eligibleQuery, journal_date: "2027-01-01" }),
+    ).toMatchObject({ eligible: false, blocker: { code: "FINANCE_PERIOD_UNAVAILABLE" } });
+    // A previously eligible preview cannot bypass a later period closure.
+    await pool.query("update financial_period set status='soft_close' where tenant_id=$1 and id=$2", [
+      sourceTestTenantId,
+      periodId,
+    ]);
+    const blocked = await journalRepository.get(maker, created.id);
+    expect(blocked).toMatchObject({
+      state: "submitted",
+      capabilities: { approve: true },
+      posting_eligibility: { eligible: false, period: { status: "soft_close" } },
+    });
+    await expect(
+      journalRepository.decide(
+        checker,
+        created.id,
+        { expected_version: 3, action: "post", confirmed: true },
+        "closed-post-" + suffix,
+        "closed-correlation-" + suffix,
+      ),
+    ).rejects.toMatchObject({ code: "FINANCE_PERIOD_CLOSED_POST_BLOCKED" });
+    expect(Number((await banks()).items[0]!.ledger_balance)).toBe(0);
+    expect((await journalRepository.get(maker, created.id)).state).toBe("submitted");
+    await pool.query("update financial_period set status='open' where tenant_id=$1 and id=$2", [
+      sourceTestTenantId,
+      periodId,
+    ]);
     const decisionKey = `journal-decision-${suffix}`;
     const posted = await journalRepository.decide(
       checker,
@@ -405,6 +467,23 @@ run("Finance Journal staging hardening", () => {
       `correlation-decision-${suffix}`,
     );
     expect(posted).toMatchObject({ state: "posted", version: 4, replayed: false });
+    const position = (await banks()).items[0]!;
+    expect(Number(position.ledger_balance)).toBe(25);
+    expect(position.last_movement_on).toBe(createInput.journal_date);
+    expect(Number((await bankRepository.getAccount(maker, position.id)).ledger_balance)).toBe(25);
+    expect(
+      Number(
+        (await bankRepository.accountSummary(maker, companyId)).items.find((item) => item.currency === "USD")!
+          .ledger_balance,
+      ),
+    ).toBe(25);
+    const originalDate = await pool.query("select posting_date::text from journal_entry where tenant_id=$1 and id=$2", [
+      sourceTestTenantId,
+      posted.ledger_journal_id,
+    ]);
+    expect(originalDate.rows[0].posting_date).toBe(createInput.journal_date);
+    expect((await journalRepository.get(maker, created.id)).journal_date).toBe(createInput.journal_date);
+
     const reconcilableBankLine = await pool.query<{ line_count: number }>(
       `select count(*)::int as line_count
          from journal_line line
@@ -528,6 +607,83 @@ run("Finance Journal staging hardening", () => {
       await triggerClient.query("rollback").catch(() => undefined);
       triggerClient.release();
     }
+    const beforeReverse = Number((await banks()).items[0]!.ledger_balance);
+    const reversal = await journalRepository.reverse(
+      maker,
+      created.id,
+      { expected_version: 4, reversal_date: "2026-10-31", reason: "Synthetic reversal verification" },
+      "reverse-" + suffix,
+      "reverse-correlation-" + suffix,
+    );
+    expect(reversal.state).toBe("reversed");
+    expect(Number((await banks()).items[0]!.ledger_balance)).toBe(beforeReverse - 25);
+    await journalRepository.reverse(
+      maker,
+      created.id,
+      { expected_version: 4, reversal_date: "2026-10-31", reason: "Synthetic reversal verification" },
+      "reverse-" + suffix,
+      "reverse-correlation-" + suffix,
+    );
+    expect(Number((await banks()).items[0]!.ledger_balance)).toBe(beforeReverse - 25);
+    expect(
+      (await bankRepository.accountSummary(maker, companyId)).items
+        .filter((item) => item.currency === "EUR")
+        .every((item) => Number(item.ledger_balance) === 0),
+    ).toBe(true);
+    const recurring = await journalRepository.createRecurring(
+      maker,
+      {
+        company_id: companyId,
+        name: "Date boundary " + suffix,
+        schedule: "monthly",
+        start_date: "2026-12-31",
+        end_date: "2027-01-31",
+        narration: "Date-only regression",
+        lines: createInput.lines.map((line, index) => ({
+          ...line,
+          account_id: index === 0 ? debitNominal.id : creditNominal.id,
+        })),
+      },
+      "recurring-date-" + suffix,
+      "recurring-date-correlation-" + suffix,
+    );
+    expect(recurring).toMatchObject({
+      start_date: "2026-12-31",
+      end_date: "2027-01-31",
+      next_scheduled_date: "2026-12-31",
+    });
+    expect(
+      (await journalRepository.listRecurring(maker, { company_id: companyId, limit: 25 })).items.find(
+        (item) => item.id === recurring.id,
+      ),
+    ).toMatchObject({ start_date: "2026-12-31", end_date: "2027-01-31" });
+    await journalRepository.changeRecurringStatus(
+      maker,
+      recurring.id,
+      { expected_version: recurring.version, action: "activate", reason: "Synthetic scheduling verification" },
+      "recurring-activate-" + suffix,
+      "recurring-activate-correlation-" + suffix,
+    );
+    const generated = await new PostgresRecurringJournalGenerationRepository(pool).generateDue({
+      now: new Date("2026-12-31T12:00:00Z"),
+      actorId: maker.actor.userId,
+      tenantLimit: 100,
+      templateLimit: 100,
+    });
+    expect(generated.failed).toBe(0);
+    const generatedDraft = await pool.query(
+      "select id,journal_date::text,recurring_scheduled_date::text from manual_journal where tenant_id=$1 and recurring_template_id=$2",
+      [sourceTestTenantId, recurring.id],
+    );
+    expect(generatedDraft.rows).toHaveLength(1);
+    expect(generatedDraft.rows[0]).toMatchObject({
+      journal_date: "2026-12-31",
+      recurring_scheduled_date: "2026-12-31",
+    });
+    expect((await journalRepository.listOccurrences(maker, recurring.id, 25)).items[0]).toMatchObject({
+      scheduled_date: "2026-12-31",
+      state: "draft_created",
+    });
     const deleteKey = `journal-delete-${suffix}`;
     await expect(
       journalRepository.deleteDraft(

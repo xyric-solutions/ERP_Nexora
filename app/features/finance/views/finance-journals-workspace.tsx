@@ -2,7 +2,7 @@
 import { WorkTable, WorkPagination } from "@/shared/ui/work-table";
 import { WorkFormLayout } from "@/shared/ui/work-form";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { cloneElement, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import type {
   JournalDetail,
   JournalLineInput,
@@ -26,8 +26,10 @@ import { inActiveCompany } from "@/lib/session/active-company";
 import { useSession } from "@/lib/session/session-provider";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
+import { JournalPostingStatus, useJournalPostingEligibility } from "../components/journal-posting-status";
 import { FinanceJournalsClient } from "../api/finance-journals-client";
 import { formatJournalAmount, formatJournalDisplayAmount, validateJournalLines } from "../lib/finance-journal-form";
+import { ManualJournalActions, ManualJournalActionError, manualJournalActionVisibility, type ManualJournalActionVisibility, type ManualJournalIntent } from "../lib/manual-journal-actions";
 
 export const financeJournalPages = [
   "journal-register",
@@ -49,6 +51,11 @@ type Navigate = (
   options?: { bypassUnsavedGuard?: boolean },
 ) => void;
 type DraftLine = JournalLineInput & { client_id: string };
+
+// Local to the Journal workspace and its portalled drawers; shared controls keep
+// their default sizing everywhere else in the ERP.
+const journalDensity =
+  "min-w-0 [--nx-control-height:2rem] [&_h2]:m-0! [&_h3]:m-0! [&_p]:my-0! [&_input]:h-8 [&_input]:px-2 [&_input]:py-1 [&_select]:h-8 [&_select]:px-2 [&_[data-slot=button]]:h-8 [&_[data-slot=button]]:min-h-7 [&_[data-slot=button]]:px-2.5 [&_[data-slot=button]]:py-1 [&_[data-slot=textarea]]:min-h-14 [&_[data-work-table]>div:first-child]:p-2 [&_nav]:py-2";
 
 const today = () => {
   const now = new Date();
@@ -89,11 +96,13 @@ export function FinanceJournalWorkspace({
   page,
   recordRef,
   onDirtyChange,
+  actionVisibility,
 }: {
   page: FinanceJournalPage;
   recordRef?: string;
   onNavigate: Navigate;
   onDirtyChange?: (dirty: boolean) => void;
+  actionVisibility?: Partial<ManualJournalActionVisibility>;
 }) {
   const { api, session, loading: sessionLoading, csrfToken } = useSession();
   const notify = useActionFeedback();
@@ -122,6 +131,7 @@ export function FinanceJournalWorkspace({
     page === "journal-approval" ? "approval" : page === "journal-reversal" ? "reversal" : "all",
   );
   const [drawerDirty, setDrawerDirty] = useState(false);
+  const [drawerBusy, setDrawerBusy] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const displayPreferenceKey = session ? `nexora:journal:display-decimals:${session.tenant_id}:${session.user.id}` : "";
 
@@ -211,6 +221,7 @@ export function FinanceJournalWorkspace({
     onDirtyChange?.(dirty);
   };
   const confirmDrawerClose = (bypass = false) => {
+    if (drawerBusy && !bypass) return false;
     if (bypass || !drawerDirty || typeof window === "undefined") return true;
     return window.confirm("You have unsaved Journal changes. Close the drawer and discard them?");
   };
@@ -257,6 +268,9 @@ export function FinanceJournalWorkspace({
     onNavigate: navigateWithinWorkspace,
     displayDecimalPlaces,
     refreshToken,
+    actionVisibility: { ...manualJournalActionVisibility, ...actionVisibility },
+    impersonating: !!session.impersonation,
+    approvalOverride: session.user.roles.includes("super_administrator") && permissions.has("platform.approval.override"),
   };
   const drawerTitle =
     drawerMode === "create"
@@ -269,7 +283,7 @@ export function FinanceJournalWorkspace({
             ? "Reverse Journal"
             : "Journal Details";
   return (
-    <div className="grid min-w-0 gap-2" aria-busy={loading}>
+    <div className={`grid gap-2 ${journalDensity}`} aria-busy={loading}>
       <WorkspaceHeader
         activeTab={activeTab}
         options={options}
@@ -314,23 +328,24 @@ export function FinanceJournalWorkspace({
       >
         <SheetContent
           portalClassName="relative isolate z-[1300]"
-          className="min-w-0 gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]"
+          className={`${journalDensity} gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]`}
         >
-          <SheetHeader className="shrink-0 border-b border-border pr-14">
-            <SheetTitle>{drawerTitle}</SheetTitle>
+          <SheetHeader className="shrink-0 gap-1 border-b border-border p-3! pr-12! [&_h2]:m-0! [&_p]:m-0!">
+            <SheetTitle className="text-lg">{drawerTitle}</SheetTitle>
             <SheetDescription>
               {drawerMode === "create" || drawerMode === "edit"
                 ? "Prepare a balanced draft in the company base currency."
                 : "Review the Journal, lifecycle evidence and permitted actions without leaving the register."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3 sm:p-4">
-            {drawerMode === "create" || drawerMode === "edit" ? (
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-2 sm:p-3">
+            {(drawerMode === "create" || drawerMode === "edit") && companyId && options?.selected_company_id === companyId ? (
               <ManualJournalForm
                 key={`${companyId}:${selectedJournalId ?? "new"}`}
                 {...common}
                 journalId={selectedJournalId}
                 onDirtyChange={changeDirtyState}
+                onBusyChange={setDrawerBusy}
               />
             ) : null}
             {drawerMode === "detail" ? (
@@ -384,6 +399,9 @@ type Common = {
   onNavigate: Navigate;
   displayDecimalPlaces: number;
   refreshToken: number;
+  actionVisibility: ManualJournalActionVisibility;
+  impersonating: boolean;
+  approvalOverride: boolean;
 };
 
 function WorkspaceHeader({
@@ -541,8 +559,8 @@ function JournalRegister({
     setCursorHistory([]);
   };
   return (
-    <section className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border p-4" aria-label="Journal register views">
+    <section className="@container overflow-hidden rounded-lg border border-border bg-card" aria-label="Journal register">
+      <div className="flex flex-wrap items-center gap-2 border-b border-border p-3" aria-label="Journal register views">
         {(
           [
             ["all", "All transactions"],
@@ -571,7 +589,7 @@ function JournalRegister({
           </Button>
         ))}
       </div>
-      <div className="grid gap-3 border-b border-border p-4 md:grid-cols-2 xl:grid-cols-[1fr_11rem_11rem_1fr_10rem_10rem_auto]">
+      <div aria-label="Journal filters" className="grid min-w-0 gap-2 border-b border-border p-3 @min-[24rem]:grid-cols-2 @min-[36rem]:grid-cols-3 @min-[60rem]:grid-cols-[minmax(8rem,1.3fr)_minmax(6rem,0.8fr)_minmax(6rem,0.8fr)_minmax(8rem,1fr)_minmax(9rem,1fr)_minmax(9rem,1fr)_auto]">
         <Input
           aria-label="Reference search"
           placeholder="Reference or source"
@@ -580,7 +598,7 @@ function JournalRegister({
         />
         <select
           aria-label="State"
-          className="h-10 rounded-md border border-input bg-background px-3"
+          className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
           value={state}
           onChange={(event) => setState(event.target.value)}
         >
@@ -592,7 +610,7 @@ function JournalRegister({
         </select>
         <select
           aria-label="Source"
-          className="h-10 rounded-md border border-input bg-background px-3"
+          className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
           value={source}
           onChange={(event) => setSource(event.target.value)}
         >
@@ -605,7 +623,7 @@ function JournalRegister({
         </select>
         <select
           aria-label="Nominal account"
-          className="h-10 rounded-md border border-input bg-background px-3"
+          className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
           value={nominalId}
           onChange={(event) => setNominalId(event.target.value)}
         >
@@ -666,7 +684,7 @@ function JournalTable({
         <thead className="bg-primary text-left text-primary-foreground">
           <tr>
             {["Journal ID", "Date", "Reference", "Source", "State", "Total", "Action"].map((label) => (
-              <th key={label} className="px-4 py-3 font-semibold">
+              <th key={label} className="px-3 py-2 font-semibold">
                 {label}
               </th>
             ))}
@@ -675,24 +693,24 @@ function JournalTable({
         <tbody>
           {busy ? (
             <tr>
-              <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+              <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                 Loading Journals…
               </td>
             </tr>
           ) : null}
           {items.map((item) => (
             <tr key={item.id} className="border-t border-border">
-              <td className="px-4 py-3 font-semibold text-primary">{item.display_number}</td>
-              <td className="px-4 py-3">{item.journal_date}</td>
-              <td className="px-4 py-3">{item.reference_number ?? "—"}</td>
-              <td className="px-4 py-3">{item.source_label}</td>
-              <td className="px-4 py-3">
+              <td className="px-3 py-2 font-semibold text-primary">{item.display_number}</td>
+              <td className="px-3 py-2">{item.journal_date}</td>
+              <td className="px-3 py-2">{item.reference_number ?? "—"}</td>
+              <td className="px-3 py-2">{item.source_label}</td>
+              <td className="px-3 py-2">
                 <StateBadge state={item.state} />
               </td>
-              <td className="px-4 py-3 text-right tabular-nums">
+              <td className="px-3 py-2 text-right tabular-nums">
                 {money(item.total, item.currency, displayDecimalPlaces)}
               </td>
-              <td className="px-4 py-3">
+              <td className="px-3 py-2">
                 <Button size="sm" variant="outline" onClick={() => onOpen(item)}>
                   View
                 </Button>
@@ -701,7 +719,7 @@ function JournalTable({
           ))}
           {!busy && items.length === 0 ? (
             <tr>
-              <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+              <td colSpan={7} className="px-3 py-6 text-center text-muted-foreground">
                 No Journals match the current filters.
               </td>
             </tr>
@@ -724,17 +742,37 @@ function ManualJournalForm({
   journalId,
   onDirtyChange,
   displayDecimalPlaces,
-}: Common & { journalId?: string; onDirtyChange?: (dirty: boolean) => void }) {
+  actionVisibility,
+  impersonating,
+  approvalOverride,
+  onBusyChange,
+}: Common & {
+  journalId?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const [date, setDate] = useState(today());
   const [reference, setReference] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
   const [detail, setDetail] = useState<JournalDetail | null>(null);
   const [busy, setBusy] = useState("");
   const [loadingDetail, setLoadingDetail] = useState(Boolean(journalId));
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [dirty, setDirty] = useState(false);
-  const [deleteReason, setDeleteReason] = useState("");
-  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [overrideReason, setOverrideReason] = useState("");
+  const [retryIntent, setRetryIntent] = useState<ManualJournalIntent | null>(null);
+  const [actions] = useState(() => new ManualJournalActions());
+  const operation = useRef(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const validationSummary = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (validationErrors.length) {
+      validationSummary.current?.focus({ preventScroll: true });
+      validationSummary.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [validationErrors]);
   useEffect(() => {
     onDirtyChange?.(dirty);
     return () => onDirtyChange?.(false);
@@ -759,186 +797,265 @@ function ManualJournalForm({
         );
         setDirty(false);
       })
-      .catch((caught) => setError(errorText(caught)))
+      .catch((caught) => {
+        setLoadFailed(true);
+        setActionError(errorText(caught));
+      })
       .finally(() => setLoadingDetail(false));
   }, [client, journalId, setError]);
   const decimalPlaces = options?.decimal_places ?? 2;
-  const validation = useMemo(() => validateJournalLines(linePayload(lines), decimalPlaces), [decimalPlaces, lines]);
-  const validate = () => {
-    const errors = [...validation.errors, ...requiredDimensionErrors(lines, options)];
+  const validation = useMemo(
+    () => validateJournalLines(linePayload(lines), decimalPlaces),
+    [decimalPlaces, lines],
+  );
+  const validate = (reviewErrors: string[] = []) => {
+    const errors = [...validation.errors, ...requiredDimensionErrors(lines, options), ...reviewErrors];
     if (!date) errors.unshift("Select the Journal date.");
     setValidationErrors(errors);
     return errors.length === 0;
   };
-  const save = async () => {
-    if (!companyId || !validate()) return;
-    setBusy("save");
+  const state = actions.progress?.state ?? detail?.state ?? "draft";
+  const posting = useJournalPostingEligibility(client, companyId, date, state === "draft" || state === "submitted");
+  const editable = state === "draft" && !busy && !retryIntent && !impersonating;
+  const canSave =
+    !impersonating &&
+    state === "draft" &&
+    permissions.has(detail || actions.progress ? "finance.journal.update" : "finance.journal.create");
+  const canContinue =
+    !impersonating &&
+    (state === "submitted" ||
+      ((canSave || actions.progress?.state === "draft") &&
+        (detail ? detail.capabilities.submit : permissions.has("finance.journal.submit"))));
+  const ownApproval =
+    permissions.has("finance.journal.approve") &&
+    (permissions.has("finance.journal.self_approve") || approvalOverride);
+  const needsReview = actions.review?.capabilities.approve ?? ownApproval;
+  const needsOverride =
+    actions.review?.capabilities.super_admin_override_available ??
+    (ownApproval && !permissions.has("finance.journal.self_approve"));
+  const run = async (intent: ManualJournalIntent) => {
+    if (
+      operation.current ||
+      !companyId ||
+      (retryIntent && retryIntent !== intent) ||
+      (intent === "save" ? !canSave : !canContinue)
+    )
+      return;
+    const reviewErrors: string[] = [];
+    if (intent === "approve" && needsReview) {
+      if (!confirmed) reviewErrors.push("Confirm the final review before approving this Journal.");
+      if (needsOverride && overrideReason.trim().length < 3)
+        reviewErrors.push("Enter a self-approval override reason of at least 3 characters.");
+    }
+    if (!validate(reviewErrors)) return;
+    operation.current = true;
+    onBusyChange?.(true);
+    setBusy(intent);
+    setError("");
+    setActionError("");
     try {
-      const payload = {
-        journal_date: date,
-        ...(reference.trim() ? { reference_number: reference.trim() } : {}),
-        lines: linePayload(lines),
-      };
-      const result = detail?.version
-        ? await client.update(detail.id, { ...payload, expected_version: detail.version }, csrfToken(), key("update"))
-        : await client.create({ ...payload, company_id: companyId }, csrfToken(), key("create"));
+      if (intent === "approve" && needsReview) {
+        const current = await posting.refresh();
+        if (current.blocker) throw new ManualJournalActionError(current.blocker.message);
+      }
+      const result = await actions.run({
+        client,
+        csrfToken,
+        initial: detail,
+        intent,
+        confirmed,
+        reason: overrideReason,
+        payload: {
+          company_id: companyId,
+          journal_date: date,
+          ...(reference.trim() ? { reference_number: reference.trim() } : {}),
+          lines: linePayload(lines),
+        },
+      });
+      if (!result) return;
       setDirty(false);
-      notify("Manual Journal draft saved.");
-      onNavigate("finance", "journal-detail", result.id, { bypassUnsavedGuard: true });
-    } catch (caught) {
-      setError(errorText(caught));
-    } finally {
-      setBusy("");
-    }
-  };
-  const submit = async () => {
-    if (!detail?.version || !validate()) return;
-    setBusy("submit");
-    try {
-      await client.submit(detail.id, { expected_version: detail.version }, csrfToken(), key("submit"));
-      notify("Journal submitted for final review.");
-      onNavigate("finance", "journal-detail", detail.id, { bypassUnsavedGuard: true });
-    } catch (caught) {
-      setError(errorText(caught));
-    } finally {
-      setBusy("");
-    }
-  };
-  const remove = async () => {
-    if (!detail?.version || deleteReason.trim().length < 3 || !deleteConfirmed) return;
-    setBusy("delete");
-    try {
-      await client.delete(
-        detail.id,
-        { expected_version: detail.version, reason: deleteReason.trim() },
-        csrfToken(),
-        key("delete"),
+      setRetryIntent(null);
+      notify(
+        intent === "save"
+          ? "Manual Journal draft saved."
+          : result.state === "posted"
+            ? "Journal approved and posted."
+            : "Journal submitted. Awaiting approval.",
       );
-      setDirty(false);
-      notify("Draft Journal content permanently deleted; audit tombstone retained.");
-      onNavigate("finance", "journal-register", undefined, { bypassUnsavedGuard: true });
+      onNavigate(
+        "finance",
+        intent === "save" ? "journal-detail" : "journal-register",
+        intent === "save" ? result.id : undefined,
+        { bypassUnsavedGuard: true },
+      );
     } catch (caught) {
-      setError(errorText(caught));
+      const uncertain =
+        !(caught instanceof ApiError && caught.status >= 400 && caught.status < 500) &&
+        !(caught instanceof ManualJournalActionError);
+      setRetryIntent(uncertain ? intent : null);
+      setActionError(caught instanceof ManualJournalActionError ? caught.message : errorText(caught));
     } finally {
+      operation.current = false;
+      onBusyChange?.(false);
       setBusy("");
     }
   };
-  const editable = !detail || detail.state === "draft";
-  if (loadingDetail) return <Notice title="Loading Journal" detail="Reading the draft and its current version." />;
+  if (loadingDetail)
+    return <Notice title="Loading Journal" detail="Reading the draft and its current version." />;
+  if (loadFailed) return <Notice title="Journal could not be loaded" detail={actionError} destructive />;
   return (
-    <WorkFormLayout><section className="grid min-w-0 gap-4 rounded-lg border border-border bg-card p-3 sm:p-4">
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <div className="grid gap-2">
-          <Label htmlFor="journal-date">Date *</Label>
-          <Input
-            id="journal-date"
-            type="date"
-            value={date}
-            disabled={!editable}
-            onChange={(event) => {
-              setDate(event.target.value);
-              setDirty(true);
-            }}
-          />
+    <WorkFormLayout>
+      <section
+        data-manual-journal-editor
+        className="grid min-w-0 gap-3 rounded-lg border border-border bg-card p-3"
+      >
+        <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(10rem,1fr)_minmax(0,2fr)]">
+          <div className="grid gap-1">
+            <Label htmlFor="journal-date">Date *</Label>
+            <Input
+              id="journal-date"
+              type="date"
+              value={date}
+              disabled={!editable}
+              onChange={(event) => {
+                setDate(event.target.value);
+                setConfirmed(false);
+                setDirty(true);
+              }}
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label htmlFor="journal-reference">Ref. No.</Label>
+            <Input
+              id="journal-reference"
+              value={reference}
+              disabled={!editable}
+              onChange={(event) => {
+                setReference(event.target.value);
+                setConfirmed(false);
+                setDirty(true);
+              }}
+            />
+          </div>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="journal-reference">Ref. No.</Label>
-          <Input
-            id="journal-reference"
-            value={reference}
-            disabled={!editable}
-            onChange={(event) => {
-              setReference(event.target.value);
-              setDirty(true);
-            }}
-          />
+        <LineEditor
+          lines={lines}
+          options={options}
+          displayDecimalPlaces={displayDecimalPlaces}
+          disabled={!editable}
+          onChange={(value) => {
+            setLines(value);
+            setConfirmed(false);
+            setDirty(true);
+          }}
+        />
+        <JournalPostingStatus state={state} {...posting} />
+        {actionError ? (
+          <Notice title="Journal action could not be completed" detail={actionError} destructive />
+        ) : null}
+        {validationErrors.length ? (
+          <Alert ref={validationSummary} id="manual-journal-validation" tabIndex={-1} variant="destructive" role="alert">
+            <AlertTitle>Review the Journal form</AlertTitle>
+            <AlertDescription>
+              <ul className="list-disc space-y-1 pl-5 text-destructive">
+                {validationErrors.map((message) => (
+                  <li key={message}>{message}</li>
+                ))}
+              </ul>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <div className="flex justify-end">
+          <div
+            className={`grid w-full max-w-sm grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
+          >
+            <span className="bg-muted px-3 py-2 font-semibold">
+              <span className="mb-1 block text-xs font-normal text-muted-foreground">Total debit</span>
+              {formatJournalDisplayAmount(
+                formatJournalAmount(validation.debit, decimalPlaces),
+                displayDecimalPlaces,
+              )}
+            </span>
+            <span className="bg-muted px-3 py-2 font-semibold">
+              <span className="mb-1 block text-xs font-normal text-muted-foreground">Total credit</span>
+              {formatJournalDisplayAmount(
+                formatJournalAmount(validation.credit, decimalPlaces),
+                displayDecimalPlaces,
+              )}
+            </span>
+          </div>
         </div>
-      </div>
-      <LineEditor
-        lines={lines}
-        options={options}
-        displayDecimalPlaces={displayDecimalPlaces}
-        disabled={!editable}
-        onChange={(value) => {
-          setLines(value);
-          setDirty(true);
-        }}
-      />
-      {validationErrors.length ? (
-        <Alert variant="destructive" role="alert">
-          <AlertTitle>Review the Journal form</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc space-y-1 pl-5 text-destructive">
-              {validationErrors.map((message) => (
-                <li key={message}>{message}</li>
-              ))}
-            </ul>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      <div className="flex justify-end">
-        <div
-          className={`grid w-full max-w-sm grid-cols-2 border text-right tabular-nums ${validation.debit === validation.credit && validation.debit > 0n ? "border-[var(--nx-success-border)]" : "border-destructive/40"}`}
+        {actionVisibility.approveAndClose && canContinue ? (
+          <div className="grid gap-2 border-t border-border pt-2">
+            <p className="m-0 text-xs text-muted-foreground" role="status">
+              {needsReview
+                ? "Approve & Close saves, submits and posts this Journal after final review."
+                : "Approve & Close saves and submits this Journal. It will remain Awaiting approval for an authorized approver."}
+            </p>
+            {needsReview ? (
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="manual-journal-final-review"
+                  checked={confirmed}
+                  disabled={!!busy}
+                  onCheckedChange={(value) => setConfirmed(value === true)}
+                />
+                <Label htmlFor="manual-journal-final-review" className="text-xs font-normal">
+                  Final review confirmed: I verified the date, base-currency lines, nominal accounts, balance
+                  and reference.
+                </Label>
+              </div>
+            ) : null}
+            {needsReview && needsOverride ? (
+              <div className="grid gap-1">
+                <Label htmlFor="manual-journal-override">Self-approval override reason *</Label>
+                <Input
+                  id="manual-journal-override"
+                  value={overrideReason}
+                  maxLength={500}
+                  disabled={!!busy}
+                  onChange={(event) => setOverrideReason(event.target.value)}
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+        {retryIntent ? (
+          <p role="status" className="m-0 text-xs text-muted-foreground">
+            The last request could not be confirmed. Retry the same action to resume safely; your lines are
+            retained.
+          </p>
+        ) : null}
+        <footer
+          aria-label="Manual Journal actions"
+          className="flex flex-wrap justify-end gap-2 border-t border-border pt-2"
         >
-          <span className="bg-muted px-4 py-3 font-semibold">
-            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total debit</span>
-            {formatJournalDisplayAmount(formatJournalAmount(validation.debit, decimalPlaces), displayDecimalPlaces)}
-          </span>
-          <span className="bg-muted px-4 py-3 font-semibold">
-            <span className="mb-1 block text-xs font-normal text-muted-foreground">Total credit</span>
-            {formatJournalDisplayAmount(formatJournalAmount(validation.credit, decimalPlaces), displayDecimalPlaces)}
-          </span>
-        </div>
-      </div>
-      <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-end sm:justify-between">
-        <Button variant="outline" onClick={() => onNavigate("finance", "journal-register")}>
-          Cancel
-        </Button>
-        <div className="flex flex-wrap items-end justify-end gap-2">
-          {detail?.capabilities.delete_draft ? (
-            <div className="grid gap-1">
-              <Label htmlFor="delete-reason">Permanent deletion reason</Label>
-              <Input
-                id="delete-reason"
-                value={deleteReason}
-                onChange={(event) => setDeleteReason(event.target.value)}
-              />
-            </div>
-          ) : null}
-          {detail?.capabilities.delete_draft ? (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="confirm-draft-delete"
-                checked={deleteConfirmed}
-                onCheckedChange={(value) => setDeleteConfirmed(value === true)}
-              />
-              <Label htmlFor="confirm-draft-delete" className="font-normal">
-                Confirm permanent deletion
-              </Label>
-            </div>
-          ) : null}
-          {detail?.capabilities.delete_draft ? (
+          {actionVisibility.saveDraft && canSave ? (
             <Button
-              variant="destructive"
-              disabled={busy !== "" || deleteReason.trim().length < 3 || !deleteConfirmed}
-              onClick={() => void remove()}
+              type="button"
+              variant="outline"
+              disabled={!!busy || (retryIntent !== null && retryIntent !== "save")}
+              onClick={() => void run("save")}
             >
-              Delete draft permanently
+              {busy === "save" ? "Saving…" : "Save Draft"}
             </Button>
           ) : null}
-          {editable && permissions.has(detail ? "finance.journal.update" : "finance.journal.create") ? (
-            <Button variant="outline" disabled={busy !== "" || lines.length < 2} onClick={() => void save()}>
-              {busy === "save" ? "Saving…" : "Save draft"}
+          {actionVisibility.approveAndClose && canContinue ? (
+            <Button
+              type="button"
+              disabled={
+                !!busy ||
+                (retryIntent !== null && retryIntent !== "approve")
+              }
+              aria-describedby={validationErrors.length ? "manual-journal-validation" : undefined}
+              onClick={() => void run("approve")}
+            >
+              {busy === "approve" ? "Processing…" : "Approve & Close"}
             </Button>
           ) : null}
-          {detail?.capabilities.submit ? (
-            <Button disabled={busy !== "" || validation.errors.length > 0} onClick={() => void submit()}>
-              Submit for approval
-            </Button>
-          ) : null}
-        </div>
-      </div>
-    </section></WorkFormLayout>
+        </footer>
+      </section>
+    </WorkFormLayout>
   );
 }
 
@@ -960,7 +1077,9 @@ function LineEditor({
   const change = (index: number, field: keyof JournalLineInput, value: string) =>
     onChange(lines.map((line, i) => (i === index ? { ...line, [field]: value } : line)));
   const changeAccount = (index: number, accountId: string) =>
-    onChange(lines.map((line, i) => (i === index ? { ...line, account_id: accountId, dimensions: {} } : line)));
+    onChange(
+      lines.map((line, i) => (i === index ? { ...line, account_id: accountId, dimensions: {} } : line)),
+    );
   const changeDimension = (index: number, dimension: string, value: string) =>
     onChange(
       lines.map((line, i) =>
@@ -974,132 +1093,133 @@ function LineEditor({
       label: `${item.code} · ${item.name}${item.kind === "bank" ? " · Bank" : ""}`,
     }));
   return (
-    <WorkFormLayout><div className="min-w-0">
-      <table className="block w-full table-fixed text-sm xl:table">
-        <caption className="sr-only">Journal lines</caption>
-        <thead className="sr-only bg-primary text-left text-primary-foreground xl:not-sr-only">
-          <tr>
-            <th scope="col" className="w-[24%] px-3 py-3">
-              Nominal Account
-            </th>
-            <th scope="col" className="w-[24%] px-3 py-3">
-              Description
-            </th>
-            <th scope="col" className="w-[18%] px-3 py-3">
-              Required Dimensions
-            </th>
-            <th scope="col" className="w-[13%] px-3 py-3 text-right">
-              Debit
-            </th>
-            <th scope="col" className="w-[13%] px-3 py-3 text-right">
-              Credit
-            </th>
-            <th scope="col" className="w-[8%] px-3 py-3">
-              Action
-            </th>
-          </tr>
-        </thead>
-        <tbody className="grid gap-4 xl:table-row-group">
-          {lines.map((line, index) => (
-            <tr
-              key={line.client_id}
-              className="grid min-w-0 grid-cols-2 gap-3 rounded-lg border border-border p-3 xl:table-row xl:rounded-none xl:border-x-0 xl:border-b-0 xl:p-0"
-            >
-              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Nominal Account · Line {index + 1}
-                </span>
-                <SearchableSelect
-                  label={`Nominal account line ${index + 1}`}
-                  searchLabel={`Search nominal account line ${index + 1}`}
-                  value={line.account_id}
-                  options={nominalOptions}
-                  placeholder="Select nominal"
-                  disabled={disabled}
-                  required
-                  onValueChange={(value) => changeAccount(index, value)}
-                />
-              </td>
-              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Description
-                </span>
-                <Input
-                  aria-label={`Description line ${index + 1}`}
-                  value={line.description}
-                  disabled={disabled}
-                  onChange={(event) => change(index, "description", event.target.value)}
-                />
-              </td>
-              <td className="col-span-2 grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Required Dimensions
-                </span>
-                {(() => {
-                  const dimensions =
-                    options?.nominals.find((item) => item.id === line.account_id)?.required_dimensions ?? [];
-                  if (dimensions.length === 0) return <span className="text-muted-foreground">—</span>;
-                  return (
-                    <div className="grid gap-2">
-                      {dimensions.map((dimension) => (
-                        <Input
-                          key={dimension}
-                          aria-label={`${dimension.replaceAll("_", " ")} dimension line ${index + 1}`}
-                          placeholder={dimension.replaceAll("_", " ")}
-                          value={line.dimensions[dimension] ?? ""}
-                          disabled={disabled}
-                          onChange={(event) => changeDimension(index, dimension, event.target.value)}
-                        />
-                      ))}
-                    </div>
-                  );
-                })()}
-              </td>
-              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Debit
-                </span>
-                <JournalAmountInput
-                  label={`Debit line ${index + 1}`}
-                  value={line.debit}
-                  displayDecimalPlaces={displayDecimalPlaces}
-                  disabled={disabled}
-                  onChange={(value) => change(index, "debit", value || "0")}
-                />
-              </td>
-              <td className="grid min-w-0 content-start gap-1.5 xl:table-cell xl:p-2">
-                <span aria-hidden="true" className="text-sm font-medium xl:hidden">
-                  Credit
-                </span>
-                <JournalAmountInput
-                  label={`Credit line ${index + 1}`}
-                  value={line.credit}
-                  displayDecimalPlaces={displayDecimalPlaces}
-                  disabled={disabled}
-                  onChange={(value) => change(index, "credit", value || "0")}
-                />
-              </td>
-              <td className="col-span-2 flex justify-end xl:table-cell xl:p-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  disabled={disabled || lines.length <= 2}
-                  onClick={() => onChange(lines.filter((_, i) => i !== index))}
-                >
-                  Remove
-                </Button>
-              </td>
+    <WorkFormLayout>
+      <div className="min-w-0">
+        <table className="block w-full table-fixed text-sm md:table">
+          <caption className="sr-only">Journal lines</caption>
+          <thead className="sr-only bg-primary text-left text-primary-foreground md:not-sr-only">
+            <tr>
+              <th scope="col" className="w-[32%] px-2 py-2">
+                Nominal Account
+              </th>
+              <th scope="col" className="w-[26%] px-2 py-2">
+                Description
+              </th>
+              <th scope="col" className="w-[15%] px-2 py-2 text-right">
+                Debit
+              </th>
+              <th scope="col" className="w-[15%] px-2 py-2 text-right">
+                Credit
+              </th>
+              <th scope="col" className="w-[12%] px-2 py-2">
+                Action
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-      {!disabled ? (
-        <Button type="button" className="mt-3" variant="outline" onClick={() => onChange([...lines, emptyLine()])}>
-          ＋ Add More
-        </Button>
-      ) : null}
-    </div></WorkFormLayout>
+          </thead>
+          <tbody className="grid gap-2 md:table-row-group">
+            {lines.map((line, index) => (
+              <tr
+                key={line.client_id}
+                className="grid min-w-0 grid-cols-2 gap-2 rounded-lg border border-border p-2 md:table-row md:rounded-none md:border-x-0 md:border-b-0 md:p-0"
+              >
+                <td className="col-span-2 grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
+                    Nominal Account · Line {index + 1}
+                  </span>
+                  <SearchableSelect
+                    label={`Nominal account line ${index + 1}`}
+                    searchLabel={`Search nominal account line ${index + 1}`}
+                    value={line.account_id}
+                    options={nominalOptions}
+                    placeholder="Select nominal"
+                    disabled={disabled}
+                    required
+                    onValueChange={(value) => changeAccount(index, value)}
+                  />
+                  {(() => {
+                    const dimensions =
+                      options?.nominals.find((item) => item.id === line.account_id)?.required_dimensions ??
+                      [];
+                    if (dimensions.length === 0) return null;
+                    return (
+                      <div className="grid gap-1.5">
+                        {dimensions.map((dimension) => (
+                          <Input
+                            key={dimension}
+                            aria-label={`${dimension.replaceAll("_", " ")} dimension line ${index + 1}`}
+                            placeholder={dimension.replaceAll("_", " ")}
+                            value={line.dimensions[dimension] ?? ""}
+                            disabled={disabled}
+                            onChange={(event) => changeDimension(index, dimension, event.target.value)}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </td>
+                <td className="col-span-2 grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
+                    Description
+                  </span>
+                  <Input
+                    aria-label={`Description line ${index + 1}`}
+                    value={line.description}
+                    disabled={disabled}
+                    onChange={(event) => change(index, "description", event.target.value)}
+                  />
+                </td>
+
+                <td className="grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
+                    Debit
+                  </span>
+                  <JournalAmountInput
+                    label={`Debit line ${index + 1}`}
+                    value={line.debit}
+                    displayDecimalPlaces={displayDecimalPlaces}
+                    disabled={disabled}
+                    onChange={(value) => change(index, "debit", value || "0")}
+                  />
+                </td>
+                <td className="grid min-w-0 content-start gap-1.5 md:table-cell md:p-1.5">
+                  <span aria-hidden="true" className="text-sm font-medium md:hidden">
+                    Credit
+                  </span>
+                  <JournalAmountInput
+                    label={`Credit line ${index + 1}`}
+                    value={line.credit}
+                    displayDecimalPlaces={displayDecimalPlaces}
+                    disabled={disabled}
+                    onChange={(value) => change(index, "credit", value || "0")}
+                  />
+                </td>
+                <td className="col-span-2 flex justify-end md:table-cell md:p-1.5">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled || lines.length <= 2}
+                    onClick={() => onChange(lines.filter((_, i) => i !== index))}
+                  >
+                    Remove
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!disabled ? (
+          <Button
+            type="button"
+            className="mt-2"
+            variant="outline"
+            onClick={() => onChange([...lines, emptyLine()])}
+          >
+            ＋ Add More
+          </Button>
+        ) : null}
+      </div>
+    </WorkFormLayout>
   );
 }
 
@@ -1109,6 +1229,9 @@ function JournalDetailView({
   setError,
   onNavigate,
   displayDecimalPlaces,
+  csrfToken,
+  notify,
+  actionVisibility,
 }: Common & { journalId?: string }) {
   const [detail, setDetail] = useState<JournalDetail | null>(null);
   useEffect(() => {
@@ -1122,12 +1245,12 @@ function JournalDetailView({
     return <Notice title="Select a Journal" detail="Open a Journal from the register to view its detail." />;
   if (!detail) return <Notice title="Loading Journal" detail="Reading lines and lifecycle evidence." />;
   return (
-    <div className="space-y-4">
-      <section className="rounded-lg border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="space-y-3">
+      <section className="rounded-lg border border-border bg-card p-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-sm text-muted-foreground">{detail.source_label}</p>
-            <h2 className="text-2xl font-semibold">{detail.display_number}</h2>
+            <h2 className="text-lg font-semibold">{detail.display_number}</h2>
             <p className="mt-1 text-sm">
               {detail.journal_date} · {detail.reference_number ?? "No reference"}
             </p>
@@ -1150,13 +1273,17 @@ function JournalDetailView({
           </div>
         </div>
       </section>
+      {actionVisibility.deleteDraft && detail.capabilities.delete_draft ? (
+        <DraftJournalDeletion detail={detail} client={client} csrfToken={csrfToken} notify={notify}
+          setError={setError} onNavigate={onNavigate} />
+      ) : null}
       <section className="overflow-hidden rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
-          <WorkTable tableId="app/features/finance/views/finance-journals-workspace:3" className="w-full min-w-[760px] text-sm">
+          <WorkTable tableId="app/features/finance/views/finance-journals-workspace:3" className="w-full min-w-[560px] text-sm">
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
-                {["Nominal Account", "Description", "Dimensions", "Debit", "Credit"].map((value) => (
-                  <th key={value} className="px-4 py-3">
+                {["Nominal Account", "Description", "Debit", "Credit"].map((value) => (
+                  <th key={value} className="px-3 py-2">
                     {value}
                   </th>
                 ))}
@@ -1165,21 +1292,14 @@ function JournalDetailView({
             <tbody>
               {detail.lines.map((line) => (
                 <tr key={line.id} className="border-t border-border">
-                  <td className="px-4 py-3 font-medium">
+                  <td className="px-3 py-2 font-medium">
                     {line.account_code} · {line.account_name}
                   </td>
-                  <td className="px-4 py-3">{line.description}</td>
-                  <td className="px-4 py-3">
-                    {Object.entries(line.dimensions).length
-                      ? Object.entries(line.dimensions)
-                          .map(([dimension, value]) => `${dimension.replaceAll("_", " ")}: ${value}`)
-                          .join(" · ")
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
+                  <td className="px-3 py-2">{line.description}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">
                     {formatJournalDisplayAmount(line.debit, displayDecimalPlaces)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums">
+                  <td className="px-3 py-2 text-right tabular-nums">
                     {formatJournalDisplayAmount(line.credit, displayDecimalPlaces)}
                   </td>
                 </tr>
@@ -1187,11 +1307,12 @@ function JournalDetailView({
             </tbody>
           </WorkTable>
         </div>
-        <div className="border-t border-border bg-muted/30 px-4 py-3 text-right font-semibold">
+        <div className="border-t border-border bg-muted/30 px-3 py-2 text-right font-semibold">
           Total · {money(detail.total, detail.currency, displayDecimalPlaces)}
         </div>
       </section>
-      <section className="rounded-lg border border-border bg-card p-4">
+      <JournalPostingStatus state={detail.state} eligibility={detail.posting_eligibility} />
+      <section className="rounded-lg border border-border bg-card p-3">
         <h3 className="font-semibold">Lifecycle evidence</h3>
         <ol className="mt-3 space-y-2">
           {detail.events.map((event) => (
@@ -1212,6 +1333,89 @@ function JournalDetailView({
         </ol>
       </section>
     </div>
+  );
+}
+
+function DraftJournalDeletion({
+  detail,
+  client,
+  csrfToken,
+  notify,
+  setError,
+  onNavigate,
+}: Pick<Common, "client" | "csrfToken" | "notify" | "setError" | "onNavigate"> & { detail: JournalDetail }) {
+  const [reason, setReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState("");
+  const pending = useRef(false);
+  const request = useRef<{ body: string; key: string } | null>(null);
+  const remove = async () => {
+    if (
+      pending.current ||
+      !detail.version ||
+      !detail.capabilities.delete_draft ||
+      !confirmed ||
+      reason.trim().length < 3
+    )
+      return;
+    const body = { expected_version: detail.version, reason: reason.trim() };
+    const serialized = JSON.stringify(body);
+    if (request.current?.body !== serialized) request.current = { body: serialized, key: key("delete") };
+    pending.current = true;
+    setBusy(true);
+    setFailure("");
+    try {
+      await client.delete(detail.id, body, csrfToken(), request.current.key);
+      notify("Draft Journal content permanently deleted; audit tombstone retained.");
+      onNavigate("finance", "journal-register", undefined, { bypassUnsavedGuard: true });
+    } catch (caught) {
+      setFailure(errorText(caught));
+      setError(errorText(caught));
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  };
+  return (
+    <details className="rounded-lg border border-border p-3">
+      <summary className="cursor-pointer text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        Draft actions
+      </summary>
+      <div className="mt-3 grid gap-2">
+        {failure ? (
+          <Notice title="Draft deletion could not be completed" detail={failure} destructive />
+        ) : null}
+        <Label htmlFor="delete-reason">Permanent deletion reason</Label>
+        <Input
+          id="delete-reason"
+          value={reason}
+          maxLength={500}
+          disabled={busy}
+          onChange={(event) => setReason(event.target.value)}
+        />
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="confirm-draft-delete"
+            checked={confirmed}
+            disabled={busy}
+            onCheckedChange={(value) => setConfirmed(value === true)}
+          />
+          <Label htmlFor="confirm-draft-delete" className="font-normal">
+            Confirm permanent deletion
+          </Label>
+        </div>
+        <Button
+          type="button"
+          variant="destructive"
+          className="justify-self-start"
+          disabled={busy || !confirmed || reason.trim().length < 3}
+          onClick={() => void remove()}
+        >
+          {busy ? "Deleting…" : "Delete draft permanently"}
+        </Button>
+      </div>
+    </details>
   );
 }
 
@@ -1273,6 +1477,14 @@ function JournalApproval({
     if (!detail?.version) return;
     setBusy(true);
     try {
+      if (action === "post") {
+        const current = await client.postingEligibility({ company_id: detail.company_id, journal_date: detail.journal_date });
+        setDetail({ ...detail, posting_eligibility: current });
+        if (current.blocker) {
+          setError(current.blocker.message);
+          return;
+        }
+      }
       await client.decide(
         detail.id,
         {
@@ -1303,16 +1515,16 @@ function JournalApproval({
     }
   };
   return (
-    <div className={embedded ? "" : "grid gap-4 xl:grid-cols-[22rem_1fr]"}>
+    <div className={embedded ? "" : "grid gap-3 xl:grid-cols-[22rem_1fr]"}>
       {!embedded ? (
         <aside className="rounded-lg border border-border bg-card">
-          <div className="border-b border-border p-4 font-semibold">Submitted queue</div>
-          {loading ? <p className="p-6 text-sm text-muted-foreground">Loading submitted Journals…</p> : null}
+          <div className="border-b border-border p-3 font-semibold">Submitted queue</div>
+          {loading ? <p className="p-3 text-sm text-muted-foreground">Loading submitted Journals…</p> : null}
           {items.map((item) => (
             <button
               type="button"
               key={item.id}
-              className={`block w-full border-b border-border p-4 text-left hover:bg-muted/40 ${selected === item.id ? "bg-primary/10" : ""}`}
+              className={`block w-full border-b border-border p-3 text-left hover:bg-muted/40 ${selected === item.id ? "bg-primary/10" : ""}`}
               onClick={() => setSelected(item.id)}
             >
               <strong>{item.display_number}</strong>
@@ -1321,7 +1533,7 @@ function JournalApproval({
               </span>
             </button>
           ))}
-          {items.length === 0 ? <p className="p-6 text-sm text-muted-foreground">No Journals await approval.</p> : null}
+          {items.length === 0 ? <p className="p-3 text-sm text-muted-foreground">No Journals await approval.</p> : null}
           <WorkPagination size={workPageSize} page={cursorHistory.length} start={items.length ? cursorHistory.length * workPageSize + 1 : 0} end={cursorHistory.length * workPageSize + items.length} total={nextCursor ? undefined : cursorHistory.length * workPageSize + items.length} hasMore={Boolean(nextCursor)} previous={cursorHistory.length > 0} next={Boolean(nextCursor)} busy={loading} onPrevious={() => {
               setSelected("");
               setDetail(null);
@@ -1336,7 +1548,7 @@ function JournalApproval({
             }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </aside>
       ) : null}
-      <section className="rounded-lg border border-border bg-card p-4">
+      <section className="rounded-lg border border-border bg-card p-3">
         {detail ? (
           <>
             <div className="flex flex-wrap justify-between gap-3">
@@ -1348,15 +1560,18 @@ function JournalApproval({
               </div>
               <Badge variant="outline">Balanced · {money(detail.total, detail.currency, displayDecimalPlaces)}</Badge>
             </div>
-            <div className="mt-4">
+            <div className="mt-3">
+              <JournalPostingStatus state={detail.state} eligibility={detail.posting_eligibility} />
+            </div>
+            <div className="mt-2">
               <ReadOnlyLines detail={detail} displayDecimalPlaces={displayDecimalPlaces} />
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="grid gap-2">
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
+              <div className="grid gap-1">
                 <Label htmlFor="decision-note">Approval note</Label>
                 <Textarea id="decision-note" value={note} onChange={(event) => setNote(event.target.value)} />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1">
                 <Label htmlFor="decision-reason">
                   {detail.capabilities.super_admin_override_available
                     ? "Self-approval override reason *"
@@ -1381,18 +1596,18 @@ function JournalApproval({
                     ? "Your assigned self-approval permission allows you to approve this Journal. An override reason is not required."
                     : "Confirm the final review to approve and post. A reason is required only when rejecting to draft."}
             </p>
-            <div className="mt-4 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
+            <div className="mt-2 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
               <Checkbox
                 id="journal-final-confirmation"
                 checked={confirmed}
                 onCheckedChange={(value) => setConfirmed(value === true)}
               />
-              <Label htmlFor="journal-final-confirmation" className="text-sm font-normal">
-                <strong>Final review confirmed.</strong>
-                <br />I verified the date, base-currency lines, nominal accounts, balance and supporting reference.
+              <Label htmlFor="journal-final-confirmation" className="block text-sm font-normal">
+                <strong>Final review confirmed.</strong>{" "}
+                I verified the date, base-currency lines, nominal accounts, balance and supporting reference.
               </Label>
             </div>
-            <div className="mt-4 flex justify-end gap-2">
+            <div className="mt-2 flex justify-end gap-2">
               <Button
                 variant="outline"
                 disabled={busy || reason.trim().length < 3 || !detail.capabilities.reject}
@@ -1509,9 +1724,9 @@ function JournalReversal({
     }
   };
   return (
-    <div className={embedded ? "" : "grid gap-4 lg:grid-cols-[20rem_1fr]"}>
+    <div className={embedded ? "" : "grid gap-3 lg:grid-cols-[20rem_1fr]"}>
       {!embedded ? (
-        <section className="rounded-lg border border-border bg-card p-4">
+        <section className="rounded-lg border border-border bg-card p-3">
           <Label htmlFor="reversal-source">Posted Manual Journal</Label>
           <select
             id="reversal-source"
@@ -1541,18 +1756,18 @@ function JournalReversal({
             }} onSizeChange={(size) => { setWorkPageSize(size); setCursor(undefined); setCursorHistory([]); }} />
         </section>
       ) : null}
-      <section className="rounded-lg border border-border bg-card p-4">
+      <section className="rounded-lg border border-border bg-card p-3">
         {detail ? (
           <>
             <h2 className="text-xl font-semibold">Reverse {detail.display_number}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               The original posting remains immutable. A new compensating Journal will be posted.
             </p>
-            <div className="mt-4">
+            <div className="mt-2">
               <ReadOnlyLines detail={detail} displayDecimalPlaces={displayDecimalPlaces} />
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="grid gap-2">
+            <div className="mt-2 grid gap-3 md:grid-cols-2">
+              <div className="grid gap-1">
                 <Label htmlFor="reversal-date">Reversal date</Label>
                 <Input
                   id="reversal-date"
@@ -1562,7 +1777,7 @@ function JournalReversal({
                   onChange={(event) => setDate(event.target.value)}
                 />
               </div>
-              <div className="grid gap-2">
+              <div className="grid gap-1">
                 <Label htmlFor="reversal-reason">Reason</Label>
                 <Input id="reversal-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
               </div>
@@ -1570,7 +1785,7 @@ function JournalReversal({
             {date < detail.journal_date ? (
               <p className="mt-3 text-sm text-destructive">The reversal date cannot be before {detail.journal_date}.</p>
             ) : null}
-            <div className="mt-4 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
+            <div className="mt-2 flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3">
               <Checkbox
                 id="confirm-reversal"
                 checked={confirmed}
@@ -1580,7 +1795,7 @@ function JournalReversal({
                 I confirm this creates an immutable compensating posting; it does not alter the original Journal.
               </Label>
             </div>
-            <div className="mt-4 flex justify-end">
+            <div className="mt-2 flex justify-end">
               <Button
                 variant="destructive"
                 disabled={
@@ -1802,9 +2017,9 @@ function RecurringJournals({
     }
   };
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <section className="overflow-hidden rounded-lg border border-border bg-card">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border p-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border p-3">
           <Field label="Template status">
             <select
               aria-label="Template status"
@@ -1833,7 +2048,7 @@ function RecurringJournals({
             <thead className="bg-primary text-left text-primary-foreground">
               <tr>
                 {["Template", "Schedule", "Next draft", "Last generated", "Status", "Action"].map((value) => (
-                  <th key={value} className="px-4 py-3">
+                  <th key={value} className="px-3 py-2">
                     {value}
                   </th>
                 ))}
@@ -1842,24 +2057,24 @@ function RecurringJournals({
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                     Loading recurring templates…
                   </td>
                 </tr>
               ) : null}
               {items.map((item) => (
                 <tr key={item.id} className="border-t border-border">
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     <strong>{item.name}</strong>
                     <span className="block text-muted-foreground">{item.narration}</span>
                   </td>
-                  <td className="px-4 py-3 capitalize">{item.schedule}</td>
-                  <td className="px-4 py-3">{item.next_scheduled_date ?? "Complete"}</td>
-                  <td className="px-4 py-3">{item.last_generated_date ?? "Not generated"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2 capitalize">{item.schedule}</td>
+                  <td className="px-3 py-2">{item.next_scheduled_date ?? "Complete"}</td>
+                  <td className="px-3 py-2">{item.last_generated_date ?? "Not generated"}</td>
+                  <td className="px-3 py-2">
                     <Badge variant={item.status === "active" ? "default" : "outline"}>{item.status}</Badge>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-2">
                       <Button size="sm" variant="outline" onClick={() => openHistory(item)}>
                         History
@@ -1880,7 +2095,7 @@ function RecurringJournals({
               ))}
               {!loading && items.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                     No recurring templates match the selected status.
                   </td>
                 </tr>
@@ -1901,7 +2116,7 @@ function RecurringJournals({
 
       {pendingStatus ? (
         <section
-          className="space-y-3 rounded-lg border border-border bg-card p-4"
+          className="space-y-3 rounded-lg border border-border bg-card p-3"
           aria-label="Confirm recurring status change"
         >
           <h2 className="font-semibold">
@@ -1936,8 +2151,11 @@ function RecurringJournals({
           if (!open) closeDrawer();
         }}
       >
-        <SheetContent className="w-full max-w-none gap-0 sm:max-w-[min(96vw,80rem)]">
-          <SheetHeader className="border-b border-border pr-14">
+        <SheetContent
+          portalClassName="relative isolate z-[1300]"
+          className={`${journalDensity} gap-0 data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-[min(96vw,80rem)]`}
+        >
+          <SheetHeader className="shrink-0 gap-1 border-b border-border p-3! pr-12!">
             <SheetTitle>
               {drawerMode === "history"
                 ? "Recurring generation history"
@@ -1951,10 +2169,10 @@ function RecurringJournals({
                 : "Recurring templates generate drafts only and remain subject to Journal approval."}
             </SheetDescription>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-2 sm:p-3">
             {drawerMode === "history" && historyTemplate ? (
               <section className="overflow-hidden rounded-lg border border-border bg-card">
-                <div className="border-b border-border p-4">
+                <div className="border-b border-border p-3">
                   <h2 className="font-semibold">Generation history · {historyTemplate.name}</h2>
                   <p className="text-sm text-muted-foreground">
                     Failures remain isolated to their occurrence; exhausted retries require operator review.
@@ -1965,7 +2183,7 @@ function RecurringJournals({
                     <thead className="bg-muted">
                       <tr>
                         {["Scheduled date", "State", "Attempts", "Draft", "Last error", "Updated"].map((value) => (
-                          <th key={value} className="px-4 py-3 text-left">
+                          <th key={value} className="px-3 py-2 text-left">
                             {value}
                           </th>
                         ))}
@@ -1974,15 +2192,15 @@ function RecurringJournals({
                     <tbody>
                       {occurrenceLoading ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                          <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                             Loading generation history…
                           </td>
                         </tr>
                       ) : null}
                       {occurrences.map((occurrence) => (
                         <tr key={occurrence.id} className="border-t border-border">
-                          <td className="px-4 py-3">{occurrence.scheduled_date}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">{occurrence.scheduled_date}</td>
+                          <td className="px-3 py-2">
                             <Badge
                               variant={
                                 occurrence.state === "exhausted" || occurrence.state === "failed"
@@ -1993,15 +2211,15 @@ function RecurringJournals({
                               {occurrence.state.replaceAll("_", " ")}
                             </Badge>
                           </td>
-                          <td className="px-4 py-3">{occurrence.attempt_count}</td>
-                          <td className="px-4 py-3">{occurrence.manual_journal_id ?? "—"}</td>
-                          <td className="px-4 py-3">{occurrence.last_error_code ?? "—"}</td>
-                          <td className="px-4 py-3">{new Date(occurrence.updated_at).toLocaleString()}</td>
+                          <td className="px-3 py-2">{occurrence.attempt_count}</td>
+                          <td className="px-3 py-2">{occurrence.manual_journal_id ?? "—"}</td>
+                          <td className="px-3 py-2">{occurrence.last_error_code ?? "—"}</td>
+                          <td className="px-3 py-2">{new Date(occurrence.updated_at).toLocaleString()}</td>
                         </tr>
                       ))}
                       {!occurrenceLoading && occurrences.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                          <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                             No occurrences have been generated.
                           </td>
                         </tr>
@@ -2025,7 +2243,7 @@ function RecurringJournals({
             ) : null}
 
             {drawerMode === "form" && canManage ? (
-              <section className="space-y-4 rounded-lg border border-border bg-card p-4">
+              <section className="space-y-3 rounded-lg border border-border bg-card p-3">
                 <h2 className="text-xl font-semibold">
                   {selected ? `Edit ${selected.name}` : "Add recurring template"}
                 </h2>
@@ -2041,7 +2259,7 @@ function RecurringJournals({
                   </Field>
                   <Field label="Schedule">
                     <select
-                      className="h-10 rounded-md border border-input bg-background px-3"
+                      className="h-8 min-w-0 rounded-md border border-input bg-background px-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
                       value={schedule}
                       onChange={(event) => {
                         setSchedule(event.target.value as typeof schedule);
@@ -2163,17 +2381,22 @@ function JournalAmountInput({
   );
 }
 
+/* eslint-disable jsx-a11y/no-noninteractive-tabindex -- A named overflow region needs keyboard focus to scroll its read-only table (WCAG 2.1.1). */
 function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail; displayDecimalPlaces: number }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[620px] text-sm">
+    <div
+      role="region"
+      aria-label="Journal lines"
+      tabIndex={0}
+      className="overflow-x-auto rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      <table className="w-full min-w-[560px] text-sm">
         <thead className="bg-muted">
           <tr>
-            <th className="px-3 py-2 text-left">Nominal</th>
-            <th className="px-3 py-2 text-left">Description</th>
-            <th className="px-3 py-2 text-left">Dimensions</th>
-            <th className="px-3 py-2 text-right">Debit</th>
-            <th className="px-3 py-2 text-right">Credit</th>
+            <th scope="col" className="px-3 py-2 text-left">Nominal Account</th>
+            <th scope="col" className="px-3 py-2 text-left">Description</th>
+            <th scope="col" className="px-3 py-2 text-right">Debit</th>
+            <th scope="col" className="px-3 py-2 text-right">Credit</th>
           </tr>
         </thead>
         <tbody>
@@ -2183,13 +2406,6 @@ function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail
                 {line.account_code} · {line.account_name}
               </td>
               <td className="px-3 py-2">{line.description}</td>
-              <td className="px-3 py-2">
-                {Object.entries(line.dimensions).length
-                  ? Object.entries(line.dimensions)
-                      .map(([dimension, value]) => `${dimension.replaceAll("_", " ")}: ${value}`)
-                      .join(" · ")
-                  : "—"}
-              </td>
               <td className="px-3 py-2 text-right tabular-nums">
                 {formatJournalDisplayAmount(line.debit, displayDecimalPlaces)}
               </td>
@@ -2204,11 +2420,15 @@ function ReadOnlyLines({ detail, displayDecimalPlaces }: { detail: JournalDetail
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/* eslint-enable jsx-a11y/no-noninteractive-tabindex */
+
+function Field({ label, children }: { label: string; children: React.ReactElement<{ id?: string }> }) {
+  const generatedId = useId();
+  const id = children.props.id ?? generatedId;
   return (
-    <div className="grid gap-2">
-      <span className="text-sm font-medium">{label}</span>
-      {children}
+    <div className="grid min-w-0 gap-1">
+      <Label htmlFor={id}>{label}</Label>
+      {cloneElement(children, { id })}
     </div>
   );
 }
@@ -2218,7 +2438,7 @@ function StateBadge({ state }: { state: JournalSummary["state"] }) {
       variant={state === "posted" ? "default" : state === "reversed" ? "destructive" : "outline"}
       className="capitalize"
     >
-      {state}
+      {state === "submitted" ? "Awaiting approval" : state}
     </Badge>
   );
 }

@@ -150,8 +150,8 @@ export function BankingTransferDetail({
     (transfer.super_admin_override_allowed || transfer.delegated_self_approval_allowed);
 
   return (
-    <div className="space-y-5" aria-busy={Boolean(busy)}>
-      <header className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-border bg-card p-5 shadow-sm">
+    <div className="space-y-3" aria-busy={Boolean(busy)}>
+      <header className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-border bg-card p-3 shadow-sm">
         <div>
           <button type="button" className="text-sm text-primary hover:underline" onClick={onBack}>
             ← Back to Transfers
@@ -168,7 +168,7 @@ export function BankingTransferDetail({
         </Badge>
       </header>
       {error ? <Notice title="Action could not be completed" detail={error} destructive /> : null}
-      <section className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4">
         <Fact
           label="Source total"
           value={transfer.source_totals.map((item) => `${item.currency} ${item.amount}`).join(" · ")}
@@ -196,7 +196,7 @@ export function BankingTransferDetail({
           <p className="text-sm text-muted-foreground">Resolved Bank controls and governed currency-rate evidence.</p>
         </div>
         <div className="overflow-x-auto">
-          <WorkTable tableId="app/features/banking/views/banking-transfer-detail:1" className="min-w-[1180px] w-full text-sm">
+          <WorkTable keyboardScroll tableId="app/features/banking/views/banking-transfer-detail:1" className="min-w-[1180px] w-full text-sm">
             <thead className="bg-[var(--nx-info-soft)] text-left text-[var(--nx-emphasis-text)]">
               <tr>
                 {[
@@ -262,7 +262,7 @@ export function BankingTransferDetail({
         </div>
       </section>
       <section className="grid gap-5 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-lg border border-border bg-card p-3">
           <h2 className="font-semibold">Accounting preview</h2>
           <div className="mt-3 space-y-2">
             {transfer.accounting_preview.lines.map((line) => (
@@ -284,7 +284,7 @@ export function BankingTransferDetail({
             ))}
           </div>
         </div>
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-lg border border-border bg-card p-3">
           <h2 className="font-semibold">Audit timeline</h2>
           <ol className="mt-3 space-y-3">
             {transfer.timeline.map((event) => (
@@ -310,7 +310,7 @@ export function BankingTransferDetail({
         <SuperAdminOverrideWarning reasonRequired={false} />
       ) : null}
       {transfer.state === "submitted" || transfer.state === "posted" ? (
-        <label className="grid gap-1.5 rounded-lg border border-border bg-card p-4 text-sm font-medium">
+        <label className="grid gap-1.5 rounded-lg border border-border bg-card p-3 text-sm font-medium">
           Reason {transfer.state === "submitted" ? "(required for rejection only)" : "(required for reversal)"}
           <Textarea value={reason} maxLength={500} onChange={(event) => setReason(event.target.value)} />
         </label>

@@ -41,10 +41,8 @@ export function PurchaseWorkspace({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [refresh, setRefresh] = useState(0);
-  const [formDirty, setFormDirty] = useState(false);
   const reportDirty = useCallback(
     (value: boolean) => {
-      setFormDirty(value);
       onDirtyChange?.(value);
     },
     [onDirtyChange],
@@ -250,25 +248,6 @@ export function PurchaseWorkspace({
         </Alert>
       ) : null}
       <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <LabeledField label="Company">
-          <select
-            aria-label="Purchase company"
-            className={purchaseSelectClass}
-            value={company}
-            disabled={editing || formDirty}
-            onChange={(event) => {
-              setCompany(event.target.value);
-              setSearch("");
-            }}
-          >
-            <option value="">Select company</option>
-            {companies.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.code} · {item.name}
-              </option>
-            ))}
-          </select>
-        </LabeledField>
         {!editing && !supplierPage ? (
           <>
             <LabeledField label="Search">
@@ -334,7 +313,11 @@ export function PurchaseWorkspace({
           aria-busy={busy}
         >
           <div className="overflow-x-auto">
-            <WorkTable continuation={{cursor:cursor,hasMore:!!(cursor),busy:!!(busy),loadMore:() => void more()}} tableId="app/features/purchasing/views/purchase-workspace:1" className="w-full min-w-[760px] border-collapse text-sm">
+            <WorkTable
+              continuation={{ cursor: cursor, hasMore: !!cursor, busy: !!busy, loadMore: () => void more() }}
+              tableId="app/features/purchasing/views/purchase-workspace:1"
+              className="w-full min-w-[760px] border-collapse text-sm"
+            >
               <thead className="bg-muted text-left">
                 <tr>
                   {["Code", "Date", "Supplier", "Source", "Amount", "Status", "Actions"].map((label) => (
@@ -407,7 +390,6 @@ export function PurchaseWorkspace({
               </tbody>
             </WorkTable>
           </div>
-
         </section>
       ) : null}
       {!editing && !supplierPage && ["payment", "multi_payment"].includes(step.kind) ? (

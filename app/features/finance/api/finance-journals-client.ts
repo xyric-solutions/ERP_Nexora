@@ -5,6 +5,7 @@ import type {
   DecideJournalRequest,
   DeleteJournalRequest,
   JournalDirectoryQuery,
+  JournalPostingEligibilityQuery,
   RecurringJournalDirectoryQuery,
   ReverseJournalRequest,
   SubmitJournalRequest,
@@ -31,6 +32,9 @@ export class FinanceJournalsClient {
   }
   detail(id: string) {
     return this.api.getJournal(id);
+  }
+  postingEligibility(input: JournalPostingEligibilityQuery) {
+    return this.api.getJournalPostingEligibility(query(input));
   }
   create(input: CreateJournalRequest, csrf: string, key: string) {
     return this.api.createJournal(input, csrf, key);

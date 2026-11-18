@@ -1,7 +1,8 @@
 import type { PoolClient } from "pg";
 import {
   assetCreateSchema,
-  purchaseLineSchema,
+  purchaseDocumentSchema,
+  purchaseTotals,
   convertMinor,
   decimal,
   decimalText,
@@ -22,14 +23,28 @@ export async function registerPostedPurchase(
   journalId: string,
 ) {
   const document = (
-    await client.query<{ lines: unknown; currency: string; supplier_id: string }>(
-      "select lines,currency,supplier_id from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved' for share",
+    await client.query<{
+      lines: unknown;
+      discount_amount: string;
+      additional_charges: unknown;
+      currency: string;
+      supplier_id: string;
+    }>(
+      "select lines,discount_amount::text,additional_charges,currency,supplier_id from procurement_document where tenant_id=$1 and company_id=$2 and id=$3 and kind='bill' and state='approved' for share",
       [context.tenantId, company, documentId],
     )
   ).rows[0];
   if (!document) return;
-  const lines = purchaseLineSchema.array().parse(document.lines);
-  for (const line of lines) {
+  const terms = purchaseDocumentSchema
+    .pick({ lines: true, discount_amount: true, additional_charges: true })
+    .parse({
+      lines: document.lines,
+      discount_amount: document.discount_amount,
+      additional_charges: document.additional_charges,
+    });
+  const lines = terms.lines,
+    amounts = purchaseTotals(lines, terms);
+  for (const [lineIndex, line] of lines.entries()) {
     if (!line.create_fixed_asset) continue;
     const registration: PurchaseAssetRegistration | undefined = line.asset_registration;
     if (!registration || !line.id || !line.asset_category_id)
@@ -66,7 +81,7 @@ export async function registerPostedPurchase(
     const source = debit[0]!;
     const base = await resolveCompanyBaseCurrency(client, context.tenantId, company);
     const totals = registration.units.reduce((sum, unit) => sum + decimal(unit.cost, source.decimal_places), 0n);
-    const expected = (decimal(line.quantity, 4) * decimal(line.unit_price, 2)) / 10000n;
+    const expected = decimal(amounts.lines[lineIndex]!.net, 2);
     if (totals !== decimal(decimalText(expected, 2), source.decimal_places))
       reject("Individual asset costs must equal the approved bill line.");
     let allocated = 0n;

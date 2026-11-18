@@ -1,10 +1,34 @@
 # Inventory product catalog
 
-Inventory exposes **Products**, **Stock Transfer** and **Warehouse**. The Products work page supports grid/list
+Inventory exposes **Products**, **Unit of Measure**, **Stock Transfer** and **Warehouse**. The Products work page supports grid/list
 views, bounded search, type/status/category filters, continuation pagination and
 Add New. Existing item/create/detail URLs resolve to the corresponding product
 pages. The Warehouse and Stock Transfer work pages have search, pagination,
 Add New and populated creation/edit forms. Other stock prototypes remain hidden.
+
+Unit of Measure, Warehouse and Stock Transfer use the same compact header rhythm
+as Products: inline wrapping descriptions/actions, 36px filter controls and smaller
+section gaps. Directory rows use 6px vertical cell padding; unit names/codes wrap
+together rather than forcing a second line. The converter and creation/edit form
+headers explicitly reset browser margins and retain readable labels and messages.
+Warehouse/Transfer form fields use smaller layout gaps without changing field
+behavior, validation or the draft-only stock boundary.
+
+The operating company is shown once in the persistent ERP top bar. Product,
+warehouse/transfer, Purchase and Accounting hierarchy workpages use that session
+scope without repeating a company selector. Switching uses the authenticated
+company directory and session API, protects unsaved forms and clears record
+navigation after success. Company values that represent business data remain.
+
+The Products title, description and actions share a compact wrapping header.
+Filters use smaller controls and gaps. Card headings, paragraphs and price details
+explicitly reset browser margins because Tailwind Preflight is disabled during
+the migration. Cards wrap at a stable 224px desktop width and fill the available
+width on phones; a small catalogue no longer stretches its cards. Grid continuation
+has a Load more products action; list continuation retains WorkTable pagination.
+Add New uses real company currency options. Missing settings retain a visible
+retry/setup explanation rather than silently hiding the reason for disabled
+creation. Currency setup is never activated automatically.
 
 One creation/edit form combines the supplied references: identity and sales/
 purchase/manufacture flags, General, Pricing, Inventory and Accounting tabs. It includes
@@ -17,6 +41,46 @@ is fixed while editing. Failed saves retain input, and unsaved navigation is
 guarded. Shared Tailwind tokens and controls preserve the ERP light/dark themes.
 
 ## Persistence and authorization
+
+### Managed measurement units
+
+`Unit of Measure` provides a company-scoped directory, Add New Unit, retained
+active/inactive records and a live converter. Standard mass, length, area, volume,
+count and elapsed-time definitions are persistent reference data. Metric Tonne is
+explicitly 1,000 kg. Existing Day remains a legacy service unit requiring an explicit
+product rule before conversion to elapsed time; Box/Pack contents are never assumed.
+Custom definitions use positive rational factors and stable transactional UOM codes.
+Definitions retain their meaning after creation; status is editable with audit history.
+
+Inventory migration 3 adds standard/company units, immutable unit change evidence,
+same-company product base-unit references and optional transfer conversion snapshots.
+It seeds standard reference data for existing/new companies without rewriting product
+JSON or historical financial evidence. Product packaging rules reuse audited product
+details. The server locks and validates eligible company units, precision and mappings;
+referenced product base units and packaging factors cannot silently change meaning.
+
+`/api/v1/inventory/units` supports bounded list/create, `/{id}` read/update,
+`/conversion` standard or product-specific conversion and `/product-choices`
+workflow-authorized choices. Unit management follows existing Inventory item read/
+create capabilities. Product choices select an allowlisted Products/Purchase/Transfer
+permission; Purchase users do not need Inventory management access. All writes retain
+CSRF, origin, company authority, optimistic versions, idempotency and audit checks.
+
+The shared converter uses exact integer/rational arithmetic. New Purchase requests
+and draft transfers snapshot the entered quantity/unit, factor, base equivalent and
+precision. Saving rejects conversion overflow, incompatible dimensions and precision
+loss. Purchase quantity and price remain commercial terms in the selected unit;
+changing a priced unit asks for confirmation and clears that price. Source documents
+retain their commercial unit through RFQs/orders/receipts/bills, including exact
+partial-quantity snapshots. Existing tax, discounts, charges, posting and individual
+asset registration safeguards remain. Transfers store their base quantity and remain
+unposted drafts; forms restore the original entered unit/quantity when reloaded.
+
+The feature is active on localhost after owner-approved backup/restore verification
+and Inventory migration 3. Procurement remains at 5 and Fixed Assets at 2. Existing
+records and login credentials were retained. Live acceptance covers both companies,
+conversions, existing forms and company isolation; see the
+[targeted release procedure](../superpowers/plans/2026-11-17-inventory-units-release.md).
 
 The client uses generated contracts through the independent API:
 `GET /api/v1/inventory/companies`, `/options`, `/lookups`, `/products`,
@@ -43,6 +107,13 @@ role-policy assignment, exact permission and company scope against PostgreSQL.
 The identical existing company-authority SQL is shared with Reference Masters and
 Purchases. Impersonated writes are blocked. Writes require cookie session, CSRF,
 allowed origin, idempotency key, and quoted If-Match on updates.
+
+Inventory sets both authenticated tenant and user transaction-local PostgreSQL
+context. Company currency row-level security requires the user context as well
+as non-revoked company access. This fixes empty currency options and failed
+product saves under the restricted runtime database role without broadening
+permissions or bypassing RLS. Regression coverage uses a non-owner, non-bypass-RLS
+role and verifies create/edit, denied/revoked access and connection-context cleanup.
 
 Warehouse master reads/saves reuse `inventory.bin.read` / `inventory.bin.create`.
 Transfer draft reads use `inventory.stock.read`; saves require both currently

@@ -24,8 +24,8 @@ type TemplateRow = {
   company_id: string;
   name: string;
   schedule: "monthly" | "quarterly";
-  next_scheduled_date: string | Date;
-  end_date: string | Date | null;
+  next_scheduled_date: string;
+  end_date: string | null;
   base_currency: string;
   reference_pattern: string | null;
   narration: string;
@@ -41,8 +41,7 @@ type TemplateLine = {
   dimensions: Record<string, string>;
 };
 
-const dateOnly = (value: string | Date): string =>
-  value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
+const dateOnly = (value: string): string => value.slice(0, 10);
 
 const requestHash = (value: unknown): string => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
@@ -144,7 +143,7 @@ export class PostgresRecurringJournalGenerationRepository implements RecurringJo
       await client.query("select set_config('nexora.user_id',$1,true)", [options.actorId]);
       const due = (
         await client.query<TemplateRow>(
-          `select id,company_id,name,schedule,next_scheduled_date,end_date,base_currency,
+          `select id,company_id,name,schedule,next_scheduled_date::text,end_date::text,base_currency,
                   reference_pattern,narration,lines,row_version
              from recurring_journal_template
             where tenant_id=$1 and status='active' and created_by is not null

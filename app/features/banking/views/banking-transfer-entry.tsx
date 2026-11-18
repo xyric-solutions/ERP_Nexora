@@ -785,7 +785,7 @@ export function BankingTransferEntry({
                       {crossCurrency ? (
                         <tr className="border-b border-border bg-muted/30 last:border-b-0">
                           <td colSpan={8} className="p-3">
-                            <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-4">
                               <label
                                 htmlFor={`transfer-rate-${line.id}`}
                                 className="grid shrink-0 gap-1 text-xs font-medium"
@@ -841,7 +841,7 @@ export function BankingTransferEntry({
               </tfoot>
             </table>
           </div>
-          <div className="border-t border-border p-4">
+          <div className="border-t border-border p-3">
             <Button
               type="button"
               variant="outline"

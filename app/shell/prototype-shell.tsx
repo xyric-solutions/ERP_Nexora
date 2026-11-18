@@ -1,4 +1,5 @@
 "use client";
+import { bankWorkspaceLayout } from "@prototype/features/banking/components/bank-workspace-layout";
 import { purchaseSteps } from "@prototype/features/purchasing/model/purchase-workflow";
 import { PURCHASE_EXPORT_EVENT } from "@prototype/features/purchasing/model/purchase-export";
 import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
@@ -7,6 +8,7 @@ import { markSalesNotificationRead, useSalesNavigationCounts, useSalesNotificati
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { ActionFeedbackProvider } from "@/shared/ui/action-feedback";
+import { WorkspaceCompanySelect } from "./workspace-company-select";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ChevronsLeft, ChevronsRight, X, Menu, Search, ListChecks, Sparkles, CircleHelp, Bell } from "lucide-react";
@@ -58,8 +60,14 @@ const legacyJournalPageIds = new Set([
   "recurring-journals",
 ]);
 const navigationPageId = (moduleId: string, pageId: string) =>
-  moduleId === "inventory"
-    ? ["warehouses", "add-warehouse"].includes(pageId)
+  moduleId === "assets" && ["add-asset", "asset-detail", "asset-acquisition", "capitalisation"].includes(pageId)
+    ? "assets"
+    : moduleId === "purchases" && ["purchase-bill-returns", "purchase-refunds"].includes(pageId)
+      ? "purchase-returns"
+    : moduleId === "inventory"
+    ? pageId === "units-of-measure"
+      ? "units-of-measure"
+      : ["warehouses", "add-warehouse"].includes(pageId)
       ? "warehouses"
       : ["stock-transfers", "add-stock-transfer"].includes(pageId)
         ? "stock-transfers"
@@ -905,20 +913,27 @@ export function PrototypeShell({
             >
               <Menu className="h-[1em] w-[1em]" aria-hidden="true" />
             </button>
-            <span className="nx-topbar__brand">{application.name}</span>
+            <span className="nx-topbar__brand max-sm:hidden!">{application.name}</span>
             <button
-              className="nx-global-search max-lg:w-10! max-lg:min-w-10! max-lg:flex-none!"
+              className="nx-global-search w-auto! min-w-0! flex-1! max-xl:w-10! max-xl:min-w-10! max-xl:flex-none!"
               type="button"
               onClick={() => setSearchOpen(true)}
               aria-label="Search transactions and pages"
             >
               <Search className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
-              <span className="nx-shell-search-copy max-lg:hidden!">Search transactions and pages</span>
-              <kbd className="max-lg:hidden!">Ctrl K</kbd>
+              <span className="nx-shell-search-copy max-xl:hidden!">Search transactions and pages</span>
+              <kbd className="max-xl:hidden!">Ctrl K</kbd>
             </button>
+            <WorkspaceCompanySelect
+              beforeSwitch={() => !paymentEntryDirtyRef.current || window.confirm("You have unsaved form changes. Switch company and discard them?")}
+              onSwitched={() => {
+                reportEntryDirty(false);
+                window.location.hash = hashForRoute(initialRoute);
+              }}
+            />
             <div className="nx-topbar__actions">
               <button
-                className="nx-intelligence-trigger"
+                className="nx-intelligence-trigger max-lg:hidden!"
                 type="button"
                 onClick={() => setIntelligenceSurface({ kind: "work" })}
               >
@@ -927,7 +942,7 @@ export function PrototypeShell({
                 <b>4</b>
               </button>
               <button
-                className="nx-intelligence-trigger nx-intelligence-trigger--ai"
+                className="nx-intelligence-trigger nx-intelligence-trigger--ai max-lg:hidden!"
                 type="button"
                 aria-label="Nexora AI"
                 onClick={() => setIntelligenceSurface({ kind: "assistant" })}
@@ -936,7 +951,7 @@ export function PrototypeShell({
                 <span className="max-lg:hidden!">Nexora AI</span>
               </button>
               <button
-                className="nx-icon-button"
+                className="nx-icon-button max-sm:hidden!"
                 type="button"
                 aria-label="Prototype help"
                 onClick={() => setDialog({ type: "help" })}
@@ -944,7 +959,7 @@ export function PrototypeShell({
                 <CircleHelp className="h-[1em] w-[1em]" aria-hidden="true" />
               </button>
               <button
-                className="nx-icon-button"
+                className="nx-icon-button max-sm:hidden!"
                 type="button"
                 aria-label="Open notifications"
                 onClick={() => setDialog({ type: "notifications" })}
@@ -1039,7 +1054,8 @@ export function PrototypeShell({
           ) : null}
 
           <div
-            className={`nx-content mt-3 flex-1 rounded-tl-3xl bg-background${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}`}
+            data-bank-workspace={current.module.id === "banking" ? "" : undefined}
+            className={`nx-content mt-3 flex-1 rounded-tl-3xl bg-background${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}${current.module.id === "banking" ? ` ${bankWorkspaceLayout}` : ""}`}
           >
             {activeWorkspace === "identity" && identityContent ? (
               identityContent

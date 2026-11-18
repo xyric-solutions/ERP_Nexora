@@ -13,7 +13,7 @@ import {
 import {
   decimal,
   decimalText,
-  divideRounded,
+  purchaseTotals,
   type TaxDefinition,
   type SubledgerRequest,
   type SubledgerOperation,
@@ -28,6 +28,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/lib/session/session-provider";
 import { ApiError } from "@/lib/api/generated";
 import { WorkTable, workSelectClass } from "@/shared/ui/work-table";
+import {reportCsvCell,downloadReportCsv} from "@/features/reports/model/connected-report-export";
 
 type Tab = "balances" | "documents" | "settlement" | "revaluation" | "reports" | "setup";
 type Side = "receivable" | "payable";
@@ -197,6 +198,7 @@ function CompanyCurrencyWorkspace({
     side,
     party_id: partyId,
     currency,
+    source_document_id: sourceDocumentId,
     offset,
     limit: 50,
   });
@@ -232,6 +234,7 @@ function CompanyCurrencyWorkspace({
       side,
       party_id: partyId,
       currency,
+      source_document_id: sourceDocumentId,
       offset,
       limit: 50,
     });
@@ -243,13 +246,13 @@ function CompanyCurrencyWorkspace({
         policyRoles.map((role) => [`${role}_account_id`, result.policy?.[`${role}_account_id`] ?? ""]),
       ),
     );
-  }, [api, company, canRead, asOf, side, partyId, currency, offset]);
+  }, [api, company, canRead, asOf, side, partyId, currency, offset, sourceDocumentId]);
   useEffect(() => {
     let cancelled = false;
     if (!company || !canRead) return;
     api
       .getSubledgerWorkspace(
-        queryString({ company_id: company, as_of: asOf, side, party_id: partyId, currency, offset, limit: 50 }),
+        queryString({ company_id: company, as_of: asOf, side, party_id: partyId, currency, source_document_id: sourceDocumentId, offset, limit: 50 }),
       )
       .then((result) => {
         if (!cancelled) {
@@ -261,6 +264,7 @@ function CompanyCurrencyWorkspace({
               side,
               party_id: partyId,
               currency,
+              source_document_id: sourceDocumentId,
               offset,
               limit: 50,
             }),
@@ -279,7 +283,7 @@ function CompanyCurrencyWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, company, canRead, asOf, side, partyId, currency, offset]);
+  }, [api, company, canRead, asOf, side, partyId, currency, offset, sourceDocumentId]);
   useEffect(() => {
     if (!company || !sourceDocumentId || !canManage || preparedSource.current === `${company}:${sourceDocumentId}`)
       return;
@@ -287,8 +291,18 @@ function CompanyCurrencyWorkspace({
     void (async () => {
       const [bill, current] = await Promise.all([
         api.getPurchaseDocument(sourceDocumentId, company),
-        api.getSubledgerWorkspace(queryString({ company_id: company, as_of: today(), limit: 50 })),
+        api.getSubledgerWorkspace(queryString({ company_id: company, as_of: today(), source_document_id: sourceDocumentId, limit: 50 })),
       ]);
+      const linked=current.operations.find(operation=>operation.id===bill.finance_operation_id)??current.operations.find(operation=>"source_document_id" in operation.input&&operation.input.source_document_id===bill.id);
+      if(linked) {
+        if(cancelled)return;
+        preparedSource.current=`${company}:${sourceDocumentId}`;
+        setSide("payable");setTab("documents");
+        setMessage(`Open ${linked.code} in the financial operations below for independent review and posting.`);
+        return;
+      }
+      if(bill.kind==="payment"||bill.kind==="multi_payment")
+        throw new Error("Prepare this instruction's source-linked accounting from its Purchase detail first.");
       if (bill.kind !== "bill" || bill.state !== "approved" || !bill.supplier_id || !bill.supplier_name)
         throw new Error("Select an approved bill with an active supplier.");
       const existing = current.parties.find((party) => party.source_supplier_id === bill.supplier_id);
@@ -308,11 +322,7 @@ function CompanyCurrencyWorkspace({
       const scale = current.currencies.find((item) => item.code === bill.currency)?.decimal_places;
       if (scale === undefined) throw new Error("Activate the bill's currency for this company first.");
       // Purchase totals round each line's net to its two-decimal source precision.
-      const netAtStorageScale =
-        bill.lines.reduce(
-          (sum, line) => sum + divideRounded(decimal(line.quantity, 4) * decimal(line.unit_price, 2), 10000n),
-          0n,
-        ) * 1000000n;
+      const netAtStorageScale = decimal(purchaseTotals(bill.lines, bill).net, 8);
       const grossAtStorageScale = decimal(bill.total_amount, 8);
       const currencyUnit = 10n ** BigInt(8 - scale);
       if (grossAtStorageScale % currencyUnit !== 0n || netAtStorageScale % currencyUnit !== 0n)
@@ -327,7 +337,7 @@ function CompanyCurrencyWorkspace({
       setTab("documents");
       setPartyId(party.id);
       setCurrency(bill.currency);
-      const governedBill = bill.lines.some((line) => line.tax_definition_id);
+      const governedBill = bill.lines.some((line) => line.tax_definition_id) || !!bill.additional_charges?.some((charge) => charge.tax_definition_id);
       setSourceGovernedTax(governedBill);
       setDocumentAmount(decimalText(governedBill ? net : gross, scale));
       setTaxAmount(decimalText(gross > net ? gross - net : 0n, scale));
@@ -394,6 +404,30 @@ function CompanyCurrencyWorkspace({
     } finally {
       setBusy(false);
     }
+  }
+  async function exportPostedReport(balances:boolean) {
+    if(!company||busy||!data||(!balances&&!report))return;
+    const scope=balances?currentScope.current:currentReportScope.current;
+    const total=balances?data.total_balances:report!.total_rows;
+    setBusy(true);setError("");
+    try {
+      if(total>100000)throw new Error("Narrow the filters to 100,000 rows or fewer before exporting.");
+      const records:Record<string,string>[]=[];
+      for(let start=0;start<Math.max(1,total);start+=100) {
+        if(balances) {
+          const result=await api.getSubledgerWorkspace(queryString({company_id:company,as_of:asOf,side,party_id:partyId,currency,offset:start,limit:100}));
+          if(result.total_balances!==total||result.carrying_total!==data.carrying_total||currentScope.current!==scope)throw new Error("Balance evidence changed during export. Reopen the report and try again.");
+          records.push(...result.balances.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,String(value)]))));
+        }else {
+          const result=await api.getSubledgerReport(queryString({company_id:company,as_of:asOf,from:reportFrom,...(["statement","fx"].includes(reportKind)?{side,party_id:partyId,currency}:{}),report:reportKind,presentation_currency:presentation,offset:start,limit:100}));
+          if(result.total_rows!==total||result.debit!==report!.debit||result.credit!==report!.credit||result.balance!==report!.balance||currentReportScope.current!==scope)throw new Error("Posted evidence changed during export. Run the report again before exporting.");
+          records.push(...result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,value===null?"":String(value)]))));
+        }
+      }
+      const columns=balances?["party_name","side","currency","base_currency","outstanding","carrying","unrealized","current","days_1_30","days_31_60","days_61_90","days_over_90"]:["date","code","name","type","currency","original","debit","credit","balance","presentation_balance","rate","journal_id"];
+      const lines=[[balances?"Posted payables/receivables ageing":reportKind,`As of ${asOf}`,`From ${reportFrom||"Report default"}`],[`Company ${company}`,`Side ${side}`,`Party ${partyId||"All"}`,`Currency ${currency||"All original currencies"}`],columns,...records.map(row=>columns.map(key=>row[key]??"")),[],balances?["Full-filter functional carrying",data.base_currency,data.carrying_total]:["Full-filter debit / credit / balance",report!.base_currency,report!.debit,report!.credit,report!.balance],["Presentation currency",balances?data.base_currency:report!.presentation_currency],...(!balances?[[report!.translation_method]]:[])];
+      downloadReportCsv("\uFEFF"+lines.map(line=>line.map(reportCsvCell).join(",")).join("\r\n"),`${balances?"ageing":reportKind}-${asOf}.csv`);
+    }catch(caught){setError(explain(caught));}finally{setBusy(false);}
   }
   async function create(type: "recognition" | "settlement" | "offset" | "revaluation") {
     if (!company) return;
@@ -520,7 +554,7 @@ function CompanyCurrencyWorkspace({
         {!embedded && (
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Finance · {activeCompany?.name}
+              Finance
             </p>
             <h1 className="mt-1 text-2xl font-semibold">
               {operational
@@ -656,6 +690,8 @@ function CompanyCurrencyWorkspace({
         <>
           {tab === "balances" && (
             <>
+              <div className="flex justify-end gap-2 print:hidden"><Button type="button" size="sm" variant="outline" disabled={busy} onClick={()=>void exportPostedReport(true)}>Export CSV</Button><Button type="button" size="sm" variant="outline" onClick={()=>window.print()}>Print</Button></div>
+              <p className="hidden text-xs print:block">As of {asOf}. Printed page: {data.balances.length} of {data.total_balances} balance rows. CSV includes all filtered rows.</p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-border bg-card p-4">
                   <p className="text-xs text-muted-foreground">Posted open-item carrying value</p>
@@ -1172,6 +1208,8 @@ function CompanyCurrencyWorkspace({
               </form>
               {report && (
                 <div className="grid gap-3 rounded-lg border border-border bg-card p-4">
+                  <div className="flex justify-end gap-2 print:hidden"><Button type="button" size="sm" variant="outline" disabled={busy} onClick={()=>void exportPostedReport(false)}>Export CSV</Button><Button type="button" size="sm" variant="outline" onClick={()=>window.print()}>Print</Button></div>
+                  <p className="hidden text-xs print:block">As of {report.as_of}. Printed page: {report.rows.length} of {report.total_rows} rows. CSV includes all filtered rows.</p>
                   <p className="text-sm text-muted-foreground">{report.translation_method}</p>
                   <div className="flex flex-wrap gap-4">
                     <span>
@@ -1340,7 +1378,7 @@ function CompanyCurrencyWorkspace({
           )}
           {!["reports", "setup"].includes(tab) && (
             <div className="overflow-x-auto rounded-lg border border-border bg-card">
-              <WorkTable tableId="multi-currency-operations" paging={false}>
+              <WorkTable tableId="multi-currency-operations" paging={false} keyboardScroll>
                 <caption className="p-3 text-left font-semibold">Financial drafts and posting history</caption>
                 <thead>
                   <tr>
@@ -1356,6 +1394,7 @@ function CompanyCurrencyWorkspace({
                     <OperationRow
                       key={operation.id}
                       operation={operation}
+                      accounts={data.accounts}
                       busy={busy}
                       canManage={canManage}
                       canApprove={canApprove}
@@ -1452,6 +1491,7 @@ function CompanyCurrencyWorkspace({
 
 function OperationRow({
   operation,
+  accounts,
   busy,
   canManage,
   canApprove,
@@ -1462,6 +1502,7 @@ function OperationRow({
   reverse,
 }: {
   operation: SubledgerOperation;
+  accounts:SubledgerWorkspace["accounts"];
   busy: boolean;
   canManage: boolean;
   canApprove: boolean;
@@ -1584,11 +1625,17 @@ function OperationRow({
                     </span>
                   )}
                 </div>
+                {operation.preview.purchase_suppliers?.length ? <WorkTable tableId={`purchase-financial-preview:${operation.id}`} label="Supplier payment preview" keyboardScroll tools={false} className="w-full text-left text-xs">
+                  <caption className="mb-2 text-left font-semibold">Supplier allocations — one atomic payment group</caption>
+                  <thead><tr>{["Supplier","Gross","Bill allocation","Discount","Withholding","Advance","Net cash"].map(label=><th key={label} scope="col" className="p-2">{label}</th>)}</tr></thead>
+                  <tbody>{operation.preview.purchase_suppliers.map(supplier=><tr key={supplier.supplier_id} className="border-t border-border"><td className="p-2">{supplier.name}</td>{(["gross","allocated","discount","withholding","advance","net"] as const).map(key=><td key={key} className="p-2"><Money currency={supplier.currency} value={supplier[key]}/></td>)}</tr>)}</tbody>
+                </WorkTable>:null}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <caption className="mb-2 text-left font-semibold">Posting lines and exchange-rate evidence</caption>
                     <thead>
                       <tr>
+                        <th className="p-2">Nominal account</th>
                         <th className="p-2">Description</th>
                         <th className="p-2">Debit</th>
                         <th className="p-2">Credit</th>
@@ -1599,6 +1646,7 @@ function OperationRow({
                     <tbody>
                       {operation.preview.lines.map((line, index) => (
                         <tr key={index} className="border-t border-border">
+                          <td className="p-2">{accounts.find(account=>account.id===line.accountId)?.code??line.accountId} · {accounts.find(account=>account.id===line.accountId)?.name??"Account reference"}</td>
                           <td className="p-2">{line.description}</td>
                           <td className="p-2">
                             <Money currency={line.currency} value={line.debit} />

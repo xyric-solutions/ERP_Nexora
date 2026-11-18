@@ -511,16 +511,18 @@ export class SourceBankReconciliationRepository implements BankingReconciliation
               case when line.debit>0 then 'money_in' else 'money_out' end as direction,
               case when line.debit>0 then line.debit::text else line.credit::text end as amount,
               line.currency,
-              left(coalesce(event.payload->'payload'->>'payment_reference',
+              left(coalesce(nullif(financial.payload->>'reference',''),event.payload->'payload'->>'payment_reference',
                             event.payload->'payload'->>'receipt_reference',
                             event.payload->'payload'->>'transfer_reference',journal.entry_number),128) as reference,
-              left(coalesce(event.payload->'lines'->(line.line_number-1)->>'description',journal.entry_number),500) as narrative,
+              left(coalesce(financial.preview->'lines'->(line.line_number-1)->>'description',event.payload->'audit_lines'->(line.line_number-1)->>'description',event.payload->'lines'->(line.line_number-1)->>'description',journal.entry_number),500) as narrative,
               null::timestamptz as reconciled_at,journal.status as journal_status
          from journal_line line
          join journal_entry journal
            on journal.tenant_id=line.tenant_id and journal.id=line.journal_id
          left join accounting_event event
            on journal.source_type='accounting_event' and event.tenant_id=journal.tenant_id and event.id=journal.source_id
+         left join finance_subledger_operation financial
+           on financial.tenant_id=journal.tenant_id and financial.company_id=journal.company_id and financial.journal_id=journal.id
         where journal.tenant_id=$1 and journal.company_id=$2 and line.account_id=$3
           and line.currency=$4 and journal.status='posted'
           and journal.posting_date between $5::date and $6::date

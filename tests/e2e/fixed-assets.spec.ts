@@ -11,7 +11,12 @@ import { createLogger, createMetrics } from "../../packages/observability/src/in
 import { SourceTenantAuthenticationRepository } from "../../server/api/src/modules/auth/source-repository.js";
 import type { TenantAuthApiService, TenantSessionApiService } from "../../server/api/src/modules/auth/tenant-router.js";
 import { S3ObjectStorage } from "../../packages/domain/src/storage/s3-object-storage.js";
-import { assetCategoryInputSchema } from "../../packages/contracts/src/index.js";
+import {
+  assetCategoryInputSchema,
+  productInputSchema,
+  savePurchaseRequestSchema,
+} from "../../packages/contracts/src/index.js";
+import { SourceInventoryRepository } from "../../server/api/src/modules/inventory/source-repository.js";
 
 test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
   test.skip(process.env.NEXORA_ASSETS_E2E !== "true", "Explicit isolated local acceptance run required.");
@@ -191,6 +196,111 @@ test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
     expect(detail.asset.accumulated_depreciation).toBe("5000.00000000");
     expect(detail.schedule.rows[0]?.posted).toBe(true);
   });
+  test("uses contextual workpage actions and cancels category and transfer entry without writes", async ({ page }) => {
+    const before = (
+      await f.pool.query("select count(*)::int as count from fixed_asset_event where tenant_id=$1 and company_id=$2", [
+        f.tenant,
+        f.company,
+      ])
+    ).rows[0].count;
+    await page.goto("/#/assets/asset-classes");
+    await expect(page.getByRole("heading", { name: "Asset Classes and Policies", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add New Asset Class and Policy", exact: true })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "Add category", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add New Asset", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Add New Asset Class and Policy", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Add asset category", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.getByRole("button", { name: `Edit ${f.category.code}`, exact: true }).click();
+    await expect(page.getByRole("heading", { name: `Edit ${f.category.code}`, exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await page.goto("/#/assets/assets");
+    await page.getByRole("button", { name: "Add New Asset", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Register acquired assets", exact: true })).toBeVisible();
+    await page.goto("/#/assets/asset-transfer");
+    await expect(page.getByRole("region", { name: "Asset transfers scroll area", exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Prepare transfer", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Asset Transfer", exact: true }).click();
+    await page.getByLabel("Asset", { exact: true }).selectOption(assetId);
+    await expect(page.getByLabel("Current location", { exact: true })).toHaveValue("Unassigned");
+    await expect(page.getByLabel("Current project", { exact: true })).toHaveValue("Unassigned");
+    await page.getByLabel("Reason / remarks", { exact: true }).fill("Cancelled destination review");
+    await page.getByRole("button", { name: "Cancel transfer", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Prepare transfer", exact: true })).toHaveCount(0);
+    expect(
+      (
+        await f.pool.query(
+          "select count(*)::int as count from fixed_asset_event where tenant_id=$1 and company_id=$2",
+          [f.tenant, f.company],
+        )
+      ).rows[0].count,
+    ).toBe(before);
+  });
+
+  test("starts returns from Purchase Bills, checks provenance and saves only a lifecycle draft", async ({ page }) => {
+    const purchase = await f.purchase("20000");
+    const acquired = await f.register(purchase.line, "20000", "PURCHASE-RETURN-BROWSER", "0");
+    const credit = await f.postSubledger({
+      company_id: f.company,
+      date: "2026-10-31",
+      reference: "BROWSER-CREDIT-001",
+      original_item_id: purchase.posted.id,
+      reason: "Original supplier return credit",
+      type: "recognition",
+      side: "payable",
+      kind: "credit_note",
+      party_id: f.party.id,
+      currency: "PKR",
+      amount: "20000",
+      due_date: "2026-10-31",
+      monetary: true,
+      counter_account_id: f.accounts.asset!,
+    });
+    const before = (
+      await f.pool.query("select count(*)::int as count from journal_entry where tenant_id=$1 and company_id=$2", [
+        f.tenant,
+        f.company,
+      ])
+    ).rows[0].count;
+    await page.goto(`/#/purchases/add-purchase-bill/${purchase.source.id}`);
+    await page.getByRole("button", { name: "Purchase Return", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/purchases/purchase-bill-returns/${purchase.source.id}$`));
+    await page.getByLabel("Asset", { exact: true }).selectOption(assetId);
+    await expect(
+      page.getByText(
+        "The selected asset was not acquired from this Purchase Bill. Select an asset from the original bill.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save and preview draft", exact: true })).toBeDisabled();
+    await page.getByLabel("Asset", { exact: true }).selectOption(acquired.id);
+    await expect(page.getByLabel("Original acquisition", { exact: true })).toHaveValue(
+      new RegExp(purchase.source.code),
+    );
+    await page.getByLabel("Effective date", { exact: true }).fill("2026-10-31");
+    await page.getByLabel("Reason / remarks", { exact: true }).fill("Return original supplier acquisition");
+    await page.getByLabel("Net vendor credit (PKR)", { exact: true }).fill("20000");
+    await page.getByLabel("Vendor credit note reference", { exact: true }).fill("BROWSER-CREDIT-001");
+    await page.getByLabel("Posted supplier credit note", { exact: true }).selectOption(credit.id);
+    await page.getByRole("button", { name: "Save and preview draft", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Submit event", exact: true })).toBeVisible();
+    expect((await f.service.detail(f.maker, f.company, acquired.id)).asset.status).toBe("draft");
+    expect(
+      (
+        await f.pool.query("select count(*)::int as count from journal_entry where tenant_id=$1 and company_id=$2", [
+          f.tenant,
+          f.company,
+        ])
+      ).rows[0].count,
+    ).toBe(before);
+    await page.getByRole("button", { name: "Close review", exact: true }).click();
+    await page.getByRole("tab", { name: "Vendor Refunds", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Vendor Refunds", exact: true })).toBeVisible();
+    await page.goto(`/#/assets/asset-return/${acquired.id}`);
+    await expect(page.getByRole("heading", { name: "Purchase Return", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Asset", { exact: true })).toHaveValue(acquired.id);
+  });
+
   for (const theme of ["light", "dark"])
     for (const width of [1440, 768, 390])
       test(`register and dashboard ${theme} at ${width}px`, async ({ page }) => {
@@ -222,6 +332,115 @@ test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
         await expect(page.getByRole("heading", { name: "Asset distribution", exact: true })).toBeVisible();
         expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       });
+  test("searches products inside the selector and saves accurate purchase discounts, freight and totals", async ({
+    page,
+  }) => {
+    test.setTimeout(120000);
+    const permission = "inventory.item.create",
+      policy = "r06-uat-policy-maker";
+    await f.pool.query(
+      "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) values($1,$2,$3,'all') on conflict do nothing",
+      [f.tenant, policy, permission],
+    );
+    await f.pool.query(
+      "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) values($1,$2,$3,'company',$4) on conflict do nothing",
+      [f.tenant, policy, permission, f.company],
+    );
+    const creator = {
+      ...f.maker,
+      actor: { ...f.maker.actor, permissions: [...f.maker.actor.permissions, permission] },
+    };
+    const product = (
+      await new SourceInventoryRepository(f.pool).save(
+        creator,
+        null,
+        productInputSchema.parse({
+          company_id: f.company,
+          name: "Browser maintenance service",
+          type: "service",
+          track_inventory: false,
+          unit: "Hour",
+          currency: "USD",
+        }),
+        randomUUID(),
+        randomUUID(),
+      )
+    ).record;
+    const draft = (
+      await f.procurement.save(
+        f.maker,
+        null,
+        savePurchaseRequestSchema.parse({
+          company_id: f.company,
+          kind: "request",
+          document_date: "2026-09-01",
+          currency: "USD",
+          approver_id: "r06.checker",
+          lines: [{ description: "Maintenance", quantity: "1", uom: "Hour", unit_price: "10.00", tax_percent: "0" }],
+        }),
+        randomUUID(),
+        randomUUID(),
+      )
+    ).record;
+    await page.goto(`/#/purchases/add-requisition/${draft.id}`);
+    const productBox = page.getByLabel("Line 1 product", { exact: true });
+    await expect(productBox).toContainText("Select product or service");
+    await expect(page.getByLabel("Line 1 item code", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Line 1 product name", { exact: true })).toHaveCount(0);
+    await productBox.click();
+    await page.getByRole("option", { name: "Enter custom product / service", exact: true }).click();
+    await expect(page.getByLabel("Line 1 item code", { exact: true })).toBeVisible();
+    await page.getByLabel("Line 1 product name", { exact: true }).fill("Temporary custom entry");
+    await productBox.click();
+    const search = page.getByLabel("Search products and services for line 1", { exact: true });
+    await search.fill("maintenance service");
+    await expect(page.getByRole("option", { name: `${product.code} · ${product.name}`, exact: true })).toBeVisible();
+    await search.press("ArrowDown");
+    await search.press("Enter");
+    await expect(productBox).toContainText(product.name);
+    await expect(search).toHaveCount(0);
+    await expect(page.getByLabel("Line 1 unit", { exact: true })).toHaveValue("Hour");
+    await expect(page.getByLabel("Line 1 item code", { exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Line 1 product name", { exact: true })).toHaveCount(0);
+    await page.getByLabel("Line 1 quantity", { exact: true }).fill("2");
+    await page.getByLabel("Line 1 tax percent", { exact: true }).fill("10");
+    await page.getByLabel("Line 1 discount", { exact: true }).fill("2.00");
+    await page.getByText("Discounts and additional charges", { exact: true }).click();
+    await page.getByLabel("Overall purchase discount", { exact: true }).fill("3.00");
+    await page.getByRole("button", { name: "Add charge", exact: true }).click();
+    await page.getByLabel("Charge 1 description", { exact: true }).fill("Delivery freight");
+    await page.getByLabel("Charge 1 amount", { exact: true }).fill("5.00");
+    await page.getByLabel("Charge 1 account", { exact: true }).selectOption(f.accounts.expense!);
+    await page.getByLabel("Charge 1 tax percent", { exact: true }).fill("20");
+    const summary = page.getByRole("region", { name: "Total Purchase Amount", exact: true });
+    await expect(summary.locator("dd").last()).toHaveText("USD 22.50");
+    await page.getByRole("button", { name: "Save Draft", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Save Draft", exact: true })).toBeEnabled();
+    await page.reload();
+    await expect(summary.locator("dd").last()).toHaveText("USD 22.50");
+    const saved = await f.procurement.get(f.maker, f.company, draft.id);
+    expect(saved.total_amount).toBe("22.50");
+    expect(saved.lines[0]).toMatchObject({ product_id: product.id, discount_amount: "2.00" });
+    expect(saved.additional_charges?.[0]).toMatchObject({
+      description: "Delivery freight",
+      amount: "5.00",
+      tax_percent: "20",
+      nominal_account_id: f.accounts.expense,
+    });
+    await mkdir("tmp/purchase-totals/evidence", { recursive: true });
+    for (const theme of ["light", "dark"])
+      for (const width of [1440, 768, 390]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.locator("html").evaluate((element, value) => {
+          element.setAttribute("data-theme", value);
+          element.classList.toggle("dark", value === "dark");
+        }, theme);
+        await expect(summary).toBeVisible();
+        expect((await new AxeBuilder({ page }).include("main").analyze()).violations).toEqual([]);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
+        await page.screenshot({ path: `tmp/purchase-totals/evidence/purchase-${theme}-${width}.png`, fullPage: true });
+      }
+  });
   test("saves and reloads individual registration details on a real draft Purchase bill", async ({ page }) => {
     test.setTimeout(120000);
     let billId = "";

@@ -40,6 +40,8 @@ import {
 type Props = {
   page: string;
   recordRef?: string;
+  purchaseContext?: boolean;
+  purchaseBillId?: string;
   onNavigate: (module: string, page: string, reference?: string) => void;
   onDirtyChange?: (dirty: boolean) => void;
 };
@@ -51,6 +53,15 @@ const lifecyclePages: Record<string, AssetEventInput["type"]> = {
   "asset-verification": "verification",
   "asset-revaluation": "impairment",
   "asset-disposal": "disposal",
+};
+const lifecyclePermissions: Record<AssetEventInput["type"], string> = {
+  transfer: "transfer",
+  return: "return",
+  refund: "return",
+  maintenance: "maintain",
+  verification: "maintain",
+  impairment: "impair",
+  disposal: "dispose",
 };
 const reportNames = [
   "Fixed Assets Register",
@@ -117,14 +128,22 @@ export function FixedAssetsWorkspace(props: Props) {
     );
   return (
     <CompanyAssets
-      key={`${activeCompany.id}:${props.page}:${props.recordRef ?? ""}`}
+      key={`${activeCompany.id}:${props.page}:${props.recordRef ?? ""}:${props.purchaseBillId ?? ""}`}
       {...props}
       company={activeCompany.id}
     />
   );
 }
-function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: Props & { company: string }) {
-  const { api, session, csrfToken, activeCompany } = useSession(),
+function CompanyAssets({
+  company,
+  page,
+  recordRef,
+  purchaseContext,
+  purchaseBillId,
+  onNavigate,
+  onDirtyChange,
+}: Props & { company: string }) {
+  const { api, session, csrfToken } = useSession(),
     permissions = new Set(session?.user.permissions ?? []),
     canReport = !!session?.user.permissions.includes("assets.asset.report"),
     can = (action: string) => permissions.has(`assets.asset.${action}`) && !session?.impersonation;
@@ -146,6 +165,7 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
     [limit, setLimit] = useState(25),
     [categoryEdit, setCategoryEdit] = useState<AssetCategory | undefined>(),
     [categoryOpen, setCategoryOpen] = useState(false),
+    [transferOpen, setTransferOpen] = useState(page === "asset-transfer" && !!recordRef),
     [period, setPeriod] = useState(""),
     [depreciationSelection, setDepreciationSelection] = useState<string[]>([]),
     [eventFrom, setEventFrom] = useState(""),
@@ -160,7 +180,10 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [sort, setSort] = useState("code");
-  const detail = loadedDetail?.asset.id === selected ? loadedDetail : null;
+  const selectedDetail = loadedDetail?.asset.id === selected ? loadedDetail : null;
+  const purchaseSourceMismatch =
+    !!purchaseBillId && !!selectedDetail && selectedDetail.source.purchase_document_id !== purchaseBillId;
+  const detail = purchaseSourceMismatch ? null : selectedDetail;
   const token = useRef(0),
     type = lifecyclePages[page],
     isReport = ["asset-reports", "asset-lease-reports", "asset-register-report", "asset-depreciation-report"].includes(
@@ -485,7 +508,7 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
       <>
         <WorkTable
           tableId={`asset-events-${eventType ?? "all"}`}
-          label="Asset lifecycle transactions"
+          label={eventType === "transfer" ? "Asset transfers" : "Asset lifecycle transactions"}
           tools={false}
           paging={false}
         >
@@ -554,22 +577,28 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
     page === "assets-dashboard"
       ? "Fixed Assets"
       : page === "asset-classes"
-        ? "Asset categories & accounting policies"
+        ? "Asset Classes and Policies"
         : page === "asset-policies"
           ? "Asset Policies"
           : registration
             ? "Register acquired assets"
-            : type
-              ? lifecycleLabels[type]
-              : page === "depreciation-run"
-                ? "Depreciation"
-                : page === "capitalisation"
-                  ? "Asset approval & activation"
-                  : isReport
-                    ? "Fixed Asset reports"
-                    : page === "asset-detail"
-                      ? "Asset details"
-                      : "Fixed Assets Register";
+            : purchaseContext
+              ? page === "asset-refund"
+                ? "Vendor Refunds"
+                : "Purchase Return"
+              : page === "asset-transfer"
+                ? "Transfer and Assignment"
+                : type
+                  ? lifecycleLabels[type]
+                  : page === "depreciation-run"
+                    ? "Depreciation"
+                    : page === "capitalisation"
+                      ? "Asset approval & activation"
+                      : isReport
+                        ? "Fixed Asset reports"
+                        : page === "asset-detail"
+                          ? "Asset details"
+                          : "Asset Register";
   if (page.startsWith("lease-"))
     return (
       <Alert>
@@ -584,7 +613,7 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs text-muted-foreground">
-            {activeCompany?.name} · {options?.base_currency}
+            Base currency: {options?.base_currency}
           </p>
           <h1 className="text-2xl font-semibold">{title}</h1>
           <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
@@ -592,9 +621,44 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {can("create") && !registration && <Button onClick={() => goto("add-asset")}>Register asset</Button>}
+          {page === "asset-classes" && can("categories") && (
+            <Button
+              disabled={busy || loading || categoryOpen}
+              onClick={() => {
+                setCategoryEdit(undefined);
+                setCategoryOpen(true);
+              }}
+            >
+              Add New Asset Class and Policy
+            </Button>
+          )}
+          {page === "assets" && can("create") && <Button onClick={() => goto("add-asset")}>Add New Asset</Button>}
+          {page === "asset-transfer" && can("transfer") && (
+            <Button
+              disabled={busy || loading || transferOpen}
+              onClick={() => {
+                setSelected("");
+                setTransferOpen(true);
+              }}
+            >
+              Asset Transfer
+            </Button>
+          )}
         </div>
       </header>
+      {purchaseBillId && (
+        <p className="text-sm text-muted-foreground">
+          Choose an asset acquired from this Purchase Bill. Its original acquisition is checked before saving a return
+          draft. Use Find asset to locate its code or serial number.
+        </p>
+      )}
+      {purchaseSourceMismatch && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            The selected asset was not acquired from this Purchase Bill. Select an asset from the original bill.
+          </AlertDescription>
+        </Alert>
+      )}
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -696,16 +760,6 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
         ))}
       {options && page === "asset-classes" && (
         <>
-          {can("categories") && (
-            <Button
-              onClick={() => {
-                setCategoryEdit(undefined);
-                setCategoryOpen(true);
-              }}
-            >
-              Add category
-            </Button>
-          )}
           {categoryOpen && (
             <AssetCategoryForm
               key={categoryEdit?.id ?? "new"}
@@ -728,7 +782,7 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
           <WorkTable tableId="asset-categories" label="Asset categories">
             <thead>
               <tr>
-                {["Code", "Category", "Default life", "Method", "Status", "Actions"].map((label) => (
+                {["Code", "Asset class", "Default life", "Method", "Status", "Actions"].map((label) => (
                   <th key={label}>{label}</th>
                 ))}
               </tr>
@@ -909,40 +963,49 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
         )}
       {options && type && (
         <>
-          {can(
-            {
-              transfer: "transfer",
-              return: "return",
-              refund: "return",
-              maintenance: "maintain",
-              verification: "maintain",
-              impairment: "impair",
-              disposal: "dispose",
-            }[type],
-          ) ? (
-            <AssetLifecycleForm
-              key={`${type}:${detail?.asset.id ?? ""}`}
-              company={company}
-              type={type}
-              options={options}
-              assets={assetChoices}
-              detail={detail}
-              sources={sources.items}
-              busy={busy}
-              onSelect={setSelected}
-              onDirtyChange={onDirtyChange}
-              onSave={async (input, key) => {
-                const result = await perform(
-                  () => api.createFixedAssetEvent(input, csrfToken(), key),
-                  "Lifecycle draft prepared. Review it before submission.",
-                );
-                setReviewEvent(result);
-                onDirtyChange?.(false);
-              }}
-            />
-          ) : (
+          {can(lifecyclePermissions[type]) && (type !== "transfer" || transferOpen) ? (
+            <>
+              <AssetLifecycleForm
+                key={`${type}:${detail?.asset.id ?? ""}`}
+                company={company}
+                type={type}
+                options={options}
+                assets={assetChoices}
+                detail={detail}
+                sources={sources.items}
+                busy={busy}
+                onSelect={setSelected}
+                onDirtyChange={onDirtyChange}
+                onSave={async (input, key) => {
+                  if (purchaseBillId && detail?.source.purchase_document_id !== purchaseBillId)
+                    throw new Error("Select an asset acquired from the original Purchase Bill.");
+                  const result = await perform(
+                    () => api.createFixedAssetEvent(input, csrfToken(), key),
+                    "Lifecycle draft prepared. Review it before submission.",
+                  );
+                  setReviewEvent(result);
+                  if (type === "transfer") setTransferOpen(false);
+                  onDirtyChange?.(false);
+                }}
+              />
+              {type === "transfer" && (
+                <Button
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => {
+                    onDirtyChange?.(false);
+                    setTransferOpen(false);
+                    setSelected("");
+                    goto("asset-transfer");
+                  }}
+                >
+                  Cancel transfer
+                </Button>
+              )}
+            </>
+          ) : !can(lifecyclePermissions[type]) ? (
             <p>Your account can review this workflow but cannot prepare transactions.</p>
-          )}
+          ) : null}
           {eventsTable()}
         </>
       )}
@@ -1215,22 +1278,12 @@ function CompanyAssets({ company, page, recordRef, onNavigate, onDirtyChange }: 
                     )}
                     {["active", "fully_depreciated"].includes(asset.status) &&
                       Object.entries(lifecyclePages)
-                        .filter(([, kind]) => kind !== "refund")
+                        .filter(([, kind]) => kind !== "refund" && kind !== "return")
                         .map(([target, kind]) => (
                           <Button key={target} variant="outline" onClick={() => goto(target, asset.id)}>
-                            {lifecycleLabels[kind]}
+                            {kind === "transfer" ? "Asset Transfer" : lifecycleLabels[kind]}
                           </Button>
                         ))}
-                    {asset.status === "returned" && can("return") && (
-                      <Button variant="outline" onClick={() => goto("asset-refund", asset.id)}>
-                        Link vendor refund
-                      </Button>
-                    )}
-                    {["draft", "submitted", "approved"].includes(asset.status) && can("return") && (
-                      <Button variant="outline" onClick={() => goto("asset-return", asset.id)}>
-                        Return before activation
-                      </Button>
-                    )}
                   </div>
                   {["draft", "submitted", "approved"].includes(asset.status) && (
                     <>
