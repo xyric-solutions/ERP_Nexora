@@ -1,5 +1,33 @@
 # Local startup (Windows)
 
+## Taxes viewing access — independent assignment required (18 November 2026)
+
+The owner explicitly approved company-scoped `finance.tax.read` for username
+`shoaib` in Nexora R06 UAT Company only. The existing governed APIs created,
+submitted, approved and activated **Company Tax Reader**
+(`shoaib_company_tax_reader`, policy
+`policy-ea242bcc-8b41-4f53-a6de-6aa36f4688ef`). Its only permission is
+`finance.tax.read`; its scope contains only `nexora-r06-uat-company`.
+
+The assignment request was rejected by the application's existing self-grant
+rule: HTTP 403 `MAKER_CHECKER_VIOLATION`, "Self-grant requests are not permitted."
+The role is active but unassigned; Taxes access has **not** been restored yet.
+Five successful governed commands have retained audit events. No permission
+checks were removed, and no password, company access, fiscal period, tax
+definition or financial posting was changed.
+
+A different authorized administrator must create/submit the assignment to
+`user-shoaib-super-admin` and complete its normal approval workflow. Use
+Administration → Users, select Shoaib and assign the existing Company Tax Reader
+role; do not create a duplicate role or broaden its scope. One independent
+administrator account was found in the current assignments. Do not impersonate
+that administrator, invent credentials, or edit permission tables to bypass the
+self-grant restriction. After assignment, refresh the session and verify the
+Taxes directory/options return 200, tax editing stays disabled, and other
+companies still return 403. Private handoff and command evidence are in
+`tmp/login-recovery/tax-access-handoff.json` and
+`tmp/login-recovery/tax-access-command-evidence.json`.
+
 ## Purchase / Bank integration — verified source, activation pending (18 November 2026)
 
 The approved bridge and reports are implemented. The running business services
