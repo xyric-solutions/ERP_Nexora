@@ -24,6 +24,7 @@ import {
   type FinanceTransactionClient,
 } from "./types.js";
 import { CompanyCurrencyAuthorityError } from "../currencies/company-authority.js";
+import {BudgetError} from "../../budget/transaction.js";
 
 const amountScale = 8;
 const rateScale = 18;
@@ -72,6 +73,7 @@ function financeError(
 
 function mappedFinanceError(error: unknown): FinancePostingError {
   if (error instanceof FinancePostingError) return error;
+  if(error instanceof BudgetError)return new FinancePostingError(error.status,"FINANCE_BUDGET_BLOCKED",error.message,{cause:error});
   if (
     error &&
     typeof error === "object" &&
@@ -617,6 +619,7 @@ export class FinancePostingService {
     const key = internalKey(command, "post");
     if (!(await this.repository.assertTenantContext(client, command.tenantId)))
       throw financeError(500, "FINANCE_AUTHORITY_INVALID", "Finance tenant context is unavailable.");
+    await this.repository.lockBudget?.(client,command.tenantId,command.companyId);
     await this.repository.lockSource(client, command.tenantId, command.sourceType, command.sourceId);
     const replay = await this.repository.findEventByKey(client, command.tenantId, key);
     if (replay)
@@ -724,6 +727,7 @@ export class FinancePostingService {
     });
     await this.repository.insertJournalLines(client, command.tenantId, journalId, persisted);
     await this.repository.postJournal(client, command.tenantId, journalId, period.id, entryNumber);
+    await this.repository.applyBudget?.(client,{...command,journalId});
     await this.repository.transitionEvent(client, command.tenantId, eventId, "validated", "posted");
     return {
       accountingEventId: eventId,
@@ -779,6 +783,7 @@ export class FinancePostingService {
     const key = internalKey(command, "post");
     if (!(await this.repository.assertTenantContext(client, command.tenantId)))
       throw financeError(500, "FINANCE_AUTHORITY_INVALID", "Finance tenant context is unavailable.");
+    await this.repository.lockBudget?.(client,command.tenantId,command.companyId);
     await this.repository.lockSource(client, command.tenantId, command.sourceType, command.sourceId);
     const replay = await this.repository.findEventByKey(client, command.tenantId, key);
     if (replay)
@@ -948,6 +953,7 @@ export class FinancePostingService {
     });
     await this.repository.insertJournalLines(client, command.tenantId, journalId, persisted);
     await this.repository.postJournal(client, command.tenantId, journalId, period.id, entryNumber);
+    await this.repository.applyBudget?.(client,{...command,journalId});
     await this.repository.transitionEvent(client, command.tenantId, eventId, "validated", "posted");
     return {
       accountingEventId: eventId,
@@ -983,6 +989,7 @@ export class FinancePostingService {
     const key = internalKey(command, "reverse");
     if (!(await this.repository.assertTenantContext(client, command.tenantId)))
       throw financeError(500, "FINANCE_AUTHORITY_INVALID", "Finance tenant context is unavailable.");
+    await this.repository.lockBudget?.(client,command.tenantId,command.companyId);
     await this.repository.lockSource(client, command.tenantId, command.sourceType, command.sourceId);
     const replay = await this.repository.findEventByKey(client, command.tenantId, key);
     if (replay) {
@@ -1101,6 +1108,7 @@ export class FinancePostingService {
     await this.repository.insertJournalLines(client, command.tenantId, journalId, reversedLines);
     await this.repository.postJournal(client, command.tenantId, journalId, period.id, entryNumber);
     await this.repository.markOriginalReversed(client, command.tenantId, command.originalJournalId, journalId);
+    await this.repository.applyBudget?.(client,{...command,journalId,postingDate:reversalDate});
     await this.repository.transitionEvent(client, command.tenantId, eventId, "validated", "posted");
     return {
       accountingEventId: eventId,

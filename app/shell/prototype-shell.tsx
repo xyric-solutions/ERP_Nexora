@@ -15,7 +15,7 @@ import { ChevronsLeft, ChevronsRight, X, Menu, Search, ListChecks, Sparkles, Cir
 import { NexoraMark } from "../shared/ui/nexora-mark";
 import { application } from "../shared/constants/application";
 import { ModuleIcon } from "./config/module-icons";
-import { isModuleVisible } from "./config/module-access";
+import { isModuleInNavigation, isModuleVisible } from "./config/module-access";
 import { findPrototypePage, prototypeModules, prototypePageIndex, type PrototypeModule } from "./config/prototype-data";
 import {
   companies,
@@ -330,7 +330,7 @@ export function PrototypeShell({
     current.module.id === "banking" &&
     ["bank-accounts", "add-bank-account", "bank-account-detail", "bank-account-approvals"].includes(current.page.id);
   const isLiveMasterDataPage =
-    isLiveFinanceChartPage || isLiveBankMasterDataPage || ["purchases", "inventory"].includes(current.module.id);
+    isLiveFinanceChartPage || isLiveBankMasterDataPage || ["purchases", "inventory", "budget"].includes(current.module.id);
   const currentRole = roleOptions.find((role) => role.id === roleId) ?? roleOptions[0];
   const currentCompany = companies.find((company) => company.mode === companyMode) ?? companies[0];
   const currentMode = companyModeOptions.find((mode) => mode.id === companyMode) ?? companyModeOptions[0];
@@ -339,6 +339,7 @@ export function PrototypeShell({
   const visibleModules = useMemo(() => {
     const allowedByRole = currentRole.visibleModuleIds;
     return prototypeModules.filter((module) => {
+      if (!isModuleInNavigation(module.id)) return false;
       const allowedModuleIds: readonly string[] = allowedByRole === "all" ? [] : allowedByRole;
       const supportedModes: readonly CompanyMode[] = module.modes;
       const roleMatch =
@@ -358,6 +359,7 @@ export function PrototypeShell({
         (page) =>
           !page.hiddenFromNavigation &&
           !page.groupHiddenFromNavigation &&
+          isModuleInNavigation(page.moduleId) &&
           isModuleVisible(page.moduleId, permissionSet),
       )
       .map((page) => ({
@@ -386,7 +388,7 @@ export function PrototypeShell({
     const terms = query.split(/\s+/).filter(Boolean);
     const matches = (item: GlobalSearchResult) => terms.every((term) => item.searchable.includes(term));
     const exactRecords = [...bankingRecordSearchIndex, ...genericRecordSearchIndex].filter(
-      (item) => isModuleVisible(item.moduleId, permissionSet) && matches(item),
+      (item) => isModuleInNavigation(item.moduleId) && isModuleVisible(item.moduleId, permissionSet) && matches(item),
     );
     const pages = pageResults.filter(matches);
     return [...exactRecords.slice(0, 12), ...pages.slice(0, Math.max(0, 18 - exactRecords.length))].slice(0, 18);
@@ -959,7 +961,7 @@ export function PrototypeShell({
                 <CircleHelp className="h-[1em] w-[1em]" aria-hidden="true" />
               </button>
               <button
-                className="nx-icon-button max-sm:hidden!"
+                className="nx-icon-button"
                 type="button"
                 aria-label="Open notifications"
                 onClick={() => setDialog({ type: "notifications" })}

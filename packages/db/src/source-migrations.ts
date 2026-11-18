@@ -16,6 +16,7 @@ const sourceModuleOrder = [
   "inventory",
   "hr",
   "fixed_assets",
+  "budget",
   "runtime",
 ] as const;
 

@@ -407,6 +407,18 @@ try {
     }
     for(const type of ["asset","liability"])await fixture.query("insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$4,$5,$6,false,'active',now())",[`tax-browser-${type}`,sourceTestTenantId,company,type==="asset"?"1410":"2210",type==="asset"?"Recoverable Input Tax":"WHT Payable - Supplies",type]);
   }
+  if(process.env.NEXORA_BUDGET_E2E==="true"){
+    const company="nexora-currency-browser";
+    const keys=(await fixture.query<{permission_key:string}>("select permission_key from security_permission_definition where module='budget'")).rows.map(r=>r.permission_key);
+    for(const [policy,permissions] of [["r06-uat-policy-maker",keys],["r06-uat-policy-checker",keys],["r06-uat-policy-payment-poster",keys.filter(k=>k.endsWith('.read')||k.endsWith('.export'))]] as const){
+      await fixture.query("insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,permissions]);
+      await fixture.query("insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,permissions,company]);
+    }
+    for(let month=1;month<=8;month++){
+      const start=`2026-${String(month).padStart(2,"0")}-01`,end=new Date(Date.UTC(2026,month,0)).toISOString().slice(0,10);
+      await fixture.query("insert into financial_period(id,tenant_id,company_id,fiscal_calendar_id,period_number,period_start,period_end,status,created_at) values($1,$2,$3,$4,$5,$6,$7,'open',clock_timestamp())",[`period-${company}-${month}`,sourceTestTenantId,company,`cal-${company}`,month,start,end]);
+    }
+  }
   // Authentication deliberately verifies the compatibility projection against
   // normalized grants. Keep both fixture projections in parity; never bypass it.
   await fixture.query(

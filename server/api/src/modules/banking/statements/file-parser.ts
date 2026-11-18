@@ -52,6 +52,7 @@ export type ParseBankStatementOptions =
     }
   | {
       format: "xlsx";
+      rejectFormulas?: boolean;
       worksheet: string;
       headerRow: number;
       limits?: BankStatementParserLimits;
@@ -204,7 +205,7 @@ async function parseXlsx(
   const sharedStrings = entries.has("xl/sharedStrings.xml")
     ? parseSharedStrings(requiredXml(entries, "xl/sharedStrings.xml"), limits)
     : [];
-  const parsedRows = parseWorksheet(worksheet, sharedStrings, limits, startedAt, options.headerRow);
+  const parsedRows = parseWorksheet(worksheet, sharedStrings, limits, startedAt, options.headerRow,options.rejectFormulas??false);
   const header = parsedRows.find((row) => row.sourceRowNumber === options.headerRow);
   if (!header) throw invalidXlsx("The configured header row is missing.");
   const headers = sanitizeHeaders(header.cells, limits);
@@ -425,6 +426,7 @@ function parseWorksheet(
   limits: ResolvedBankStatementParserLimits,
   startedAt: number,
   headerRow: number,
+  rejectFormulas=false,
 ): Array<{ sourceRowNumber: number; cells: string[] }> {
   const rows: Array<{ sourceRowNumber: number; cells: string[] }> = [];
   let currentRow: { sourceRowNumber: number; cells: string[] } | null = null;
@@ -434,6 +436,7 @@ function parseWorksheet(
   parser.on("opentag", (tag) => {
     assertDeadline(startedAt, limits.maxParseMs);
     const name = localName(tag.name);
+    if(name==="f"&&rejectFormulas)throw unsafeXlsx("Formula cells are not supported in this import. Replace formulas with values.");
     if (name === "row") {
       const sourceRowNumber = Number(attribute(tag, "r") ?? rows.length + 1);
       if (!Number.isSafeInteger(sourceRowNumber) || sourceRowNumber < 1)

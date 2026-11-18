@@ -37,6 +37,7 @@ import { SourceFinanceNominalRepository } from "./modules/finance/nominals/sourc
 import { SourceFinanceCurrencyRepository } from "./modules/finance/currencies/source-repository.js";
 import { SourceFinanceJournalRepository } from "./modules/finance/journals/source-repository.js";
 import { SourceTaxRepository } from "./modules/finance/taxes/source-repository.js";
+import { SourceBudgetRepository } from "./modules/budget/source-repository.js";
 import { SourceSubledgerRepository } from "./modules/finance/subledger/source-repository.js";
 import { SourceCoaHierarchyRepository } from "./modules/finance/coa-hierarchy-repository.js";
 import { SourceChartTemplateRepository } from "./modules/finance/templates/source-repository.js";
@@ -129,6 +130,7 @@ const app = createApp({
   financeJournalRepository: new SourceFinanceJournalRepository(pool, new FinancePostingService()),
   subledgerRepository: new SourceSubledgerRepository(pool),
   taxRepository: new SourceTaxRepository(pool),
+  budgetRepository: new SourceBudgetRepository(pool),
   financeHierarchyRepository: new SourceCoaHierarchyRepository(pool),
   fiscalCalendarRepository: new SourceFiscalCalendarRepository(pool),
   financePeriodRepository: new SourceFinancePeriodRepository(pool),
@@ -143,6 +145,12 @@ const app = createApp({
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
+    budget_management: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.budget_commitment_event') is not null and exists(select 1 from nexora_schema_migration where module_name='budget' and version=3) and exists(select 1 from nexora_schema_migration where module_name='security' and version=24) as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Budget management migrations are required");
+    },
     fixed_assets: async () => {
       const result = await pool.query<{ available: boolean }>(
         "select to_regclass('public.fixed_asset_record') is not null and to_regclass('public.fixed_asset_attachment') is not null and to_regclass('public.fixed_asset_company_policy') is not null and to_regclass('public.fixed_asset_staged_document') is not null and to_regclass('public.fixed_asset_zero_accrual_observation') is not null and exists(select 1 from nexora_schema_migration where module_name='fixed_assets' and version=7) and exists(select 1 from nexora_schema_migration where module_name='finance' and version=39) and exists(select 1 from nexora_schema_migration where module_name='security' and version=23) as available",

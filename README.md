@@ -17,6 +17,27 @@ The prototype currently exposes **35 modules**, **146 navigation groups**, and *
 
 This isolation contract applies to the frozen UI baseline. Wave 1 infrastructure exists beside it, but no mock business action is represented as durable or production-backed until that specific path is implemented and verified.
 
+## Connected Budget Management
+
+All eleven Budget & Planning menu entries use `/api/v1/budget` and PostgreSQL.
+Plans, versioned allocations, models, forecasts, imports, approvals, transfers,
+commitments and reports persist across reloads. Actuals come from posted GL
+journals; purchase commitments are released only by recognition or independent
+closure, with reversal evidence restoring exposure.
+
+Deploy the normal source migration chain (`npm run db:migrate:source`) using the
+existing migration environment, then restart API and web processes. Security 24
+defines the `budget.*` permissions; assign company-scoped maker/checker/reporting
+roles explicitly in Identity & Access. No grants or control policies are enabled
+automatically. Configure fiscal periods, base currency and posting accounts, then
+approve a baseline independently, reconcile existing purchasing exposure and
+activate its policy in Commitment Control. Existing unmanaged budgets remain
+visible as a completeness warning and require deliberate migration into a plan.
+
+Run `npm run test:e2e:budget` with the repository test services running for the
+isolated authenticated browser workflow. See the [implementation and verification
+record](docs/plans/2026-11-18-budget-management-implementation.md).
+
 ## Workspace layout
 
 | Path | Purpose |

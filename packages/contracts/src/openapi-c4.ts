@@ -170,6 +170,7 @@ import { companyCurrencyPaths } from "./finance/company-currencies-openapi.js";
 import { financeCurrencyPaths } from "./finance/currencies-openapi.js";
 import { journalPaths } from "./finance/journals-openapi.js";
 import { taxPaths } from "./finance/taxes-openapi.js";
+import {budgetPaths} from "./budget/openapi.js";
 import { subledgerPaths } from "./finance/subledger-openapi.js";
 import { bankWorkflowOptionsSchema, reassignBankApproverRequestSchema } from "./banking/workflow-context.js";
 import { bankGovernancePaths } from "./security/bank-self-approval-openapi.js";
@@ -1040,6 +1041,7 @@ export function buildOpenApiDocument() {
       ...journalPaths(),
       ...subledgerPaths(),
       ...taxPaths(),
+      ...budgetPaths(),
       ...bankTransferPaths(),
       ...bankRevaluationPaths(),
       ...bankStatementAndReconciliationPaths(),

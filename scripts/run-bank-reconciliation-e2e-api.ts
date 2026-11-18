@@ -1,4 +1,5 @@
-if (process.env.NEXORA_TAX_E2E === "true") process.env.NEXORA_SUBLEDGER_E2E = "true";
+if (process.env.NEXORA_TAX_E2E === "true" || process.env.NEXORA_BUDGET_E2E === "true")
+  process.env.NEXORA_SUBLEDGER_E2E = "true";
 // Starts the established synthetic Banking API fixture with the additional
 // feature permissions selected by the parent harness. The parent owns the
 // validated random database and object-storage namespace lifecycle.

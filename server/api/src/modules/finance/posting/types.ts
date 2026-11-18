@@ -89,6 +89,7 @@ export interface FinanceReversalResult extends FinancePostingResult {
 
 export type FinancePostingErrorCode =
   | "FINANCE_COMMAND_INVALID"
+  | "FINANCE_BUDGET_BLOCKED"
   | "FINANCE_AMOUNT_INVALID"
   | "FINANCE_NUMERIC_OUT_OF_RANGE"
   | "FINANCE_CURRENCY_INVALID"

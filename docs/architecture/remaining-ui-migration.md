@@ -1,5 +1,130 @@
 # Remaining UI migration checklist
 
+## 2026-11-18 - Temporarily hidden workspace modules
+
+- Owner-requested navigation hiding for Operations, Quality, CRM, Projects,
+  Resources, Support, Expenses, Documents, Portals, Migration, Approvals,
+  Configuration, Notifications, Integrations and (by follow-up request) Audit.
+  A single navigation policy in
+  `app/shell/config/module-access.ts` filters sidebar modules and global-search
+  pages/records. Existing routes, data, API authorization and module-specific
+  approval workflows remain unchanged. This is menu visibility, not access revocation.
+- Preserved the top-bar notification bell, popup and full-centre link; the bell
+  also remains visible below the small-screen breakpoint. No font, colour or
+  stylesheet was introduced or retired. Other module menus remain available.
+- Tests: `npm.cmd run test:unit -- tests/unit/prototype-shell-navigation.test.tsx
+  tests/unit/administration-workflow.test.ts` passed (28 tests). The shell test
+  isolates its company selector because the real selector requires SessionProvider.
+  The initial broader run also included the unchanged bank-reconciliation shell
+  test, whose fixture still fails with `SessionProvider is missing`; that separate
+  test was not modified or represented as passing.
+- `npm.cmd run typecheck`, focused ESLint, theme audit `--write`/`--check`, and
+  `git diff --check` passed. Production `npm.cmd run build:web` passed with
+  `NEXT_DIST_DIR=tmp/budget-navigation-build` in the staged release. Only the web
+  process was refreshed; the API/database were neither changed nor restarted.
+  Live build `mBo6zUcOA-1lD8yxavpFH` and all 17 referenced scripts were verified,
+  together with API database/Budget readiness and unauthenticated-request denial.
+  Runtime/rollback evidence: `tmp/budget-deployment/runtime.json` and
+  `tmp/navigation-visibility/previous-runtime.json`. No authenticated visual
+  browser pass was performed for this visibility-only change.
+- Audit follow-up is live as build `dB-vr37IPqqHqBb9JREoO` from
+  `tmp/budget-audit-navigation-build`. The same 28 focused tests, focused lint,
+  theme audit, formatting/whitespace checks and production build passed. Served
+  build identity, all 17 scripts and API readiness were reverified. Audit routes,
+  records and permissions and the top-bar notification entry remain intact.
+
+## 2026-11-18 - Budget submenu workflow layouts
+
+- Corrected excessive reuse of the Budget workspace template: each of the eleven
+  existing menu IDs now leads with its own workflow. Dashboard planning/review
+  panels, best/expected/worst scenario columns, the model library, allocation
+  workbook, import stages, approval queue, forecast register, purchase ledger,
+  spending availability, variance analysis and report catalogue have distinct
+  content and actions. Filters and summary measures appear only where relevant.
+- Added a compatible server-side version-kind filter for scenario/forecast lists
+  and their pagination totals; source-version choices remain available separately.
+  Preserved PostgreSQL persistence, permissions, approvals, accounting rules,
+  imports/exports, navigation IDs and existing shared controls. Fixed generated
+  version success messages across navigation and themed report/drill controls.
+- Verification: 26 Budget management/control integration tests, three contract
+  tests and the isolated authenticated browser workflow passed. The browser run
+  covers empty states across eleven menus, persisted allocations, independent
+  approval/self-approval denial, scenario creation, models, Excel import/export,
+  forecast creation and read-only access. Desktop/tablet/mobile and light/dark
+  evidence remains under `tmp/budget-evidence/`, including `page-*-desktop.png`
+  and `page-*-mobile-dark.png`. Visual confirmation resolved the dark report
+  button inheritance issue; the mechanical layout detector reported no findings.
+- No new or retired stylesheets, dependencies, database migrations, role grants,
+  financial postings or seeded business records are part of this correction.
+  The existing company setup and deliberate control-activation requirements below
+  still apply.
+- Final checks passed: `npm.cmd run typecheck`, focused Budget ESLint,
+  `npm.cmd run api:check`, theme audit `--write`/`--check`, `git diff --check`
+  and the staged production `npm.cmd run build:web` with
+  `NEXT_DIST_DIR=tmp/budget-page-layout-build`. The already authorized API/web
+  refresh is complete; live build `6SpS7WCw_QWMn8UhkeXf_` serves all 17 referenced
+  scripts and the dedicated page components. Live PostgreSQL reads passed for
+  both existing companies; unauthorized-company access and unauthenticated API
+  requests remain denied. Evidence: `tmp/budget-deployment/layout-http-verification.json`,
+  `database-verification.json`, and `runtime.json`; the prior build is retained.
+
+## 2026-11-18 - Connected Budget Management
+
+- Replaced the eleven Budget & Planning prototype renderers with dedicated
+  PostgreSQL-backed views. Preserved both menu groups and every page ID. Added
+  compact fiscal allocation grids, dimension/account filters, models, scenario
+  comparison, forecasts/EAC, workflow, transfer/exception decisions, commitment
+  availability, variance commentary and real XLSX/CSV import/export.
+- Added strict contracts/OpenAPI/generated client, `/api/v1/budget`, company
+  authorization, independent approvals, immutable versions/audits, idempotent
+  mutations and optimistic concurrency. Budget migrations 1-3 run after
+  procurement/HR; Security 24 defines scoped permissions without implicit grants.
+  Existing unmanaged allocations are preserved and explicitly reported.
+- Purchasing now accepts expected spending periods and dimensions. Approved
+  order commitments are separate from GL actuals; partial bill recognition and
+  reversal adjust exposure atomically at the shared posting boundary. Settlement
+  never recognizes an expense again. Warning/approval/block modes are explicit,
+  and warning feedback is retained in Purchase audit replay results.
+- Verified real save/reload, independent approval and denied self-approval,
+  revisions, model application, XLSX preview/commit/reload, forecast/EAC, all eleven
+  routes, read-only roles, and light/dark desktop/tablet/mobile layouts through
+  the isolated browser harness. Evidence: `tmp/budget-evidence/`. The expanded
+  browser run exposed and fixed a multipart boundary limit that rejected a valid
+  single-file upload. The harness now preserves `next-env.d.ts` when cleaning up
+  its own temporary Next output.
+- Database coverage includes exact allocations, stale edits, retries, parallel
+  code allocation, current grants, non-owner tenant/company RLS, approval history,
+  balanced transfers, rolling forecasts, posted/reversed actuals, partial purchase
+  recognition, rollback of blocked posting, competing approvals, source-bound
+  exceptions across expected spending years, warning audit feedback and independent
+  commitment closure. Reconciliation replays recognition/reversal history once;
+  transfer authority checks all matching pools beyond the display page. Fresh
+  and upgrade source migration tests pass. Budget contracts, arithmetic, workbook
+  safety and affected purchase/posting/parser regression tests pass.
+- Theme audit: 132 feature view sources, zero direct font/colour exceptions; this
+  counts sources, not menu screens. The existing monochrome HR print exception
+  remains. All new presentation uses shared typography, semantic tokens and
+  Tailwind/shadcn controls; no feature stylesheet was added or retired.
+- Production build: `NEXT_DIST_DIR=tmp/budget-verification-build-20261118` with
+  `npm.cmd run build:web` passed; typecheck, focused ESLint, formatting, API and
+  catalogue checks and diff whitespace checks passed. The pre-existing Purchase
+  Returns menu expectation in `purchase-workflow.test.ts` remains separate.
+- Local activation completed after explicit owner approval: rehearsed source
+  migrations applied, API/web switched to `tmp/budget-deployment/source`, and 16
+  Budget permissions added to the existing administrator policy for its two
+  existing companies with a security audit. Runtime readiness reports both
+  database and Budget healthy. Served build and actual-company Budget repository
+  reads were verified; existing table data was preserved. Controls remain
+  disabled/unconfigured until an approved baseline and policy are activated and
+  legacy exposure is reconciled. No budget or financial journal was seeded.
+  The first company has 12 fiscal periods/136 eligible accounts and four approved
+  purchases awaiting reconciliation; the second still needs fiscal periods and
+  chart accounts. Safe resume: `tmp/budget-deployment/runtime.json` and the
+  implementation plan; isolated acceptance continues to use disposable PostgreSQL.
+  Interactive reconciliation is limited to 2,000 purchase documents and 2,000
+  recognition/reversal journals; larger legacy datasets need a scoped migration
+  before activation. No UI stylesheet was added or retired.
+
 ## 2026-11-18 — Purchase accounting bridge and connected reports
 
 - Added the compact accounting panel inside the existing Purchase details/form,
@@ -8625,3 +8750,18 @@ Remaining / resume point:
   assessment badge was removed (only "Required" shows).
 - Verification: web `tsc`, `git diff --check`, theme audit (0 exceptions), HR unit tests
   (39 files / 491 tests), `npm run build:web`. No browser pass yet.
+# 2026-11-18 — Local tax permission repair
+
+- Applied the explicitly owner-authorized, one-time repair to Shoaib's existing
+  administrator policy in the active local compatibility release. Added
+  `finance.tax.read`, `finance.tax.manage`, and `finance.tax_mapping.admin`, each
+  limited to `nexora-r06-uat-company` and `nexora-r06-uat-company-two`.
+- Recorded security audit event `a784a3c3-a21b-4297-b4bf-691ce7ff3ceb` as an owner
+  repair, without claiming independent application approval. No passwords,
+  company assignments, role assignments, or financial records were changed.
+- Verified fresh authentication permissions, live tax repository reads and
+  management authorization for both companies, and denied unapproved-company,
+  missing-read-permission, and mismatched-tenant requests. The existing session
+  refreshes permissions on its next request; refresh the Tax page.
+- This maintenance change grants access in the running release; deployment of
+  the new tax configuration screen and finance migration 0041 remains separate.

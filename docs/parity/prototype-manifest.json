@@ -2773,37 +2773,37 @@
               "id": "planning-dashboard",
               "label": "Planning Dashboard",
               "archetype": "dashboard",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "scenarios",
               "label": "Planning Scenarios",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "budget-models",
               "label": "Budget Models",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "budget-entry",
               "label": "Dimensioned Budget Entry",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "budget-import",
               "label": "Import & Spread",
               "archetype": "form",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "budget-approval",
               "label": "Budget Workflow",
               "archetype": "approval",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         },
@@ -2815,31 +2815,31 @@
               "id": "forecasts",
               "label": "Forecast & Reforecast",
               "archetype": "list",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "commitment-control",
               "label": "Commitment Control",
               "archetype": "workflow",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "budget-availability",
               "label": "Budget Availability",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "budget-actual",
               "label": "Budget vs Actual",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             },
             {
               "id": "planning-reports",
               "label": "Planning Reports",
               "archetype": "report",
-              "status": "prototype"
+              "status": "live"
             }
           ]
         }

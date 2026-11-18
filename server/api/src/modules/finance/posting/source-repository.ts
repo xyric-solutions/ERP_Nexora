@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import {applyBudgetPosting,type BudgetPosting} from "../../budget/accounting-bridge.js";
+import {lockBudget} from "../../budget/transaction.js";
 
 import type { QueryResult, QueryResultRow } from "pg";
 
@@ -84,6 +86,8 @@ export interface PersistedFinanceLine {
 }
 
 export interface FinancePostingRepository {
+  lockBudget?(client:FinancePostingClient,tenant:string,company:string):Promise<void>;
+  applyBudget?(client:FinancePostingClient,input:BudgetPosting):Promise<void>;
   assertTenantContext(client: FinancePostingClient, tenantId: string): Promise<boolean>;
   lockSource(client: FinancePostingClient, tenantId: string, sourceType: string, sourceId: string): Promise<void>;
   findEventByKey(
@@ -248,6 +252,8 @@ export async function lockFinanceRateAuthority(
 }
 
 export class SourceFinancePostingRepository implements FinancePostingRepository {
+  async lockBudget(client:FinancePostingClient,tenant:string,company:string){await lockBudget(client,tenant,company);}
+  async applyBudget(client:FinancePostingClient,input:BudgetPosting){await applyBudgetPosting(client,input);}
   async assertTenantContext(client: FinancePostingClient, tenantId: string): Promise<boolean> {
     const result = await client.query<{ tenant_id: string }>(
       "select current_setting('nexora.tenant_id',true) as tenant_id",

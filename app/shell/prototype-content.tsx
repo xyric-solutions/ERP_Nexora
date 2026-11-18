@@ -1,5 +1,6 @@
 "use client";
 import { WorkTable } from "@/shared/ui/work-table";
+import { BudgetWorkspace } from "@/features/budget/views/budget-workspace";
 import { WorkForm } from "@/shared/ui/work-form";
 import { WorkSurfaceContext } from "@/shared/ui/work-surface-context";
 
@@ -2845,6 +2846,9 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     );
   if (["coming-soon", "not-implemented"].includes(context.status))
     return <ComingSoonView context={context} onAction={onAction} />;
+
+  if (context.moduleId === "budget")
+    return <BudgetWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} />;
 
   if (context.moduleId === "finance" && ["coa-categories", "chart-of-accounts"].includes(context.pageId))
     return (

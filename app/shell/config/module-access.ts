@@ -1,5 +1,28 @@
 import { findAdministrationModule, isSuperAdmin, permissionBelongsToModule } from "@nexora/contracts";
 
+// Temporarily hidden by the workspace owner. Keep routes and permissions intact.
+const hiddenNavigationModules = new Set([
+  "operations",
+  "quality",
+  "crm",
+  "projects",
+  "resources",
+  "support",
+  "expenses",
+  "documents",
+  "portals",
+  "migration",
+  "approvals",
+  "configuration",
+  "notifications",
+  "integrations",
+  "audit",
+]);
+
+export function isModuleInNavigation(moduleId: string): boolean {
+  return !hiddenNavigationModules.has(moduleId);
+}
+
 /**
  * Navigation visibility from the signed-in user's permissions (Administration plan D7).
  *

@@ -34,6 +34,7 @@
     "test:e2e:bank-revaluation": "cross-env NEXORA_BANK_REVALUATION_E2E=true tsx scripts/run-bank-reconciliation-e2e.ts",
     "test:e2e:fiscal-setup": "cross-env NEXORA_FINANCE_CALENDAR_E2E=true tsx scripts/run-bank-reconciliation-e2e.ts",
     "test:e2e:taxes": "cross-env NEXORA_TAX_E2E=true tsx scripts/run-bank-reconciliation-e2e.ts",
+    "test:e2e:budget": "cross-env NEXORA_BUDGET_E2E=true tsx scripts/run-bank-reconciliation-e2e.ts",
     "test:e2e:multi-currency": "cross-env NEXORA_SUBLEDGER_E2E=true tsx scripts/run-bank-reconciliation-e2e.ts",
     "test:a11y": "npm run legacy:build && node --test tests/accessibility.test.mjs",
     "test:security": "vitest run --config vitest.security.config.ts",

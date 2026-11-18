@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { budgetDimensionsSchema,budgetReferenceOptionsSchema } from "../budget/index.js";
 import { unitSnapshotSchema } from "../inventory/units.js";
 import { taxSnapshotSchema } from "../finance/taxes.js";
 import { supplierProfileSchema } from "./supplier-profile.js";
@@ -36,6 +37,8 @@ const quantity = z
 export const purchaseKindSchema = z.enum(["request", "rfq", "order", "receipt", "bill", "payment", "multi_payment"]);
 export const purchaseStateSchema = z.enum(["draft", "submitted", "approved", "rejected", "cancelled"]);
 export const purchaseLineSchema = z.strictObject({
+  dimensions: budgetDimensionsSchema.optional(),
+  budget_period_id: identity.optional(),
   nominal_account_id: identity.optional(),
   create_fixed_asset: z.boolean().optional(),
   asset_registration: purchaseAssetRegistrationSchema.optional(),
@@ -63,6 +66,8 @@ export const purchaseLineSchema = z.strictObject({
     .refine((value) => Number(value) <= 100),
 });
 export const purchaseChargeSchema = z.strictObject({
+  dimensions: budgetDimensionsSchema.optional(),
+  budget_period_id: identity.optional(),
   id: identity,
   source_charge_id: identity.nullable().optional(),
   type: z.enum(["freight", "other"]),
@@ -298,6 +303,7 @@ export const procurementCompaniesSchema = z.strictObject({
   items: z.array(z.strictObject({ id: identity, code: z.string(), name: z.string() })),
 });
 export const procurementOptionsSchema = z.strictObject({
+  budget_dimensions:budgetReferenceOptionsSchema.optional(),
   nominals: z
     .array(
       z.strictObject({
@@ -346,7 +352,7 @@ export const purchaseApproverDirectorySchema = z.strictObject({
 export type ProcurementLookupQuery = z.infer<typeof procurementLookupQuerySchema>;
 export type PurchaseProductDirectory = z.infer<typeof purchaseProductDirectorySchema>;
 export type PurchaseApproverDirectory = z.infer<typeof purchaseApproverDirectorySchema>;
-export const purchaseMutationSchema = z.strictObject({ record: purchaseDocumentSchema, audit_event_id: identity });
+export const purchaseMutationSchema = z.strictObject({ record: purchaseDocumentSchema, audit_event_id: identity,budget_warnings:z.array(z.string()).optional() });
 export const supplierMutationSchema = z.strictObject({ record: supplierSchema, audit_event_id: identity });
 export type PurchaseKind = z.infer<typeof purchaseKindSchema>;
 export type PurchaseLine = z.infer<typeof purchaseLineSchema>;

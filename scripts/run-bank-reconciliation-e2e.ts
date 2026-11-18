@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, readFile, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolve } from "node:path";
@@ -25,16 +25,19 @@ const bootstrap = new URL(bootstrapUrl);
 const revaluationAcceptance = process.env.NEXORA_BANK_REVALUATION_E2E === "true";
 const subledgerAcceptance = process.env.NEXORA_SUBLEDGER_E2E === "true";
 const taxAcceptance = process.env.NEXORA_TAX_E2E === "true";
+const budgetAcceptance = process.env.NEXORA_BUDGET_E2E === "true";
 const fiscalAcceptance = process.env.NEXORA_FINANCE_CALENDAR_E2E === "true";
-const acceptanceName = fiscalAcceptance
-  ? "Company financial setup"
-  : taxAcceptance
-    ? "Unified tax management"
-    : subledgerAcceptance
-      ? "Multi-currency accounting"
-      : revaluationAcceptance
-        ? "Bank Revaluation"
-        : "Bank Reconciliation";
+const acceptanceName = budgetAcceptance
+  ? "Budget management"
+  : fiscalAcceptance
+    ? "Company financial setup"
+    : taxAcceptance
+      ? "Unified tax management"
+      : subledgerAcceptance
+        ? "Multi-currency accounting"
+        : revaluationAcceptance
+          ? "Bank Revaluation"
+          : "Bank Reconciliation";
 if (!["127.0.0.1", "localhost", "[::1]"].includes(bootstrap.hostname)) {
   throw new Error("The reconciliation E2E bootstrap database must be local.");
 }
@@ -50,6 +53,8 @@ if (!/^bank-reconciliation-e2e-[a-f0-9]{24}$/.test(nextDistDirectoryName))
   throw new Error("Unsafe E2E Next build directory name.");
 const nextDistDirectory = resolve(".next", nextDistDirectoryName);
 const nextDistSetting = `.next/${nextDistDirectoryName}`;
+const nextEnvPath = resolve("next-env.d.ts"),
+  originalNextEnv = await readFile(nextEnvPath, "utf8");
 
 async function freePort(from: number, to: number) {
   for (let port = from; port <= to; port += 1) {
@@ -164,15 +169,17 @@ try {
     [
       "test",
       "--workers=1",
-      ...(fiscalAcceptance
-        ? ["tests/e2e/company-financial-setup.spec.ts"]
-        : taxAcceptance
-          ? ["tests/e2e/tax-management.spec.ts"]
-          : subledgerAcceptance
-            ? ["tests/e2e/multi-currency-accounting.spec.ts"]
-            : revaluationAcceptance
-              ? ["tests/e2e/bank-revaluations.spec.ts"]
-              : ["tests/e2e/bank-reconciliation.spec.ts", "tests/e2e/bank-statement-import.spec.ts"]),
+      ...(budgetAcceptance
+        ? ["tests/e2e/budget-management.spec.ts"]
+        : fiscalAcceptance
+          ? ["tests/e2e/company-financial-setup.spec.ts"]
+          : taxAcceptance
+            ? ["tests/e2e/tax-management.spec.ts"]
+            : subledgerAcceptance
+              ? ["tests/e2e/multi-currency-accounting.spec.ts"]
+              : revaluationAcceptance
+                ? ["tests/e2e/bank-revaluations.spec.ts"]
+                : ["tests/e2e/bank-reconciliation.spec.ts", "tests/e2e/bank-statement-import.spec.ts"]),
     ],
     {
       ...sharedEnv,
@@ -199,6 +206,12 @@ try {
     } catch (error) {
       cleanupErrors.push(error);
     }
+  }
+  try {
+    const currentNextEnv = await readFile(nextEnvPath, "utf8");
+    if (currentNextEnv.includes(nextDistSetting)) await writeFile(nextEnvPath, originalNextEnv, "utf8");
+  } catch (error) {
+    cleanupErrors.push(error);
   }
   try {
     if (bucketCreated) {

@@ -15,6 +15,7 @@ const openApi = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
 const client = await format(
   `import type {AssetOptions,AssetWorkspace,AssetDashboard,AssetSources,AssetDetail,AssetCategoryInput,AssetCategory,AssetCreate,FixedAsset,AssetUpdate,AssetAction,AssetEventInput,AssetEvent,AssetEventAction,AssetDepreciationInput,AssetDepreciationRun,AssetDepreciationAction,AssetAttachment,AssetAttachmentInput,AssetCompanyPolicyInput,AssetCompanyPolicy,AssetValuation} from "@nexora/contracts";
 import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions} from "@nexora/contracts";
+import type {BudgetOptions,BudgetDirectory,BudgetDetail,BudgetReport,BudgetDrill,BudgetPlanInput,BudgetVersionInput,BudgetVersionUpdate,BudgetAction,BudgetGenerate,BudgetModelInput,BudgetModel,BudgetApplyModel,BudgetPolicyInput,BudgetPolicy,BudgetRequestInput,BudgetRequestAction,BudgetRequest,BudgetImport,BudgetCommentInput,BudgetSourceControl} from "@nexora/contracts";
 import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
 import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
 import type {CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrPersonalCorrectionWorkspace,HrReportGovernanceAction,HrReportGovernanceWorkspace,HrReportGovernanceResult} from '@nexora/contracts';
@@ -1288,6 +1289,31 @@ export class NexoraApiClient {
   enqueueSampleJob(payload: SampleJobPayload): Promise<JobReceipt> {
     return this.request("/api/v1/jobs/sample", { method: "POST", body: JSON.stringify(payload) });
   }
+  getBudgetOptions(query:string):Promise<BudgetOptions>{return this.request("/api/v1/budget/options"+query);}
+  getBudgetSources(query:string):Promise<import("@nexora/contracts").BudgetSourceDirectory>{return this.request("/api/v1/budget/sources"+query);}
+  getBudgetWorkspace(query:string):Promise<BudgetDirectory>{return this.request("/api/v1/budget/workspace"+query);}
+  getBudgetVersion(id:string,query:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/versions/"+encodeURIComponent(id)+query);}
+  getBudgetReport(query:string):Promise<BudgetReport>{return this.request("/api/v1/budget/reports"+query);}
+  getBudgetDrill(query:string):Promise<BudgetDrill>{return this.request("/api/v1/budget/drill"+query);}
+  getBudgetSourceControl(id:string,query:string):Promise<BudgetSourceControl>{return this.request("/api/v1/budget/controls/"+encodeURIComponent(id)+query);}
+  getBudgetHistory(query:string):Promise<import("@nexora/contracts").BudgetDetail["history"]>{return this.request("/api/v1/budget/history"+query);}
+  createBudgetPlan(payload:BudgetPlanInput,csrf:string,key:string):Promise<import("@nexora/contracts").BudgetDirectory["plans"][number]>{return this.request("/api/v1/budget/plans",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(payload)});}
+  createBudgetVersion(payload:BudgetVersionInput,csrf:string,key:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/versions",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(payload)});}
+  updateBudgetVersion(id:string,payload:BudgetVersionUpdate,csrf:string,key:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/versions/"+encodeURIComponent(id),{method:"PATCH",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  actBudgetVersion(id:string,payload:BudgetAction,csrf:string,key:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/versions/"+encodeURIComponent(id)+"/actions",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  generateBudgetVersion(payload:BudgetGenerate,csrf:string,key:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/generate",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(payload)});}
+  createBudgetModel(payload:BudgetModelInput,csrf:string,key:string):Promise<BudgetModel>{return this.request("/api/v1/budget/models",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(payload)});}
+  updateBudgetModel(id:string,payload:BudgetModelInput,csrf:string,key:string):Promise<BudgetModel>{return this.request("/api/v1/budget/models/"+encodeURIComponent(id),{method:"PATCH",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  applyBudgetModel(payload:BudgetApplyModel,csrf:string,key:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/models/apply",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  saveBudgetPolicy(payload:BudgetPolicyInput,csrf:string,key:string):Promise<BudgetPolicy>{return this.request("/api/v1/budget/policy",{method:"PUT",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  createBudgetRequest(payload:BudgetRequestInput,csrf:string,key:string):Promise<BudgetRequest>{return this.request("/api/v1/budget/requests",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(payload)});}
+  actBudgetRequest(id:string,payload:BudgetRequestAction,csrf:string,key:string):Promise<BudgetRequest>{return this.request("/api/v1/budget/requests/"+encodeURIComponent(id)+"/actions",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
+  createBudgetComment(payload:BudgetCommentInput,csrf:string,key:string):Promise<{id:string}>{return this.request("/api/v1/budget/comments",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify(payload)});}
+  reconcileBudgetPurchases(company:string,reason:string,csrf:string,key:string):Promise<{documents:number;journals:number}>{return this.request("/api/v1/budget/reconcile",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key},body:JSON.stringify({company_id:company,reason})});}
+  downloadBudgetTemplate(company:string):Promise<Blob>{return this.request("/api/v1/budget/template?company_id="+encodeURIComponent(company),undefined,"blob");}
+  exportBudget(query:string):Promise<Blob>{return this.request("/api/v1/budget/export"+query,undefined,"blob");}
+  previewBudgetImport(company:string,id:string,version:number,file:File,csrf:string,key:string):Promise<BudgetImport>{const body=new FormData();body.set("file",file);return this.request("/api/v1/budget/imports?company_id="+encodeURIComponent(company)+"&version_id="+encodeURIComponent(id)+"&expected_version="+version,{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+version+'"'},body});}
+  commitBudgetImport(id:string,payload:{company_id:string;expected_version:number;reason:string},csrf:string,key:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/imports/"+encodeURIComponent(id)+"/commit",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
   getTaxes(query: string): Promise<TaxDirectory> {return this.request("/api/v1/finance/taxes"+query);}
   getTaxOptions(query: string): Promise<TaxOptions> {return this.request("/api/v1/finance/taxes/options"+query);}
   getTax(id: string,query: string): Promise<TaxDetail> {return this.request("/api/v1/finance/taxes/"+encodeURIComponent(id)+query);}

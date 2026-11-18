@@ -63,7 +63,7 @@ export const administrationModuleCatalogue = [
   { id: "assets", label: "Fixed Assets", permissionPrefixes: ["assets."], live: true },
   { id: "expenses", label: "Expense Management", permissionPrefixes: [], live: false },
   { id: "documents", label: "Document Management", permissionPrefixes: [], live: false },
-  { id: "budget", label: "Budget & Planning", permissionPrefixes: [], live: false },
+  { id: "budget", label: "Budget & Planning", permissionPrefixes: ["budget."], live: true },
   { id: "reports", label: "Reports & Analytics", permissionPrefixes: [], live: false },
   { id: "portals", label: "Portals", permissionPrefixes: [], live: false },
   { id: "configuration", label: "System Configuration & Extensibility", permissionPrefixes: [], live: false },

@@ -47,6 +47,8 @@ import {
 } from "./modules/finance/router.js";
 import { createCompanyCurrencyRouter } from "./modules/finance/currencies/company-router.js";
 import { createTaxRouter } from "./modules/finance/taxes/router.js";
+import { createBudgetRouter } from "./modules/budget/router.js";
+import type { SourceBudgetRepository } from "./modules/budget/source-repository.js";
 import type { SourceTaxRepository } from "./modules/finance/taxes/source-repository.js";
 import { createSubledgerRouter } from "./modules/finance/subledger/router.js";
 import type { SourceSubledgerRepository } from "./modules/finance/subledger/source-repository.js";
@@ -103,6 +105,7 @@ export interface AppDependencies {
   financeJournalRepository?: FinanceJournalRepository;
   subledgerRepository?: SourceSubledgerRepository;
   taxRepository?: SourceTaxRepository;
+  budgetRepository?: SourceBudgetRepository;
   financeHierarchyRepository?: import("./modules/finance/coa-hierarchy-repository.js").SourceCoaHierarchyRepository;
   chartTemplateRepository?: ChartTemplateRepository;
   referenceMasterRepository?: ReferenceMasterRepository;
@@ -384,6 +387,7 @@ export function createApp(dependencies: AppDependencies): Express {
       },
     }),
   );
+  app.use("/api/v1/budget", express.json({ limit: "6mb", strict: true }));
   app.use(express.json({ limit: "1mb", strict: true }));
   app.use(requestLogging(dependencies.logger, dependencies.metrics));
   if (dependencies.sessionService)
@@ -437,6 +441,18 @@ export function createApp(dependencies: AppDependencies): Express {
     );
   }
 
+  if (dependencies.budgetRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/budget",
+      createBudgetRouter({
+        repository: dependencies.budgetRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
   if (dependencies.subledgerRepository && dependencies.authService && dependencies.sessionService) {
     app.use(
       "/api/v1/finance/subledger",

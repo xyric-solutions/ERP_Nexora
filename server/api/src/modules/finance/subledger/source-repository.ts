@@ -1042,9 +1042,9 @@ export class SourceSubledgerRepository {
       if (
         input.side === "payable" &&
         input.kind === "invoice" &&
-        (sourceCharges.length > 0 || sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id))
+        (sourceCharges.length > 0 || sourceTaxLines.length > 0)
       ) {
-        if (input.counter_account_id)
+        if (input.counter_account_id && sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id))
           reject("The approved bill resolves its asset categories. Clear the manual purchase accounting override.");
         const categories = (
           await client.query<{ id: string; asset_account_id: string }>(
@@ -1076,8 +1076,8 @@ export class SourceSubledgerRepository {
             a,
             `${code} ${line.item_code || line.description} ${line.asset_category_id ? "asset acquisition" : "purchase expense"}`,
           );
-          if (native > 0n && line.asset_category_id && line.id)
-            result.lines[result.lines.length - 1]!.dimensions = { purchase_line_id: line.id };
+          if (native > 0n && line.id)
+            result.lines[result.lines.length - 1]!.dimensions = Object.fromEntries(Object.entries({ ...line.dimensions, purchase_line_id: line.id }).filter((entry):entry is [string,string]=>typeof entry[1]==="string"));
         }
         for (const charge of sourceCharges) {
           if (
@@ -1093,6 +1093,7 @@ export class SourceSubledgerRepository {
           const native = decimal(nativePurchaseAmount(charge.amount, a.sourceDecimalPlaces), a.sourceDecimalPlaces);
           allocated += native;
           add(charge.nominal_account_id, native, input.currency, a, `${code} ${charge.description}`);
+          if (native > 0n) result.lines[result.lines.length - 1]!.dimensions = Object.fromEntries(Object.entries({ ...charge.dimensions, purchase_charge_id: charge.id }).filter((entry):entry is [string,string]=>typeof entry[1]==="string"));
         }
         if (allocated !== (withholding ? signed + signedTax : signed - signedTax))
           reject("Approved bill acquisition allocations do not match its net accounting amount.");

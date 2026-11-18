@@ -1,4 +1,7 @@
 import { purchaseReservationSql } from "./accounting-projection.js";
+import {reserveBudgetPurchase} from "../budget/accounting-bridge.js";
+import {BudgetError} from "../budget/transaction.js";
+import {validateBudgetReferences} from "../budget/references.js";
 import { purchaseAvailableAmount } from "@nexora/contracts";
 import { resolveTax, TaxError } from "../finance/taxes/resolver.js";
 import { productUnitChoices, productUnitSnapshot } from "../inventory/units-repository.js";
@@ -189,6 +192,7 @@ export class SourceProcurementRepository {
     } catch (error) {
       await client.query("rollback");
       if (error instanceof AssetError) fail(error.message, error.code, error.status);
+      if(error instanceof BudgetError)fail(error.message,error.code,error.status);
       if (error && typeof error === "object" && "code" in error) {
         if (["42P01", "42703"].includes(String(error.code)))
           fail(
@@ -265,6 +269,13 @@ export class SourceProcurementRepository {
       );
       return {
         currencies: result.rows,
+        budget_dimensions:{
+          departments:(await client.query("select id,code,name from organization_unit where tenant_id=$1 and type='department' and status='active' and organization_unit_is_within_company($1,id,$2) order by code limit 1000",[context.tenantId,company])).rows,
+          branches:(await client.query("select id,code,name from organization_unit where tenant_id=$1 and type='branch' and status='active' and organization_unit_is_within_company($1,id,$2) order by code limit 1000",[context.tenantId,company])).rows,
+          projects:(await client.query("select id,code,name from erp_project where tenant_id=$1 and company_id=$2 and status='active' order by code limit 1000",[context.tenantId,company])).rows,
+          cost_centres:(await client.query("select id,code,name from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='cost_center' and status='active' order by code limit 1000",[context.tenantId,company])).rows,
+          periods:(await client.query("select id,fiscal_calendar_id,period_number as number,period_start::text as start,period_end::text as end,status from financial_period where tenant_id=$1 and company_id=$2 order by period_start limit 1200",[context.tenantId,company])).rows,
+        },
         nominals: (
           await client.query(
             `select a.id,a.code,a.name,a.type,coalesce(c.active,false) as fixed_asset from account a
@@ -1388,6 +1399,11 @@ export class SourceProcurementRepository {
       for (const line of terms.lines) {
         const sourceLine = source.lines.find((item) => item.id === line.source_line_id);
         if (!sourceLine) fail("Every line must reference a line on the selected source.");
+        if(["receipt","bill"].includes(terms.kind)){
+          if(sourceLine.dimensions)line.dimensions=sourceLine.dimensions;
+          if(sourceLine.budget_period_id)line.budget_period_id=sourceLine.budget_period_id;
+          if(sourceLine.nominal_account_id&&line.nominal_account_id!==sourceLine.nominal_account_id)fail("Receipt and bill nominals must match the approved source mapping.","PURCHASE_ACCOUNT_MISMATCH");
+        }
         if (sourceLine.unit_snapshot) {
           const converted = convertUnitQuantity(
             line.quantity,
@@ -1453,6 +1469,7 @@ export class SourceProcurementRepository {
       }
     }
     const total = documentTotal(terms.lines, terms);
+    await validateBudgetReferences(client,tenant,terms.company_id,[...terms.lines,...(terms.additional_charges??[])]);
     if (["order", "bill"].includes(terms.kind) && total === "0.00")
       fail("A Purchase Order or bill must have a positive amount.");
     return total;
@@ -1731,6 +1748,7 @@ export class SourceProcurementRepository {
       }
       if (["submit", "approve"].includes(parsed.action))
         await this.validate(client, context.tenantId, id, before, parsed.action === "approve", context, false);
+      const budgetWarnings=parsed.action==="approve"?await reserveBudgetPurchase(client,context.tenantId,parsed.company_id,id,context.actor.userId):[];
       const instance = await this.workflow(client, context, before, parsed.action, reason);
       const state = { submit: "submitted", approve: "approved", reject: "rejected", cancel: "cancelled" }[
         parsed.action
@@ -1754,8 +1772,9 @@ export class SourceProcurementRepository {
         fingerprint,
         correlation,
         override,
+        budgetWarnings,
       );
-      return { record, audit_event_id: auditId };
+      return { record, audit_event_id: auditId,...(budgetWarnings.length?{budget_warnings:budgetWarnings}:{}) };
     });
   }
   private async workflow(
@@ -1820,6 +1839,7 @@ export class SourceProcurementRepository {
     fingerprint: string,
     correlation: string,
     override: string | null = null,
+    budgetWarnings:readonly string[] = [],
   ) {
     const evidenceRecord =
       entity === "supplier" && "risk_status" in record
@@ -1873,7 +1893,7 @@ export class SourceProcurementRepository {
         override,
         key,
         fingerprint,
-        JSON.stringify({ record: evidenceRecord, audit_event_id: event.id }),
+        JSON.stringify({ record: evidenceRecord, audit_event_id: event.id,...(budgetWarnings.length?{budget_warnings:budgetWarnings}:{}) }),
       ],
     );
     return event.id;

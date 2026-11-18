@@ -43,6 +43,7 @@ import { paymentEntries, PurchasePaymentDetailsForm } from "./purchase-payment-d
 import { PurchaseBillDetailsForm } from "./purchase-bill-details";
 import { PurchaseAssetDetailsDialog } from "@/features/fixed-assets/components/purchase-asset-details-dialog";
 import { PurchaseAccounting } from "./purchase-accounting";
+import {PurchaseBudgetFields} from "./purchase-budget-fields";
 
 const CUSTOM_PRODUCT_VALUE = "__custom_product__";
 const newLine = (): PurchaseLine => ({
@@ -569,7 +570,7 @@ export function PurchaseDocumentForm({
       onDirtyChange?.(false);
       setReason("");
       setPendingAction(null);
-      notify(`${result.record.code} ${result.record.state}.`);
+      notify(`${result.record.code} ${result.record.state}.${result.budget_warnings?.length?` ${result.budget_warnings.join(" ")}`:""}`);
       if (action === "submit" && continueFlow) {
         if (result.record.approver_id === session?.user.id) onNavigate(step.form, `review:${result.record.id}`);
       }
@@ -1700,7 +1701,7 @@ export function PurchaseDocumentForm({
                             ))}
                           </select>
                         ) : null}
-                        {kind === "bill" && options.nominals?.length ? (
+                        {["request","rfq","order","bill"].includes(kind) && options.nominals?.length ? (
                           <select
                             className={`${purchaseSelectClass} mt-2`}
                             aria-label={`Line ${index + 1} nominal account`}
@@ -1731,6 +1732,7 @@ export function PurchaseDocumentForm({
                             ))}
                           </select>
                         ) : null}
+                        <PurchaseBudgetFields line={line} index={index} options={options} disabled={!canSave||busy||["receipt","bill"].includes(kind)&&!!input.source_id} onChange={patch=>updateLine(index,patch)}/>
                         {kind === "bill" &&
                         options.nominals?.some(
                           (nominal) => nominal.id === line.nominal_account_id && nominal.fixed_asset,

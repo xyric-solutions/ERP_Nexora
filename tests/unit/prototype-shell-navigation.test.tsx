@@ -14,6 +14,10 @@ vi.mock("../../app/features/ai/components/nexora-intelligence.js", () => ({
   NexoraIntelligenceLayer: () => null,
 }));
 
+vi.mock("../../app/shell/workspace-company-select.js", () => ({
+  WorkspaceCompanySelect: () => <div>Company selector</div>,
+}));
+
 import { findPrototypePage, prototypeModules } from "../../app/shell/config/prototype-data.js";
 import { PrototypeShell } from "../../app/shell/prototype-shell.js";
 
@@ -46,6 +50,38 @@ afterEach(() => {
 });
 
 describe("Prototype shell module navigation", () => {
+  it("hides the requested modules while retaining their registered destinations", () => {
+    const hidden = ["operations", "quality", "crm", "projects", "resources", "support", "expenses",
+      "documents", "portals", "migration", "approvals", "configuration", "notifications", "integrations", "audit"];
+    const buttons = [...container.querySelectorAll<HTMLButtonElement>(".nx-module-button")];
+    for (const id of hidden) {
+      const entry = prototypeModules.find((item) => item.id === id)!;
+      expect(buttons.some((button) => button.title === entry.label)).toBe(false);
+      expect(findPrototypePage(id).module.id).toBe(id);
+    }
+    for (const id of ["banking", "finance", "budget", "hr", "administration"]) {
+      const entry = prototypeModules.find((item) => item.id === id)!;
+      expect(buttons.some((button) => button.title === entry.label)).toBe(true);
+    }
+  });
+
+  it("opens notifications from the top bar and retains the full centre route", async () => {
+    const trigger = container.querySelector<HTMLButtonElement>('.nx-topbar [aria-label="Open notifications"]');
+    expect(trigger).not.toBeNull();
+    expect(trigger?.className).not.toContain("max-sm:hidden");
+    await act(async () => trigger?.click());
+    const dialog = container.querySelector('[role="dialog"][aria-label="Prototype notifications"]');
+    expect(dialog?.textContent).toContain("Notification centre");
+    const open = [...(dialog?.querySelectorAll<HTMLButtonElement>("button") ?? [])].find(
+      (button) => button.textContent?.trim() === "Open notification centre",
+    );
+    expect(open).toBeDefined();
+    await act(async () => open?.click());
+    await settle();
+    expect(window.location.hash).toBe("#/notifications/notification-centre");
+    expect(container.querySelector('[data-testid="mock-prototype-content"]')).not.toBeNull();
+  });
+
   it.each([
     ["asset-return", "Purchase Returns"],
     ["asset-refund", "Vendor Refunds"],
