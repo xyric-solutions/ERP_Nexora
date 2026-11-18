@@ -2,12 +2,22 @@
 import { LabeledField } from "@/shared/ui/labeled-field";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { taxContextRules, taxInputSchema, type TaxDefinition, type TaxInput, type TaxOptions } from "@nexora/contracts";
+import {
+  taxContextRules,
+  taxInputSchema,
+  combinedTaxRate,
+  baseTaxRate,
+  type TaxDefinition,
+  type TaxInput,
+  type TaxOptions,
+  type TaxConfiguration,
+} from "@nexora/contracts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { workSelectClass } from "@/shared/ui/work-table";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { useSession } from "@/lib/session/session-provider";
 import { ApiError } from "@/lib/api/generated";
 
@@ -28,11 +38,15 @@ const today = () => new Date().toLocaleDateString("en-CA");
 export function TaxDefinitionForm({
   definition,
   options,
+  configuration,
+  initialType,
   onClose,
   onSaved,
 }: {
   definition?: TaxDefinition;
   options: TaxOptions;
+  configuration: TaxConfiguration;
+  initialType?: TaxInput["tax_type"];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -40,8 +54,10 @@ export function TaxDefinitionForm({
   const [form, setForm] = useState<TaxInput>({
     company_id: activeCompany!.id,
     name: definition?.name ?? "",
-    tax_type: definition?.tax_type ?? "WHT",
-    rate: definition?.rate ?? "5.50",
+    tax_type: definition?.tax_type ?? initialType ?? "WHT",
+    rate: definition?.rate ?? "0",
+    region_code: definition?.region_code ?? undefined,
+    print_label: definition?.print_label ?? "",
     description: definition?.description ?? "",
     module: definition?.module ?? "purchases",
     treatment: definition?.treatment ?? "withholding",
@@ -53,6 +69,8 @@ export function TaxDefinitionForm({
     payroll_component_id: definition?.payroll_component_id ?? undefined,
     payroll_basis_component_id: definition?.payroll_basis_component_id ?? undefined,
   });
+  const [baseRate, setBaseRate] = useState(definition ? baseTaxRate(definition) : "0");
+  const [additionalRate, setAdditionalRate] = useState(definition?.additional_rate ?? "0");
   const [search, setSearch] = useState(""),
     [accountOffset, setAccountOffset] = useState(0),
     [accountOptions, setAccountOptions] = useState(options),
@@ -106,7 +124,14 @@ export function TaxDefinitionForm({
   }
   async function submit(event: FormEvent) {
     event.preventDefault();
-    const parsed = taxInputSchema.safeParse(form);
+    let rate: string;
+    try {
+      rate = combinedTaxRate(baseRate, additionalRate);
+    } catch {
+      setError("Enter rates from 0 to 100 with up to two decimals. The combined rate cannot exceed 100%.");
+      return;
+    }
+    const parsed = taxInputSchema.safeParse({ ...form, rate, additional_rate: additionalRate });
     if (!parsed.success) {
       setError(parsed.error.issues.map((issue) => `${issue.path.join(" ")}: ${issue.message}`).join(" "));
       return;
@@ -187,8 +212,50 @@ export function TaxDefinitionForm({
                     required
                     inputMode="decimal"
                     pattern="[0-9]+([.][0-9]{1,2})?"
-                    value={form.rate}
-                    onChange={(e) => setForm({ ...form, rate: e.target.value })}
+                    value={baseRate}
+                    onChange={(e) => setBaseRate(e.target.value)}
+                  />
+                </LabeledField>
+                <LabeledField
+                  className="grid gap-1.5 text-sm"
+                  label="Additional Tax Rate (%)"
+                  hint="Added to the base rate on the same taxable amount; not compounded."
+                >
+                  <Input
+                    required
+                    inputMode="decimal"
+                    pattern="[0-9]+([.][0-9]{1,2})?"
+                    value={additionalRate}
+                    onChange={(event) => setAdditionalRate(event.target.value)}
+                  />
+                </LabeledField>
+                <LabeledField className="grid gap-1.5 text-sm" label="Tax region">
+                  <SearchableSelect
+                    label="Tax region"
+                    placeholder="All regions / not region-specific"
+                    value={form.region_code ?? ""}
+                    disabled={busy}
+                    onValueChange={(value) => setForm({ ...form, region_code: value || undefined })}
+                    options={[
+                      { value: "", label: "All regions / not region-specific" },
+                      ...configuration.regions
+                        .filter((region) => region.status === "active" || region.code === form.region_code)
+                        .map((region) => ({
+                          value: region.code,
+                          label: `${region.name} (${region.short_code})`,
+                          disabled: region.status !== "active",
+                        })),
+                    ]}
+                  />
+                </LabeledField>
+                <LabeledField className="grid gap-1.5 text-sm sm:col-span-2" label="Print label">
+                  <Input
+                    maxLength={60}
+                    value={form.print_label ?? ""}
+                    placeholder={
+                      configuration.display.find((row) => row.tax_type === form.tax_type)?.label ?? form.tax_type
+                    }
+                    onChange={(event) => setForm({ ...form, print_label: event.target.value })}
                   />
                 </LabeledField>
                 <LabeledField className="grid gap-1.5 text-sm" label="Effective date">
@@ -371,8 +438,8 @@ export function TaxDefinitionForm({
                 </p>
                 {form.module === "fixed_assets" && (
                   <p className="text-sm text-muted-foreground sm:col-span-2">
-                    This configures the asset tax context. Automatic asset posting requires an integrated Fixed Assets
-                    source workflow.
+                    Recoverable asset taxes are available on purchase lines assigned to an asset category. Acquisition
+                    accounting and returns retain the approved purchase tax evidence.
                   </p>
                 )}
               </div>

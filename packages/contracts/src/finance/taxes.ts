@@ -2,7 +2,17 @@ import { z } from "zod";
 import { decimal, decimalText, divideRounded } from "./exact-money.js";
 
 const id = z.string().trim().min(1).max(128);
-export const taxTypeSchema = z.enum(["WHT", "GST", "VAT", "Excise", "Payroll Tax", "Other"]);
+export const taxTypeSchema = z.enum([
+  "WHT",
+  "GST",
+  "ADT",
+  "FED",
+  "GST Withheld",
+  "VAT",
+  "Excise",
+  "Payroll Tax",
+  "Other",
+]);
 export const taxModuleSchema = z.enum(["purchases", "sales", "payroll", "fixed_assets"]);
 export const taxTreatmentSchema = z.enum(["withholding", "output", "recoverable", "payroll_deduction"]);
 export const taxTriggerSchema = z.enum(["recognition", "settlement", "calculation"]);
@@ -31,6 +41,12 @@ export const taxInputSchema = z
     name: z.string().trim().min(1).max(200),
     tax_type: taxTypeSchema,
     rate: taxRateSchema,
+    additional_rate: taxRateSchema.optional(),
+    region_code: z
+      .string()
+      .regex(/^TRG-[0-9]{3,}$/)
+      .optional(),
+    print_label: z.string().trim().max(60).optional(),
     description: z.string().trim().max(2000).default(""),
     module: taxModuleSchema,
     treatment: taxTreatmentSchema,
@@ -42,6 +58,19 @@ export const taxInputSchema = z
     status: z.enum(["active", "inactive"]).default("active"),
     reason: z.string().trim().min(3).max(500),
   })
+  .refine(
+    (value) => {
+      try {
+        return decimal(value.additional_rate ?? "0", 2) <= decimal(value.rate, 2);
+      } catch {
+        return false;
+      }
+    },
+    {
+      message: "Additional rate cannot exceed the combined tax rate.",
+      path: ["additional_rate"],
+    },
+  )
   .refine(
     (value) =>
       value.module !== "payroll"
@@ -72,6 +101,8 @@ export const taxQuerySchema = z.strictObject({
   module: taxModuleSchema.optional(),
   tax_type: taxTypeSchema.optional(),
   status: z.enum(["active", "inactive"]).optional(),
+  party: z.enum(["supplier", "customer"]).optional(),
+  as_of: z.iso.date().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).max(1000000).default(0),
 });
@@ -85,6 +116,9 @@ export const taxDefinitionSchema = z.strictObject({
   name: z.string(),
   tax_type: taxTypeSchema,
   rate: z.string(),
+  additional_rate: z.string().default("0.00"),
+  region_code: z.string().nullable().default(null),
+  print_label: z.string().default(""),
   description: z.string(),
   module: taxModuleSchema,
   treatment: taxTreatmentSchema,
@@ -135,6 +169,8 @@ export const taxSnapshotSchema = z.strictObject({
   revision: z.number().int().positive(),
   code: id,
   name: z.string(),
+  print_label: z.string().default(""),
+  region_code: z.string().nullable().default(null),
   module: taxModuleSchema,
   treatment: taxTreatmentSchema,
   trigger: taxTriggerSchema,
@@ -148,6 +184,15 @@ export const taxSnapshotSchema = z.strictObject({
 export function calculateTax(basis: string, rate: string, precision: number): string {
   const units = decimal(basis, precision, true);
   return decimalText(divideRounded(units * decimal(taxRateSchema.parse(rate), 2), 10000n), precision);
+}
+/** Both percentages use the same taxable basis; this is not compounding. */
+export function combinedTaxRate(base: string, additional: string): string {
+  return taxRateSchema.parse(
+    decimalText(decimal(taxRateSchema.parse(base), 2) + decimal(taxRateSchema.parse(additional), 2), 2),
+  );
+}
+export function baseTaxRate(tax: { rate: string; additional_rate?: string }): string {
+  return decimalText(decimal(tax.rate, 2) - decimal(tax.additional_rate ?? "0", 2), 2);
 }
 export type TaxInput = z.infer<typeof taxInputSchema>;
 export type TaxUpdate = z.infer<typeof taxUpdateSchema>;

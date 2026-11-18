@@ -77,6 +77,18 @@ test.describe("unified tax management", () => {
     const admin = await signIn(browser, "r06.override-admin");
     try {
       await expect(admin.page.getByRole("button", { name: "Add New Tax Definition", exact: true })).toBeEnabled();
+      await admin.page.getByRole("button", { name: "Add Pakistan regions", exact: true }).click();
+      await admin.page.getByLabel("Tax reporting year end", { exact: true }).fill("2026-06-30");
+      await admin.page.getByLabel("GST display label", { exact: true }).fill("Sales tax");
+      await admin.page
+        .getByLabel("Settings change reason", { exact: true })
+        .fill("Configure regional tax administration");
+      await admin.page.getByRole("button", { name: "Save tax settings", exact: true }).click();
+      await expect(admin.page.getByRole("status")).toContainText("Company tax settings saved");
+      await admin.page.reload();
+      await expect(admin.page.getByLabel("Region 6 name", { exact: true })).toHaveValue("Punjab");
+      await expect(admin.page.getByLabel("Tax reporting year end", { exact: true })).toHaveValue("2026-06-30");
+      await expect(admin.page.getByLabel("GST display label", { exact: true })).toHaveValue("Sales tax");
       await admin.page.getByRole("button", { name: "Add New Tax Definition", exact: true }).click();
       const dialog = admin.page.getByRole("dialog");
       await expect(dialog.getByLabel("Tax Name", { exact: true })).toBeFocused();
@@ -119,6 +131,33 @@ test.describe("unified tax management", () => {
       await row.getByRole("button", { name: "Supplies withholding", exact: true }).click();
       await expect(dialog.getByText("Revision 1 · effective 2026-09-01", { exact: true })).toBeVisible();
       await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await admin.page.getByRole("button", { name: "FED Rates", exact: true }).click();
+      await expect(row).toHaveCount(0);
+      await admin.page.getByRole("button", { name: "Add New Tax Definition", exact: true }).click();
+      await expect(dialog.getByLabel("Tax Type", { exact: true })).toHaveValue("FED");
+      await dialog.getByLabel("Tax Name", { exact: true }).fill("Regional FED");
+      await dialog.getByLabel("Tax Rate (%)", { exact: true }).fill("18");
+      await dialog.getByLabel("Additional Tax Rate (%)", { exact: true }).fill("2");
+      await dialog.getByLabel("Effective date", { exact: true }).fill("2026-09-01");
+      await dialog.getByLabel("Print label", { exact: true }).fill("Federal excise");
+      await dialog.getByRole("combobox", { name: "Tax region", exact: true }).click();
+      await admin.page.getByRole("combobox", { name: "Search tax region", exact: true }).fill("Punjab");
+      await admin.page.getByRole("option", { name: "Punjab (PB)", exact: true }).click();
+      await dialog.getByLabel("Applicable ERP Module", { exact: true }).selectOption("sales");
+      await dialog.getByLabel("Associated Nominal (GL) Account", { exact: true }).selectOption("tax-browser-liability");
+      await dialog
+        .getByLabel("Reason for change", { exact: true })
+        .fill("Configure explicit regional sales tax mapping");
+      await dialog.getByRole("button", { name: "Create Tax Definition", exact: true }).click();
+      const regionalRow = admin.page.getByRole("row").filter({ hasText: "Regional FED" });
+      await expect(regionalRow).toContainText("20.00% total");
+      await expect(regionalRow).toContainText("Punjab");
+      await regionalRow.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(dialog.getByLabel("Tax Rate (%)", { exact: true })).toHaveValue("18.00");
+      await expect(dialog.getByLabel("Additional Tax Rate (%)", { exact: true })).toHaveValue("2");
+      await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+      await admin.page.getByRole("button", { name: "FED Rates", exact: true }).click();
+      await expect(row).toBeVisible();
       await mkdir("tmp/tax-management-evidence", { recursive: true });
       for (const [width, height, theme, label] of [
         [1440, 1000, "light", "desktop-light"],
@@ -132,6 +171,7 @@ test.describe("unified tax management", () => {
           document.documentElement.dataset.theme = theme;
         }, theme);
         await expect(admin.page.getByRole("heading", { name: "Unified Tax Management Console" })).toBeVisible();
+        await admin.page.getByRole("heading", { name: "Unified Tax Management Console" }).scrollIntoViewIfNeeded();
         await expect
           .poll(() => admin.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth))
           .toBe(true);
@@ -140,6 +180,7 @@ test.describe("unified tax management", () => {
       const reader = await signIn(browser, "r06.maker");
       try {
         await expect(reader.page.getByRole("button", { name: "Add New Tax Definition", exact: true })).toBeDisabled();
+        await expect(reader.page.getByRole("button", { name: "Save tax settings", exact: true })).toBeDisabled();
         await expect(reader.page.getByRole("row").filter({ hasText: "Supplies withholding" })).toContainText(
           "Inactive",
         );

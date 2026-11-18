@@ -1,9 +1,48 @@
 import { describe, it, expect } from "vitest";
 import { calculateMonthlyPayroll } from "../../server/api/src/modules/hr/payroll-calculation.js";
-import { calculateTax, taxInputSchema, taxSnapshotSchema } from "../../packages/contracts/src/finance/taxes.js";
+import {
+  calculateTax,
+  combinedTaxRate,
+  baseTaxRate,
+  taxInputSchema,
+  taxSnapshotSchema,
+} from "../../packages/contracts/src/finance/taxes.js";
+import {
+  defaultTaxConfiguration,
+  taxConfigurationInputSchema,
+} from "../../packages/contracts/src/finance/tax-configuration.js";
 import { prototypeModules, findPrototypePage } from "../../app/shell/config/prototype-data.js";
 
 describe("governed taxes", () => {
+  it("adds base and additional percentages exactly without compounding", () => {
+    const rate = combinedTaxRate("18", "2.50");
+    expect(rate).toBe("20.50");
+    expect(baseTaxRate({ rate, additional_rate: "2.50" })).toBe("18.00");
+    expect(calculateTax("1000.00", rate, 2)).toBe("205.00");
+    expect(() => combinedTaxRate("99.99", "0.02")).toThrow();
+    expect(() => combinedTaxRate("18", "-2")).toThrow();
+  });
+  it("requires unique region identities and exactly one display row per tax type", () => {
+    const { version, ...configuration } = defaultTaxConfiguration("company");
+    const value = {
+      ...configuration,
+      expected_version: version,
+      reason: "Test configuration",
+      regions: [{ name: "Punjab", short_code: "pb", status: "active" }],
+    };
+    expect(taxConfigurationInputSchema.parse(value).regions[0]!.short_code).toBe("PB");
+    expect(
+      taxConfigurationInputSchema.safeParse({
+        ...value,
+        regions: [...value.regions, { name: "Duplicate", short_code: "PB", status: "inactive" }],
+      }).success,
+    ).toBe(false);
+    expect(
+      taxConfigurationInputSchema.safeParse({ ...value, display: [...value.display.slice(1), value.display[1]] })
+        .success,
+    ).toBe(false);
+    expect(taxConfigurationInputSchema.safeParse({ ...value, year_end_date: "2026-02-30" }).success).toBe(false);
+  });
   it("calculates exact percentages across currency precision and signed credits", () => {
     expect(calculateTax("1000.00", "5.50", 2)).toBe("55.00");
     expect(calculateTax("1", "5.50", 0)).toBe("0");

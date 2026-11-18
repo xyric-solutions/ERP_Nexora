@@ -845,7 +845,7 @@ export class SourceSubledgerRepository {
             company: input.company_id,
             definition: line.tax_definition_id,
             date: sourceTaxDocument!.date,
-            module: "purchases",
+            module: "asset_category_id" in line && line.asset_category_id ? ["purchases", "fixed_assets"] : "purchases",
             trigger: "recognition",
             currency: input.currency,
             precision: a.sourceDecimalPlaces,

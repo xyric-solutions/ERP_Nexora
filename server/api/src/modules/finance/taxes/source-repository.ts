@@ -15,17 +15,23 @@ import {
   type TaxUpdate,
   type TaxStatus,
   type TaxQuery,
+  defaultTaxConfiguration,
+  taxConfigurationSchema,
+  taxConfigurationInputSchema,
+  type TaxConfigurationInput,
 } from "@nexora/contracts";
 import { z } from "zod";
 import type { BankingActorContext } from "../../banking/source-repository.js";
 import { companyAuthoritySql } from "../../security/company-authority.js";
 import { TaxError, taxReject } from "./resolver.js";
 
-const projection = `d.id,d.company_id,d.code,d.version,d.status,r.revision,r.name,r.tax_type,r.rate::text,r.description,r.effective_date::text,m.module,m.treatment,m.trigger,m.account_id,m.payroll_component_id,m.payroll_basis_component_id,a.code as account_code,a.name as account_name`;
+const projection = `d.id,d.company_id,d.code,d.version,d.status,r.revision,r.name,r.tax_type,r.rate::text,r.additional_rate::text,r.region_code,
+ coalesce(nullif(r.print_label,''),(select preference->>'label' from finance_tax_configuration_revision config cross join lateral jsonb_array_elements(config.display) preference where config.tenant_id=d.tenant_id and config.company_id=d.company_id and preference->>'tax_type'=r.tax_type order by config.version desc limit 1),r.name) as print_label,
+ r.description,r.effective_date::text,m.module,m.treatment,m.trigger,m.account_id,m.payroll_component_id,m.payroll_basis_component_id,a.code as account_code,a.name as account_name`;
 const joined = `from finance_tax_definition d join finance_tax_revision r on r.tenant_id=d.tenant_id and r.company_id=d.company_id and r.definition_id=d.id
  join finance_tax_mapping_rule m on m.tenant_id=r.tenant_id and m.company_id=r.company_id and m.definition_id=r.definition_id and m.revision=r.revision
  join account a on a.tenant_id=m.tenant_id and a.company_id=m.company_id and a.id=m.account_id`;
-const latest = `r.revision=(select max(v.revision) from finance_tax_revision v where v.tenant_id=d.tenant_id and v.company_id=d.company_id and v.definition_id=d.id)`;
+const latest = `r.revision=(select max(v.revision) from finance_tax_revision v where v.tenant_id=d.tenant_id and v.company_id=d.company_id and v.definition_id=d.id and ($7::date is null or v.effective_date<=$7))`;
 
 export class SourceTaxRepository {
   constructor(readonly pool: Pool) {}
@@ -122,14 +128,24 @@ export class SourceTaxRepository {
   }
   list(context: BankingActorContext, q: TaxQuery) {
     return this.transaction(context, q.company_id, false, async (client) => {
-      const condition = `d.tenant_id=$1 and d.company_id=$2 and ${latest} and ($3='' or r.name ilike '%'||$3||'%' or d.code ilike '%'||$3||'%') and ($4::text is null or m.module=$4) and ($5::text is null or r.tax_type=$5) and ($6::text is null or d.status=$6)`;
-      const values = [context.tenantId, q.company_id, q.search, q.module ?? null, q.tax_type ?? null, q.status ?? null];
+      const condition = `d.tenant_id=$1 and d.company_id=$2 and ${latest} and ($3='' or r.name ilike '%'||$3||'%' or d.code ilike '%'||$3||'%') and ($4::text is null or m.module=$4) and ($5::text is null or r.tax_type=$5) and ($6::text is null or d.status=$6)
+       and ($8::text is null or not exists(select 1 from (select display from finance_tax_configuration_revision c where c.tenant_id=d.tenant_id and c.company_id=d.company_id order by c.version desc limit 1) config cross join lateral jsonb_array_elements(config.display) preference where preference->>'tax_type'=r.tax_type and (preference->>$8)::boolean=false))`;
+      const values = [
+        context.tenantId,
+        q.company_id,
+        q.search,
+        q.module ?? null,
+        q.tax_type ?? null,
+        q.status ?? null,
+        q.as_of ?? null,
+        q.party ?? null,
+      ];
       const count = (
         await client.query<{ total: number }>(`select count(*)::integer as total ${joined} where ${condition}`, values)
       ).rows[0]!.total;
       const rows = (
         await client.query(
-          `select ${projection} ${joined} where ${condition} order by d.code,d.id limit $7 offset $8`,
+          `select ${projection} ${joined} where ${condition} order by d.code,d.id limit $9 offset $10`,
           [...values, q.limit, q.offset],
         )
       ).rows;
@@ -148,6 +164,7 @@ export class SourceTaxRepository {
           !context.realActorId &&
           !context.impersonationRequestId &&
           context.actor.permissions.includes("finance.tax_mapping.admin") &&
+          context.actor.permissions.includes("finance.tax.manage") &&
           (await this.isAdmin(client, context, q.company_id)),
         types: taxTypeSchema.options,
         rules: taxContextRules,
@@ -223,7 +240,7 @@ export class SourceTaxRepository {
           )
         ).rows[0]!.revision;
         await client.query(
-          "insert into finance_tax_revision(tenant_id,company_id,definition_id,revision,name,tax_type,rate,description,effective_date,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+          "insert into finance_tax_revision(tenant_id,company_id,definition_id,revision,name,tax_type,rate,description,effective_date,created_by,additional_rate,region_code,print_label) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)",
           [
             context.tenantId,
             input.company_id,
@@ -235,6 +252,9 @@ export class SourceTaxRepository {
             input.description,
             input.effective_date,
             context.actor.userId,
+            input.additional_rate ?? "0",
+            input.region_code ?? null,
+            input.print_label ?? "",
           ],
         );
         await client.query(
@@ -275,6 +295,68 @@ export class SourceTaxRepository {
       }),
     );
   }
+  private async readConfiguration(client: PoolClient, tenant: string, company: string) {
+    const row = (
+      await client.query(
+        "select company_id,version,year_end_date::text,display,regions from finance_tax_configuration_revision where tenant_id=$1 and company_id=$2 order by version desc limit 1",
+        [tenant, company],
+      )
+    ).rows[0];
+    return taxConfigurationSchema.parse(row ?? defaultTaxConfiguration(company));
+  }
+  configuration(context: BankingActorContext, company: string) {
+    return this.transaction(context, company, false, (client) =>
+      this.readConfiguration(client, context.tenantId, company),
+    );
+  }
+  saveConfiguration(context: BankingActorContext, raw: TaxConfigurationInput, key: string) {
+    const input = taxConfigurationInputSchema.parse(raw);
+    return this.transaction(context, input.company_id, true, (client) =>
+      this.idempotentResult(
+        client,
+        context,
+        input.company_id,
+        key,
+        { action: "configuration", input },
+        taxConfigurationSchema,
+        async () => {
+          const previous = await this.readConfiguration(client, context.tenantId, input.company_id);
+          if (previous.version !== input.expected_version)
+            taxReject("Tax settings changed. Reload the configuration before saving.", "TAX_VERSION_CONFLICT");
+          if (previous.regions.some((region) => !input.regions.some((row) => row.code === region.code)))
+            taxReject("Retain existing regions; mark unused regions inactive instead of deleting them.");
+          let next = previous.regions.reduce((max, region) => Math.max(max, Number(region.code.slice(4))), 0);
+          const regions = input.regions.map((row) => {
+            const existing = previous.regions.find((region) => region.code === row.code);
+            if (row.code && (!existing || existing.short_code !== row.short_code))
+              taxReject("Existing region identities cannot be changed. Add a new region instead.");
+            return { ...row, code: row.code ?? `TRG-${String(++next).padStart(3, "0")}` };
+          });
+          for (const region of regions) {
+            await client.query(
+              `insert into finance_tax_region(tenant_id,company_id,code,name,short_code,status) values($1,$2,$3,$4,$5,$6)
+             on conflict(tenant_id,company_id,code) do update set name=excluded.name,status=excluded.status`,
+              [context.tenantId, input.company_id, region.code, region.name, region.short_code, region.status],
+            );
+          }
+          await client.query(
+            "insert into finance_tax_configuration_revision(tenant_id,company_id,version,year_end_date,display,regions,actor_id,reason) values($1,$2,$3,$4,$5,$6,$7,$8)",
+            [
+              context.tenantId,
+              input.company_id,
+              previous.version + 1,
+              input.year_end_date,
+              JSON.stringify(input.display),
+              JSON.stringify(regions),
+              context.actor.userId,
+              input.reason,
+            ],
+          );
+          return this.readConfiguration(client, context.tenantId, input.company_id);
+        },
+      ),
+    );
+  }
   private async audit(
     client: PoolClient,
     c: BankingActorContext,
@@ -297,6 +379,17 @@ export class SourceTaxRepository {
     input: unknown,
     work: () => Promise<unknown>,
   ) {
+    return this.idempotentResult(client, c, company, key, input, taxDetailSchema, work);
+  }
+  private async idempotentResult<T>(
+    client: PoolClient,
+    c: BankingActorContext,
+    company: string,
+    key: string,
+    input: unknown,
+    schema: z.ZodType<T>,
+    work: () => Promise<unknown>,
+  ) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,254}$/.test(key))
       taxReject("Supply a valid idempotency key.", "INVALID_IDEMPOTENCY_KEY", 400);
     const fingerprint = createHash("sha256").update(JSON.stringify(input)).digest("hex");
@@ -309,9 +402,9 @@ export class SourceTaxRepository {
     if (old) {
       if (old.fingerprint !== fingerprint)
         taxReject("This key belongs to another tax request.", "IDEMPOTENCY_CONFLICT");
-      return taxDetailSchema.parse(old.result);
+      return schema.parse(old.result);
     }
-    const result = taxDetailSchema.parse(await work());
+    const result = schema.parse(await work());
     await client.query(
       "insert into finance_tax_idempotency(tenant_id,company_id,actor_id,key,fingerprint,result) values($1,$2,$3,$4,$5,$6)",
       [c.tenantId, company, c.actor.userId, key, fingerprint, JSON.stringify(result)],

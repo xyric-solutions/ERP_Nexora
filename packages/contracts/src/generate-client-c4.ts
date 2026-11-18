@@ -14,7 +14,7 @@ const prettierConfig = await resolveConfig(clientPath);
 const openApi = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
 const client = await format(
   `import type {AssetOptions,AssetWorkspace,AssetDashboard,AssetSources,AssetDetail,AssetCategoryInput,AssetCategory,AssetCreate,FixedAsset,AssetUpdate,AssetAction,AssetEventInput,AssetEvent,AssetEventAction,AssetDepreciationInput,AssetDepreciationRun,AssetDepreciationAction,AssetAttachment,AssetAttachmentInput,AssetCompanyPolicyInput,AssetCompanyPolicy,AssetValuation} from "@nexora/contracts";
-import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions} from "@nexora/contracts";
+import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions,TaxConfiguration,TaxConfigurationInput} from "@nexora/contracts";
 import type {BudgetOptions,BudgetDirectory,BudgetDetail,BudgetReport,BudgetDrill,BudgetPlanInput,BudgetVersionInput,BudgetVersionUpdate,BudgetAction,BudgetGenerate,BudgetModelInput,BudgetModel,BudgetApplyModel,BudgetPolicyInput,BudgetPolicy,BudgetRequestInput,BudgetRequestAction,BudgetRequest,BudgetImport,BudgetCommentInput,BudgetSourceControl} from "@nexora/contracts";
 import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
 import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
@@ -1315,6 +1315,8 @@ export class NexoraApiClient {
   previewBudgetImport(company:string,id:string,version:number,file:File,csrf:string,key:string):Promise<BudgetImport>{const body=new FormData();body.set("file",file);return this.request("/api/v1/budget/imports?company_id="+encodeURIComponent(company)+"&version_id="+encodeURIComponent(id)+"&expected_version="+version,{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+version+'"'},body});}
   commitBudgetImport(id:string,payload:{company_id:string;expected_version:number;reason:string},csrf:string,key:string):Promise<BudgetDetail>{return this.request("/api/v1/budget/imports/"+encodeURIComponent(id)+"/commit",{method:"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
   getTaxes(query: string): Promise<TaxDirectory> {return this.request("/api/v1/finance/taxes"+query);}
+  getTaxConfiguration(query:string):Promise<TaxConfiguration> {return this.request("/api/v1/finance/taxes/configuration"+query);}
+  saveTaxConfiguration(payload:TaxConfigurationInput,csrfToken:string,idempotencyKey:string):Promise<TaxConfiguration> {return this.request("/api/v1/finance/taxes/configuration",{method:"PUT",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey,"if-match":'"'+payload.expected_version+'"'},body:JSON.stringify(payload)});}
   getTaxOptions(query: string): Promise<TaxOptions> {return this.request("/api/v1/finance/taxes/options"+query);}
   getTax(id: string,query: string): Promise<TaxDetail> {return this.request("/api/v1/finance/taxes/"+encodeURIComponent(id)+query);}
   createTax(payload:TaxInput,csrfToken:string,idempotencyKey:string):Promise<TaxDetail> {return this.request("/api/v1/finance/taxes",{method:"POST",headers:{"x-csrf-token":csrfToken,"idempotency-key":idempotencyKey},body:JSON.stringify(payload)});}

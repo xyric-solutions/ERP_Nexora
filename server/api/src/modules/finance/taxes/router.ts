@@ -1,5 +1,12 @@
 import { Router, type Request } from "express";
-import { taxInputSchema, taxUpdateSchema, taxStatusSchema, taxQuerySchema, taxScopeSchema } from "@nexora/contracts";
+import {
+  taxInputSchema,
+  taxUpdateSchema,
+  taxStatusSchema,
+  taxQuerySchema,
+  taxScopeSchema,
+  taxConfigurationInputSchema,
+} from "@nexora/contracts";
 import { HttpError } from "../../../http/errors.js";
 import { loadBankingSessionContext, type BankingSessionContextDependencies } from "../../banking/session-context.js";
 import type { SourceTaxRepository } from "./source-repository.js";
@@ -33,6 +40,21 @@ export function createTaxRouter(
   router.get("/options", async (req, res) => {
     const q = taxQuerySchema.parse(req.query);
     res.json(await handle(async () => d.repository.options(await loadBankingSessionContext(req, d), q)));
+  });
+  router.get("/configuration", async (req, res) => {
+    const q = taxScopeSchema.parse(req.query);
+    res.json(
+      await handle(async () => d.repository.configuration(await loadBankingSessionContext(req, d), q.company_id)),
+    );
+  });
+  router.put("/configuration", async (req, res) => {
+    const input = taxConfigurationInputSchema.parse(req.body),
+      key = guard(req, input.expected_version);
+    res.json(
+      await handle(async () =>
+        d.repository.saveConfiguration(await loadBankingSessionContext(req, d, true), input, key),
+      ),
+    );
   });
   router.get("/", async (req, res) => {
     const q = taxQuerySchema.parse(req.query);

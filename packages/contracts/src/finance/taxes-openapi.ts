@@ -7,6 +7,7 @@ import {
   taxDetailSchema,
   taxOptionsSchema,
 } from "./taxes.js";
+import { taxConfigurationInputSchema, taxConfigurationSchema } from "./tax-configuration.js";
 
 export function taxPaths() {
   const json = (schema: z.ZodType) => ({
@@ -25,7 +26,7 @@ export function taxPaths() {
   const id = { in: "path", name: "id", required: true, schema: { type: "string" } };
   const query = [
     scope,
-    ...["search", "module", "tax_type", "status"].map((name) => ({
+    ...["search", "module", "tax_type", "status", "party", "as_of"].map((name) => ({
       in: "query",
       name,
       required: false,
@@ -40,11 +41,18 @@ export function taxPaths() {
     parameters,
     responses: { 200: { description: "Company tax configuration", content: json(schema) }, ...errors },
   });
-  const mutation = (operationId: string, schema: z.ZodType, version = false, status = 200) => ({
+  const mutation = (
+    operationId: string,
+    schema: z.ZodType,
+    version = false,
+    status = 200,
+    result: z.ZodType = taxDetailSchema,
+    withId = version,
+  ) => ({
     operationId,
     security: [{ cookieAuth: [] }],
     parameters: [
-      ...(version ? [id] : []),
+      ...(withId ? [id] : []),
       ...["x-csrf-token", "idempotency-key", ...(version ? ["if-match"] : [])].map((name) => ({
         in: "header",
         name,
@@ -54,7 +62,7 @@ export function taxPaths() {
     ],
     requestBody: { required: true, content: json(schema) },
     responses: {
-      [status]: { description: "Audited tax configuration result", content: json(taxDetailSchema) },
+      [status]: { description: "Audited tax configuration result", content: json(result) },
       ...errors,
     },
   });
@@ -64,6 +72,10 @@ export function taxPaths() {
       post: mutation("createTax", taxInputSchema, false, 201),
     },
     "/finance/taxes/options": { get: get("getTaxOptions", taxOptionsSchema, query) },
+    "/finance/taxes/configuration": {
+      get: get("getTaxConfiguration", taxConfigurationSchema, [scope]),
+      put: mutation("saveTaxConfiguration", taxConfigurationInputSchema, true, 200, taxConfigurationSchema, false),
+    },
     "/finance/taxes/{id}": {
       get: get("getTax", taxDetailSchema, [scope, id]),
       patch: mutation("updateTax", taxUpdateSchema, true),

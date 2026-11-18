@@ -135,13 +135,20 @@ export function PurchaseDocumentForm({
     if (!session?.user.permissions.includes("finance.tax.read")) return;
     const timer = setTimeout(
       () =>
-        api
-          .getTaxes(
-            `?${new URLSearchParams({ company_id: company, status: "active", module: "purchases", search: taxSearch, limit: "100" })}`,
-          )
-          .then((value) => {
+        Promise.all(
+          ["purchases", "fixed_assets"].map((moduleContext) =>
+            api.getTaxes(
+              `?${new URLSearchParams({ company_id: company, status: "active", module: moduleContext, party: "supplier", as_of: input.bill_date ?? input.document_date, search: taxSearch, limit: "100" })}`,
+            ),
+          ),
+        )
+          .then((directories) => {
             if (!cancelled)
-              setTaxChoices(value.items.filter((t) => t.treatment === "recoverable" && t.trigger === "recognition"));
+              setTaxChoices(
+                directories
+                  .flatMap((value) => value.items)
+                  .filter((t) => t.treatment === "recoverable" && t.trigger === "recognition"),
+              );
           })
           .catch(() => {
             if (!cancelled) setTaxChoices([]);
@@ -152,7 +159,7 @@ export function PurchaseDocumentForm({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [api, company, session, taxSearch]);
+  }, [api, company, session, taxSearch, input.bill_date, input.document_date]);
   const [sources, setSources] = useState<PurchaseDocument[]>([]),
     [sourceCursors, setSourceCursors] = useState<Partial<Record<PurchaseKind, string | null>>>({});
   const [sourceSearch, setSourceSearch] = useState("");
@@ -1687,6 +1694,13 @@ export function PurchaseDocumentForm({
                               );
                               updateLine(index, {
                                 asset_category_id: event.target.value || undefined,
+                                ...(!event.target.value &&
+                                (line.tax_snapshot?.module === "fixed_assets" ||
+                                  taxChoices.some(
+                                    (tax) => tax.id === line.tax_definition_id && tax.module === "fixed_assets",
+                                  ))
+                                  ? { tax_definition_id: undefined, tax_snapshot: undefined, tax_percent: "0" }
+                                  : {}),
                                 nominal_account_id: category?.asset_account_id,
                                 create_fixed_asset: false,
                                 asset_registration: undefined,
@@ -1845,6 +1859,9 @@ export function PurchaseDocumentForm({
                           value={line.tax_percent}
                           onChange={(event) => updateLine(index, { tax_percent: event.target.value })}
                         />
+                        {line.tax_snapshot?.print_label && (
+                          <p className="mt-1 text-xs text-muted-foreground">{line.tax_snapshot.print_label}</p>
+                        )}
                         {index === 0 && session?.user.permissions.includes("finance.tax.read") && (
                           <Input
                             aria-label="Search purchase tax definitions"
@@ -1871,14 +1888,16 @@ export function PurchaseDocumentForm({
                             <option value="">Manual tax (legacy)</option>
                             {line.tax_definition_id && !taxChoices.some((t) => t.id === line.tax_definition_id) && (
                               <option value={line.tax_definition_id}>
-                                {line.tax_snapshot?.code ?? "Retained tax"}
+                                {line.tax_snapshot?.print_label || line.tax_snapshot?.code || "Retained tax"}
                               </option>
                             )}
-                            {taxChoices.map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.code} / {t.name} / {t.rate}%
-                              </option>
-                            ))}
+                            {taxChoices
+                              .filter((tax) => tax.module === "purchases" || !!line.asset_category_id)
+                              .map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {t.code} / {t.print_label || t.name} / {t.name} / {t.rate}%
+                                </option>
+                              ))}
                           </select>
                         )}
                       </td>
@@ -2010,11 +2029,13 @@ export function PurchaseDocumentForm({
                         }}
                       >
                         <option value="">Manual tax</option>
-                        {taxChoices.map((tax) => (
-                          <option key={tax.id} value={tax.id}>
-                            {tax.code} · {tax.name}
-                          </option>
-                        ))}
+                        {taxChoices
+                          .filter((tax) => tax.module === "purchases")
+                          .map((tax) => (
+                            <option key={tax.id} value={tax.id}>
+                              {tax.code} · {tax.print_label || tax.name} · {tax.name}
+                            </option>
+                          ))}
                         {charge.tax_definition_id && !taxChoices.some((tax) => tax.id === charge.tax_definition_id) && (
                           <option value={charge.tax_definition_id}>Saved tax · {charge.tax_percent}%</option>
                         )}

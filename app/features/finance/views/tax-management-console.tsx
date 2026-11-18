@@ -9,6 +9,9 @@ import {
   type TaxDirectory,
   type TaxOptions,
   type TaxDetail,
+  type TaxConfiguration,
+  type TaxInput,
+  baseTaxRate,
 } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
@@ -19,6 +22,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { Textarea } from "@/components/ui/textarea";
 import { WorkTable, workSelectClass } from "@/shared/ui/work-table";
 import { TaxDefinitionForm, taxModuleLabels, taxTreatmentLabels } from "../components/tax-definition-form";
+import { TaxConfigurationPanel } from "../components/tax-configuration-panel";
 
 export function TaxManagementConsole() {
   const { activeCompany } = useSession();
@@ -39,6 +43,8 @@ function CompanyTaxConsole() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  const [configuration, setConfiguration] = useState<TaxConfiguration | null>(null);
+  const [initialType, setInitialType] = useState<TaxInput["tax_type"]>();
   const [editing, setEditing] = useState<TaxDefinition | true | null>(null),
     [changing, setChanging] = useState<TaxDefinition | null>(null),
     [reason, setReason] = useState(""),
@@ -60,11 +66,13 @@ function CompanyTaxConsole() {
       Promise.all([
         api.getTaxes(`?${params}`),
         api.getTaxOptions(`?company_id=${encodeURIComponent(company)}&limit=100`),
+        api.getTaxConfiguration(`?company_id=${encodeURIComponent(company)}`),
       ])
-        .then(([directory, lookups]) => {
+        .then(([directory, lookups, settings]) => {
           if (!cancelled) {
             setData(directory);
             setOptions(lookups);
+            setConfiguration(settings);
           }
         })
         .catch((caught) => {
@@ -144,7 +152,10 @@ function CompanyTaxConsole() {
           type="button"
           className="w-full sm:w-auto"
           disabled={!options?.can_manage || busy}
-          onClick={() => setEditing(true)}
+          onClick={() => {
+            setInitialType(type ? taxTypeSchema.parse(type) : undefined);
+            setEditing(true);
+          }}
         >
           <Plus />
           Add New Tax Definition
@@ -172,6 +183,48 @@ function CompanyTaxConsole() {
           {message}
         </p>
       )}
+      <section aria-label="Tax module coverage" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {(
+          [
+            ["purchases", "Bills, returns, charges and supplier settlement withholding."],
+            ["sales", "Customer invoices and credit notes through Accounting receivables."],
+            ["payroll", "Explicit deduction components and earning bases; statutory formulas are preserved."],
+            ["fixed_assets", "Acquisition taxes through purchase bills; asset returns retain original tax evidence."],
+          ] as const
+        ).map(([key, description]) => (
+          <div key={key} className="rounded-lg border border-border bg-card p-4">
+            <p className="text-sm font-semibold">{taxModuleLabels[key]}</p>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+          </div>
+        ))}
+      </section>
+      {configuration && (
+        <TaxConfigurationPanel
+          key={configuration.version}
+          configuration={configuration}
+          canManage={!!options?.can_manage}
+          onSaved={(value) => {
+            setConfiguration(value);
+            setMessage("Company tax settings saved. Existing transactions and posted evidence are preserved.");
+            reload();
+          }}
+        />
+      )}
+      <section aria-label="Tax rate categories" className="flex flex-wrap gap-2">
+        {(["GST", "ADT", "FED", "WHT", "GST Withheld"] as const).map((key) => (
+          <Button
+            type="button"
+            key={key}
+            variant={type === key ? "default" : "outline"}
+            onClick={() => {
+              setType(type === key ? "" : key);
+              setOffset(0);
+            }}
+          >
+            {key} Rates
+          </Button>
+        ))}
+      </section>
       <div className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_repeat(3,minmax(130px,auto))_auto]">
         <label htmlFor={searchId} className="grid gap-1.5 text-xs font-medium">
           Search taxes
@@ -261,6 +314,8 @@ function CompanyTaxConsole() {
                   "Tax Name",
                   "Tax Type",
                   "Tax Rate (%)",
+                  "Additional Rate (%)",
+                  "Region / Print Label",
                   "Associated Nominal (GL) Account",
                   "Applicable ERP Module",
                   "Status",
@@ -287,7 +342,18 @@ function CompanyTaxConsole() {
                     </div>
                   </td>
                   <td>{tax.tax_type}</td>
-                  <td className="font-mono tabular-nums">{tax.rate}%</td>
+                  <td className="font-mono tabular-nums">
+                    {baseTaxRate(tax)}%<div className="mt-1 text-xs text-muted-foreground">{tax.rate}% total</div>
+                  </td>
+                  <td className="font-mono tabular-nums">{tax.additional_rate}%</td>
+                  <td>
+                    <span>
+                      {configuration?.regions.find((region) => region.code === tax.region_code)?.name ??
+                        tax.region_code ??
+                        "All regions"}
+                    </span>
+                    <div className="mt-1 text-xs text-muted-foreground">{tax.print_label || tax.tax_type}</div>
+                  </td>
                   <td>
                     <span className="font-mono text-xs">{tax.account_code}</span>
                     <div className="mt-1">{tax.account_name}</div>
@@ -372,10 +438,12 @@ function CompanyTaxConsole() {
           </div>
         </div>
       </div>
-      {editing && options && (
+      {editing && options && configuration && (
         <TaxDefinitionForm
           definition={editing === true ? undefined : editing}
           options={options}
+          configuration={configuration}
+          initialType={initialType}
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);

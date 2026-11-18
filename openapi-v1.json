@@ -11582,6 +11582,15 @@
                                     "name": {
                                       "type": "string"
                                     },
+                                    "print_label": {
+                                      "default": "",
+                                      "type": "string"
+                                    },
+                                    "region_code": {
+                                      "default": null,
+                                      "nullable": true,
+                                      "type": "string"
+                                    },
                                     "module": {
                                       "type": "string",
                                       "enum": [
@@ -11638,6 +11647,8 @@
                                     "revision",
                                     "code",
                                     "name",
+                                    "print_label",
+                                    "region_code",
                                     "module",
                                     "treatment",
                                     "trigger",
@@ -14519,6 +14530,15 @@
                               "name": {
                                 "type": "string"
                               },
+                              "print_label": {
+                                "default": "",
+                                "type": "string"
+                              },
+                              "region_code": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "string"
+                              },
                               "module": {
                                 "type": "string",
                                 "enum": [
@@ -14575,6 +14595,8 @@
                               "revision",
                               "code",
                               "name",
+                              "print_label",
+                              "region_code",
                               "module",
                               "treatment",
                               "trigger",
@@ -16060,6 +16082,15 @@
                               "name": {
                                 "type": "string"
                               },
+                              "print_label": {
+                                "default": "",
+                                "type": "string"
+                              },
+                              "region_code": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "string"
+                              },
                               "module": {
                                 "type": "string",
                                 "enum": [
@@ -16116,6 +16147,8 @@
                               "revision",
                               "code",
                               "name",
+                              "print_label",
+                              "region_code",
                               "module",
                               "treatment",
                               "trigger",
@@ -17578,6 +17611,15 @@
                               "name": {
                                 "type": "string"
                               },
+                              "print_label": {
+                                "default": "",
+                                "type": "string"
+                              },
+                              "region_code": {
+                                "default": null,
+                                "nullable": true,
+                                "type": "string"
+                              },
                               "module": {
                                 "type": "string",
                                 "enum": [
@@ -17634,6 +17676,8 @@
                               "revision",
                               "code",
                               "name",
+                              "print_label",
+                              "region_code",
                               "module",
                               "treatment",
                               "trigger",
@@ -18445,6 +18489,22 @@
           },
           {
             "in": "query",
+            "name": "party",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -18510,6 +18570,9 @@
                             "enum": [
                               "WHT",
                               "GST",
+                              "ADT",
+                              "FED",
+                              "GST Withheld",
                               "VAT",
                               "Excise",
                               "Payroll Tax",
@@ -18517,6 +18580,19 @@
                             ]
                           },
                           "rate": {
+                            "type": "string"
+                          },
+                          "additional_rate": {
+                            "default": "0.00",
+                            "type": "string"
+                          },
+                          "region_code": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "print_label": {
+                            "default": "",
                             "type": "string"
                           },
                           "description": {
@@ -18595,6 +18671,9 @@
                           "name",
                           "tax_type",
                           "rate",
+                          "additional_rate",
+                          "region_code",
+                          "print_label",
                           "description",
                           "module",
                           "treatment",
@@ -18754,6 +18833,9 @@
                     "enum": [
                       "WHT",
                       "GST",
+                      "ADT",
+                      "FED",
+                      "GST Withheld",
                       "VAT",
                       "Excise",
                       "Payroll Tax",
@@ -18763,6 +18845,18 @@
                   "rate": {
                     "type": "string",
                     "pattern": "^(0|[1-9]\\d{0,2})(\\.\\d{1,2})?$"
+                  },
+                  "additional_rate": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,2})(\\.\\d{1,2})?$"
+                  },
+                  "region_code": {
+                    "type": "string",
+                    "pattern": "^TRG-[0-9]{3,}$"
+                  },
+                  "print_label": {
+                    "type": "string",
+                    "maxLength": 60
                   },
                   "description": {
                     "default": "",
@@ -18891,6 +18985,9 @@
                       "enum": [
                         "WHT",
                         "GST",
+                        "ADT",
+                        "FED",
+                        "GST Withheld",
                         "VAT",
                         "Excise",
                         "Payroll Tax",
@@ -18898,6 +18995,19 @@
                       ]
                     },
                     "rate": {
+                      "type": "string"
+                    },
+                    "additional_rate": {
+                      "default": "0.00",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "print_label": {
+                      "default": "",
                       "type": "string"
                     },
                     "description": {
@@ -19006,6 +19116,9 @@
                             "enum": [
                               "WHT",
                               "GST",
+                              "ADT",
+                              "FED",
+                              "GST Withheld",
                               "VAT",
                               "Excise",
                               "Payroll Tax",
@@ -19013,6 +19126,19 @@
                             ]
                           },
                           "rate": {
+                            "type": "string"
+                          },
+                          "additional_rate": {
+                            "default": "0.00",
+                            "type": "string"
+                          },
+                          "region_code": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "print_label": {
+                            "default": "",
                             "type": "string"
                           },
                           "description": {
@@ -19091,6 +19217,9 @@
                           "name",
                           "tax_type",
                           "rate",
+                          "additional_rate",
+                          "region_code",
+                          "print_label",
                           "description",
                           "module",
                           "treatment",
@@ -19116,6 +19245,9 @@
                     "name",
                     "tax_type",
                     "rate",
+                    "additional_rate",
+                    "region_code",
+                    "print_label",
                     "description",
                     "module",
                     "treatment",
@@ -19268,6 +19400,22 @@
           },
           {
             "in": "query",
+            "name": "party",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -19303,6 +19451,9 @@
                         "enum": [
                           "WHT",
                           "GST",
+                          "ADT",
+                          "FED",
+                          "GST Withheld",
                           "VAT",
                           "Excise",
                           "Payroll Tax",
@@ -19532,6 +19683,567 @@
         }
       }
     },
+    "/finance/taxes/configuration": {
+      "get": {
+        "operationId": "getTaxConfiguration",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company tax configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "company_id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "year_end_date": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "display": {
+                      "minItems": 9,
+                      "maxItems": 9,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tax_type": {
+                            "type": "string",
+                            "enum": [
+                              "WHT",
+                              "GST",
+                              "ADT",
+                              "FED",
+                              "GST Withheld",
+                              "VAT",
+                              "Excise",
+                              "Payroll Tax",
+                              "Other"
+                            ]
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          "supplier": {
+                            "type": "boolean"
+                          },
+                          "customer": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "tax_type",
+                          "label",
+                          "supplier",
+                          "customer"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "regions": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "pattern": "^TRG-[0-9]{3,}$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "short_code": {
+                            "type": "string",
+                            "pattern": "^[A-Z][A-Z0-9-]{0,9}$"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "inactive"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "name",
+                          "short_code",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "company_id",
+                    "version",
+                    "year_end_date",
+                    "display",
+                    "regions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "saveTaxConfiguration",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "year_end_date": {
+                    "nullable": true,
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "display": {
+                    "minItems": 9,
+                    "maxItems": 9,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tax_type": {
+                          "type": "string",
+                          "enum": [
+                            "WHT",
+                            "GST",
+                            "ADT",
+                            "FED",
+                            "GST Withheld",
+                            "VAT",
+                            "Excise",
+                            "Payroll Tax",
+                            "Other"
+                          ]
+                        },
+                        "label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 60
+                        },
+                        "supplier": {
+                          "type": "boolean"
+                        },
+                        "customer": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "tax_type",
+                        "label",
+                        "supplier",
+                        "customer"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "regions": {
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "pattern": "^TRG-[0-9]{3,}$"
+                        },
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 100
+                        },
+                        "short_code": {
+                          "type": "string",
+                          "pattern": "^[A-Z][A-Z0-9-]{0,9}$"
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "inactive"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "short_code",
+                        "status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "company_id",
+                  "expected_version",
+                  "year_end_date",
+                  "display",
+                  "regions",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audited tax configuration result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "company_id": {
+                      "type": "string"
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "year_end_date": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    "display": {
+                      "minItems": 9,
+                      "maxItems": 9,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "tax_type": {
+                            "type": "string",
+                            "enum": [
+                              "WHT",
+                              "GST",
+                              "ADT",
+                              "FED",
+                              "GST Withheld",
+                              "VAT",
+                              "Excise",
+                              "Payroll Tax",
+                              "Other"
+                            ]
+                          },
+                          "label": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 60
+                          },
+                          "supplier": {
+                            "type": "boolean"
+                          },
+                          "customer": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "tax_type",
+                          "label",
+                          "supplier",
+                          "customer"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "regions": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "code": {
+                            "type": "string",
+                            "pattern": "^TRG-[0-9]{3,}$"
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 100
+                          },
+                          "short_code": {
+                            "type": "string",
+                            "pattern": "^[A-Z][A-Z0-9-]{0,9}$"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "active",
+                              "inactive"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "code",
+                          "name",
+                          "short_code",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "company_id",
+                    "version",
+                    "year_end_date",
+                    "display",
+                    "regions"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/finance/taxes/{id}": {
       "get": {
         "operationId": "getTax",
@@ -19601,6 +20313,9 @@
                       "enum": [
                         "WHT",
                         "GST",
+                        "ADT",
+                        "FED",
+                        "GST Withheld",
                         "VAT",
                         "Excise",
                         "Payroll Tax",
@@ -19608,6 +20323,19 @@
                       ]
                     },
                     "rate": {
+                      "type": "string"
+                    },
+                    "additional_rate": {
+                      "default": "0.00",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "print_label": {
+                      "default": "",
                       "type": "string"
                     },
                     "description": {
@@ -19716,6 +20444,9 @@
                             "enum": [
                               "WHT",
                               "GST",
+                              "ADT",
+                              "FED",
+                              "GST Withheld",
                               "VAT",
                               "Excise",
                               "Payroll Tax",
@@ -19723,6 +20454,19 @@
                             ]
                           },
                           "rate": {
+                            "type": "string"
+                          },
+                          "additional_rate": {
+                            "default": "0.00",
+                            "type": "string"
+                          },
+                          "region_code": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "print_label": {
+                            "default": "",
                             "type": "string"
                           },
                           "description": {
@@ -19801,6 +20545,9 @@
                           "name",
                           "tax_type",
                           "rate",
+                          "additional_rate",
+                          "region_code",
+                          "print_label",
                           "description",
                           "module",
                           "treatment",
@@ -19826,6 +20573,9 @@
                     "name",
                     "tax_type",
                     "rate",
+                    "additional_rate",
+                    "region_code",
+                    "print_label",
                     "description",
                     "module",
                     "treatment",
@@ -19989,6 +20739,9 @@
                     "enum": [
                       "WHT",
                       "GST",
+                      "ADT",
+                      "FED",
+                      "GST Withheld",
                       "VAT",
                       "Excise",
                       "Payroll Tax",
@@ -19998,6 +20751,18 @@
                   "rate": {
                     "type": "string",
                     "pattern": "^(0|[1-9]\\d{0,2})(\\.\\d{1,2})?$"
+                  },
+                  "additional_rate": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,2})(\\.\\d{1,2})?$"
+                  },
+                  "region_code": {
+                    "type": "string",
+                    "pattern": "^TRG-[0-9]{3,}$"
+                  },
+                  "print_label": {
+                    "type": "string",
+                    "maxLength": 60
                   },
                   "description": {
                     "default": "",
@@ -20133,6 +20898,9 @@
                       "enum": [
                         "WHT",
                         "GST",
+                        "ADT",
+                        "FED",
+                        "GST Withheld",
                         "VAT",
                         "Excise",
                         "Payroll Tax",
@@ -20140,6 +20908,19 @@
                       ]
                     },
                     "rate": {
+                      "type": "string"
+                    },
+                    "additional_rate": {
+                      "default": "0.00",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "print_label": {
+                      "default": "",
                       "type": "string"
                     },
                     "description": {
@@ -20248,6 +21029,9 @@
                             "enum": [
                               "WHT",
                               "GST",
+                              "ADT",
+                              "FED",
+                              "GST Withheld",
                               "VAT",
                               "Excise",
                               "Payroll Tax",
@@ -20255,6 +21039,19 @@
                             ]
                           },
                           "rate": {
+                            "type": "string"
+                          },
+                          "additional_rate": {
+                            "default": "0.00",
+                            "type": "string"
+                          },
+                          "region_code": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "print_label": {
+                            "default": "",
                             "type": "string"
                           },
                           "description": {
@@ -20333,6 +21130,9 @@
                           "name",
                           "tax_type",
                           "rate",
+                          "additional_rate",
+                          "region_code",
+                          "print_label",
                           "description",
                           "module",
                           "treatment",
@@ -20358,6 +21158,9 @@
                     "name",
                     "tax_type",
                     "rate",
+                    "additional_rate",
+                    "region_code",
+                    "print_label",
                     "description",
                     "module",
                     "treatment",
@@ -20586,6 +21389,9 @@
                       "enum": [
                         "WHT",
                         "GST",
+                        "ADT",
+                        "FED",
+                        "GST Withheld",
                         "VAT",
                         "Excise",
                         "Payroll Tax",
@@ -20593,6 +21399,19 @@
                       ]
                     },
                     "rate": {
+                      "type": "string"
+                    },
+                    "additional_rate": {
+                      "default": "0.00",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "nullable": true,
+                      "type": "string"
+                    },
+                    "print_label": {
+                      "default": "",
                       "type": "string"
                     },
                     "description": {
@@ -20701,6 +21520,9 @@
                             "enum": [
                               "WHT",
                               "GST",
+                              "ADT",
+                              "FED",
+                              "GST Withheld",
                               "VAT",
                               "Excise",
                               "Payroll Tax",
@@ -20708,6 +21530,19 @@
                             ]
                           },
                           "rate": {
+                            "type": "string"
+                          },
+                          "additional_rate": {
+                            "default": "0.00",
+                            "type": "string"
+                          },
+                          "region_code": {
+                            "default": null,
+                            "nullable": true,
+                            "type": "string"
+                          },
+                          "print_label": {
+                            "default": "",
                             "type": "string"
                           },
                           "description": {
@@ -20786,6 +21621,9 @@
                           "name",
                           "tax_type",
                           "rate",
+                          "additional_rate",
+                          "region_code",
+                          "print_label",
                           "description",
                           "module",
                           "treatment",
@@ -20811,6 +21649,9 @@
                     "name",
                     "tax_type",
                     "rate",
+                    "additional_rate",
+                    "region_code",
+                    "print_label",
                     "description",
                     "module",
                     "treatment",
@@ -117164,6 +118005,17 @@
                     "name": {
                       "type": "string"
                     },
+                    "print_label": {
+                      "default": "",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "module": {
                       "type": "string",
                       "enum": [
@@ -117220,6 +118072,8 @@
                     "revision",
                     "code",
                     "name",
+                    "print_label",
+                    "region_code",
                     "module",
                     "treatment",
                     "trigger",
@@ -117496,6 +118350,17 @@
                     "name": {
                       "type": "string"
                     },
+                    "print_label": {
+                      "default": "",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "module": {
                       "type": "string",
                       "enum": [
@@ -117552,6 +118417,8 @@
                     "revision",
                     "code",
                     "name",
+                    "print_label",
+                    "region_code",
                     "module",
                     "treatment",
                     "trigger",
@@ -118724,6 +119591,17 @@
                     "name": {
                       "type": "string"
                     },
+                    "print_label": {
+                      "default": "",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "module": {
                       "type": "string",
                       "enum": [
@@ -118780,6 +119658,8 @@
                     "revision",
                     "code",
                     "name",
+                    "print_label",
+                    "region_code",
                     "module",
                     "treatment",
                     "trigger",
@@ -119056,6 +119936,17 @@
                     "name": {
                       "type": "string"
                     },
+                    "print_label": {
+                      "default": "",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "module": {
                       "type": "string",
                       "enum": [
@@ -119112,6 +120003,8 @@
                     "revision",
                     "code",
                     "name",
+                    "print_label",
+                    "region_code",
                     "module",
                     "treatment",
                     "trigger",
@@ -120238,6 +121131,17 @@
                           "name": {
                             "type": "string"
                           },
+                          "print_label": {
+                            "default": "",
+                            "type": "string"
+                          },
+                          "region_code": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "module": {
                             "type": "string",
                             "enum": [
@@ -120294,6 +121198,8 @@
                           "revision",
                           "code",
                           "name",
+                          "print_label",
+                          "region_code",
                           "module",
                           "treatment",
                           "trigger",
@@ -120570,6 +121476,17 @@
                           "name": {
                             "type": "string"
                           },
+                          "print_label": {
+                            "default": "",
+                            "type": "string"
+                          },
+                          "region_code": {
+                            "default": null,
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
                           "module": {
                             "type": "string",
                             "enum": [
@@ -120626,6 +121543,8 @@
                           "revision",
                           "code",
                           "name",
+                          "print_label",
+                          "region_code",
                           "module",
                           "treatment",
                           "trigger",
@@ -121761,6 +122680,17 @@
                     "name": {
                       "type": "string"
                     },
+                    "print_label": {
+                      "default": "",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "module": {
                       "type": "string",
                       "enum": [
@@ -121817,6 +122747,8 @@
                     "revision",
                     "code",
                     "name",
+                    "print_label",
+                    "region_code",
                     "module",
                     "treatment",
                     "trigger",
@@ -122093,6 +123025,17 @@
                     "name": {
                       "type": "string"
                     },
+                    "print_label": {
+                      "default": "",
+                      "type": "string"
+                    },
+                    "region_code": {
+                      "default": null,
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
                     "module": {
                       "type": "string",
                       "enum": [
@@ -122149,6 +123092,8 @@
                     "revision",
                     "code",
                     "name",
+                    "print_label",
+                    "region_code",
                     "module",
                     "treatment",
                     "trigger",
@@ -123012,6 +123957,17 @@
                         "name": {
                           "type": "string"
                         },
+                        "print_label": {
+                          "default": "",
+                          "type": "string"
+                        },
+                        "region_code": {
+                          "default": null,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "module": {
                           "type": "string",
                           "enum": [
@@ -123068,6 +124024,8 @@
                         "revision",
                         "code",
                         "name",
+                        "print_label",
+                        "region_code",
                         "module",
                         "treatment",
                         "trigger",
@@ -123344,6 +124302,17 @@
                         "name": {
                           "type": "string"
                         },
+                        "print_label": {
+                          "default": "",
+                          "type": "string"
+                        },
+                        "region_code": {
+                          "default": null,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
                         "module": {
                           "type": "string",
                           "enum": [
@@ -123400,6 +124369,8 @@
                         "revision",
                         "code",
                         "name",
+                        "print_label",
+                        "region_code",
                         "module",
                         "treatment",
                         "trigger",

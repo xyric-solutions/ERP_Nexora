@@ -30,6 +30,8 @@ import type {
   TaxDirectory,
   TaxDetail,
   TaxOptions,
+  TaxConfiguration,
+  TaxConfigurationInput,
 } from "@nexora/contracts";
 import type {
   BudgetOptions,
@@ -4708,6 +4710,24 @@ export class NexoraApiClient {
   }
   getTaxes(query: string): Promise<TaxDirectory> {
     return this.request("/api/v1/finance/taxes" + query);
+  }
+  getTaxConfiguration(query: string): Promise<TaxConfiguration> {
+    return this.request("/api/v1/finance/taxes/configuration" + query);
+  }
+  saveTaxConfiguration(
+    payload: TaxConfigurationInput,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<TaxConfiguration> {
+    return this.request("/api/v1/finance/taxes/configuration", {
+      method: "PUT",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
   }
   getTaxOptions(query: string): Promise<TaxOptions> {
     return this.request("/api/v1/finance/taxes/options" + query);

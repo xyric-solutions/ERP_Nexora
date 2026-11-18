@@ -66,7 +66,9 @@ export function PurchaseAccounting({
       });
     if (session?.user.permissions.includes("finance.tax.read"))
       void api
-        .getTaxes(`?company_id=${encodeURIComponent(record.company_id)}&module=purchases&status=active&limit=100`)
+        .getTaxes(
+          `?${new URLSearchParams({ company_id: record.company_id, module: "purchases", party: "supplier", as_of: asOf, status: "active", limit: "100" })}`,
+        )
         .then((value) => {
           if (active) setTaxes(value.items);
         })
@@ -185,7 +187,7 @@ export function PurchaseAccounting({
                     .filter((tax) => tax.trigger === "settlement" && tax.treatment === "withholding")
                     .map((tax) => (
                       <option key={tax.id} value={tax.id}>
-                        {tax.code} · {tax.name} · {tax.rate}%
+                        {tax.code} · {tax.print_label || tax.name} · {tax.name} · {tax.rate}%
                       </option>
                     ))}
                 </select>

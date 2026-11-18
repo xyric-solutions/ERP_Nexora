@@ -125,6 +125,56 @@
   recognition/reversal journals; larger legacy datasets need a scoped migration
   before activation. No UI stylesheet was added or retired.
 
+## 2026-11-18 - Regional tax configuration across source modules
+
+- Extended Accounting > Taxes with a company tax settings panel, supplier/customer
+  labels and visibility switches, tax reporting year end and a region master.
+  Added GST/ADT/FED/WHT/GST Withheld category filters, region and print-label
+  fields, separate base/additional rate inputs and a searchable shared region
+  selector. Retained existing tax create/edit/status/history, bounded account
+  search and register pagination. No stylesheet or palette was added or retired.
+- Source modules use effective-date and party-filtered definitions. Purchase
+  lines, charges, supplier withholding and customer Accounting documents consume
+  the same configuration. Asset-category purchase lines now accept governed
+  Fixed Assets recoverable definitions through approval and real GL posting;
+  ordinary lines and charges remain limited to Purchases definitions. Payroll
+  continues through the shared resolver and explicit deduction/basis bindings.
+- Added Finance migration 41 for company regions, immutable configuration
+  revisions and definition metadata. Existing rate remains the combined applied
+  percentage; additional rate is an included portion, not a second application
+  or a compounded tax. Server authority, exact arithmetic, code allocation,
+  idempotency, optimistic versions, audit, RLS and source posting controls remain.
+  No live rates, permission grants, journals or fiscal periods were changed.
+- Verified `npm.cmd run typecheck`; focused ESLint over every changed application,
+  contract, API and test file; `npm.cmd run api:check`; tax unit tests (6), tax
+  contract tests (2), tax management/payroll integration tests (17); and the
+  complete isolated tax browser workflow. Browser checks cover settings save and
+  reload, seven reference regions, searchable regional FED creation and editing,
+  read-only access, existing history/status workflows, and light/dark desktop,
+  tablet, mobile and landscape form bounds. Screenshots in
+  `tmp/tax-management-evidence/` and `tmp/tax-layout-evidence/` were inspected.
+  The first browser run exposed a missing label association on the additional
+  rate input; moved its help into the shared field hint and reran successfully.
+- Theme audit write/check: 131 feature view sources, zero direct font or colour
+  exceptions; the existing monochrome HR print exception remains. This is a
+  source audit, not a percentage of menu screens. Build output is isolated in
+  `tmp/tax-configuration-20261118-build`. The supplied reference is adapted to the
+  global ERP font and semantic light/dark tokens.
+- Final verification commands passed:
+  - `npm.cmd run test:unit -- tests/unit/tax-management.test.ts` (6).
+  - `npm.cmd run test:contract -- tests/contract/tax-management.test.ts` (2).
+  - `npm.cmd run test:integration -- tests/integration/tax-management.test.ts tests/integration/tax-payroll-posting.test.ts` (17).
+  - `npm.cmd run test:e2e:taxes` (1 complete workflow, 41.7 seconds).
+  - `npm.cmd run typecheck`, `npm.cmd run api:check`, focused `npx.cmd eslint`,
+    `node scripts/audit-ui-theme.mjs --write` / `--check`, `git diff --check`.
+  - `npm.cmd run build:web` with `NEXT_DIST_DIR=tmp/tax-configuration-20261118-build`.
+- Rollout: apply the additive Finance 41 migration through the existing source
+  migration workflow, then deploy/restart API and web together. Verification used
+  disposable databases; the shared running database and services were not
+  migrated or restarted. Existing company administrators can then save regions,
+  labels and actual company/module-specific rates. Tax reporting year end does
+  not replace the separately governed Finance fiscal calendar.
+
 ## 2026-11-18 — Purchase accounting bridge and connected reports
 
 - Added the compact accounting panel inside the existing Purchase details/form,

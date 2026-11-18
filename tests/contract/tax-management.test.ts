@@ -14,6 +14,18 @@ describe("tax management API contract", () => {
       ),
     );
     expect(paths["/finance/taxes/{id}/status"].post.operationId).toBe("changeTaxStatus");
+    expect(paths["/finance/taxes/configuration"].get.security).toEqual([{ cookieAuth: [] }]);
+    expect(paths["/finance/taxes/configuration"].put.operationId).toBe("saveTaxConfiguration");
+    expect(paths["/finance/taxes/configuration"].put.parameters).toEqual(
+      expect.arrayContaining(
+        ["if-match", "x-csrf-token", "idempotency-key"].map((name) =>
+          expect.objectContaining({ name, required: true }),
+        ),
+      ),
+    );
+    expect(paths["/finance/taxes/configuration"].put.parameters).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ in: "path" })]),
+    );
   });
   it("rejects rate overprecision, numbers and unbounded queries", () => {
     const input = {
@@ -32,5 +44,12 @@ describe("tax management API contract", () => {
     for (const rate of [5.5, "5.555", "-1", "100.01", "NaN"])
       expect(taxInputSchema.safeParse({ ...input, rate }).success).toBe(false);
     expect(taxQuerySchema.safeParse({ company_id: "company", limit: 101 }).success).toBe(false);
+    expect(taxInputSchema.safeParse({ ...input, additional_rate: "6.00" }).success).toBe(false);
+    for (const tax_type of ["ADT", "FED", "GST Withheld"])
+      expect(taxInputSchema.safeParse({ ...input, tax_type }).success).toBe(true);
+    expect(taxQuerySchema.safeParse({ company_id: "company", party: "supplier", as_of: "2026-09-01" }).success).toBe(
+      true,
+    );
+    expect(taxQuerySchema.safeParse({ company_id: "company", party: "unknown" }).success).toBe(false);
   });
 });

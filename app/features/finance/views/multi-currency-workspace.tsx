@@ -148,6 +148,8 @@ function CompanyCurrencyWorkspace({
               company_id: activeCompany!.id,
               status: "active",
               module: side === "receivable" ? "sales" : "purchases",
+              party: side === "receivable" ? "customer" : "supplier",
+              as_of: operationDate,
               search: taxSearch,
               limit: 100,
             }),
@@ -164,7 +166,7 @@ function CompanyCurrencyWorkspace({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [api, activeCompany, session, side, taxSearch]);
+  }, [api, activeCompany, session, side, taxSearch, operationDate]);
   function companyTaxContext() {
     return !!activeCompany && !!session?.user.permissions.includes("finance.tax.read");
   }
@@ -843,7 +845,7 @@ function CompanyCurrencyWorkspace({
                             .filter((t) => t.trigger === "recognition")
                             .map((t) => (
                               <option key={t.id} value={t.id}>
-                                {t.code} / {t.name} / {t.rate}%
+                                {t.code} / {t.print_label || t.name} / {t.name} / {t.rate}%
                               </option>
                             ))}
                         </select>
@@ -1024,7 +1026,7 @@ function CompanyCurrencyWorkspace({
                         .filter((t) => t.trigger === "settlement")
                         .map((t) => (
                           <option key={t.id} value={t.id}>
-                            {t.code} / {t.name} / {t.rate}%
+                            {t.code} / {t.print_label || t.name} / {t.name} / {t.rate}%
                           </option>
                         ))}
                     </select>
@@ -1609,7 +1611,7 @@ function OperationRow({
                   <span>Accounting policy version {operation.preview.policy_version}</span>
                   {operation.preview.taxes.map((tax, index) => (
                     <span key={`${tax.definition_id}:${index}`}>
-                      {tax.code} / revision {tax.revision} / {tax.rate}% on{" "}
+                      {tax.print_label || tax.name} / {tax.code} / revision {tax.revision} / {tax.rate}% on{" "}
                       <Money currency={tax.currency} value={tax.basis} /> ={" "}
                       <Money currency={tax.currency} value={tax.amount} /> / {tax.treatment}
                     </span>

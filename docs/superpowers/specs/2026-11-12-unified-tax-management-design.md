@@ -3,6 +3,45 @@
 Date: 2026-11-12
 Status: Approved by user; implemented and verified locally
 
+## 2026-11-18 configuration extension
+
+The user supplied Taxes and Year End screenshots and requested configuration
+across every applicable module. Extend the existing governed tax console rather
+than creating a second catalogue or posting engine:
+
+- Provide company tax reporting year end, display labels and independent
+  supplier/customer switches. These switches filter new document choices; they
+  are not permissions or posting authority. The reporting date does not change
+  the Finance fiscal calendar or close periods.
+- Support GST, ADT, FED, WHT and GST Withheld alongside existing VAT, Excise,
+  Payroll Tax and Other definitions. Category buttons filter the same register.
+- Maintain company-owned regions with generated, stable `TRG-001` record codes,
+  unique region abbreviations, names and active/inactive state. Offer the seven
+  regions in the reference as an explicit user action. Retain saved identities
+  and inactive records; do not hard-delete history.
+- Extend tax revisions with region, print label and an additional percentage.
+  The public `rate` remains the total applied percentage; `additional_rate` is
+  included in that total. The form edits base and additional percentages and
+  combines them exactly on the same taxable basis, without compounding. Both
+  portions use the definition's mapped nominal. Reject totals above 100%.
+- Use the document date to select effective revisions. Purchases, charges,
+  supplier settlements and customer Accounting documents consume the shared
+  directory and party display settings. Payroll keeps its explicit component
+  bindings and existing statutory formula controls. Asset-category purchase
+  lines may use Purchases or Fixed Assets recoverable definitions; ordinary
+  purchase lines and charges cannot use asset-only definitions. The server
+  checks this during save, approval and accounting preparation/posting.
+- Retain resolved labels and region identities in source tax snapshots. Existing
+  posting arithmetic, approval, nominal eligibility, company isolation,
+  application evidence and reversal controls remain authoritative.
+- Persist settings in append-only company configuration revisions and regions
+  in a relational master, through Finance migration 41. Require live tax/mapping
+  administrator authority, CSRF protection, quoted version preconditions,
+  idempotency and reasoned audit evidence. Force company/tenant RLS on both new
+  tables. API readiness requires this migration before serving the new code.
+- Do not infer statutory rates or create real business tax definitions from
+  screenshot examples. Do not grant permissions or change credentials.
+
 ## Goal
 
 Rename the visible Finance module to Accounting, remove the standalone Costing

@@ -29,7 +29,7 @@ export async function resolveTax(
     company: string;
     definition: string;
     date: string;
-    module: TaxSnapshot["module"];
+    module: TaxSnapshot["module"] | readonly TaxSnapshot["module"][];
     trigger: TaxSnapshot["trigger"];
     currency: string;
     precision: number;
@@ -53,7 +53,9 @@ export async function resolveTax(
       rate: string;
       currency: string | null;
     }>(
-      `select d.id as definition_id,r.revision,d.code,r.name,m.module,m.treatment,m.trigger,m.account_id,r.rate::text,g.currency
+      `select d.id as definition_id,r.revision,d.code,r.name,r.region_code,
+      coalesce(nullif(r.print_label,''),(select preference->>'label' from finance_tax_configuration_revision config cross join lateral jsonb_array_elements(config.display) preference where config.tenant_id=d.tenant_id and config.company_id=d.company_id and preference->>'tax_type'=r.tax_type order by config.version desc limit 1),r.name) as print_label,
+      m.module,m.treatment,m.trigger,m.account_id,r.rate::text,g.currency
     from finance_tax_definition d
     join lateral (select * from finance_tax_revision r where r.tenant_id=d.tenant_id and r.company_id=d.company_id and r.definition_id=d.id and r.effective_date<=$4::date order by r.effective_date desc,r.revision desc limit 1) r on true
     join finance_tax_mapping_rule m on m.tenant_id=r.tenant_id and m.company_id=r.company_id and m.definition_id=r.definition_id and m.revision=r.revision
@@ -69,7 +71,9 @@ export async function resolveTax(
   ).rows[0];
   if (
     !row ||
-    row.module !== input.module ||
+    (typeof input.module === "string"
+      ? row.module !== input.module
+      : !input.module.some((moduleContext) => moduleContext === row.module)) ||
     row.trigger !== input.trigger ||
     (row.currency && row.currency !== input.currency)
   )

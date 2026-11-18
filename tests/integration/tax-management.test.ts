@@ -1,6 +1,7 @@
 import { randomUUID, randomBytes } from "node:crypto";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { taxQuerySchema, type TaxInput } from "../../packages/contracts/src/finance/taxes.js";
+import type { TaxConfigurationInput } from "../../packages/contracts/src/finance/tax-configuration.js";
 import {
   savePurchaseRequestSchema,
   supplierInputSchema,
@@ -57,6 +58,10 @@ run("unified tax configuration and accounting", () => {
   afterAll(async () => {
     await close?.();
   });
+  const settingsInput = async (extra: Partial<TaxConfigurationInput> = {}): Promise<TaxConfigurationInput> => {
+    const { version, ...current } = await repo.configuration(actor(), f.company);
+    return { ...current, expected_version: version, reason: "Configure test company tax settings", ...extra };
+  };
   const input = (extra: Partial<TaxInput> = {}): TaxInput => ({
     company_id: f.company,
     name: "WHT supplies",
@@ -473,14 +478,46 @@ run("unified tax configuration and accounting", () => {
       );
     }
   });
-  it.each([false, true])(
-    "carries governed purchase-line mappings through request/order/receipt/bill and real supplier accounting (adjustments=%s)",
-    async (adjusted) => {
+  it.each([
+    { adjusted: false, asset: false },
+    { adjusted: true, asset: false },
+    { adjusted: false, asset: true },
+  ])(
+    "carries governed purchase-line mappings through request/order/receipt/bill and real supplier accounting (adjustments=$adjusted, asset=$asset)",
+    async ({ adjusted, asset }) => {
+      const assetCategory = `${f.company}-tax-acquisition-category`;
+      if (asset) {
+        for (const role of ["asset", "accumulated"])
+          await f.pool.query(
+            "insert into account(id,tenant_id,company_id,code,name,type,status,created_at) values($1,$2,$3,$4,$4,'asset','active',now())",
+            [`${assetCategory}-${role}`, f.tenant, f.company, `Acquisition-${role}`],
+          );
+        const policy = {
+          asset_account_id: `${assetCategory}-asset`,
+          accumulated_account_id: `${assetCategory}-accumulated`,
+          expense_account_id: f.policy.expense_account_id,
+          gain_account_id: f.policy.revenue_account_id,
+          loss_account_id: f.policy.expense_account_id,
+          impairment_account_id: f.policy.expense_account_id,
+        };
+        await f.pool.query(
+          "insert into fixed_asset_category(tenant_id,company_id,id,code,name,version,active,policy,asset_account_id,accumulated_account_id,created_by,updated_by) values($1,$2,$3,'TAX-ASSET','Tax acquisition category',1,true,$4,$5,$6,'r06.maker','r06.maker')",
+          [
+            f.tenant,
+            f.company,
+            assetCategory,
+            JSON.stringify(policy),
+            policy.asset_account_id,
+            policy.accumulated_account_id,
+          ],
+        );
+      }
       const tax = await repo.save(
         actor(true),
         input({
           name: adjusted ? "Adjusted governed input tax" : "Governed input tax",
           rate: "10.00",
+          module: asset ? "fixed_assets" : "purchases",
           treatment: "recoverable",
           trigger: "recognition",
           account_id: `${f.company}-tax-asset`,
@@ -567,11 +604,12 @@ run("unified tax configuration and accounting", () => {
                   source_line_id: (kind === "bill" ? order : source)?.lines[0]?.id ?? null,
                   item_code: "GOV-ITEM",
                   description: "Governed exact line tax",
-                  quantity: "1.005",
+                  quantity: asset ? "1" : "1.005",
                   uom: "Each",
-                  unit_price: "1.00",
+                  unit_price: asset ? "1.01" : "1.00",
                   tax_percent: "99",
                   tax_definition_id: tax.id,
+                  ...(asset ? { asset_category_id: assetCategory } : {}),
                   ...(adjusted ? { discount_amount: "0.01" } : {}),
                 },
               ],
@@ -581,6 +619,7 @@ run("unified tax configuration and accounting", () => {
           )
         ).record;
         expect(document.lines[0]!.tax_percent).toBe("10.00");
+        expect(document.lines[0]!.tax_snapshot!.module).toBe(asset ? "fixed_assets" : "purchases");
         expect(document.lines[0]!.tax_snapshot!.amount).toBe("0.10");
         if (adjusted) expect(document.additional_charges?.[0]?.tax_snapshot?.amount).toBe("0.01");
         for (const [who, action] of [
@@ -821,5 +860,217 @@ run("unified tax configuration and accounting", () => {
       f.repository.create(subledgerActor(), { ...payment, tax_definition_id: atSettlement.id }, randomUUID()),
     ).rejects.toMatchObject({ code: "SUBLEDGER_VALIDATION_FAILED" });
     expect((await post(payment)).preview!.realized_gain).toBe("0.00");
+  });
+  it("persists versioned regional settings with admin, isolation, idempotency and immutable history", async () => {
+    const value = await settingsInput({
+      year_end_date: "2026-06-30",
+      regions: [{ name: "Punjab", short_code: "PB", status: "active" }],
+    });
+    await expect(repo.saveConfiguration(actor(), value, randomUUID())).rejects.toMatchObject({ status: 403 });
+    const key = randomUUID();
+    const created = await repo.saveConfiguration(actor(true), value, key);
+    expect(created.regions[0]).toMatchObject({ code: "TRG-001", short_code: "PB" });
+    expect(created.year_end_date).toBe("2026-06-30");
+    expect(await repo.saveConfiguration(actor(true), value, key)).toEqual(created);
+    await expect(repo.saveConfiguration(actor(true), { ...value, year_end_date: null }, key)).rejects.toMatchObject({
+      code: "IDEMPOTENCY_CONFLICT",
+    });
+    await expect(repo.saveConfiguration(actor(true), value, randomUUID())).rejects.toMatchObject({
+      code: "TAX_VERSION_CONFLICT",
+    });
+    await expect(repo.configuration(actor(), "different-company")).rejects.toMatchObject({ status: 403 });
+    await expect(repo.configuration({ ...actor(), tenantId: "different-tenant" }, f.company)).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(
+      repo.saveConfiguration(actor(true), await settingsInput({ regions: [] }), randomUUID()),
+    ).rejects.toMatchObject({ code: "TAX_VALIDATION_FAILED" });
+    await expect(
+      repo.saveConfiguration(
+        actor(true),
+        await settingsInput({ regions: [{ ...created.regions[0]!, short_code: "CHANGED" }] }),
+        randomUUID(),
+      ),
+    ).rejects.toMatchObject({ code: "TAX_VALIDATION_FAILED" });
+    await expect(
+      f.pool.query(
+        "update finance_tax_configuration_revision set reason='Rewrite history' where tenant_id=$1 and company_id=$2",
+        [f.tenant, f.company],
+      ),
+    ).rejects.toMatchObject({ code: "23514" });
+    expect(await repo.configuration(actor(), f.company)).toEqual(created);
+  });
+  it("shares regional ADT/FED rates and labels across source contexts while preserving exact total tax and effective revisions", async () => {
+    const settings = await settingsInput();
+    const configured = await repo.saveConfiguration(
+      actor(true),
+      {
+        ...settings,
+        display: settings.display.map((row) =>
+          row.tax_type === "FED" ? { ...row, label: "Federal excise", supplier: false, customer: true } : row,
+        ),
+      },
+      randomUUID(),
+    );
+    const region = configured.regions[0]!.code;
+    for (const moduleContext of ["sales", "purchases", "fixed_assets"] as const) {
+      const tax = await repo.save(
+        actor(true),
+        input({
+          name: `Regional ${moduleContext}`,
+          tax_type: "FED",
+          rate: "20.00",
+          additional_rate: "2.00",
+          region_code: region,
+          module: moduleContext,
+          treatment: moduleContext === "sales" ? "output" : "recoverable",
+          trigger: "recognition",
+          account_id: `${f.company}-tax-${moduleContext === "sales" ? "liability" : "asset"}`,
+        }),
+        randomUUID(),
+      );
+      expect(tax).toMatchObject({ additional_rate: "2.00", print_label: "Federal excise", region_code: region });
+      const resolve = () =>
+        repo.transaction(actor(), f.company, false, (client) =>
+          resolveTax(client, {
+            tenant: f.tenant,
+            company: f.company,
+            definition: tax.id,
+            date: "2026-09-20",
+            module: moduleContext,
+            trigger: "recognition",
+            basis: "1000.00",
+            currency: "USD",
+            precision: 2,
+          }),
+        );
+      const snapshot = await resolve();
+      expect(snapshot).toMatchObject({
+        rate: "20.00",
+        amount: "200.00",
+        print_label: "Federal excise",
+        region_code: region,
+      });
+      const supplier = await repo.list(
+        actor(),
+        taxQuerySchema.parse({ company_id: f.company, party: "supplier", search: `Regional ${moduleContext}` }),
+      );
+      const customer = await repo.list(
+        actor(),
+        taxQuerySchema.parse({ company_id: f.company, party: "customer", search: `Regional ${moduleContext}` }),
+      );
+      expect(supplier.total).toBe(0);
+      expect(customer.total).toBe(1);
+      await repo.save(
+        actor(true),
+        {
+          ...input({
+            name: tax.name,
+            tax_type: tax.tax_type,
+            module: moduleContext,
+            treatment: tax.treatment,
+            trigger: tax.trigger,
+            account_id: tax.account_id,
+            region_code: region,
+            rate: "25.00",
+            additional_rate: "3.00",
+            effective_date: "2026-10-01",
+          }),
+          expected_version: tax.version,
+        },
+        randomUUID(),
+        tax.id,
+      );
+      const historical = await repo.list(
+        actor(),
+        taxQuerySchema.parse({ company_id: f.company, search: `Regional ${moduleContext}`, as_of: "2026-09-20" }),
+      );
+      expect(historical.items[0]).toMatchObject({ revision: 1, rate: "20.00" });
+      expect((await resolve()).amount).toBe("200.00");
+      if (moduleContext !== "fixed_assets") {
+        const side = moduleContext === "sales" ? "receivable" : "payable";
+        const party = await f.repository.createParty(
+          subledgerActor(),
+          {
+            company_id: f.company,
+            name: `Regional ${side}`,
+            kind: moduleContext === "sales" ? "customer" : "supplier",
+            default_currency: "USD",
+          },
+          randomUUID(),
+        );
+        const op = await post({
+          type: "recognition",
+          company_id: f.company,
+          date: "2026-09-20",
+          due_date: "2026-09-20",
+          reference: "Regional tax posting",
+          reason: "Test combined rate application",
+          side,
+          kind: "invoice",
+          party_id: party.id,
+          currency: "USD",
+          amount: "1000.00",
+          monetary: true,
+          tax_definition_id: tax.id,
+        });
+        expect(op.preview!.item!.original_amount).toBe("1200.00");
+        const application = (
+          await f.pool.query("select amount::text from finance_tax_application where tenant_id=$1 and source_id=$2", [
+            f.tenant,
+            op.id,
+          ])
+        ).rows[0];
+        expect(Number(application.amount)).toBe(200);
+      }
+    }
+    await expect(repo.save(actor(true), input({ region_code: "TRG-999" }), randomUUID())).rejects.toMatchObject({
+      code: "TAX_CONFLICT",
+    });
+    await repo.saveConfiguration(
+      actor(true),
+      await settingsInput({ regions: configured.regions.map((row) => ({ ...row, status: "inactive" })) }),
+      randomUUID(),
+    );
+    await expect(repo.save(actor(true), input({ region_code: region }), randomUUID())).rejects.toMatchObject({
+      code: "TAX_CONFLICT",
+    });
+  });
+  it("isolates region and settings tables under forced RLS for non-owner database roles", async () => {
+    const role = `tax_config_rls_${randomUUID().replaceAll("-", "")}`;
+    const client = await f.pool.connect();
+    try {
+      await client.query(`create role ${role} nologin`);
+      await client.query(`grant usage on schema public to ${role}`);
+      await client.query(
+        `grant select on finance_tax_region,finance_tax_configuration_revision,security_user_company_access to ${role}`,
+      );
+      await client.query("begin");
+      await client.query(`set local role ${role}`);
+      await client.query(
+        "select set_config('nexora.tenant_id',$1,true),set_config('nexora.user_id','r06.maker',true)",
+        [f.tenant],
+      );
+      for (const relation of ["finance_tax_region", "finance_tax_configuration_revision"]) {
+        expect(
+          (await client.query(`select count(*)::integer as total from ${relation}`)).rows[0].total,
+        ).toBeGreaterThan(0);
+      }
+      await client.query("select set_config('nexora.user_id','r06.last-admin-b',true)");
+      for (const relation of ["finance_tax_region", "finance_tax_configuration_revision"]) {
+        expect((await client.query(`select count(*)::integer as total from ${relation}`)).rows[0].total).toBe(0);
+      }
+      await client.query(
+        "select set_config('nexora.tenant_id','another-tenant',true),set_config('nexora.user_id','r06.maker',true)",
+      );
+      for (const relation of ["finance_tax_region", "finance_tax_configuration_revision"]) {
+        expect((await client.query(`select count(*)::integer as total from ${relation}`)).rows[0].total).toBe(0);
+      }
+    } finally {
+      await client.query("rollback");
+      await client.query(`drop owned by ${role}`);
+      await client.query(`drop role ${role}`);
+      client.release();
+    }
   });
 });

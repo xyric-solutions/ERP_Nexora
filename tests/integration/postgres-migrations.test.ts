@@ -41,7 +41,7 @@ describe("production PostgreSQL source migrations", () => {
       security: 24,
       workflow: 1,
       master_data: 2,
-      finance: 40,
+      finance: 41,
       procurement: 7,
       inventory: 3,
       hr: 155,
@@ -63,7 +63,7 @@ describe("production PostgreSQL source migrations", () => {
       await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
         platform: 11,
         security: 24,
-        finance: 40,
+        finance: 41,
         budget:3,
       });
       const columns = await fresh.query<{ column_name: string }>(
@@ -313,7 +313,7 @@ describe("production PostgreSQL source migrations", () => {
     );
     expect(result.rows).toEqual([
       { module_name: "budget", migration_count: "3", latest: 3 },
-      { module_name: "finance", migration_count: "40", latest: 40 },
+      { module_name: "finance", migration_count: "41", latest: 41 },
       { module_name: "fixed_assets", migration_count: "7", latest: 7 },
       { module_name: "hr", migration_count: "155", latest: 155 },
       { module_name: "inventory", migration_count: "3", latest: 3 },
