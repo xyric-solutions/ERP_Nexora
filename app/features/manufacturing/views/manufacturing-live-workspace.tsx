@@ -172,12 +172,39 @@ export function ManufacturingLiveWorkspace({
         </AlertDescription>
       </Alert>
     );
+  const filterControls = (
+    <>
+      <LabeledField label={`Search ${section.title.toLowerCase()}`} className="w-full sm:max-w-md">
+        <Input
+          maxLength={160}
+          value={search}
+          placeholder="Code or product"
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      </LabeledField>
+      {stateFilters[surface] ? (
+        <LabeledField label="Status" className="w-full sm:w-56">
+          <select className={manufacturingSelectClass} value={state} onChange={(e) => setState(e.target.value)}>
+            <option value="">All statuses</option>
+            {stateFilters[surface]!.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </LabeledField>
+      ) : null}
+    </>
+  );
   return (
     <div className="min-w-0 space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-4">
         {!editing ? (
           <div>
-            <h1 className="text-xl font-semibold">{section.title}</h1>
+            <p className="m-0 mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--nx-brand)]">
+              Manufacturing
+            </p>
+            <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">{section.title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{section.description}</p>
           </div>
         ) : (
@@ -281,59 +308,41 @@ export function ManufacturingLiveWorkspace({
         )
       ) : (
         <>
-          <section
-            aria-label={`${section.title} filters`}
-            className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-3"
-          >
-            <LabeledField label={`Search ${section.title.toLowerCase()}`} className="w-full sm:max-w-md">
-              <Input
-                maxLength={160}
-                value={search}
-                placeholder="Code or product"
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </LabeledField>
-            {stateFilters[surface] ? (
-              <LabeledField label="Status" className="w-full sm:w-56">
-                <select className={manufacturingSelectClass} value={state} onChange={(e) => setState(e.target.value)}>
-                  <option value="">All statuses</option>
-                  {stateFilters[surface]!.map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </LabeledField>
-            ) : null}
-          </section>
           <p role="status" className="text-sm text-muted-foreground">
             {loading
               ? "Loading records…"
               : `${shown.length} record${shown.length === 1 ? "" : "s"}${cursor ? " loaded" : ""}`}
           </p>
           {!loading && !shown.length ? (
-            <section className="space-y-3 rounded-xl border border-dashed border-border px-5 py-10 text-center">
-              <h2 className="text-base font-semibold">
-                {search || state ? "No matching records" : `Create your first ${section.singular}`}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {search || state
-                  ? "Try another code, product or status."
-                  : surface === "boms"
-                    ? "Mark finished products for manufacture in Inventory, then list their components here."
-                    : surface === "plans"
-                      ? "Choose a finished product and the quantity to produce, then convert the plan to a Manufacturing Order."
-                      : "Create an order directly, or convert a saved production plan."}
-              </p>
-              {canCreate ? (
-                <Button type="button" onClick={() => open()}>
-                  Add {section.singular}
-                </Button>
-              ) : null}
+            <section className="overflow-hidden rounded-[10px] border border-border bg-card">
+              <div className="flex flex-wrap items-end gap-3 border-b border-border p-4 text-left">
+                {filterControls}
+              </div>
+              <div className="space-y-3 px-5 py-10 text-center">
+                <h2 className="text-base font-semibold">
+                  {search || state ? "No matching records" : `Create your first ${section.singular}`}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {search || state
+                    ? "Try another code, product or status."
+                    : surface === "boms"
+                      ? "Mark finished products for manufacture in Inventory, then list their components here."
+                      : surface === "plans"
+                        ? "Choose a finished product and the quantity to produce, then convert the plan to a Manufacturing Order."
+                        : "Create an order directly, or convert a saved production plan."}
+                </p>
+                {canCreate ? (
+                  <Button type="button" onClick={() => open()}>
+                    Add {section.singular}
+                  </Button>
+                ) : null}
+              </div>
             </section>
           ) : (
-            <div className="max-w-full overflow-x-auto rounded-xl border border-border bg-card">
+            <div className="max-w-full overflow-x-auto rounded-[10px] border border-border bg-card">
               <WorkTable
+                toolbar={filterControls}
+                label={section.title}
                 continuation={{
                   cursor,
                   hasMore: !!(cursor && loadedScope === scope),
@@ -341,7 +350,7 @@ export function ManufacturingLiveWorkspace({
                   loadMore: () => void more(),
                 }}
                 tableId={`app/features/manufacturing/views/manufacturing-live-workspace:${surface}`}
-                className="w-full min-w-[760px] text-left text-sm"
+                className="w-full min-w-[600px] text-left text-[13px]"
               >
                 <thead className="bg-muted text-muted-foreground">
                   <tr>

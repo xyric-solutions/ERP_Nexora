@@ -28,19 +28,19 @@ import type { SalesCustomer, SalesState } from "../model/sales-types";
 
 function customerColumns(state: SalesState): ListColumn<SalesCustomer>[] {
   return [
-    { id: "code", label: "Code", required: true, cell: (customer) => <span className="font-mono font-semibold">{customer.code}</span> },
+    { id: "code", label: "Code", optional: true, cell: (customer) => <span className="font-mono font-semibold">{customer.code}</span> },
     {
       id: "name",
       label: "Customer",
       required: true,
       cell: (customer) => (
         <>
-          <strong>{customer.display || customer.name}</strong>
+          <strong>{customer.display || customer.name}</strong><small>{customer.code}</small>
           {customer.display && customer.display !== customer.name ? <small>{customer.name}</small> : null}
         </>
       ),
     },
-    { id: "type", label: "Type", cell: (customer) => customer.type },
+    { id: "type", label: "Type", optional: true, cell: (customer) => customer.type },
     {
       id: "contact",
       label: "Contact",
@@ -58,12 +58,13 @@ function customerColumns(state: SalesState): ListColumn<SalesCustomer>[] {
     },
     { id: "city", label: "City", optional: true, cell: (customer) => customer.billing.city || "—" },
     { id: "salesperson", label: "Salesperson", optional: true, cell: (customer) => customer.salesperson || "—" },
-    { id: "terms", label: "Payment terms", optional: true, cell: (customer) => termsLabel(customer) },
+    { id: "terms", label: "Payment terms", cell: (customer) => termsLabel(customer) },
     { id: "ntn", label: "NTN", optional: true, cell: (customer) => customer.ntn || "—" },
-    { id: "opening", label: "Opening balance", align: "right", cell: (customer) => moneyWhole(customer.openingBalance) },
+    { id: "opening", label: "Opening balance", align: "right", optional: true, cell: (customer) => moneyWhole(customer.openingBalance) },
     { id: "onAccount", label: "On account", align: "right", optional: true, cell: (customer) => moneyWhole(onAccountCredit(state, customer.id)) },
     { id: "outstanding", label: "Outstanding", align: "right", cell: (customer) => <span className="font-semibold">{moneyWhole(openBalance(state, customer.id))}</span> },
-    { id: "limit", label: "Credit limit", align: "right", cell: (customer) => (customer.creditLimit ? moneyWhole(customer.creditLimit) : "No limit") },
+    { id: "limit", label: "Credit limit", align: "right", optional: true, cell: (customer) => (customer.creditLimit ? moneyWhole(customer.creditLimit) : "No limit") },
+    { id: "creditStatus", label: "Credit status", cell: (customer) => <StatusPill status={customer.creditStatus} /> },
     {
       id: "status",
       label: "Status",
@@ -107,10 +108,9 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
         eyebrow="Customers"
         title="Customers"
         status={<StatusPill status="Prototype only" />}
-        description="Every customer in one list. Click a customer to view and edit it, change its status or update its opening balance."
+        description="Customer profiles, contacts, payment terms and account information."
         actions={
           <>
-            <ListViewMenu view={view} />
             <Button type="button" onClick={() => nav.openNew("customers")}>+ New Customer</Button>
           </>
         }
@@ -131,6 +131,7 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
           <SearchBox value={query} onChange={setQuery} placeholder="Search name, code, contact, phone, city or NTN" />
           <FilterSelect label="Type" value={type} options={CUSTOMER_TYPES} onChange={setType} />
           <FilterSelect label="Status" value={status} options={["Active", "Inactive"]} onChange={setStatus} />
+          <ListViewMenu view={view} />
         </ListToolbar>
         {rows.length ? (
           <>

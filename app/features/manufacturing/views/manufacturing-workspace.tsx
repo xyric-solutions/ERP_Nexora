@@ -1,4 +1,6 @@
 "use client";
+import { WorkspaceHeader } from "@/shared/ui/module-design";
+import { manufacturingDesignClass } from "../components/manufacturing-presentation";
 import { WorkTable } from "@/shared/ui/work-table";
 
 import { useState } from "react";
@@ -170,6 +172,8 @@ function Status({ value }: { value: string }) {
   );
 }
 function Header({
+  eyebrow,
+  description,
   title,
   children,
 }: {
@@ -179,12 +183,7 @@ function Header({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="nx-mfg-page-head">
-      <div>
-        <h1>{title}</h1>
-      </div>
-      <div>{children}</div>
-    </header>
+    <WorkspaceHeader eyebrow={eyebrow} title={title} description={description} actions={children} />
   );
 }
 
@@ -468,9 +467,9 @@ function MoOperationalTab({
   if (tab === "Notes & files")
     return (
       <div className="nx-mfg-notes-grid">
-        <label>
+        <label htmlFor="manufacturing-control-1">
           <span>Internal production notes</span>
-          <Textarea
+          <Textarea id="manufacturing-control-1"
             rows={7}
             defaultValue="Prioritise export-grade casing certificates. Coordinate the final pressure-test slot with Quality before 17 September."
           />
@@ -529,7 +528,7 @@ function ManufacturingOrder({ context, onNavigate, onAction }: ManufacturingWork
   };
 
   return (
-    <div className="nx-mfg">
+    <div className={`nx-mfg ${manufacturingDesignClass}`}>
       <Header
         eyebrow="Manufacturing / Production order"
         title={reference}
@@ -666,13 +665,13 @@ function ManufacturingOrder({ context, onNavigate, onAction }: ManufacturingWork
               <Status value={status} />
             </header>
             <div className="nx-mfg-fields">
-              <label className="wide">
+              <label className="wide" htmlFor="manufacturing-control-2">
                 <span>Product to manufacture *</span>
-                <Input defaultValue="FG-10042 | Industrial Pump Assembly" />
+                <Input id="manufacturing-control-2" defaultValue="FG-10042 | Industrial Pump Assembly" />
               </label>
-              <label>
+              <label htmlFor="manufacturing-control-3">
                 <span>Quantity *</span>
-                <Input type="number" min="1" defaultValue="500" />
+                <Input id="manufacturing-control-3" type="number" min="1" defaultValue="500" />
               </label>
               <label>
                 <span>UOM</span>
@@ -688,13 +687,13 @@ function ManufacturingOrder({ context, onNavigate, onAction }: ManufacturingWork
                   <option>BOM-10042-V2 · Superseded</option>
                 </select>
               </label>
-              <label>
+              <label htmlFor="manufacturing-control-4">
                 <span>Planned start *</span>
-                <Input type="datetime-local" defaultValue="2026-09-14T08:00" />
+                <Input id="manufacturing-control-4" type="datetime-local" defaultValue="2026-09-14T08:00" />
               </label>
-              <label>
+              <label htmlFor="manufacturing-control-5">
                 <span>Planned finish *</span>
-                <Input type="datetime-local" defaultValue="2026-09-18T17:00" />
+                <Input id="manufacturing-control-5" type="datetime-local" defaultValue="2026-09-18T17:00" />
               </label>
               <label>
                 <span>Responsible planner *</span>
@@ -724,13 +723,13 @@ function ManufacturingOrder({ context, onNavigate, onAction }: ManufacturingWork
                   <option>QC-KHI-01 · Quality hold</option>
                 </select>
               </label>
-              <label>
+              <label htmlFor="manufacturing-control-6">
                 <span>Source demand</span>
-                <Input defaultValue="SO-2026-0841 / MPS-W38" />
+                <Input id="manufacturing-control-6" defaultValue="SO-2026-0841 / MPS-W38" />
               </label>
-              <label>
+              <label htmlFor="manufacturing-control-7">
                 <span>Project / cost centre</span>
-                <Input defaultValue="PRJ-EXP-26 / PROD-01" />
+                <Input id="manufacturing-control-7" defaultValue="PRJ-EXP-26 / PROD-01" />
               </label>
             </div>
           </section>
@@ -848,9 +847,9 @@ function ManufacturingOrder({ context, onNavigate, onAction }: ManufacturingWork
                   <span>Variance justification and corrective action</span>
                   <Status value={breaches.length ? "Required before exception approval" : "Optional"} />
                 </header>
-                <label>
+                <label htmlFor="manufacturing-control-8">
                   <span>Reason and corrective action {breaches.length ? "*" : ""}</span>
-                  <Textarea
+                  <Textarea id="manufacturing-control-8"
                     rows={4}
                     value={reason}
                     onChange={(event) => setReason(event.target.value)}
@@ -1013,7 +1012,7 @@ function ManufacturingOrder({ context, onNavigate, onAction }: ManufacturingWork
 
 function VarianceRegister({ onNavigate, onAction }: ManufacturingWorkspaceProps) {
   return (
-    <div className="nx-mfg">
+    <div className={`nx-mfg ${manufacturingDesignClass}`}>
       <Header
         eyebrow="Manufacturing / Control"
         title="Production Variance Register"

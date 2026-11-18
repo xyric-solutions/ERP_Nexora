@@ -6,7 +6,8 @@ import {
   type AdministrationModuleId,
   type ModuleAccessMap,
 } from "@nexora/contracts";
-import { useId } from "react";
+import { useId, useState } from "react";
+import { Input } from "@/components/ui/input";
 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -40,6 +41,7 @@ export function AccessMatrix({
   superAdminLocked?: boolean;
 }) {
   const switchId = useId();
+  const [search, setSearch] = useState("");
   const setLevel = (moduleId: AdministrationModuleId, level: AccessLevel) => {
     const next = { ...access };
     if (level === "none") delete next[moduleId];
@@ -69,6 +71,13 @@ export function AccessMatrix({
         </span>
       </label>
 
+      <Input
+        type="search"
+        aria-label="Find a module"
+        placeholder="Find a module…"
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+      />
       <fieldset
         disabled={matrixDisabled}
         aria-describedby={superAdmin ? `${switchId}-hint` : undefined}
@@ -91,42 +100,49 @@ export function AccessMatrix({
             </span>
           ))}
         </div>
-        {administrationModuleCatalogue.map((entry) => {
-          const value = superAdmin ? "admin" : (access[entry.id] ?? "none");
-          const labelId = `${switchId}-${entry.id}`;
-          return (
-            <div
-              key={entry.id}
-              className="grid gap-2 border-b border-border px-3 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_16.5rem] sm:items-center"
-            >
-              <span id={labelId} className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-foreground">
-                {entry.label}
-                {!entry.live ? (
-                  <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
-                    Prototype — UI only
-                  </Badge>
-                ) : null}
-              </span>
-              <RadioGroup
-                aria-labelledby={labelId}
-                className="grid grid-cols-4 gap-2"
-                value={value}
-                disabled={matrixDisabled}
-                onValueChange={(next) => setLevel(entry.id, next as AccessLevel)}
+        {administrationModuleCatalogue
+          .filter((entry) => entry.label.toLowerCase().includes(search.trim().toLowerCase()))
+          .map((entry) => {
+            const value = superAdmin ? "admin" : (access[entry.id] ?? "none");
+            const labelId = `${switchId}-${entry.id}`;
+            return (
+              <div
+                key={entry.id}
+                className="grid gap-2 border-b border-border px-3 py-2 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_16.5rem] sm:items-center"
               >
-                {levels.map((level) => (
-                  <label
-                    key={level.value}
-                    className="flex cursor-pointer items-center justify-center gap-1.5 text-xs text-muted-foreground has-[[data-disabled]]:cursor-not-allowed sm:flex-col sm:gap-0"
-                  >
-                    <RadioGroupItem value={level.value} aria-label={`${entry.label}: ${level.label}`} />
-                    <span className="sm:sr-only">{level.label}</span>
-                  </label>
-                ))}
-              </RadioGroup>
-            </div>
-          );
-        })}
+                <span id={labelId} className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-foreground">
+                  {entry.label}
+                  {!entry.live ? (
+                    <Badge variant="outline" className="text-[11px] font-normal text-muted-foreground">
+                      Prototype — UI only
+                    </Badge>
+                  ) : null}
+                </span>
+                <RadioGroup
+                  aria-labelledby={labelId}
+                  className="grid grid-cols-4 gap-2"
+                  value={value}
+                  disabled={matrixDisabled}
+                  onValueChange={(next) => setLevel(entry.id, next as AccessLevel)}
+                >
+                  {levels.map((level) => (
+                    <label
+                      key={level.value}
+                      className="flex cursor-pointer items-center justify-center gap-1.5 text-xs text-muted-foreground has-[[data-disabled]]:cursor-not-allowed sm:flex-col sm:gap-0"
+                    >
+                      <RadioGroupItem value={level.value} aria-label={`${entry.label}: ${level.label}`} />
+                      <span className="sm:sr-only">{level.label}</span>
+                    </label>
+                  ))}
+                </RadioGroup>
+              </div>
+            );
+          })}
+        {!administrationModuleCatalogue.some((entry) =>
+          entry.label.toLowerCase().includes(search.trim().toLowerCase()),
+        ) ? (
+          <p className="m-0 px-4 py-6 text-sm text-muted-foreground">No matching modules. Try another name.</p>
+        ) : null}
       </fieldset>
     </div>
   );

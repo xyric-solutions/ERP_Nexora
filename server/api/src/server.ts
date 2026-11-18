@@ -1,6 +1,7 @@
 import { SourceInventoryRepository } from "./modules/inventory/source-repository.js";
 import { SourceManufacturingRepository } from "./modules/manufacturing/source-repository.js";
 import { FixedAssetsService } from "./modules/fixed-assets/service.js";
+import { SourceFleetRepository } from "./modules/fleet/source-repository.js";
 import { createServer } from "node:http";
 
 import { Redis } from "ioredis";
@@ -142,6 +143,7 @@ const app = createApp({
   inventoryRepository: new SourceInventoryRepository(pool),
   manufacturingRepository: new SourceManufacturingRepository(pool),
   fixedAssetsService: new FixedAssetsService(pool, objectStorage),
+  fleetRepository: new SourceFleetRepository(pool),
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
@@ -172,6 +174,12 @@ const app = createApp({
         "select to_regclass('public.manufacturing_bom') is not null and to_regclass('public.manufacturing_plan') is not null and to_regclass('public.manufacturing_order') is not null and to_regclass('public.manufacturing_change') is not null and exists(select 1 from nexora_schema_migration where module_name='manufacturing' and version=3) and exists(select 1 from nexora_schema_migration where module_name='security' and version=24) as available",
       );
       if (!result.rows[0]?.available) throw new Error("Manufacturing migrations are required");
+    },
+    fleet_foundation: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.fleet_vehicle') is not null and to_regclass('public.fleet_driver') is not null and to_regclass('public.fleet_fuel_entry') is not null and to_regclass('public.fleet_maintenance_entry') is not null and exists(select 1 from nexora_schema_migration where module_name='fleet' and version=2) and exists(select 1 from nexora_schema_migration where module_name='security' and version=25) as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Fleet migrations are required");
     },
     master_data_foundation: async () => {
       const result = await pool.query<{ available: boolean }>(

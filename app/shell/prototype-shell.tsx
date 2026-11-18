@@ -1,5 +1,6 @@
 "use client";
 import { bankWorkspaceLayout } from "@prototype/features/banking/components/bank-workspace-layout";
+import { ModuleDesignSurface } from "@/shared/ui/module-design";
 import { purchaseSteps } from "@prototype/features/purchasing/model/purchase-workflow";
 import { PURCHASE_EXPORT_EVENT } from "@prototype/features/purchasing/model/purchase-export";
 import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
@@ -701,6 +702,7 @@ export function PrototypeShell({
   const drawerModule = drawerModuleId ? prototypeModules.find((module) => module.id === drawerModuleId) : null;
 
   return (
+    <ModuleDesignSurface moduleId={current.module.id}>
     <div className="nx-prototype" data-density={density} data-role-theme={roleId}>
       <div
         className="nx-shell"
@@ -1106,7 +1108,7 @@ export function PrototypeShell({
                           ? "Purchases updated successfully"
                           : isLiveFinanceChartPage
                             ? "Finance updated successfully"
-                            : ["sales", "revenue", "customers", "administration", "manufacturing"].includes(current.module.id)
+                            : ["sales", "revenue", "customers", "administration", "manufacturing", "fleet"].includes(current.module.id)
                               ? `${current.module.shortLabel} updated successfully`
                               : "Bank updated successfully",
                       message,
@@ -1532,6 +1534,7 @@ export function PrototypeShell({
         ))}
       </div>
     </div>
+    </ModuleDesignSurface>
   );
 }
 

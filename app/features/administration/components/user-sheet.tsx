@@ -15,6 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { LabeledField } from "@/shared/ui/labeled-field";
 
@@ -133,6 +134,7 @@ function UserForm({
   onCancel: () => void;
 }) {
   const creating = user === null;
+  const [tab, setTab] = useState("details");
   const formId = useId();
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
@@ -204,6 +206,13 @@ function UserForm({
       }
     } catch (caught) {
       setError(errorMessage(caught));
+      const path =
+        caught && typeof caught === "object" && "issues" in caught && Array.isArray(caught.issues)
+          ? String(caught.issues[0]?.path?.[0] ?? "")
+          : "";
+      if (["display_name", "email", "username", "credential"].includes(path)) setTab("details");
+      else if (path === "companies") setTab("companies");
+      else if (["access", "super_admin", "confirm_self_demotion"].includes(path)) setTab("access");
     } finally {
       setSaving(false);
     }
@@ -211,182 +220,201 @@ function UserForm({
 
   return (
     <form className="flex min-h-0 flex-1 flex-col" onSubmit={(event) => void submit(event)} noValidate>
-      <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto px-5 py-4 sm:px-6">
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-
-        <Section title="Details">
-          {user ? (
-            <p className="m-0 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-              <span className="font-mono text-xs">{user.id}</span>
-              <UserStatusBadge status={user.status} />
-              {user.must_change_password ? <span>Pending first sign-in</span> : null}
-            </p>
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))} className="min-h-0 flex-1 gap-0">
+        <TabsList
+          variant="line"
+          className="h-12 w-full justify-start gap-4 overflow-x-auto border-b border-border px-5 sm:px-6"
+          aria-label="User sections"
+        >
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="companies">Companies</TabsTrigger>
+          <TabsTrigger value="access">Access</TabsTrigger>
+          <TabsTrigger value="review">{creating ? "Review" : "Account actions"}</TabsTrigger>
+        </TabsList>
+        <div className="grid min-h-0 flex-1 content-start gap-5 overflow-y-auto px-5 py-4 sm:px-6">
+          {error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           ) : null}
-          <LabeledField label="Full name">
-            <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
-          </LabeledField>
-          <LabeledField label="Email">
-            <Input
-              type="email"
-              autoComplete="off"
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                if (creating && !usernameTouched) setUsername(usernameFromEmail(event.target.value));
-              }}
-              required
-            />
-          </LabeledField>
-          <LabeledField
-            label="Username"
-            hint={creating ? "Lowercase letters, numbers, dots, dashes or underscores." : "Usernames cannot change."}
-          >
-            <Input
-              value={username}
-              readOnly={!creating}
-              onChange={(event) => {
-                setUsernameTouched(true);
-                setUsername(event.target.value);
-              }}
-              required
-            />
-          </LabeledField>
-          {creating ? (
-            <div className="grid gap-2">
-              <span className="text-sm font-medium text-foreground">Initial password</span>
-              <RadioGroup
-                aria-label="Initial password"
-                value={credentialMode}
-                onValueChange={(value) => setCredentialMode(value as "generate" | "enter")}
-              >
-                <span className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem id={`${formId}-generate`} value="generate" />
-                  <label htmlFor={`${formId}-generate`}>Generate a temporary password</label>
-                </span>
-                <span className="flex items-center gap-2 text-sm">
-                  <RadioGroupItem id={`${formId}-enter`} value="enter" />
-                  <label htmlFor={`${formId}-enter`}>Enter a temporary password</label>
-                </span>
-              </RadioGroup>
-              {credentialMode === "enter" ? (
-                <LabeledField
-                  label="Temporary password"
-                  hint="At least 8 characters. The user must change it at first sign-in."
-                >
-                  <Input
-                    type="password"
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </LabeledField>
+
+          <TabsContent value="details" keepMounted className="data-[hidden]:hidden">
+            <Section title="Details">
+              {user ? (
+                <p className="m-0 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span className="font-mono text-xs">{user.id}</span>
+                  <UserStatusBadge status={user.status} />
+                  {user.must_change_password ? <span>Pending first sign-in</span> : null}
+                </p>
               ) : null}
-            </div>
-          ) : null}
-        </Section>
-
-        <Section title="Companies">
-          {companyOptions.length === 0 ? (
-            <p className="m-0 text-sm text-muted-foreground">No companies are available yet.</p>
-          ) : (
-            <div className="grid gap-2" role="group" aria-label="Company access">
-              {companyOptions.map((company) => {
-                const checked = companyIds.includes(company.id);
-                return (
-                  <div
-                    key={company.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--nx-radius-md)] border border-border px-3 py-2"
+              <LabeledField label="Full name">
+                <Input value={displayName} onChange={(event) => setDisplayName(event.target.value)} required />
+              </LabeledField>
+              <LabeledField label="Email">
+                <Input
+                  type="email"
+                  autoComplete="off"
+                  value={email}
+                  onChange={(event) => {
+                    setEmail(event.target.value);
+                    if (creating && !usernameTouched) setUsername(usernameFromEmail(event.target.value));
+                  }}
+                  required
+                />
+              </LabeledField>
+              <LabeledField
+                label="Username"
+                hint={
+                  creating ? "Lowercase letters, numbers, dots, dashes or underscores." : "Usernames cannot change."
+                }
+              >
+                <Input
+                  value={username}
+                  readOnly={!creating}
+                  onChange={(event) => {
+                    setUsernameTouched(true);
+                    setUsername(event.target.value);
+                  }}
+                  required
+                />
+              </LabeledField>
+              {creating ? (
+                <div className="grid gap-2">
+                  <span className="text-sm font-medium text-foreground">Initial password</span>
+                  <RadioGroup
+                    aria-label="Initial password"
+                    value={credentialMode}
+                    onValueChange={(value) => setCredentialMode(value as "generate" | "enter")}
                   >
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={(value) => toggleCompany(company.id, value === true)}
+                    <span className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem id={`${formId}-generate`} value="generate" />
+                      <label htmlFor={`${formId}-generate`}>Generate a temporary password</label>
+                    </span>
+                    <span className="flex items-center gap-2 text-sm">
+                      <RadioGroupItem id={`${formId}-enter`} value="enter" />
+                      <label htmlFor={`${formId}-enter`}>Enter a temporary password</label>
+                    </span>
+                  </RadioGroup>
+                  {credentialMode === "enter" ? (
+                    <LabeledField
+                      label="Temporary password"
+                      hint="At least 8 characters. The user must change it at first sign-in."
+                    >
+                      <Input
+                        type="password"
+                        autoComplete="new-password"
+                        value={password}
+                        onChange={(event) => setPassword(event.target.value)}
                       />
-                      {company.name}
-                      {company.code ? (
-                        <span className="font-mono text-xs text-muted-foreground">{company.code}</span>
-                      ) : null}
-                    </label>
-                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <input
-                        type="radio"
-                        name="default-company"
-                        className="accent-[var(--primary)]"
-                        disabled={!checked}
-                        checked={
-                          checked && selectedCompanies.find((item) => item.is_default)?.company_id === company.id
-                        }
-                        onChange={() => setDefaultCompanyId(company.id)}
-                      />
-                      Default
-                    </label>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Section>
-
-        <Section title="Access">
-          <AccessMatrix
-            access={access}
-            superAdmin={superAdmin}
-            onAccessChange={setAccess}
-            onSuperAdminChange={setSuperAdmin}
-            superAdminLocked={lastSuperAdmin}
-          />
-          {user && Object.values(user.access).includes("custom") ? (
-            <p className="m-0 text-xs text-muted-foreground">
-              Some modules had custom permissions from before. Saving replaces them with the levels shown.
-            </p>
-          ) : null}
-          {demotingSelf ? (
-            <div className="flex items-start gap-2 rounded-[var(--nx-radius-md)] border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-3 text-sm">
-              <Checkbox
-                id={`${formId}-self-demotion`}
-                checked={confirmSelfDemotion}
-                onCheckedChange={(value) => setConfirmSelfDemotion(value === true)}
+                    </LabeledField>
+                  ) : null}
+                </div>
+              ) : null}
+            </Section>
+          </TabsContent>
+          <TabsContent value="companies" keepMounted className="data-[hidden]:hidden">
+            <Section title="Companies">
+              {companyOptions.length === 0 ? (
+                <p className="m-0 text-sm text-muted-foreground">No companies are available yet.</p>
+              ) : (
+                <div className="grid gap-2" role="group" aria-label="Company access">
+                  {companyOptions.map((company) => {
+                    const checked = companyIds.includes(company.id);
+                    return (
+                      <div
+                        key={company.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--nx-radius-md)] border border-border px-3 py-2"
+                      >
+                        <label className="flex items-center gap-2 text-sm">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) => toggleCompany(company.id, value === true)}
+                          />
+                          {company.name}
+                          {company.code ? (
+                            <span className="font-mono text-xs text-muted-foreground">{company.code}</span>
+                          ) : null}
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <input
+                            type="radio"
+                            name="default-company"
+                            className="accent-[var(--primary)]"
+                            disabled={!checked}
+                            checked={
+                              checked && selectedCompanies.find((item) => item.is_default)?.company_id === company.id
+                            }
+                            onChange={() => setDefaultCompanyId(company.id)}
+                          />
+                          Default
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Section>
+          </TabsContent>
+          <TabsContent value="access" keepMounted className="data-[hidden]:hidden">
+            <Section title="Access">
+              <AccessMatrix
+                access={access}
+                superAdmin={superAdmin}
+                onAccessChange={setAccess}
+                onSuperAdminChange={setSuperAdmin}
+                superAdminLocked={lastSuperAdmin}
               />
-              <label htmlFor={`${formId}-self-demotion`}>
-                I understand I am removing my own Super Admin access and will lose access to Administration.
-              </label>
-            </div>
-          ) : null}
-        </Section>
-
-        {creating ? (
-          <Section title="Review">
-            <dl className="m-0 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
-              <dt className="text-muted-foreground">User</dt>
-              <dd className="m-0 break-words">
-                {displayName || "—"} · {email || "—"}
-              </dd>
-              <dt className="text-muted-foreground">Companies</dt>
-              <dd className="m-0">{companyIds.length}</dd>
-              <dt className="text-muted-foreground">Access</dt>
-              <dd className="m-0">
-                {superAdmin
-                  ? "Super Admin (full access)"
-                  : Object.keys(access).length
-                    ? `${Object.keys(access).length} module(s)`
-                    : "No modules yet"}
-              </dd>
-            </dl>
-          </Section>
-        ) : (
-          <AccountActions
-            user={user}
-            lastSuperAdmin={lastSuperAdmin}
-            client={client}
-            onCredential={onCredential}
-            onSaved={onSaved}
-          />
-        )}
-      </div>
+              {user && Object.values(user.access).includes("custom") ? (
+                <p className="m-0 text-xs text-muted-foreground">
+                  Some modules had custom permissions from before. Saving replaces them with the levels shown.
+                </p>
+              ) : null}
+              {demotingSelf ? (
+                <div className="flex items-start gap-2 rounded-[var(--nx-radius-md)] border border-[var(--nx-warning-border)] bg-[var(--nx-warning-soft)] p-3 text-sm">
+                  <Checkbox
+                    id={`${formId}-self-demotion`}
+                    checked={confirmSelfDemotion}
+                    onCheckedChange={(value) => setConfirmSelfDemotion(value === true)}
+                  />
+                  <label htmlFor={`${formId}-self-demotion`}>
+                    I understand I am removing my own Super Admin access and will lose access to Administration.
+                  </label>
+                </div>
+              ) : null}
+            </Section>
+          </TabsContent>
+          <TabsContent value="review" keepMounted className="data-[hidden]:hidden">
+            {creating ? (
+              <Section title="Review">
+                <dl className="m-0 grid grid-cols-[8rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                  <dt className="text-muted-foreground">User</dt>
+                  <dd className="m-0 break-words">
+                    {displayName || "—"} · {email || "—"}
+                  </dd>
+                  <dt className="text-muted-foreground">Companies</dt>
+                  <dd className="m-0">{companyIds.length}</dd>
+                  <dt className="text-muted-foreground">Access</dt>
+                  <dd className="m-0">
+                    {superAdmin
+                      ? "Super Admin (full access)"
+                      : Object.keys(access).length
+                        ? `${Object.keys(access).length} module(s)`
+                        : "No modules yet"}
+                  </dd>
+                </dl>
+              </Section>
+            ) : (
+              <AccountActions
+                user={user}
+                lastSuperAdmin={lastSuperAdmin}
+                client={client}
+                onCredential={onCredential}
+                onSaved={onSaved}
+              />
+            )}
+          </TabsContent>
+        </div>
+      </Tabs>
       <div className="flex flex-wrap justify-end gap-2 border-t border-border px-5 py-3 sm:px-6">
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel

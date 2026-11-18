@@ -138,7 +138,7 @@ export function ProductionPlanForm({
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">{form.record?.code ?? "New Production Planning"}</h2>
+          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">{form.record?.code ?? "New Production Planning"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Choose the finished product and how many units to produce.
           </p>
@@ -209,7 +209,7 @@ export function ProductionPlanForm({
           />
         </LabeledField>
       </fieldset>
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+      <footer className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-4 shadow-sm">
         <p className="max-w-xl text-sm text-muted-foreground">
           {form.record
             ? converted

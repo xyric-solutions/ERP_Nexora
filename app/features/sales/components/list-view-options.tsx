@@ -53,7 +53,7 @@ interface StoredView {
   pageSize: number;
 }
 
-const storageKey = (id: string) => `nexora.sales.list.${id}`;
+const storageKey = (id: string) => `nexora.sales.list.v2.${id}`;
 
 function readView(id: string): StoredView | null {
   try {
@@ -147,7 +147,7 @@ export function useListView<T>(id: string, columns: readonly ListColumn<T>[]): L
 }
 
 /** Filter icon menu: tick the fields to show. Rows per page is chosen in the pager. */
-export function ListViewMenu<T>({ view, label = "Filter" }: { view: ListView<T>; label?: string }) {
+export function ListViewMenu<T>({ view, label = "Columns" }: { view: ListView<T>; label?: string }) {
   const visibleCount = view.visible.length;
   return (
     <DropdownMenu>
@@ -235,7 +235,7 @@ export function ListTable<T>({
 }) {
   return (
     <div className="relative overflow-x-auto">
-      <table className={cn(tableClass, className)}>
+      <table className={cn(tableClass, "[&_td]:max-w-80 [&_td]:min-w-0 [&_td]:break-normal", className)}>
         <thead>
           <tr>
             {view.visible.map((column) => (

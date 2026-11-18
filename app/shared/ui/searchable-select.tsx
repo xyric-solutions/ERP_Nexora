@@ -34,6 +34,8 @@ export interface SearchableSelectProps {
   footer?: React.ReactNode;
   /** Optional shorter text for the closed trigger, e.g. a calling code instead of the full country name. */
   valueLabel?: (option: SearchableSelectOption) => string;
+  /** Search directly in the closed field instead of a second input in its popup. */
+  inlineSearch?: boolean;
 }
 
 /**
@@ -60,8 +62,10 @@ export function SearchableSelect({
   className,
   footer,
   valueLabel,
+  inlineSearch = false,
 }: SearchableSelectProps) {
   const [localSearch, setLocalSearch] = useState("");
+  const [open, setOpen] = useState(false);
   const query = search ?? localSearch;
   const input = useRef<HTMLInputElement>(null);
   const found = options.find((item) => item.value === value) ?? null;
@@ -82,12 +86,24 @@ export function SearchableSelect({
       filteredItems={loading ? [] : visible}
       filter={null}
       value={selected}
-      inputValue={query}
+      inputValue={inlineSearch && !open ? (selected?.label ?? "") : query}
+      {...(inlineSearch
+        ? {
+            open,
+            onOpenChange: (next: boolean) => {
+              setOpen(next);
+              if (!next && query) changeSearch("");
+            },
+          }
+        : {})}
       isItemEqualToValue={(a, b) => a.value === b.value}
       itemToStringLabel={(item) => item.label}
       itemToStringValue={(item) => item.value}
       onInputValueChange={(next, detail) => {
-        if (detail.reason === "input-change" || detail.reason === "input-clear") changeSearch(next);
+        if (detail.reason === "input-change" || detail.reason === "input-clear") {
+          changeSearch(next);
+          if (inlineSearch) setOpen(true);
+        }
       }}
       onValueChange={(item) => {
         if (loading || item?.disabled) return;
@@ -97,49 +113,74 @@ export function SearchableSelect({
       }}
       disabled={disabled}
     >
-      <Combobox.Trigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              "group h-10 w-full min-w-0 justify-between gap-2 rounded-md border-input bg-background px-3 text-left text-sm font-normal text-foreground shadow-none",
-              "hover:border-primary/50 hover:bg-background hover:text-foreground aria-invalid:border-destructive",
-              "data-popup-open:border-primary data-popup-open:bg-background data-popup-open:ring-3 data-popup-open:ring-(--nx-focus-ring)",
-              className,
-            )}
+      {inlineSearch ? (
+        <Combobox.InputGroup className="relative w-full min-w-0">
+          <Combobox.Input
+            ref={input}
+            id={id}
+            render={<Input className={cn("h-10 pr-10", className)} />}
+            aria-label={label}
+            aria-invalid={invalid || undefined}
+            aria-required={required || undefined}
+            required={required}
+            placeholder={placeholder}
+            maxLength={160}
+            autoComplete="off"
           />
-        }
-        id={id}
-        aria-label={label}
-        aria-invalid={invalid || undefined}
-        aria-required={required || undefined}
-        data-value={value}
-        title={selected?.label}
-      >
-        <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>
-          {selected ? (valueLabel ? valueLabel(selected) : selected.label) : placeholder}
-        </span>
-        <ChevronDownIcon
-          aria-hidden="true"
-          className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180 group-data-popup-open:text-(--nx-brand)"
-        />
-      </Combobox.Trigger>
+          <Combobox.Trigger
+            render={<Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1" />}
+            aria-label={`Show ${label.toLowerCase()} options`}
+          >
+            <ChevronDownIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+          </Combobox.Trigger>
+        </Combobox.InputGroup>
+      ) : (
+        <Combobox.Trigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "group h-10 w-full min-w-0 justify-between gap-2 rounded-md border-input bg-background px-3 text-left text-sm font-normal text-foreground shadow-none",
+                "hover:border-primary/50 hover:bg-background hover:text-foreground aria-invalid:border-destructive",
+                "data-popup-open:border-primary data-popup-open:bg-background data-popup-open:ring-3 data-popup-open:ring-(--nx-focus-ring)",
+                className,
+              )}
+            />
+          }
+          id={id}
+          aria-label={label}
+          aria-invalid={invalid || undefined}
+          aria-required={required || undefined}
+          data-value={value}
+          title={selected?.label}
+        >
+          <span className={cn("min-w-0 truncate", !selected && "text-muted-foreground")}>
+            {selected ? (valueLabel ? valueLabel(selected) : selected.label) : placeholder}
+          </span>
+          <ChevronDownIcon
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted-foreground transition-transform group-data-popup-open:rotate-180 group-data-popup-open:text-(--nx-brand)"
+          />
+        </Combobox.Trigger>
+      )}
       <Combobox.Portal>
         {/* Above HR drawers (z 1301/1401) and confirmation dialogs (z 1501) that host these dropdowns. */}
         <Combobox.Positioner sideOffset={6} align="start" collisionPadding={8} className="isolate z-[1600]">
           <Combobox.Popup
-            initialFocus={input}
+            initialFocus={inlineSearch ? false : input}
             className="w-(--anchor-width) min-w-64 max-w-(--available-width) rounded-xl border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
           >
-            <Combobox.Input
-              ref={input}
-              render={<Input className="h-9" />}
-              aria-label={searchLabel}
-              placeholder={searchPlaceholder}
-              maxLength={160}
-              autoComplete="off"
-            />
+            {!inlineSearch ? (
+              <Combobox.Input
+                ref={input}
+                render={<Input className="h-9" />}
+                aria-label={searchLabel}
+                placeholder={searchPlaceholder}
+                maxLength={160}
+                autoComplete="off"
+              />
+            ) : null}
             <Combobox.List className="mt-1.5 max-h-[min(18rem,calc(var(--available-height)-3.5rem))] overflow-y-auto">
               {(item: SearchableSelectOption) => (
                 <Combobox.Item

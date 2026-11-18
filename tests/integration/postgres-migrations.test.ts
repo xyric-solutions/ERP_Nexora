@@ -38,7 +38,7 @@ describe("production PostgreSQL source migrations", () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
       platform: 11,
-      security: 24,
+      security: 26,
       workflow: 1,
       master_data: 2,
       finance: 40,
@@ -47,6 +47,7 @@ describe("production PostgreSQL source migrations", () => {
       manufacturing: 4,
       hr: 155,
       fixed_assets: 7,
+      fleet: 2,
       runtime: 1,
     });
   });
@@ -62,7 +63,7 @@ describe("production PostgreSQL source migrations", () => {
       await migrateSourceSchema(fresh);
       await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
         platform: 11,
-        security: 24,
+        security: 26,
         finance: 40,
       });
       const columns = await fresh.query<{ column_name: string }>(
@@ -313,14 +314,15 @@ describe("production PostgreSQL source migrations", () => {
     expect(result.rows).toEqual([
       { module_name: "finance", migration_count: "40", latest: 40 },
       { module_name: "fixed_assets", migration_count: "7", latest: 7 },
+      { module_name: "fleet", migration_count: "2", latest: 2 },
       { module_name: "hr", migration_count: "155", latest: 155 },
       { module_name: "inventory", migration_count: "3", latest: 3 },
       { module_name: "manufacturing", migration_count: "4", latest: 4 },
       { module_name: "master_data", migration_count: "2", latest: 2 },
       { module_name: "platform", migration_count: "11", latest: 11 },
-      { module_name: "procurement", migration_count: "6", latest: 6 },
+      { module_name: "procurement", migration_count: "7", latest: 7 },
       { module_name: "runtime", migration_count: "1", latest: 1 },
-      { module_name: "security", migration_count: "24", latest: 24 },
+      { module_name: "security", migration_count: "26", latest: 26 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);
     const bankingMigrations = await pool.query<{ module_name: string; version: number; name: string }>(
@@ -523,7 +525,7 @@ describe("production PostgreSQL source migrations", () => {
     const result = await pool.query<{ permission_count: string }>(
       "select count(*)::text as permission_count from security_permission_definition",
     );
-    expect(result.rows[0]?.permission_count).toBe("379");
+    expect(result.rows[0]?.permission_count).toBe("389");
     const selfApproval = await pool.query(
       "select permission_key from security_permission_definition where permission_key='procurement.document.self_approve' and status='active'",
     );

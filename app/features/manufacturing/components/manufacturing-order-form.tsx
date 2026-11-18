@@ -182,7 +182,7 @@ export function ManufacturingOrderForm({
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">{record?.code ?? "New Manufacturing Order"}</h2>
+          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">{record?.code ?? "New Manufacturing Order"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {record?.plan_code
               ? `Created from production plan ${record.plan_code}.`
@@ -316,7 +316,7 @@ export function ManufacturingOrderForm({
           </ol>
         </section>
       ) : null}
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+      <footer className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-4 shadow-sm">
         <p className="max-w-xl text-sm text-muted-foreground">
           Confirming approves the order. Material issue, production and costing are not part of this module yet.
         </p>

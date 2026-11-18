@@ -40,7 +40,7 @@ function AccessChips({ user }: { user: AdminUser }) {
   if (!entries.length) return <span className="text-xs text-muted-foreground">No modules assigned</span>;
   return (
     <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="Module access">
-      {entries.map((entry) => (
+      {entries.slice(0, 2).map((entry) => (
         <li
           key={entry.id}
           className="inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs whitespace-nowrap text-foreground"
@@ -49,6 +49,7 @@ function AccessChips({ user }: { user: AdminUser }) {
           <span className="ml-1 font-semibold">· {levelLabels[entry.level!] ?? entry.level}</span>
         </li>
       ))}
+      {entries.length > 2 ? <li><details><summary className="cursor-pointer rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground">+{entries.length - 2} modules</summary><ul className="m-0 mt-2 grid list-none gap-1 p-0 text-xs text-muted-foreground">{entries.slice(2).map(entry => <li key={entry.id}>{entry.label} · {levelLabels[entry.level!] ?? entry.level}</li>)}</ul></details></li> : null}
     </ul>
   );
 }
@@ -284,7 +285,6 @@ export function AdminUsersView({ recordRef }: { recordRef?: string }) {
                       <span className="grid min-w-0">
                         <strong className="truncate font-semibold text-foreground">{user.display_name}</strong>
                         <small className="truncate text-xs text-muted-foreground">{user.email}</small>
-                        <small className="font-mono text-[11px] text-muted-foreground">{user.id}</small>
                       </span>
                     </td>
                     <td>

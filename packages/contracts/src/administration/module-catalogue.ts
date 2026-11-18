@@ -46,7 +46,7 @@ export const administrationModuleCatalogue = [
   },
   { id: "tax", label: "Taxation & Compliance", permissionPrefixes: [], live: false },
   { id: "operations", label: "Operations", permissionPrefixes: [], live: false },
-  { id: "fleet", label: "Fleet Management", permissionPrefixes: [], live: false },
+  { id: "fleet", label: "Fleet Management", permissionPrefixes: ["fleet."], live: true },
   { id: "manufacturing", label: "Production / Manufacturing", permissionPrefixes: ["manufacturing."], live: true },
   { id: "quality", label: "Quality Management", permissionPrefixes: [], live: false },
   { id: "crm", label: "CRM", permissionPrefixes: [], live: false },

@@ -58,7 +58,6 @@ function metricsFor(kind: SalesDocumentKind, state: SalesState, actor: string, m
     return [
       { label: "Awaiting my approval", value: awaiting, hint: mine ? "Showing only these · click to show all" : "Quotations you must decide", onSelect: () => setMine(!mine), selected: mine },
       { label: "Approved", value: all.filter((doc) => doc.status === "Approved").length, hint: "Next: Confirm Order" },
-      { label: "Drafts", value: all.filter((doc) => doc.status === "Draft").length, hint: "Not approved yet" },
       { label: "Open value", value: moneyWhole(live.reduce((sum, doc) => sum + toBase(documentTotal(doc), doc), 0)), hint: "Not yet ordered, incl. sales tax, in PKR" },
     ];
   }
@@ -72,29 +71,28 @@ function metricsFor(kind: SalesDocumentKind, state: SalesState, actor: string, m
   }
   const unpaid = all.filter((doc) => doc.status !== "Paid");
   return [
-    { label: "Invoices", value: all.length, hint: "All invoices" },
     { label: "Unpaid", value: unpaid.length, hint: "Next: Receive Payment" },
     { label: "Overdue", value: all.filter((doc) => displayStatus(doc) === "Overdue").length, hint: "Past the due date" },
     { label: "Outstanding", value: moneyWhole(unpaid.reduce((sum, doc) => sum + toBase(invoiceBalance(state, doc), doc), 0)), hint: "Still to collect, in PKR" },
   ];
 }
 
-function columnsFor(kind: SalesDocumentKind, state: SalesState): ListColumn<SalesDocument>[] {
+function columnsFor(kind: SalesDocumentKind, state: SalesState, nav: SalesNav): ListColumn<SalesDocument>[] {
   const customerOf = (doc: SalesDocument) => state.customers.find((item) => item.id === doc.customerId);
   const columns: (ListColumn<SalesDocument> | false)[] = [
     {
       id: "code",
-      label: "Document",
+      label: kind === "quotation" ? "Quotation" : kind === "order" ? "Order" : "Invoice",
       required: true,
       cell: (doc) => (
         <>
-          <span className="font-mono text-[0.8125rem] font-semibold">{doc.code}</span>
-          {sourceLabel(doc) ? <small>{sourceLabel(doc)}</small> : null}
+          <button type="button" className="border-0 bg-transparent p-0 text-[13px] font-semibold whitespace-nowrap text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-ring" onClick={() => nav.open(doc.code)}>{doc.code}</button>
+          <small>{formatDate(doc.date)}</small>
         </>
       ),
     },
-    { id: "date", label: SALES_KINDS[kind].date1, nowrap: true, cell: (doc) => formatDate(doc.date) },
-    { id: "date2", label: SALES_KINDS[kind].date2, nowrap: true, optional: kind !== "invoice", cell: (doc) => formatDate(doc.date2) },
+    { id: "date", label: SALES_KINDS[kind].date1, optional: kind !== "order", nowrap: true, cell: (doc) => formatDate(doc.date) },
+    { id: "date2", label: SALES_KINDS[kind].date2, nowrap: true, optional: kind === "order", cell: (doc) => formatDate(doc.date2) },
     {
       id: "customer",
       label: "Customer",
@@ -106,23 +104,29 @@ function columnsFor(kind: SalesDocumentKind, state: SalesState): ListColumn<Sale
         </>
       ),
     },
-    { id: "reference", label: SALES_KINDS[kind].referenceLabel, cell: (doc) => doc.reference || "—" },
-    kind === "quotation" && { id: "approver", label: "Approver", cell: (doc) => doc.approver || <span className="text-muted-foreground">None</span> },
+    { id: "source", label: "Source", optional: true, cell: sourceLabel },
+    { id: "reference", label: SALES_KINDS[kind].referenceLabel, optional: true, cell: (doc) => doc.reference || "—" },
+    kind === "quotation" && { id: "approver", label: "Approver", optional: true, cell: (doc) => doc.approver || <span className="text-muted-foreground">None</span> },
     kind === "quotation" && {
       id: "approval",
       label: "Approval",
+      optional: true,
       cell: (doc) => <span className={approvalOf(doc) ? "text-xs font-semibold text-[var(--nx-success-text)]" : "text-xs text-muted-foreground"}>{approvalSummary(doc)}</span>,
     },
     kind === "order" && { id: "fulfilment", label: "Fulfilment", cell: (doc) => (doc.status === "Confirmed" ? <StatusPill status={fulfilmentStage(doc)} /> : <span className="text-xs text-muted-foreground">Not confirmed</span>) },
     {
       id: "next",
-      label: "Next action",
+      label: "Next step",
+      optional: kind === "invoice",
       cell: (doc) => {
         const next = listNextAction(state, doc);
+        const label = kind === "quotation"
+          ? doc.links.order ? "View order" : doc.status === "Approved" ? "Confirm order" : doc.status === "Changes requested" ? "Revise quotation" : doc.status === "Pending approval" ? "Review approval" : "Review quotation"
+          : next;
         return (
-          <span className={next ? "text-xs font-semibold whitespace-nowrap text-[var(--nx-brand)]" : "text-xs text-muted-foreground"}>
-            {next ? `${next} →` : doc.status === "Rejected" ? "Closed" : "Complete"}
-          </span>
+          <button type="button" className={next || doc.links.order ? "border-0 bg-transparent p-0 text-[13px] font-semibold whitespace-nowrap text-foreground hover:underline" : "border-0 bg-transparent p-0 text-xs text-muted-foreground"} onClick={() => nav.open(kind === "quotation" && doc.links.order ? doc.links.order : doc.code)}>
+            {label ? `${label} →` : doc.status === "Rejected" ? "Closed" : "Complete"}
+          </button>
         );
       },
     },
@@ -136,9 +140,10 @@ function columnsFor(kind: SalesDocumentKind, state: SalesState): ListColumn<Sale
     kind === "invoice" && { id: "returned", label: "Returned", align: "right", optional: true, cell: (doc) => docMoney(returnedOn(state, doc), doc) },
     kind === "invoice" && { id: "balance", label: "Balance", align: "right", cell: (doc) => <span className="font-semibold">{docMoney(invoiceBalance(state, doc), doc)}</span> },
     { id: "status", label: "Status", required: true, cell: (doc) => <StatusPill status={displayStatus(doc)} /> },
-    { id: "owner", label: kind === "invoice" ? "Issued by" : "Salesperson", optional: kind === "invoice", cell: (doc) => doc.owner || "—" },
+    { id: "owner", label: kind === "invoice" ? "Issued by" : "Salesperson", optional: true, cell: (doc) => doc.owner || "—" },
   ];
-  return columns.filter(Boolean) as ListColumn<SalesDocument>[];
+  const order = kind === "quotation" ? ["code", "customer", "date2", "amount", "status", "next"] : kind === "order" ? ["code", "customer", "date", "amount", "fulfilment", "next", "status"] : ["code", "customer", "date2", "amount", "balance", "status"];
+  return (columns.filter(Boolean) as ListColumn<SalesDocument>[]).sort((a, b) => (order.includes(a.id) ? order.indexOf(a.id) : 100) - (order.includes(b.id) ? order.indexOf(b.id) : 100));
 }
 
 /** Document list. For invoices, `selected` opens that invoice in the right-side panel. */
@@ -151,7 +156,7 @@ export function DocumentList({ kind, nav, selected }: { kind: SalesDocumentKind;
   const [stage, setStage] = useState("");
   const [mine, setMine] = useState(false);
   const [returning, setReturning] = useState(false);
-  const columns = useMemo(() => columnsFor(kind, state), [kind, state]);
+  const columns = useMemo(() => columnsFor(kind, state, nav), [kind, state, nav]);
   const view = useListView(`documents.${kind}`, columns);
 
   const rows = useMemo(() => {
@@ -194,10 +199,9 @@ export function DocumentList({ kind, nav, selected }: { kind: SalesDocumentKind;
         eyebrow={`Sales · ${meta.label}`}
         title={meta.plural}
         status={<StatusPill status="Prototype only" />}
-        description={meta.description}
+        description={kind === "quotation" ? "Manage offers, review approvals and turn accepted quotations into orders." : kind === "order" ? "Track confirmed orders through delivery and invoicing." : "Review invoices, outstanding balances and customer payments."}
         actions={
           <>
-            <ListViewMenu view={view} />
             {kind === "invoice" ? (
               <Button type="button" variant="outline" onClick={() => nav.go("receipts")}>
                 <ReceiptText /> Receipts
@@ -224,6 +228,7 @@ export function DocumentList({ kind, nav, selected }: { kind: SalesDocumentKind;
           <FilterSelect label="Customer" value={customer} options={state.customers.map((item) => [item.id, item.display] as const)} onChange={setCustomer} />
           <FilterSelect label="Status" value={status} options={meta.statuses} onChange={setStatus} />
           {kind === "order" ? <FilterSelect label="Fulfilment" value={stage} options={FULFILMENT_STAGES} onChange={setStage} /> : null}
+          <ListViewMenu view={view} />
         </ListToolbar>
         {rows.length ? (
           <>

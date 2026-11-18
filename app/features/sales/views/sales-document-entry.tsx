@@ -221,7 +221,7 @@ export function DocumentEntry({
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3.5">
           <div>
             <span className="text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{meta.label}</span>
-            <h2 className="m-0 mt-0.5 text-lg font-bold">{isNew ? `New ${meta.label}` : draft.code}</h2>
+            <h2 className="m-0 mt-0.5 text-base font-semibold">{isNew ? "Customer & commercial details" : draft.code}</h2>
             <p className="m-0 mt-0.5 text-xs text-muted-foreground">
               {sourceTemplate
                 ? `Prefilled from recurring template ${sourceTemplate.code} for the ${formatDate(sourceTemplate.next)} period. Review, then Save & Post; the invoice number is assigned then.`

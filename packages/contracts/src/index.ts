@@ -2,6 +2,7 @@ export * from "./administration/index.js";
 export * from "./auth/index.js";
 export * from "./banking/index.js";
 export * from "./finance/index.js";
+export * from "./fleet/index.js";
 export * from "./health.js";
 export * from "./hr/index.js";
 export * from "./jobs/index.js";

@@ -7,7 +7,8 @@ select permission_key, module, resource, action, status from security_permission
 ```
 
 Total: 348 keys, all `active`; plus the 10 `manufacturing.` keys added by
-`security/0024_manufacturing_permissions` on 2026-11-13 (358). The list below is also read by
+`security/0024_manufacturing_permissions` on 2026-11-13 (358), and the 10 `fleet.` keys added by
+`security/0025_fleet_permissions` on 2026-11-16 (368). The list below is also read by
 `tests/unit/administration-contracts.test.ts` to prove every action is classified
 by `packages/contracts/src/administration/access-levels.ts`. Refresh it when a
 migration adds permission keys.
@@ -18,6 +19,7 @@ migration adds permission keys.
 |---|---|
 | `banking` | 56 |
 | `finance` | 45 |
+| `fleet` | 10 |
 | `hr` | 129 |
 | `inventory` | 5 |
 | `manufacturing` | 10 |
@@ -41,11 +43,12 @@ A unit test fails if a module in `app/shell/config/prototype-data.ts` is missing
 | `banking` | Banking & Treasury | `banking.` | Live (56 keys) |
 | `purchases` | Purchases | `procurement.` | Live (13 keys) |
 | `inventory` | Inventory | `inventory.` | Live (5 keys) |
+| `fleet` | Fleet Management | `fleet.` | Live (10 keys): Vehicles and their tools, Drivers, Fuel, Maintenance, Fuel Efficiency. Other Fleet pages remain mock. |
 | `manufacturing` | Production / Manufacturing | `manufacturing.` | Live (10 keys): Bill of Materials, Production Planning, Manufacturing Orders. Other Manufacturing pages remain mock. |
 | `finance` | Accounting (label renamed per D10) | `finance.`, `master_data.` | Live (45 + 4 keys) |
 | `hr` | HR & Payroll | `hr.` + admin-level `workflow.approval.approve/reject` (payroll journal/payment approvals) | Live (129 + 2 keys) |
 | `sales` | Sales & Billing | — | **Mock** — no server permissions (client store) |
-| `costing`, `tax`, `operations`, `fleet`, `quality`, `crm`, `projects`, `resources`, `support`, `assets`, `expenses`, `documents`, `budget`, `reports`, `portals`, `configuration`, `approvals`, `notifications`, `integrations`, `ai`, `audit`, `migration`, `mobile` | — | — | **Mock** — access level controls navigation only |
+| `costing`, `tax`, `operations`, `quality`, `crm`, `projects`, `resources`, `support`, `assets`, `expenses`, `documents`, `budget`, `reports`, `portals`, `configuration`, `approvals`, `notifications`, `integrations`, `ai`, `audit`, `migration`, `mobile` | — | — | **Mock** — access level controls navigation only |
 | `dashboard` | Dashboard | — | Not grantable: visible to every signed-in user |
 | `administration` | Administration | `security.`, `platform.`, `administration.` | Not grantable: Super Admin only |
 
@@ -172,6 +175,16 @@ finance.report.read
 finance.report_definition.manage
 finance.transfer_fx_policy.manage
 finance.transfer_fx_policy.read
+fleet.driver.create
+fleet.driver.read
+fleet.driver.update
+fleet.fuel.create
+fleet.fuel.read
+fleet.maintenance.create
+fleet.maintenance.read
+fleet.vehicle.create
+fleet.vehicle.read
+fleet.vehicle.update
 hr.attendance.calendar.manage
 hr.attendance.calendar.read
 hr.attendance.correction.cancel

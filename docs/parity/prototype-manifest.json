@@ -3,8 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 30,
-    "groups": 121,
-    "pages": 676
+    "groups": 122,
+    "pages": 678
   },
   "modules": [
     {
@@ -956,6 +956,70 @@
       ],
       "groups": [
         {
+          "id": "fleet-live",
+          "label": "Fleet",
+          "pages": [
+            {
+              "id": "vehicles",
+              "label": "Vehicles",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "drivers",
+              "label": "Drivers",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "fuel-register",
+              "label": "Fuel",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "maintenance-entries",
+              "label": "Maintenance",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "fuel-efficiency",
+              "label": "Fuel Efficiency",
+              "archetype": "report",
+              "status": "live"
+            },
+            {
+              "id": "add-vehicle",
+              "label": "Add Vehicle",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-driver",
+              "label": "Add Driver",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-fuel-entry",
+              "label": "Add Fuel Entry",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-maintenance-entry",
+              "label": "Add Maintenance",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            }
+          ]
+        },
+        {
           "id": "fleet-command",
           "label": "Fleet Command Centre",
           "pages": [
@@ -978,18 +1042,6 @@
           "label": "Vehicles & Drivers",
           "pages": [
             {
-              "id": "vehicles",
-              "label": "Vehicle Register",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-vehicle",
-              "label": "Add Vehicle",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
               "id": "vehicle-detail",
               "label": "Vehicle 360°",
               "archetype": "detail",
@@ -999,18 +1051,6 @@
               "id": "vehicle-categories",
               "label": "Vehicle Categories & Policies",
               "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "drivers",
-              "label": "Driver Register",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-driver",
-              "label": "Add Driver",
-              "archetype": "form",
               "status": "prototype"
             },
             {
@@ -1073,18 +1113,6 @@
           "id": "fleet-fuel",
           "label": "Fuel & Road Costs",
           "pages": [
-            {
-              "id": "fuel-register",
-              "label": "Fuel Register",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-fuel-entry",
-              "label": "Add Fuel Entry",
-              "archetype": "form",
-              "status": "prototype"
-            },
             {
               "id": "fuel-card-management",
               "label": "Fuel Cards",
@@ -1232,12 +1260,6 @@
             {
               "id": "utilisation-downtime",
               "label": "Utilisation & Downtime",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
-              "id": "fuel-efficiency",
-              "label": "Fuel Efficiency",
               "archetype": "report",
               "status": "prototype"
             },

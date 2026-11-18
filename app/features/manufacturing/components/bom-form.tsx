@@ -131,7 +131,7 @@ export function BomForm({
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">{form.record?.code ?? "New Bill of Materials"}</h2>
+          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">{form.record?.code ?? "New Bill of Materials"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Components and quantities needed to make the output quantity of one finished product.
           </p>
@@ -206,13 +206,14 @@ export function BomForm({
               </Button>
             ) : null}
           </div>
-          <div className="space-y-3">
+          <div className="divide-y divide-border overflow-hidden rounded-[10px] border border-border">
+            <div className="hidden grid-cols-[minmax(0,1fr)_9rem_7rem_2.5rem] gap-3 bg-muted px-3 py-3 text-xs text-muted-foreground sm:grid"><span>Component</span><span>Quantity per output</span><span>Unit</span><span className="sr-only">Remove</span></div>
             {form.input.lines.map((line, index) => (
               <div
                 key={index}
-                className="grid min-w-0 items-start gap-3 rounded-lg border border-border p-3 sm:grid-cols-[minmax(0,1fr)_9rem_7rem_2.5rem]"
+                className="grid min-w-0 items-start gap-3 p-3 sm:grid-cols-[minmax(0,1fr)_9rem_7rem_2.5rem]"
               >
-                <LabeledField label={`Component ${index + 1} *`}>
+                <LabeledField label={`Component ${index + 1} *`} labelClassName="sm:sr-only">
                   <ManufacturingLookup
                     company={company}
                     surface="boms"
@@ -233,21 +234,21 @@ export function BomForm({
                     }}
                   />
                 </LabeledField>
-                <LabeledField label={`Component ${index + 1} quantity *`}>
+                <LabeledField label={`Component ${index + 1} quantity *`} labelClassName="sm:sr-only">
                   <Input
                     inputMode="decimal"
                     value={line.quantity}
                     onChange={(e) => setLine(index, { quantity: e.target.value })}
                   />
                 </LabeledField>
-                <LabeledField label="Unit">
+                <LabeledField label="Unit" labelClassName="sm:sr-only">
                   <Input readOnly value={known[line.product_id]?.unit ?? ""} />
                 </LabeledField>
                 {writable ? (
                   <Button
                     type="button"
                     variant="ghost"
-                    className="sm:mt-6"
+                    className="sm:self-center"
                     disabled={form.input.lines.length === 1}
                     aria-label={`Remove component ${index + 1}`}
                     onClick={() =>
@@ -270,7 +271,7 @@ export function BomForm({
           />
         </LabeledField>
       </fieldset>
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+      <footer className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-4 shadow-sm">
         <p className="max-w-xl text-sm text-muted-foreground">
           One Bill of Materials per finished product. Plans and orders scale these quantities to the quantity needed.
         </p>

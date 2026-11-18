@@ -79,6 +79,26 @@ import type {
   InventoryCompanies,
   InventoryOptions,
   ProductLookupDirectory,
+  FleetCompanies,
+  FleetLookupDirectory,
+  FleetVehicleInput,
+  FleetVehicle,
+  FleetVehicleDirectory,
+  FleetVehicleMutation,
+  FleetToolInput,
+  FleetToolList,
+  FleetToolMutation,
+  FleetDriverInput,
+  FleetDriver,
+  FleetDriverDirectory,
+  FleetDriverMutation,
+  FleetFuelEntryInput,
+  FleetFuelDirectory,
+  FleetFuelMutation,
+  FleetMaintenanceInput,
+  FleetMaintenanceDirectory,
+  FleetMaintenanceMutation,
+  FleetFuelEfficiencyReport,
   ManufacturingSurface,
   ManufacturingCompanies,
   ManufacturingLookupDirectory,
@@ -1106,6 +1126,108 @@ export class NexoraApiClient {
       headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
       body: JSON.stringify(payload),
     });
+  }
+  listFleetCompanies(): Promise<FleetCompanies> {
+    return this.request("/api/v1/fleet/companies");
+  }
+  listFleetLookups(query: string): Promise<FleetLookupDirectory> {
+    return this.request(`/api/v1/fleet/lookups${query}`);
+  }
+  listFleetVehicles(query: string): Promise<FleetVehicleDirectory> {
+    return this.request(`/api/v1/fleet/vehicles${query}`);
+  }
+  getFleetVehicle(id: string, company: string): Promise<FleetVehicle> {
+    return this.request(`/api/v1/fleet/vehicles/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`);
+  }
+  saveFleetVehicle(
+    id: string | null,
+    payload: FleetVehicleInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetVehicleMutation> {
+    return this.request(`/api/v1/fleet/vehicles${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${(payload as { expected_version?: number }).expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  listFleetVehicleTools(vehicleId: string, company: string): Promise<FleetToolList> {
+    return this.request(
+      `/api/v1/fleet/vehicles/${encodeURIComponent(vehicleId)}/tools?company_id=${encodeURIComponent(company)}`,
+    );
+  }
+  saveFleetVehicleTool(
+    vehicleId: string,
+    toolId: string | null,
+    payload: FleetToolInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetToolMutation> {
+    return this.request(
+      `/api/v1/fleet/vehicles/${encodeURIComponent(vehicleId)}/tools${toolId ? "/" + encodeURIComponent(toolId) : ""}`,
+      {
+        method: toolId ? "PATCH" : "POST",
+        headers: {
+          "x-csrf-token": csrf,
+          "idempotency-key": key,
+          ...(toolId ? { "if-match": `"${payload.expected_version}"` } : {}),
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+  }
+  listFleetDrivers(query: string): Promise<FleetDriverDirectory> {
+    return this.request(`/api/v1/fleet/drivers${query}`);
+  }
+  getFleetDriver(id: string, company: string): Promise<FleetDriver> {
+    return this.request(`/api/v1/fleet/drivers/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`);
+  }
+  saveFleetDriver(
+    id: string | null,
+    payload: FleetDriverInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetDriverMutation> {
+    return this.request(`/api/v1/fleet/drivers${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${(payload as { expected_version?: number }).expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  listFleetFuelEntries(query: string): Promise<FleetFuelDirectory> {
+    return this.request(`/api/v1/fleet/fuel${query}`);
+  }
+  createFleetFuelEntry(payload: FleetFuelEntryInput, csrf: string, key: string): Promise<FleetFuelMutation> {
+    return this.request("/api/v1/fleet/fuel", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(payload),
+    });
+  }
+  listFleetMaintenanceEntries(query: string): Promise<FleetMaintenanceDirectory> {
+    return this.request(`/api/v1/fleet/maintenance${query}`);
+  }
+  createFleetMaintenanceEntry(
+    payload: FleetMaintenanceInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetMaintenanceMutation> {
+    return this.request("/api/v1/fleet/maintenance", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(payload),
+    });
+  }
+  getFleetFuelEfficiency(query: string): Promise<FleetFuelEfficiencyReport> {
+    return this.request(`/api/v1/fleet/reports/fuel-efficiency${query}`);
   }
   listProcurementCompanies(): Promise<ProcurementCompanies> {
     return this.request("/api/v1/procurement/companies");

@@ -330,17 +330,33 @@ export const prototypeModules = [
     category: "Operations & people",
     modes: allModes,
     groups: [
+      // Live (meeting 16 Nov 2026): Vehicles, Drivers, Fuel and Maintenance sit first, with the
+      // Fuel Efficiency report. Add Vehicle and Add Driver are buttons on the Vehicles page.
+      // Everything below stays prototype.
+      g(
+        "fleet-live",
+        "Fleet",
+        [
+          p("vehicles", "Vehicles", "list", "live"),
+          p("drivers", "Drivers", "list", "live"),
+          p("fuel-register", "Fuel", "list", "live"),
+          p("maintenance-entries", "Maintenance", "list", "live"),
+          p("fuel-efficiency", "Fuel Efficiency", "report", "live"),
+          p("add-vehicle", "Add Vehicle", "form", "live", true),
+          p("add-driver", "Add Driver", "form", "live", true),
+          p("add-fuel-entry", "Add Fuel Entry", "form", "live", true),
+          p("add-maintenance-entry", "Add Maintenance", "form", "live", true),
+        ],
+        false,
+        true,
+      ),
       g("fleet-command", "Fleet Command Centre", [
         p("fleet-overview", "Fleet Overview", "dashboard"),
         p("fleet-calendar", "Fleet Calendar", "dashboard"),
       ]),
       g("fleet-masters", "Vehicles & Drivers", [
-        p("vehicles", "Vehicle Register"),
-        p("add-vehicle", "Add Vehicle", "form"),
         p("vehicle-detail", "Vehicle 360°", "detail"),
         p("vehicle-categories", "Vehicle Categories & Policies", "settings"),
-        p("drivers", "Driver Register"),
-        p("add-driver", "Add Driver", "form"),
         p("driver-detail", "Driver 360°", "detail"),
       ]),
       g("fleet-dispatch", "Assignments & Dispatch", [
@@ -353,8 +369,6 @@ export const prototypeModules = [
         p("route-planning", "Route Planning", "workflow"),
       ]),
       g("fleet-fuel", "Fuel & Road Costs", [
-        p("fuel-register", "Fuel Register"),
-        p("add-fuel-entry", "Add Fuel Entry", "form"),
         p("fuel-card-management", "Fuel Cards"),
         p("fuel-reconciliation", "Fuel Reconciliation", "workflow"),
         p("tolls-fines", "Tolls, Fines & Other Costs"),
@@ -383,7 +397,6 @@ export const prototypeModules = [
       g("fleet-analysis", "Cost, Controls & Reports", [
         p("vehicle-costing", "Vehicle Whole-life Cost", "report"),
         p("utilisation-downtime", "Utilisation & Downtime", "report"),
-        p("fuel-efficiency", "Fuel Efficiency", "report"),
         p("maintenance-cost-analysis", "Maintenance Cost Analysis", "report"),
         p("fleet-reports", "Fleet Reports", "report"),
         p("fleet-approvals", "Fleet Approvals", "approval"),
