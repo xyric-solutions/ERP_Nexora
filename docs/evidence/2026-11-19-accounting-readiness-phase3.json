@@ -1,0 +1,629 @@
+{
+  "asOf": "2026-11-19",
+  "capturedAt": "2026-11-19T12:47:49.860Z",
+  "applicationCommit": "f71ffe9c8676bec1be007f566ba35deacbded53d",
+  "buildId": "nXe0dnHNr_y0YWqWMezFO",
+  "transactionReadOnly": "on",
+  "businessWrites": 0,
+  "ownerApproval": "PENDING: legal entity, cutover date and classification of existing records have not been specified",
+  "ownerAuthenticatedPostingJourneysExecuted": 0,
+  "sourceEvidence": {
+    "workbook": "outputs/coa-visual-transcription-20261020/chart-of-accounts-review.xlsx",
+    "sha256": "f9d5a2a7772575e1e5fe98927d4da0939f949611f8596107a1206eea381ac85a",
+    "matchedPublishedCatalogue": true,
+    "scope": "Approved catalogue source only; no inferred approval of control, FX, tax or credit mappings"
+  },
+  "auditEvidence": {
+    "queries": 85,
+    "rawArtifact": "tmp/accounting-acceptance-phase3/configuration-audit.json",
+    "sha256": "5372247f6c5a9e27b1794a6e6d60bc35e49247444d7102803ac9826b38f90aa1",
+    "scriptSha256": "efc32438920249e09346f44095078ad2a6ce3b1efa61a712a64b2410880943ef"
+  },
+  "financialReadVerification": {
+    "artifact": "tmp/accounting-acceptance-phase3/financial-report-verification.json",
+    "sha256": "5a84ab950cdcdd1d3592a5bef90148d88fa70407208b23aa8274a111793d7db7",
+    "runtimeRole": {
+      "role": "nexora_app",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    "assertions": {
+      "passed": 44,
+      "failed": 0
+    },
+    "renderedReports": 14,
+    "blockedReports": 2,
+    "blockedReason": "R06-UAT-2 supplier outstanding/advance reports require a fiscal calendar"
+  },
+  "httpReadVerification": {
+    "at": "2026-11-19T12:52:20.186Z",
+    "businessWrites": 0,
+    "apiReady": true,
+    "loginStatus": 200,
+    "anonymousBusinessStatus": 401,
+    "servedScripts": 14,
+    "servedScriptsMatchPinnedBuild": true,
+    "buildId": "nXe0dnHNr_y0YWqWMezFO",
+    "applicationCommit": "f71ffe9c8676bec1be007f566ba35deacbded53d"
+  },
+  "companies": [
+    {
+      "company": {
+        "tenant_id": "nexora-r06-uat",
+        "id": "nexora-r06-uat-company",
+        "code": "R06-UAT",
+        "name": "Nexora R06 UAT Company",
+        "status": "active"
+      },
+      "counts": {
+        "accounts": 338,
+        "financialPolicies": 0,
+        "financialParties": 0,
+        "reviewedTermsCredit": 0,
+        "suppliers": 2,
+        "taxDefinitions": 0,
+        "purchaseDocuments": 28,
+        "postedSubledgerItems": 0,
+        "financialOperations": 0,
+        "journals": 3,
+        "banks": 4,
+        "statementImports": 0,
+        "reconciliations": 1
+      },
+      "currencyProfile": [
+        {
+          "id": "r06-company-currency-profile",
+          "base_currency": "USD",
+          "base_country_code": "US",
+          "status": "active",
+          "locked_at": null,
+          "row_version": "1",
+          "created_by": "r06.last-admin-a",
+          "updated_by": "r06.last-admin-a"
+        }
+      ],
+      "currencies": [
+        {
+          "currency_code": "AED",
+          "selected_country_code": "AE",
+          "is_base": false,
+          "status": "active",
+          "row_version": "1",
+          "decimal_places": 2
+        },
+        {
+          "currency_code": "PKR",
+          "selected_country_code": "PK",
+          "is_base": false,
+          "status": "active",
+          "row_version": "1",
+          "decimal_places": 2
+        },
+        {
+          "currency_code": "USD",
+          "selected_country_code": "US",
+          "is_base": true,
+          "status": "active",
+          "row_version": "1",
+          "decimal_places": 2
+        }
+      ],
+      "effectiveRates": [
+        {
+          "source": "AED",
+          "target": "USD",
+          "id": "company-currency-rate-acf2d5fe-c2cd-4019-b21d-0f7446856953",
+          "rate": "0.270000000000000000",
+          "effective_date": "2026-10-29",
+          "age_days": 21,
+          "readiness": "RECORDED_OWNER_REVIEW"
+        },
+        {
+          "source": "PKR",
+          "target": "USD",
+          "id": "company-currency-rate-428b5d24-4f5f-48d7-88fa-cb7de38ea8f8",
+          "rate": "0.003000000000000000",
+          "effective_date": "2026-11-06",
+          "age_days": 13,
+          "readiness": "RECORDED_OWNER_REVIEW"
+        },
+        {
+          "source": "USD",
+          "target": "USD",
+          "id": null,
+          "rate": null,
+          "effective_date": null,
+          "age_days": null,
+          "readiness": "BASE_1"
+        }
+      ],
+      "taxInventory": [
+        {
+          "definitions": 0,
+          "mappings": 0,
+          "applications": 0,
+          "regions": 0
+        }
+      ],
+      "chartClassifications": [
+        {
+          "catalogue": "nexora-standard-coa",
+          "classifications": {
+            "ordinary": 134,
+            "not_applicable": 99,
+            "review_required": 93
+          }
+        }
+      ],
+      "controlAndFxReferences": [
+        {
+          "code": "120101",
+          "name": "Trade Creditors",
+          "type": "liability",
+          "status": "inactive",
+          "header": false,
+          "balance": "0"
+        },
+        {
+          "code": "230201",
+          "name": "Debtors",
+          "type": "asset",
+          "status": "inactive",
+          "header": false,
+          "balance": "0"
+        },
+        {
+          "code": "420106",
+          "name": "Currency Exchange Gains",
+          "type": "revenue",
+          "status": "active",
+          "header": false,
+          "balance": "0"
+        },
+        {
+          "code": "710706",
+          "name": "Realised Exchange Gains",
+          "type": "expense",
+          "status": "inactive",
+          "header": false,
+          "balance": "0"
+        },
+        {
+          "code": "710707",
+          "name": "Realised Exchange Losses",
+          "type": "expense",
+          "status": "active",
+          "header": false,
+          "balance": "0"
+        },
+        {
+          "code": "710708",
+          "name": "Exchange Revaluation Gains",
+          "type": "expense",
+          "status": "inactive",
+          "header": false,
+          "balance": "0"
+        },
+        {
+          "code": "710709",
+          "name": "Exchange Revaluation Losses",
+          "type": "expense",
+          "status": "inactive",
+          "header": false,
+          "balance": "0"
+        }
+      ],
+      "structuralChecks": [
+        {
+          "broken_chart_parents": 0,
+          "broken_purchase_sources": 0,
+          "invalid_bill_allocations": 0,
+          "broken_journal_account_links": 0,
+          "unbalanced_posted_journals": 0,
+          "duplicate_posted_sources": 0,
+          "future_journals": 0
+        }
+      ],
+      "duplicateInvoiceReferenceGroups": 0,
+      "duplicateInvoiceFingerprintGroups": 0,
+      "trialBalance": [
+        {
+          "code": "230907",
+          "name": "Js Bank (USD)",
+          "type": "asset",
+          "currency": "USD",
+          "native_balance": "1110000.00000000",
+          "base_debit": "1110000.00000000",
+          "base_credit": "0.00000000",
+          "base_balance": "1110000.00000000"
+        },
+        {
+          "code": "310111",
+          "name": "Capital Mr. A",
+          "type": "equity",
+          "currency": "USD",
+          "native_balance": "-1110000.00000000",
+          "base_debit": "0.00000000",
+          "base_credit": "1110000.00000000",
+          "base_balance": "-1110000.00000000"
+        }
+      ],
+      "capitalJournals": [
+        {
+          "document": "MJ-2026-000001",
+          "date": "2026-10-30",
+          "reference": "Opening Capital",
+          "state": "posted",
+          "journalId": "journal-1d4bcf99-83b0-42bd-8c14-cf769969fb35",
+          "amount": "100000.00000000"
+        },
+        {
+          "document": "MJ-2026-000002",
+          "date": "2026-11-17",
+          "reference": "Opening Capital",
+          "state": "posted",
+          "journalId": "journal-129732bd-8b53-4b3d-85e2-9801c64bd55e",
+          "amount": "10000.00000000"
+        },
+        {
+          "document": "MJ-2026-000003",
+          "date": "2026-11-17",
+          "reference": "Opening Capital",
+          "state": "posted",
+          "journalId": "journal-89f1e0bf-0617-4b31-b050-8f8e8ec50387",
+          "amount": "1000000.00000000"
+        }
+      ],
+      "purchaseCutover": [
+        {
+          "id": "purchase-c3e878a5-389a-4247-8238-d63e1b433eb1",
+          "code": "BILL-001",
+          "kind": "bill",
+          "supplier": "SUP-001",
+          "date": "2026-11-10",
+          "dueDate": "2026-11-10",
+          "term": null,
+          "currency": "USD",
+          "amount": "1.00",
+          "reference": "01001",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": []
+        },
+        {
+          "id": "purchase-e6a74440-a701-4b1a-aed3-70d9a4183ca4",
+          "code": "PAY-001",
+          "kind": "payment",
+          "supplier": "SUP-001",
+          "date": "2026-11-10",
+          "dueDate": null,
+          "term": null,
+          "currency": "USD",
+          "amount": "1.00",
+          "reference": "",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": ["0"]
+        },
+        {
+          "id": "purchase-8259f906-4510-44b3-a38e-e79aabfeb12e",
+          "code": "BILL-002",
+          "kind": "bill",
+          "supplier": "SUP-001",
+          "date": "2026-11-11",
+          "dueDate": "2026-11-27",
+          "term": null,
+          "currency": "USD",
+          "amount": "5000.00",
+          "reference": "0102",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": []
+        },
+        {
+          "id": "purchase-5c71e859-cc2a-4673-869b-65ead24391e2",
+          "code": "PAY-002",
+          "kind": "payment",
+          "supplier": "SUP-001",
+          "date": "2026-11-11",
+          "dueDate": "2026-11-11",
+          "term": null,
+          "currency": "USD",
+          "amount": "5000.00",
+          "reference": "",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": ["0"]
+        },
+        {
+          "id": "purchase-6c6d3b1f-8b9f-4335-8219-5393c8363833",
+          "code": "BILL-003",
+          "kind": "bill",
+          "supplier": "SUP-001",
+          "date": "2026-11-17",
+          "dueDate": "2026-11-17",
+          "term": "immediate",
+          "currency": "USD",
+          "amount": "10.00",
+          "reference": "010",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": []
+        },
+        {
+          "id": "purchase-a568ab89-d104-450a-a19f-3ab751817e78",
+          "code": "PAY-003",
+          "kind": "payment",
+          "supplier": "SUP-001",
+          "date": "2026-11-17",
+          "dueDate": null,
+          "term": null,
+          "currency": "USD",
+          "amount": "10.00",
+          "reference": "",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": ["10"]
+        },
+        {
+          "id": "purchase-1ceee123-d5cc-460b-bc5d-b6daf6027cd0",
+          "code": "BILL-004",
+          "kind": "bill",
+          "supplier": "SUP-002",
+          "date": "2026-11-18",
+          "dueDate": "2026-12-03",
+          "term": "days_15",
+          "currency": "USD",
+          "amount": "10.00",
+          "reference": "0101",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": []
+        },
+        {
+          "id": "purchase-2ad300f5-5d70-4a89-8392-01f4b9fd431b",
+          "code": "PAY-004",
+          "kind": "payment",
+          "supplier": "SUP-002",
+          "date": "2026-11-18",
+          "dueDate": null,
+          "term": null,
+          "currency": "USD",
+          "amount": "10.00",
+          "reference": "",
+          "version": 3,
+          "state": "approved",
+          "financialOperations": null,
+          "recordedWithholding": ["0"]
+        }
+      ],
+      "bankInstructions": {
+        "receipts": [
+          {
+            "reference": "BR-2026-00000001",
+            "currency": "USD",
+            "amount": "5000.00000000",
+            "state": "approved",
+            "journal": null
+          }
+        ],
+        "payments": [
+          {
+            "reference": "BP-2026-00000001",
+            "currency": "USD",
+            "amount": "100.00000000",
+            "state": "approved",
+            "journal": null
+          }
+        ]
+      },
+      "bankNominals": [
+        {
+          "code": "230907",
+          "currency": "USD",
+          "identityMode": "nominal_only",
+          "state": "active",
+          "balance": "1110000.00000000"
+        },
+        {
+          "code": "230908",
+          "currency": "USD",
+          "identityMode": "nominal_only",
+          "state": "active",
+          "balance": "0"
+        },
+        {
+          "code": "UAT-BN-000001",
+          "currency": "PKR",
+          "identityMode": "nominal_only",
+          "state": "active",
+          "balance": "0"
+        },
+        {
+          "code": "230901",
+          "currency": "PKR",
+          "identityMode": "nominal_only",
+          "state": "active",
+          "balance": "0"
+        }
+      ],
+      "reconciliations": [
+        {
+          "id": "bank-reconciliation-614edc7c-cb19-4b4f-8fe4-0e45e68bfe4a",
+          "reference": "MANUAL-2026-11-18",
+          "date": "2026-11-18",
+          "state": "in_progress",
+          "currency": "USD",
+          "statement": "1000000.00000000",
+          "book": "1110000.00000000",
+          "difference": "-110000.00000000",
+          "approvedBy": null
+        }
+      ],
+      "fiscalCalendars": [
+        {
+          "id": "fiscal-calendar-9162348c-629c-4ba6-91b8-9b372c43358d",
+          "year": 2026,
+          "period_start": "2026-07-01",
+          "period_end": "2027-06-30",
+          "status": "active",
+          "row_version": "1"
+        }
+      ],
+      "openPeriods": 12,
+      "dimensionCodes": {
+        "organization": [
+          {
+            "type": "branch",
+            "code": "BR-001",
+            "status": "active"
+          },
+          {
+            "type": "branch",
+            "code": "R06-BR",
+            "status": "active"
+          },
+          {
+            "type": "department",
+            "code": "DEPT-001",
+            "status": "active"
+          },
+          {
+            "type": "department",
+            "code": "R06-DEPT",
+            "status": "active"
+          },
+          {
+            "type": "division",
+            "code": "DIV-001",
+            "status": "active"
+          }
+        ],
+        "projects": ["PRJ-001"],
+        "costCentres": ["R06-CC"],
+        "locations": ["LOC-001"]
+      }
+    },
+    {
+      "company": {
+        "tenant_id": "nexora-r06-uat",
+        "id": "nexora-r06-uat-company-two",
+        "code": "R06-UAT-2",
+        "name": "Nexora R06 UAT Company Two",
+        "status": "active"
+      },
+      "counts": {
+        "accounts": 0,
+        "financialPolicies": 0,
+        "financialParties": 0,
+        "reviewedTermsCredit": 0,
+        "suppliers": 0,
+        "taxDefinitions": 0,
+        "purchaseDocuments": 0,
+        "postedSubledgerItems": 0,
+        "financialOperations": 0,
+        "journals": 0,
+        "banks": 0,
+        "statementImports": 0,
+        "reconciliations": 0
+      },
+      "currencyProfile": [
+        {
+          "id": "r06-company-two-currency-profile",
+          "base_currency": "USD",
+          "base_country_code": "US",
+          "status": "active",
+          "locked_at": null,
+          "row_version": "1",
+          "created_by": "r06.last-admin-a",
+          "updated_by": "r06.last-admin-a"
+        }
+      ],
+      "currencies": [
+        {
+          "currency_code": "PKR",
+          "selected_country_code": "PK",
+          "is_base": false,
+          "status": "active",
+          "row_version": "1",
+          "decimal_places": 2
+        },
+        {
+          "currency_code": "USD",
+          "selected_country_code": "US",
+          "is_base": true,
+          "status": "active",
+          "row_version": "1",
+          "decimal_places": 2
+        }
+      ],
+      "effectiveRates": [
+        {
+          "source": "PKR",
+          "target": "USD",
+          "id": null,
+          "rate": null,
+          "effective_date": null,
+          "age_days": null,
+          "readiness": "MISSING"
+        },
+        {
+          "source": "USD",
+          "target": "USD",
+          "id": null,
+          "rate": null,
+          "effective_date": null,
+          "age_days": null,
+          "readiness": "BASE_1"
+        }
+      ],
+      "taxInventory": [
+        {
+          "definitions": 0,
+          "mappings": 0,
+          "applications": 0,
+          "regions": 0
+        }
+      ],
+      "chartClassifications": [],
+      "controlAndFxReferences": [],
+      "structuralChecks": [
+        {
+          "broken_chart_parents": 0,
+          "broken_purchase_sources": 0,
+          "invalid_bill_allocations": 0,
+          "broken_journal_account_links": 0,
+          "unbalanced_posted_journals": 0,
+          "duplicate_posted_sources": 0,
+          "future_journals": 0
+        }
+      ],
+      "duplicateInvoiceReferenceGroups": 0,
+      "duplicateInvoiceFingerprintGroups": 0,
+      "trialBalance": [],
+      "capitalJournals": [],
+      "purchaseCutover": [],
+      "bankInstructions": {
+        "receipts": [],
+        "payments": []
+      },
+      "bankNominals": [],
+      "reconciliations": [],
+      "fiscalCalendars": [],
+      "openPeriods": 0,
+      "dimensionCodes": {
+        "organization": [],
+        "projects": [],
+        "costCentres": [],
+        "locations": []
+      }
+    }
+  ]
+}
