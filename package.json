@@ -12,11 +12,13 @@
     "packages/*"
   ],
   "scripts": {
+    "predev": "npm run build --workspace @nexora/contracts",
     "dev": "next dev --hostname 127.0.0.1",
     "dev:web": "npm run dev",
     "dev:api": "npm run dev --workspace @nexora/api",
     "dev:worker": "npm run dev --workspace @nexora/worker",
     "build": "npm run typecheck && npm run build:web",
+    "prebuild:web": "npm run build --workspace @nexora/contracts",
     "build:web": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3000",
     "start:web": "npm run start",

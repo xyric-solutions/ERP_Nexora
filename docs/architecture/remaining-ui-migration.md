@@ -1,5 +1,18 @@
 # Remaining UI migration checklist
 
+## 2026-11-19 - Sign-in and organisation setup
+
+- Existing accounts go through company selection after sign-in and open the ERP
+  once a company is selected. The Create an account link opens Organisation Setup
+  at `/register`. Registration still validates the form locally because account
+  provisioning is deferred in this environment.
+- The root and compatible release production builds, focused ESLint, theme audit,
+  and both account-entry browser tests passed. On the active local release,
+  Shoaib signed in and opened the ERP after choosing a company. Organisation Setup
+  opened through the registration link at widths of 390, 768, and 1440 pixels.
+  Browser evidence is in `tmp/login-recovery/account-entry-verification.json`.
+  This routing change requires no further UI migration.
+
 ## 2026-11-19 - Integration of the ERP branches on main
 
 - Integrated Fleet and Manufacturing workspaces, the shared module presentation,

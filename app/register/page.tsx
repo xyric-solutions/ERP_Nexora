@@ -78,13 +78,13 @@ export default function RegisterPage() {
       wide
       brand={
         <BrandPitch
-          title="Set up your organisation in a few minutes."
+          title="One workspace for your organisation."
           text="You become the Super Admin. Then create logins for your team and choose exactly which modules each person can use."
         />
       }
     >
       <form onSubmit={submit} noValidate className="grid" aria-labelledby="register-title">
-        <Title id="register-title">Create your organisation</Title>
+        <Title id="register-title">Set up your organisation</Title>
         <p className="mb-6 text-sm text-muted-foreground">
           Employees don&rsquo;t sign up here — your Super Admin creates their logins.
         </p>

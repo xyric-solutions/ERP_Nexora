@@ -66,6 +66,8 @@ npm ci
 npm run dev:web
 ```
 
+The npm web development and build commands compile the shared contracts before starting Next.js. After editing the contracts while the dev server is running, rebuild them with `npm run build --workspace @nexora/contracts`.
+
 Then open <http://127.0.0.1:3000/>. The web application can run by itself for visual review. API and worker processes require the environment values documented in [`.env.example`](./.env.example).
 
 For isolated database and queue dependencies used by the integration suite:
