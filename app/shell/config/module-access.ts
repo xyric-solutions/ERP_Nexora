@@ -17,6 +17,7 @@ const hiddenNavigationModules = new Set([
   "notifications",
   "integrations",
   "audit",
+  "mobile",
 ]);
 
 export function isModuleInNavigation(moduleId: string): boolean {

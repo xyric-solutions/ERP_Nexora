@@ -1022,6 +1022,7 @@
         {
           "id": "fleet-command",
           "label": "Fleet Command Centre",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "fleet-overview",
@@ -1040,6 +1041,7 @@
         {
           "id": "fleet-masters",
           "label": "Vehicles & Drivers",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "vehicle-detail",
@@ -1064,6 +1066,7 @@
         {
           "id": "fleet-dispatch",
           "label": "Assignments & Dispatch",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "vehicle-assignments",
@@ -1112,6 +1115,7 @@
         {
           "id": "fleet-fuel",
           "label": "Fuel & Road Costs",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "fuel-card-management",
@@ -1142,6 +1146,7 @@
         {
           "id": "fleet-maintenance",
           "label": "Maintenance & Components",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "maintenance-dashboard",
@@ -1202,6 +1207,7 @@
         {
           "id": "fleet-compliance",
           "label": "Compliance & Incidents",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "registration-insurance",
@@ -1250,6 +1256,7 @@
         {
           "id": "fleet-analysis",
           "label": "Cost, Controls & Reports",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "vehicle-costing",
@@ -1355,6 +1362,7 @@
         {
           "id": "engineering",
           "label": "Product Engineering",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "manufacturing-overview",
@@ -1385,6 +1393,7 @@
         {
           "id": "planning",
           "label": "Planning",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "demand-plan",
@@ -1415,6 +1424,7 @@
         {
           "id": "production",
           "label": "Production",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "release-production-order",
@@ -1445,6 +1455,7 @@
         {
           "id": "exceptions",
           "label": "Exceptions & Cost",
+          "hiddenFromNavigation": true,
           "pages": [
             {
               "id": "scrap-rework",

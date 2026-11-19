@@ -332,7 +332,7 @@ export const prototypeModules = [
     groups: [
       // Live (meeting 16 Nov 2026): Vehicles, Drivers, Fuel and Maintenance sit first, with the
       // Fuel Efficiency report. Add Vehicle and Add Driver are buttons on the Vehicles page.
-      // Everything below stays prototype.
+      // Prototype groups below are hidden from navigation; existing deep links remain available.
       g(
         "fleet-live",
         "Fleet",
@@ -353,12 +353,12 @@ export const prototypeModules = [
       g("fleet-command", "Fleet Command Centre", [
         p("fleet-overview", "Fleet Overview", "dashboard"),
         p("fleet-calendar", "Fleet Calendar", "dashboard"),
-      ]),
+      ], true),
       g("fleet-masters", "Vehicles & Drivers", [
         p("vehicle-detail", "Vehicle 360°", "detail"),
         p("vehicle-categories", "Vehicle Categories & Policies", "settings"),
         p("driver-detail", "Driver 360°", "detail"),
-      ]),
+      ], true),
       g("fleet-dispatch", "Assignments & Dispatch", [
         p("vehicle-assignments", "Vehicle Assignments"),
         p("add-assignment", "Add Vehicle Assignment", "form"),
@@ -367,13 +367,13 @@ export const prototypeModules = [
         p("add-trip", "Add Trip", "form"),
         p("trip-detail", "Trip Detail", "detail"),
         p("route-planning", "Route Planning", "workflow"),
-      ]),
+      ], true),
       g("fleet-fuel", "Fuel & Road Costs", [
         p("fuel-card-management", "Fuel Cards"),
         p("fuel-reconciliation", "Fuel Reconciliation", "workflow"),
         p("tolls-fines", "Tolls, Fines & Other Costs"),
         p("add-road-cost", "Add Road Cost", "form"),
-      ]),
+      ], true),
       g("fleet-maintenance", "Maintenance & Components", [
         p("maintenance-dashboard", "Maintenance Dashboard", "dashboard"),
         p("maintenance-plans", "Maintenance Plans"),
@@ -384,7 +384,7 @@ export const prototypeModules = [
         p("tyres-batteries", "Tyres & Batteries"),
         p("spare-parts-usage", "Spare Parts Usage"),
         p("inspection-schedule", "Inspection Schedule", "workflow"),
-      ]),
+      ], true),
       g("fleet-compliance", "Compliance & Incidents", [
         p("registration-insurance", "Registration, Insurance & Permits"),
         p("renewal-calendar", "Renewal Calendar", "workflow"),
@@ -393,7 +393,7 @@ export const prototypeModules = [
         p("add-incident", "Add Incident", "form"),
         p("incident-claim-detail", "Incident & Claim Detail", "detail"),
         p("claims", "Insurance Claims"),
-      ]),
+      ], true),
       g("fleet-analysis", "Cost, Controls & Reports", [
         p("vehicle-costing", "Vehicle Whole-life Cost", "report"),
         p("utilisation-downtime", "Utilisation & Downtime", "report"),
@@ -401,7 +401,7 @@ export const prototypeModules = [
         p("fleet-reports", "Fleet Reports", "report"),
         p("fleet-approvals", "Fleet Approvals", "approval"),
         p("fleet-settings", "Fleet Settings", "settings"),
-      ]),
+      ], true),
     ],
   },
   {
@@ -414,7 +414,8 @@ export const prototypeModules = [
     modes: ["manufacturing"],
     groups: [
       // Live (meeting decision 13 Nov 2026): the three working sections sit first, directly under the
-      // module, in flow order; the module opens on Bill of Materials. Everything below stays prototype.
+      // module, in flow order; the module opens on Bill of Materials.
+      // Prototype groups below are hidden from navigation; existing deep links remain available.
       g(
         "manufacturing-live",
         "Manufacturing",
@@ -435,25 +436,25 @@ export const prototypeModules = [
         p("routings", "Routings"),
         p("routing-editor", "Routing Editor", "form"),
         p("work-centres", "Work Centres & Machines"),
-      ]),
+      ], true),
       g("planning", "Planning", [
         p("demand-plan", "Demand Plan"),
         p("mrp-run", "MRP Run", "workflow"),
         p("material-requirements", "Material Requirements"),
         p("capacity-planner", "Capacity Planner", "dashboard"),
-      ]),
+      ], true),
       g("production", "Production", [
         p("release-production-order", "Release Production Order", "approval"),
         p("material-issue", "Material Issue", "form"),
         p("wip-tracking", "WIP Tracking", "workflow"),
         p("production-completion", "Production Completion", "form"),
-      ]),
+      ], true),
       g("exceptions", "Exceptions & Cost", [
         p("scrap-rework", "Scrap, By-product & Rework", "form"),
         p("subcontracting", "Subcontracting"),
         p("production-variance", "Production Cost & Variance", "report"),
         p("production-reports", "Production Reports", "report"),
-      ]),
+      ], true),
     ],
   },
   {

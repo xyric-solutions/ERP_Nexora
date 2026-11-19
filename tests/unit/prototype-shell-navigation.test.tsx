@@ -52,7 +52,7 @@ afterEach(() => {
 describe("Prototype shell module navigation", () => {
   it("hides the requested modules while retaining their registered destinations", () => {
     const hidden = ["operations", "quality", "crm", "projects", "resources", "support", "expenses",
-      "documents", "portals", "migration", "approvals", "configuration", "notifications", "integrations", "audit"];
+      "documents", "portals", "migration", "approvals", "configuration", "notifications", "integrations", "audit", "mobile"];
     const buttons = [...container.querySelectorAll<HTMLButtonElement>(".nx-module-button")];
     for (const id of hidden) {
       const entry = prototypeModules.find((item) => item.id === id)!;
