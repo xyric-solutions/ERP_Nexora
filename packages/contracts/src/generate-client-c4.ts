@@ -16,7 +16,7 @@ const client = await format(
   `import type {AssetOptions,AssetWorkspace,AssetDashboard,AssetSources,AssetDetail,AssetCategoryInput,AssetCategory,AssetCreate,FixedAsset,AssetUpdate,AssetAction,AssetEventInput,AssetEvent,AssetEventAction,AssetDepreciationInput,AssetDepreciationRun,AssetDepreciationAction,AssetAttachment,AssetAttachmentInput,AssetCompanyPolicyInput,AssetCompanyPolicy,AssetValuation} from "@nexora/contracts";
 import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions,TaxConfiguration,TaxConfigurationInput} from "@nexora/contracts";
 import type {BudgetOptions,BudgetDirectory,BudgetDetail,BudgetReport,BudgetDrill,BudgetPlanInput,BudgetVersionInput,BudgetVersionUpdate,BudgetAction,BudgetGenerate,BudgetModelInput,BudgetModel,BudgetApplyModel,BudgetPolicyInput,BudgetPolicy,BudgetRequestInput,BudgetRequestAction,BudgetRequest,BudgetImport,BudgetCommentInput,BudgetSourceControl} from "@nexora/contracts";
-import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerSupplierDirectory,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
+import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPartyConfiguration,SubledgerPartyConfigurationInput,SubledgerSupplierDirectory,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
 import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
 import type {CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrPersonalCorrectionWorkspace,HrReportGovernanceAction,HrReportGovernanceWorkspace,HrReportGovernanceResult} from '@nexora/contracts';
 import type {CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -1365,6 +1365,9 @@ export class NexoraApiClient {
   }
   configureSubledgerPolicy(payload: SubledgerPolicyInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerPolicy> {
     return this.request("/api/v1/finance/subledger/policy", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": '"' + payload.expected_version + '"' }, body: JSON.stringify(payload) });
+  }
+  configureSubledgerParty(id: string, payload: SubledgerPartyConfigurationInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerPartyConfiguration> {
+    return this.request("/api/v1/finance/subledger/parties/" + encodeURIComponent(id) + "/configuration", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": '"' + payload.expected_version + '"' }, body: JSON.stringify(payload) });
   }
   createSubledgerOperation(payload: SubledgerRequest, csrfToken: string, idempotencyKey: string): Promise<SubledgerOperation> {
     return this.request("/api/v1/finance/subledger/operations", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });

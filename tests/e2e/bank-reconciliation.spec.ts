@@ -9,6 +9,7 @@ async function signIn(page: Page, username: string) {
   await page.getByRole("textbox", { name: "Username or email" }).fill(username);
   await page.getByRole("textbox", { name: "Password", exact: true }).fill(password!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: "Open Nexora R06 UAT Company", exact: true }).click();
   await expect(page).not.toHaveURL(/\/login$/);
 }
 
@@ -21,20 +22,19 @@ test.describe("Bank Reconciliation lifecycle browser acceptance", () => {
     const makerPage = await makerContext.newPage();
     await signIn(makerPage, maker!);
     await makerPage.goto("/#/banking/bank-reconciliation/new");
-    await expect(makerPage.getByRole("heading", { level: 1, name: "New Bank Reconciliation" })).toBeVisible();
+    await expect(makerPage.getByRole("heading", { level: 1, name: "Reconciliation Balance" })).toBeVisible();
     await expect(makerPage.getByRole("combobox", { name: "Bank account" })).not.toHaveValue("");
     await makerPage.getByRole("combobox", { name: "Reconciliation method" }).selectOption("manual_tick");
     const reference = `E2E-MANUAL-${Date.now()}`;
     await makerPage.getByRole("textbox", { name: "Statement reference" }).fill(reference);
-    await makerPage.getByRole("textbox", { name: "Opening statement balance" }).fill("0.00");
     await makerPage.getByRole("textbox", { name: "Closing statement balance" }).fill("0.00");
-    await makerPage.getByRole("button", { name: "Save reconciliation", exact: true }).click();
+    await makerPage.getByRole("button", { name: "Load Transactions", exact: true }).click();
     await expect(makerPage.getByRole("heading", { level: 1, name: "Bank Reconciliation", exact: true })).toBeVisible();
     await expect(makerPage).toHaveURL(/bank-reconciliation-[a-f0-9-]{36}$/);
     const detailUrl = makerPage.url();
     await makerPage.reload();
     await expect(makerPage.getByText(reference, { exact: true })).toBeVisible();
-    const submit = makerPage.getByRole("button", { name: "Submit for Approval", exact: true });
+    const submit = makerPage.getByRole("button", { name: "Reconcile / Submit for Approval", exact: true });
     await expect(submit).toBeEnabled();
     await submit.click();
     await expect(

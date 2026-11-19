@@ -4,7 +4,11 @@ import type { PoolClient } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
-import { ensureSourceAuthorizationFixture, sourceTestTenantId } from "../integration/source-security-fixture.js";
+import {
+  ensureSourceSuperAdministratorFixture,
+  ensureCompanyCurrencyFixture,
+  sourceTestTenantId,
+} from "../integration/source-security-fixture.js";
 
 const databaseUrl = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL;
 const run = databaseUrl ? describe : describe.skip;
@@ -18,7 +22,7 @@ run("Finance Bank Nominal database security", () => {
 
   beforeAll(async () => {
     pool = createDatabasePool(databaseUrl!);
-    await ensureSourceAuthorizationFixture(pool);
+    await ensureSourceSuperAdministratorFixture(pool);
     await pool.query(
       `insert into organization_unit (tenant_id,id,type,code,name,status)
        values ($1,$2,'company',$2,'Synthetic Nominal Security Company','active')`,
@@ -29,6 +33,10 @@ run("Finance Bank Nominal database security", () => {
        values ($1,'XBN','Synthetic Nominal Currency',2,false,'active') on conflict do nothing`,
       [sourceTestTenantId],
     );
+    await pool.query(
+      "insert into country_currency_catalog(country_code,country_name,currency_code,currency_name,decimal_places,is_primary,source_version) values('US','United States','XBN','Synthetic Nominal Currency',2,false,'isolated-security-fixture') on conflict do nothing",
+    );
+    await ensureCompanyCurrencyFixture(pool, companyId, "USD", ["XBN"]);
     await pool.query(
       `insert into account (tenant_id,company_id,id,code,name,type,parent_id,is_header,status,manual_posting_allowed,created_at)
        values ($1,$2,$3,$3,'Current Assets','asset',null,true,'active',false,now()),

@@ -10,13 +10,16 @@ async function signIn(page: Page) {
   await page.getByRole("textbox", { name: "Username or email" }).fill(maker!);
   await page.getByRole("textbox", { name: "Password", exact: true }).fill(password!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  await page.getByRole("button", { name: "Open Nexora R06 UAT Company", exact: true }).click();
   await expect(page).not.toHaveURL(/\/login$/);
 }
 
 async function waitForBank(page: Page) {
   const bank = page.getByRole("combobox", { name: "Bank", exact: true });
   await expect(bank).toBeVisible();
-  await expect(bank).not.toHaveValue("");
+  const account = bank.locator("option").filter({ hasText: "Synthetic Bank Payment Operating Account" });
+  await expect(account).toHaveCount(1);
+  await bank.selectOption((await account.getAttribute("value"))!);
 }
 
 test.describe.serial("Bank Statement Import browser acceptance", () => {
@@ -28,7 +31,7 @@ test.describe.serial("Bank Statement Import browser acceptance", () => {
     test.setTimeout(120_000);
     await page.setViewportSize({ width: 390, height: 844 });
     await signIn(page);
-    await page.goto("/#/banking/import-statement");
+    await page.goto("/#/banking/import-statement/new");
     await expect(page.getByRole("heading", { level: 1, name: "Import Statement" })).toBeVisible();
     await waitForBank(page);
 
@@ -53,11 +56,11 @@ test.describe.serial("Bank Statement Import browser acceptance", () => {
     await expect(page.getByText("Synthetic CSV receipt", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "Validate Statement", exact: true }).click();
-    const finalize = page.getByRole("button", { name: "Post to Reconciliation and Close", exact: true });
+    const finalize = page.getByRole("button", { name: "Post and Close", exact: true });
     await expect(finalize).toBeEnabled();
     await finalize.click();
-    await expect(page.getByRole("heading", { level: 1, name: "New Bank Reconciliation" })).toBeVisible();
-    await page.getByLabel("Opening statement balance").fill("0.00");
+    await expect(page.getByRole("heading", { level: 1, name: "Reconciliation Balance" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save reconciliation", exact: true })).toBeEnabled();
     await page.getByLabel("Closing statement balance").fill("125.00");
     await page.getByRole("button", { name: "Save reconciliation", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Bank Reconciliation", exact: true })).toBeVisible();
@@ -70,7 +73,7 @@ test.describe.serial("Bank Statement Import browser acceptance", () => {
   test("imports Excel and reuses a saved bank mapping for a second native file", async ({ page }) => {
     test.setTimeout(120_000);
     await signIn(page);
-    await page.goto("/#/banking/import-statement");
+    await page.goto("/#/banking/import-statement/new");
     await waitForBank(page);
 
     const stamp = Date.now();
@@ -99,10 +102,10 @@ test.describe.serial("Bank Statement Import browser acceptance", () => {
       page.getByText("Column mapping saved and the statement was parsed again.", { exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Validate Statement", exact: true }).click();
-    await page.getByRole("button", { name: "Post to Reconciliation and Close", exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "New Bank Reconciliation" })).toBeVisible();
+    await page.getByRole("button", { name: "Post and Close", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Reconciliation Balance" })).toBeVisible();
 
-    await page.goto("/#/banking/import-statement");
+    await page.goto("/#/banking/import-statement/new");
     await waitForBank(page);
     await page.getByRole("combobox", { name: "Saved bank mapping" }).selectOption({ label: profileName });
     const secondReference = `E2E-XLSX-${stamp}-B`;

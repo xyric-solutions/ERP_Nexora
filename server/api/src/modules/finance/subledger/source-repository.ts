@@ -5,6 +5,11 @@ import {
   purchaseDocumentSchema,
   supplierSchema,
   purchaseTotals,
+  financialPaymentSchedule,
+  subledgerPartyConfigurationInputSchema,
+  subledgerPartyConfigurationSchema,
+  type SubledgerPartyConfigurationInput,
+  type SubledgerPartyConfiguration,
   calculateTax,
   absolute,
   convertMinor,
@@ -280,10 +285,12 @@ export class SourceSubledgerRepository {
             ).rows[0];
             if (input.kind !== "supplier" || !supplier || supplier.name !== input.name)
               reject("The supplier reference does not match the company supplier.");
-            const linked = (await client.query(
-              "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 and source_supplier_id=$3 and status='active' and risk_status<>'blocked'",
-              [context.tenantId, input.company_id, input.source_supplier_id],
-            )).rows[0];
+            const linked = (
+              await client.query(
+                "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 and source_supplier_id=$3 and status='active' and risk_status<>'blocked'",
+                [context.tenantId, input.company_id, input.source_supplier_id],
+              )
+            ).rows[0];
             if (linked) return subledgerPartySchema.parse(linked);
           }
           const result = {
@@ -310,26 +317,33 @@ export class SourceSubledgerRepository {
               context.actor.userId,
             ],
           );
-          const canonical = (await client.query(
-            "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 and id=$3",
-            [context.tenantId, input.company_id, result.id],
-          )).rows[0];
+          const canonical = (
+            await client.query(
+              "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 and id=$3",
+              [context.tenantId, input.company_id, result.id],
+            )
+          ).rows[0];
           const party = subledgerPartySchema.parse({
             ...canonical,
             source_supplier_id: canonical.source_supplier_id ?? undefined,
           });
           if (input.kind === "supplier" && !input.source_supplier_id) {
-            const profile = supplierSchema.parse((await client.query(
-              "select id,company_id,code,name,tax_id,email,phone,address,status,risk_status,profile,row_version as version from procurement_supplier where tenant_id=$1 and company_id=$2 and id=$3",
-              [context.tenantId, input.company_id, party.canonical_party_id],
-            )).rows[0]);
+            const profile = supplierSchema.parse(
+              (
+                await client.query(
+                  "select id,company_id,code,name,tax_id,email,phone,address,status,risk_status,profile,row_version as version from procurement_supplier where tenant_id=$1 and company_id=$2 and id=$3",
+                  [context.tenantId, input.company_id, party.canonical_party_id],
+                )
+              ).rows[0],
+            );
             await writeProcurementEvidence(client, context, {
               entity: "supplier",
               id: profile.id,
               company: input.company_id,
               version: 1,
               action: "created",
-              reason: "Inactive profile from financial supplier onboarding; vendor activation remains separately authorized",
+              reason:
+                "Inactive profile from financial supplier onboarding; vendor activation remains separately authorized",
               record: profile,
               key: `financial-profile:${procurementDigest({ key, id: party.id })}`,
               fingerprint: procurementDigest(profile),
@@ -346,6 +360,90 @@ export class SourceSubledgerRepository {
             party,
           );
           return party;
+        },
+      ),
+    );
+  }
+
+  private async configurations(client: PoolClient, tenant: string, company: string, partyId?: string) {
+    const rows = await client.query<SubledgerPartyConfiguration & { decimal_places: number }>(
+      `select distinct on (s.party_id) s.company_id,s.party_id,s.version,s.payment_term,
+       s.credit_limit::text,s.credit_currency,s.reason,c.decimal_places
+       from finance_party_configuration s join currency c on c.tenant_id=s.tenant_id and c.code=s.credit_currency
+       where s.tenant_id=$1 and s.company_id=$2 and ($3::text is null or s.party_id=$3)
+       order by s.party_id,s.version desc`,
+      [tenant, company, partyId ?? null],
+    );
+    return new Map(
+      rows.rows.map(({ decimal_places, ...row }) => [
+        row.party_id,
+        subledgerPartyConfigurationSchema.parse({
+          ...row,
+          credit_limit:
+            row.credit_limit === null ? null : decimalText(dbMinor(row.credit_limit, decimal_places), decimal_places),
+        }),
+      ]),
+    );
+  }
+
+  async configureParty(
+    context: BankingActorContext,
+    partyId: string,
+    raw: SubledgerPartyConfigurationInput,
+    key: string,
+  ) {
+    const input = subledgerPartyConfigurationInputSchema.parse(raw);
+    return this.transaction(context, input.company_id, "finance.subledger.manage", true, (client) =>
+      this.idempotent(
+        client,
+        context,
+        input.company_id,
+        key,
+        { action: "configure_party", partyId, input },
+        (value) => subledgerPartyConfigurationSchema.parse(value),
+        async () => {
+          const party = (
+            await client.query<{ kind: string }>(
+              "select kind from finance_party_directory where tenant_id=$1 and company_id=$2 and id=$3 and status='active' and risk_status<>'blocked'",
+              [context.tenantId, input.company_id, partyId],
+            )
+          ).rows[0];
+          if (!party) reject("Select an active financial customer or supplier in this company.");
+          const prior = (await this.configurations(client, context.tenantId, input.company_id, partyId)).get(partyId);
+          if ((prior?.version ?? 0) !== input.expected_version)
+            reject("Financial settings changed. Reload before saving.", "STALE_VERSION");
+          if ((party.kind === "customer") !== (input.credit_limit !== null))
+            reject("Set an explicit customer credit limit; supplier terms have no customer credit limit.");
+          const base = await resolveCompanyBaseCurrency(client, context.tenantId, input.company_id, false);
+          const credit =
+            input.credit_limit === null
+              ? null
+              : decimalText(decimal(input.credit_limit, base.decimalPlaces), base.decimalPlaces);
+          const result = subledgerPartyConfigurationSchema.parse({
+            company_id: input.company_id,
+            party_id: partyId,
+            version: input.expected_version + 1,
+            payment_term: input.payment_term,
+            credit_limit: credit,
+            credit_currency: base.code,
+            reason: input.reason,
+          });
+          await client.query(
+            "insert into finance_party_configuration(tenant_id,company_id,party_id,version,payment_term,credit_limit,credit_currency,reason,created_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+            [
+              context.tenantId,
+              input.company_id,
+              partyId,
+              result.version,
+              result.payment_term,
+              credit,
+              base.code,
+              input.reason,
+              context.actor.userId,
+            ],
+          );
+          await this.audit(client, context, input.company_id, "party_configured", null, input.reason, result);
+          return result;
         },
       ),
     );
@@ -476,10 +574,11 @@ export class SourceSubledgerRepository {
         journal_id: string;
         rate: string;
         rate_id: string | null;
+        due_schedule: unknown;
       }>(
         `${itemBalancesSql} select id,code,party_id,party_name,side,kind,currency,base_currency,decimal_places,base_decimal_places,
         document_date::text as date,due_date::text,original_amount::text,original_base::text,outstanding::text,carrying::text,historical::text,unrealized::text,
-        monetary,control_account_id,journal_id,rate::text,rate_id from item_balances
+        monetary,control_account_id,journal_id,rate::text,rate_id,due_schedule from item_balances
         where (not $7::boolean or outstanding<>0) and ($8::text[] is null or id=any($8::text[]))
         and (not $11::boolean or monetary)
         order by document_date,id limit $9 offset $10`,
@@ -496,6 +595,7 @@ export class SourceSubledgerRepository {
     return rows.map((row) =>
       subledgerItemSchema.parse({
         ...row,
+        due_schedule: row.due_schedule ?? undefined,
         original_amount: decimalText(dbMinor(row.original_amount, row.decimal_places), row.decimal_places),
         original_base: decimalText(dbMinor(row.original_base, row.base_decimal_places), row.base_decimal_places),
         outstanding: decimalText(dbMinor(row.outstanding, row.decimal_places), row.decimal_places),
@@ -508,6 +608,7 @@ export class SourceSubledgerRepository {
 
   async workspace(context: BankingActorContext, query: SubledgerQuery): Promise<SubledgerWorkspace> {
     return this.transaction(context, query.company_id, "finance.subledger.read", false, async (client) => {
+      const configurations = await this.configurations(client, context.tenantId, query.company_id);
       const base = await resolveCompanyBaseCurrency(client, context.tenantId, query.company_id, false);
       const values = itemBalanceParameters(context.tenantId, query);
       const items = await this.items(client, context.tenantId, query, { limit: query.limit, offset: query.offset });
@@ -520,11 +621,11 @@ export class SourceSubledgerRepository {
       const balancesSql = `${itemBalancesSql}, currency_balances as (
         select party_id,party_name,side,currency,base_currency,decimal_places,
         sum(outstanding)::text as outstanding,sum(carrying)::text as carrying,sum(unrealized)::text as unrealized,
-        sum(case when overdue_days<=0 then outstanding else 0 end)::text as current,
-        sum(case when overdue_days between 1 and 30 then outstanding else 0 end)::text as days_1_30,
-        sum(case when overdue_days between 31 and 60 then outstanding else 0 end)::text as days_31_60,
-        sum(case when overdue_days between 61 and 90 then outstanding else 0 end)::text as days_61_90,
-        sum(case when overdue_days>90 then outstanding else 0 end)::text as days_over_90
+        sum(age_current)::text as current,
+        sum(age_1_30)::text as days_1_30,
+        sum(age_31_60)::text as days_31_60,
+        sum(age_61_90)::text as days_61_90,
+        sum(age_over_90)::text as days_over_90
         from item_balances group by party_id,party_name,side,currency,base_currency,decimal_places
       )`;
       const balanceCount = (
@@ -571,11 +672,18 @@ export class SourceSubledgerRepository {
       });
       const parties = (
         await client.query(
-          "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 order by name,id",
+          `select p.id,p.company_id,p.kind,p.code,p.name,p.default_currency,p.source_supplier_id,p.canonical_party_id,p.status,p.risk_status,
+           case when s.profile->>'credit_days' ~ '^\\d{1,3}$' then (s.profile->>'credit_days')::integer else null end as supplier_credit_days
+           from finance_party_directory p left join procurement_supplier s on (s.tenant_id,s.company_id,s.id)=(p.tenant_id,p.company_id,p.source_supplier_id)
+           where p.tenant_id=$1 and p.company_id=$2 order by p.name,p.id`,
           [context.tenantId, query.company_id],
         )
       ).rows.map((row) =>
-        subledgerPartySchema.parse({ ...row, source_supplier_id: row.source_supplier_id ?? undefined }),
+        subledgerPartySchema.parse({
+          ...row,
+          source_supplier_id: row.source_supplier_id ?? undefined,
+          financial_configuration: configurations.get(row.id) ?? null,
+        }),
       );
       const operationFilter = `tenant_id=$1 and company_id=$2 and operation_date<=$3::date
         and ($4::text is null or payload->>'side'=$4 or type='reversal')
@@ -603,13 +711,38 @@ export class SourceSubledgerRepository {
           operationValues,
         )
       ).rows[0]!.total;
+      const policy = await this.policy(client, context.tenantId, query.company_id, false);
+      const taxes = (
+        await client.query<{ count: number }>(
+          "select count(*)::integer as count from finance_tax_definition where tenant_id=$1 and company_id=$2 and status='active'",
+          [context.tenantId, query.company_id],
+        )
+      ).rows[0]!.count;
       return subledgerWorkspaceSchema.parse({
+        dimension_options: (
+          await client.query(
+            `select * from (
+           select type as dimension,id,code,name from organization_unit where tenant_id=$1 and status='active'
+            and type in ('department','branch','division','business_unit','warehouse') and organization_unit_is_within_company($1,id,$2)
+           union all select 'project',id,code,name from erp_project where tenant_id=$1 and company_id=$2 and status='active'
+           union all select 'location',id,code,name from erp_location where tenant_id=$1 and company_id=$2 and status='active'
+           union all select 'cost_centre',id,code,name from hr_master_record where tenant_id=$1 and company_id=$2 and status='active' and master_type='cost_center'
+          ) refs order by dimension,code,id limit 1000`,
+            [context.tenantId, query.company_id],
+          )
+        ).rows,
+        readiness: {
+          policy_configured: policy !== null,
+          unconfigured_customers: parties.filter((p) => p.kind === "customer" && !p.financial_configuration).length,
+          unconfigured_suppliers: parties.filter((p) => p.kind === "supplier" && !p.financial_configuration).length,
+          active_tax_definitions: taxes,
+        },
         company_id: query.company_id,
         base_currency: base.code,
         base_decimal_places: base.decimalPlaces,
         as_of: query.as_of,
         parties,
-        policy: await this.policy(client, context.tenantId, query.company_id, false),
+        policy,
         items,
         total_items: totals.total,
         operations,
@@ -663,6 +796,15 @@ export class SourceSubledgerRepository {
     code: string,
     deferBankCash = false,
   ): Promise<Preview> {
+    if (input.type !== "reversal" && input.dimensions) {
+      if (Object.keys(input.dimensions).some((key) => /^(purchase_|asset_)/.test(key)))
+        reject("Source accounting references are assigned by their owning workflow.");
+      await client.query("select finance_validate_dimensions($1,$2,$3::jsonb)", [
+        context.tenantId,
+        input.company_id,
+        JSON.stringify(input.dimensions),
+      ]);
+    }
     if (input.type === "purchase_payment")
       return previewPurchasePayment(client, context, input, id, code, (child, childId, childCode) =>
         this.preview(client, context, child, childId, childCode, true),
@@ -707,7 +849,7 @@ export class SourceSubledgerRepository {
         exchangeRateId: a.rateId,
         exchangeRateValue: a.rateValue,
         exchangeRateDate: a.rateEffectiveDate,
-        dimensions: {},
+        dimensions: { ...input.dimensions },
         description,
       });
     };
@@ -856,6 +998,19 @@ export class SourceSubledgerRepository {
     const orientation = sideSign(input.side);
     let control = input.side === "receivable" ? policy.receivable_account_id : policy.payable_account_id;
     if (input.type === "recognition") {
+      const configuration = (await this.configurations(client, context.tenantId, input.company_id, input.party_id)).get(
+        input.party_id,
+      );
+      if (input.side === "receivable" && input.kind === "invoice" && !configuration)
+        reject(
+          "Review this customer's payment terms and finite credit limit before preparing an invoice.",
+          "CUSTOMER_FINANCIAL_CONFIGURATION_REQUIRED",
+        );
+      if (
+        input.document_type &&
+        ((input.document_type === "credit_note") !== (input.kind === "credit_note") || input.kind === "advance")
+      )
+        reject("The document type must agree with its invoice or credit accounting effect.");
       const a = await authority(input.currency);
       const basis = decimal(input.amount, a.sourceDecimalPlaces);
       if (
@@ -1103,7 +1258,10 @@ export class SourceSubledgerRepository {
         input.kind === "invoice" &&
         (sourceCharges.length > 0 || sourceTaxLines.length > 0)
       ) {
-        if (input.counter_account_id && sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id))
+        if (
+          input.counter_account_id &&
+          sourceTaxLines.some((line) => line.asset_category_id || line.nominal_account_id)
+        )
           reject("The approved bill resolves its asset categories. Clear the manual purchase accounting override.");
         const categories = (
           await client.query<{ id: string; asset_account_id: string }>(
@@ -1136,7 +1294,11 @@ export class SourceSubledgerRepository {
             `${code} ${line.item_code || line.description} ${line.asset_category_id ? "asset acquisition" : "purchase expense"}`,
           );
           if (native > 0n && line.id)
-            result.lines[result.lines.length - 1]!.dimensions = Object.fromEntries(Object.entries({ ...line.dimensions, purchase_line_id: line.id }).filter((entry):entry is [string,string]=>typeof entry[1]==="string"));
+            result.lines[result.lines.length - 1]!.dimensions = Object.fromEntries(
+              Object.entries({ ...line.dimensions, purchase_line_id: line.id }).filter(
+                (entry): entry is [string, string] => typeof entry[1] === "string",
+              ),
+            );
         }
         for (const charge of sourceCharges) {
           if (
@@ -1152,7 +1314,12 @@ export class SourceSubledgerRepository {
           const native = decimal(nativePurchaseAmount(charge.amount, a.sourceDecimalPlaces), a.sourceDecimalPlaces);
           allocated += native;
           add(charge.nominal_account_id, native, input.currency, a, `${code} ${charge.description}`);
-          if (native > 0n) result.lines[result.lines.length - 1]!.dimensions = Object.fromEntries(Object.entries({ ...charge.dimensions, purchase_charge_id: charge.id }).filter((entry):entry is [string,string]=>typeof entry[1]==="string"));
+          if (native > 0n)
+            result.lines[result.lines.length - 1]!.dimensions = Object.fromEntries(
+              Object.entries({ ...charge.dimensions, purchase_charge_id: charge.id }).filter(
+                (entry): entry is [string, string] => typeof entry[1] === "string",
+              ),
+            );
         }
         if (allocated !== (withholding ? signed + signedTax : signed - signedTax))
           reject("Approved bill acquisition allocations do not match its net accounting amount.");
@@ -1206,6 +1373,53 @@ export class SourceSubledgerRepository {
         historical: result.item.original_base,
         unrealized: "0",
       });
+      if (input.kind === "invoice") {
+        if (configuration) result.party_configuration = configuration;
+        let term = input.payment_term ?? configuration?.payment_term;
+        if (input.source_document_id) {
+          const sourceTerm = (
+            await client.query<{ payment_term: SubledgerPartyConfiguration["payment_term"] | null }>(
+              "select payment_term from procurement_document where tenant_id=$1 and company_id=$2 and id=$3",
+              [context.tenantId, input.company_id, input.source_document_id],
+            )
+          ).rows[0];
+          // An approved source bill owns its terms, including legacy manual dates.
+          term = sourceTerm?.payment_term ?? undefined;
+        }
+        const items = [result.item, ...(result.additional_items ?? [])];
+        for (const item of items) {
+          item.due_schedule = term
+            ? financialPaymentSchedule(item.date, term, item.original_amount, item.decimal_places)
+            : [{ due_date: item.due_date, amount: item.original_amount }];
+          if (item.due_schedule.at(-1)!.due_date !== item.due_date)
+            reject(
+              "The invoice due date must agree with its reviewed payment terms.",
+              "PAYMENT_TERMS_DUE_DATE_MISMATCH",
+            );
+        }
+        if (
+          input.side === "receivable" &&
+          configuration?.credit_limit !== null &&
+          configuration?.credit_limit !== undefined
+        ) {
+          const prior = (
+            await client.query<{ exposure: string }>(
+              `select coalesce(sum(e.base_delta),0)::text as exposure from finance_subledger_item i
+             join finance_subledger_item_event e on (e.tenant_id,e.company_id,e.item_id)=(i.tenant_id,i.company_id,i.id)
+             where i.tenant_id=$1 and i.company_id=$2 and i.party_id=$3 and i.side='receivable'`,
+              [context.tenantId, input.company_id, input.party_id],
+            )
+          ).rows[0]!;
+          const next =
+            dbMinor(prior.exposure, base.decimalPlaces) +
+            items.reduce((total, item) => total + decimal(item.original_base, base.decimalPlaces), 0n);
+          if (next > decimal(configuration.credit_limit, base.decimalPlaces))
+            reject(
+              "The invoice exceeds the customer's reviewed functional-currency credit limit.",
+              "CUSTOMER_CREDIT_LIMIT_EXCEEDED",
+            );
+        }
+      }
       return result;
     }
     const candidates = await this.items(
@@ -1558,6 +1772,22 @@ export class SourceSubledgerRepository {
               request.type === "settlement"
                 ? { ...request, payment_currency: bank.currency }
                 : { ...request, currency: bank.currency };
+          }
+          if (normalized.type === "recognition") {
+            const configuration = (
+              await this.configurations(client, context.tenantId, request.company_id, normalized.party_id)
+            ).get(normalized.party_id);
+            const term =
+              normalized.payment_term ?? (normalized.kind === "invoice" ? configuration?.payment_term : undefined);
+            const due = term
+              ? financialPaymentSchedule(normalized.date, term, "0", 0).at(-1)!.due_date
+              : normalized.due_date;
+            if (!due) reject("Set a due date or configure reviewed financial payment terms.");
+            normalized = {
+              ...normalized,
+              ...(term ? { payment_term: term } : {}),
+              due_date: normalized.due_date ?? due,
+            };
           }
           const input = subledgerOperationInputSchema.parse(normalized);
           if (input.type === "purchase_payment")
@@ -1964,8 +2194,8 @@ export class SourceSubledgerRepository {
               ...(recalculated.additional_items ?? []),
             ]) {
               await client.query(
-                `insert into finance_subledger_item(tenant_id,company_id,id,code,operation_id,party_id,side,kind,currency,base_currency,decimal_places,base_decimal_places,document_date,due_date,original_amount,original_base,monetary,control_account_id,journal_id,rate,rate_id,source_document_id)
-            values(${Array.from({ length: 22 }, (_, i) => `$${i + 1}`).join(",")})`,
+                `insert into finance_subledger_item(tenant_id,company_id,id,code,operation_id,party_id,side,kind,currency,base_currency,decimal_places,base_decimal_places,document_date,due_date,original_amount,original_base,monetary,control_account_id,journal_id,rate,rate_id,source_document_id,due_schedule)
+            values(${Array.from({ length: 23 }, (_, i) => `$${i + 1}`).join(",")})`,
                 [
                   context.tenantId,
                   input.company_id,
@@ -1989,6 +2219,7 @@ export class SourceSubledgerRepository {
                   item.rate,
                   item.rate_id,
                   payload.type === "recognition" ? (payload.source_document_id ?? null) : null,
+                  item.due_schedule ? JSON.stringify(item.due_schedule) : null,
                 ],
               );
             }

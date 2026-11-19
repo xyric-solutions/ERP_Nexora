@@ -11,7 +11,7 @@ import { readBankNominalDirectory } from "../../server/api/src/modules/banking/n
 import { SourceReferenceMasterRepository } from "../../server/api/src/modules/master-data/source-repository.js";
 import { migrateSourceSchema } from "../../packages/db/src/source-migrations.js";
 import { createDisposableSourceDatabase } from "../security/disposable-source-database.js";
-import { setupSubledgerFixture, subledgerActor } from "./subledger-fixture.js";
+import { setupSubledgerFixture, subledgerActor, configureCustomerCreditFixture } from "./subledger-fixture.js";
 
 const run = process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL ? describe : describe.skip;
 run("Accounting integrity guards", () => {
@@ -428,6 +428,7 @@ run("Accounting integrity guards", () => {
       },
       randomUUID(),
     );
+    if (party.kind === "customer") await configureCustomerCreditFixture(fixture, party.id);
     const invoice = await postOperation({
       company_id: fixture.company,
       type: "recognition",

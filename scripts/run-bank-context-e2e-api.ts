@@ -4,6 +4,7 @@ import { hashPassword } from "../packages/auth/src/passwords.js";
 import { createDatabasePool, migrateSourceSchema, backfillLoginDirectory } from "../packages/db/src/index.js";
 import {
   ensureSourceSuperAdministratorFixture,
+  ensureCompanyCurrencyFixture,
   sourceTestCompanyId,
   sourceTestTenantId,
 } from "../tests/integration/source-security-fixture.js";
@@ -79,6 +80,22 @@ if (process.env.NEXORA_BANK_REVALUATION_E2E === "true") {
     await securityFixture.end();
   }
 } else {
+  // This fixture's artificial transaction unit must satisfy the same company
+  // currency authority as every bank. Only this disposable database is seeded.
+  const currencySetup = createDatabasePool(url.toString());
+  try {
+    await ensureSourceSuperAdministratorFixture(currencySetup);
+    await currencySetup.query(
+      "insert into currency(tenant_id,code,name,decimal_places,is_base,status) values($1,'XBP','Synthetic Bank Payment Unit',2,false,'active') on conflict do nothing",
+      [sourceTestTenantId],
+    );
+    await currencySetup.query(
+      "insert into country_currency_catalog(country_code,country_name,currency_code,currency_name,decimal_places,is_primary,source_version) values('US','United States','XBP','Synthetic Bank Payment Unit',2,false,'isolated-browser-fixture') on conflict do nothing",
+    );
+    await ensureCompanyCurrencyFixture(currencySetup, sourceTestCompanyId, "USD", ["XBP"]);
+  } finally {
+    await currencySetup.end();
+  }
   await import("./provision-bank-payments-uat.js");
 }
 const fixture = createDatabasePool(url.toString());
@@ -389,34 +406,134 @@ try {
       }
   }
   if (process.env.NEXORA_SUBLEDGER_E2E === "true") {
-    const { setupSubledgerFixture, subledgerActor } = await import("../tests/integration/subledger-fixture.js");
+    const { setupSubledgerFixture, subledgerActor, configureCustomerCreditFixture } =
+      await import("../tests/integration/subledger-fixture.js");
     const currencyFixture = await setupSubledgerFixture(fixture, "nexora-currency-browser", "PKR");
-    const currencyReadPermissions = ["finance.company_currency_profile.read", "finance.company_currency.read", "finance.company_currency_rate.read", "finance.transfer_fx_policy.read"];
-    await fixture.query("insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,'r06-uat-policy-maker',p,'all' from unnest($2::text[]) p on conflict do nothing", [sourceTestTenantId,currencyReadPermissions]);
-    await fixture.query("insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,'r06-uat-policy-maker',p,'company',$3 from unnest($2::text[]) p on conflict do nothing", [sourceTestTenantId,currencyReadPermissions,currencyFixture.company]);
+    const currencyReadPermissions = [
+      "finance.company_currency_profile.read",
+      "finance.company_currency.read",
+      "finance.company_currency_rate.read",
+      "finance.transfer_fx_policy.read",
+    ];
+    await fixture.query(
+      "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,'r06-uat-policy-maker',p,'all' from unnest($2::text[]) p on conflict do nothing",
+      [sourceTestTenantId, currencyReadPermissions],
+    );
+    await fixture.query(
+      "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,'r06-uat-policy-maker',p,'company',$3 from unnest($2::text[]) p on conflict do nothing",
+      [sourceTestTenantId, currencyReadPermissions, currencyFixture.company],
+    );
     await currencyFixture.rate("USD", "285", "2026-10-01");
     await currencyFixture.rate("USD", "287", "2026-11-01");
-    await currencyFixture.repository.createParty(subledgerActor(), { company_id: currencyFixture.company, kind: "customer", name: "Currency Browser Customer", default_currency: "USD" }, "browser-party-setup");
+    const browserCustomer = await currencyFixture.repository.createParty(
+      subledgerActor(),
+      {
+        company_id: currencyFixture.company,
+        kind: "customer",
+        name: "Currency Browser Customer",
+        default_currency: "USD",
+      },
+      "browser-party-setup",
+    );
+    await configureCustomerCreditFixture(currencyFixture, browserCustomer.id);
   }
-  if(process.env.NEXORA_TAX_E2E === "true") {
-    const company="nexora-currency-browser";
-    await fixture.query("insert into security_user_company_access(tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference) values($1,'tax-browser-admin','r06.override-admin',$2,false,'r06.last-admin-a','governed_administration','isolated-tax-browser')",[sourceTestTenantId,company]);
-    for(const [policy,keys] of [["r06-uat-policy-maker",["finance.tax.read"]],["r06-uat-policy-approval-override",["finance.tax.read","finance.tax.manage","finance.tax_mapping.admin"]]] as const) {
-      await fixture.query("insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,keys]);
-      await fixture.query("insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,keys,company]);
+  if (process.env.NEXORA_AP_AR_E2E === "true") {
+    const company = "nexora-currency-browser";
+    const read = ["banking.bank_account.read", "banking.reconciliation.read"];
+    const makerKeys = [
+      ...read,
+      "banking.reconciliation.create",
+      "banking.reconciliation.match",
+      "banking.reconciliation.submit",
+      "procurement.vendor.read",
+      "procurement.vendor.create",
+      "procurement.document.read",
+      "procurement.document.create",
+      "procurement.document.submit",
+      "procurement.document.action",
+    ];
+    const checkerKeys = [
+      ...read,
+      "banking.reconciliation.approve",
+      "procurement.document.read",
+      "procurement.document.approve",
+      "procurement.document.action",
+    ];
+    for (const [policy, keys] of [
+      ["r06-uat-policy-maker", makerKeys],
+      ["r06-uat-policy-checker", checkerKeys],
+      ["r06-uat-policy-payment-poster", read],
+    ] as const) {
+      await fixture.query(
+        "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
+        [sourceTestTenantId, policy, keys],
+      );
+      await fixture.query(
+        "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
+        [sourceTestTenantId, policy, keys, company],
+      );
     }
-    for(const type of ["asset","liability"])await fixture.query("insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$4,$5,$6,false,'active',now())",[`tax-browser-${type}`,sourceTestTenantId,company,type==="asset"?"1410":"2210",type==="asset"?"Recoverable Input Tax":"WHT Payable - Supplies",type]);
   }
-  if(process.env.NEXORA_BUDGET_E2E==="true"){
-    const company="nexora-currency-browser";
-    const keys=(await fixture.query<{permission_key:string}>("select permission_key from security_permission_definition where module='budget'")).rows.map(r=>r.permission_key);
-    for(const [policy,permissions] of [["r06-uat-policy-maker",keys],["r06-uat-policy-checker",keys],["r06-uat-policy-payment-poster",keys.filter(k=>k.endsWith('.read')||k.endsWith('.export'))]] as const){
-      await fixture.query("insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,permissions]);
-      await fixture.query("insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",[sourceTestTenantId,policy,permissions,company]);
+  if (process.env.NEXORA_TAX_E2E === "true") {
+    const company = "nexora-currency-browser";
+    await fixture.query(
+      "insert into security_user_company_access(tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference) values($1,'tax-browser-admin','r06.override-admin',$2,false,'r06.last-admin-a','governed_administration','isolated-tax-browser')",
+      [sourceTestTenantId, company],
+    );
+    for (const [policy, keys] of [
+      ["r06-uat-policy-maker", ["finance.tax.read"]],
+      ["r06-uat-policy-approval-override", ["finance.tax.read", "finance.tax.manage", "finance.tax_mapping.admin"]],
+    ] as const) {
+      await fixture.query(
+        "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
+        [sourceTestTenantId, policy, keys],
+      );
+      await fixture.query(
+        "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
+        [sourceTestTenantId, policy, keys, company],
+      );
     }
-    for(let month=1;month<=8;month++){
-      const start=`2026-${String(month).padStart(2,"0")}-01`,end=new Date(Date.UTC(2026,month,0)).toISOString().slice(0,10);
-      await fixture.query("insert into financial_period(id,tenant_id,company_id,fiscal_calendar_id,period_number,period_start,period_end,status,created_at) values($1,$2,$3,$4,$5,$6,$7,'open',clock_timestamp())",[`period-${company}-${month}`,sourceTestTenantId,company,`cal-${company}`,month,start,end]);
+    for (const type of ["asset", "liability"])
+      await fixture.query(
+        "insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$4,$5,$6,false,'active',now())",
+        [
+          `tax-browser-${type}`,
+          sourceTestTenantId,
+          company,
+          type === "asset" ? "1410" : "2210",
+          type === "asset" ? "Recoverable Input Tax" : "WHT Payable - Supplies",
+          type,
+        ],
+      );
+  }
+  if (process.env.NEXORA_BUDGET_E2E === "true") {
+    const company = "nexora-currency-browser";
+    const keys = (
+      await fixture.query<{ permission_key: string }>(
+        "select permission_key from security_permission_definition where module='budget'",
+      )
+    ).rows.map((r) => r.permission_key);
+    for (const [policy, permissions] of [
+      ["r06-uat-policy-maker", keys],
+      ["r06-uat-policy-checker", keys],
+      ["r06-uat-policy-payment-poster", keys.filter((k) => k.endsWith(".read") || k.endsWith(".export"))],
+    ] as const) {
+      await fixture.query(
+        "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[]) p on conflict do nothing",
+        [sourceTestTenantId, policy, permissions],
+      );
+      await fixture.query(
+        "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[]) p on conflict do nothing",
+        [sourceTestTenantId, policy, permissions, company],
+      );
+    }
+    for (let month = 1; month <= 8; month++) {
+      const start = `2026-${String(month).padStart(2, "0")}-01`,
+        end = new Date(Date.UTC(2026, month, 0)).toISOString().slice(0, 10);
+      await fixture.query(
+        "insert into financial_period(id,tenant_id,company_id,fiscal_calendar_id,period_number,period_start,period_end,status,created_at) values($1,$2,$3,$4,$5,$6,$7,'open',clock_timestamp())",
+        [`period-${company}-${month}`, sourceTestTenantId, company, `cal-${company}`, month, start, end],
+      );
     }
   }
   // Authentication deliberately verifies the compatibility projection against

@@ -1,5 +1,10 @@
 # Integration Stabilization Phase 1 — 19 November 2026
 
+Historical Phase 1 handoff. The current matched local runtime and subsequent
+Finance 43 verification are documented in
+[AP/AR readiness Phase 2](ap-ar-readiness-phase2.md). The original correction and
+Phase 1 evidence below remain preserved.
+
 Status: the reconciliation correction and matched local database/API/frontend
 release are active and verified. Full accounting acceptance still requires the
 AP/AR setup and authenticated business journeys described below.

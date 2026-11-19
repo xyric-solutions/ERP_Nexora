@@ -14,6 +14,7 @@ import {
   decimal,
   decimalText,
   purchaseTotals,
+  financialPaymentSchedule,
   type TaxDefinition,
   type SubledgerRequest,
   type SubledgerOperation,
@@ -25,11 +26,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { PartyFinancialSetup } from "../components/party-financial-setup";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/lib/session/session-provider";
 import { ApiError } from "@/lib/api/generated";
 import { WorkTable, workSelectClass } from "@/shared/ui/work-table";
-import {reportCsvCell,downloadReportCsv} from "@/features/reports/model/connected-report-export";
+import { reportCsvCell, downloadReportCsv } from "@/features/reports/model/connected-report-export";
 
 type Tab = "balances" | "documents" | "settlement" | "revaluation" | "reports" | "setup";
 type Side = "receivable" | "payable";
@@ -122,6 +124,8 @@ function CompanyCurrencyWorkspace({
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
+  const [dimensions, setDimensions] = useState<Record<string, string>>({});
+  const [debitNote, setDebitNote] = useState(false);
   const [offset, setOffset] = useState(0),
     [reportKind, setReportKind] = useState(initialReport),
     [presentation, setPresentation] = useState(""),
@@ -181,7 +185,7 @@ function CompanyCurrencyWorkspace({
   const [partyName, setPartyName] = useState(""),
     [advanceAccount, setAdvanceAccount] = useState(""),
     [documentCounterAccount, setDocumentCounterAccount] = useState(""),
-    [originalItemId,setOriginalItemId]=useState(''),
+    [originalItemId, setOriginalItemId] = useState(""),
     [sourceSupplier, setSourceSupplier] = useState(""),
     [sourceBill, setSourceBill] = useState("");
   const [sourceGovernedTax, setSourceGovernedTax] = useState(false);
@@ -238,6 +242,17 @@ function CompanyCurrencyWorkspace({
   const data = loaded?.scope === scopeKey ? loaded.value : null;
   const selectedBank = data?.banks.find((bank) => bank.id === bankId);
   const paymentCurrency = selectedBank?.currency ?? "";
+  const financialTerms = data?.parties.find((p) => p.id === partyId)?.financial_configuration;
+  let reviewedDueDate = dueDate;
+  let reviewedDueDateInvalid = false;
+  if (kind === "invoice" && !sourceBill && financialTerms?.payment_term && operationDate) {
+    try {
+      reviewedDueDate = financialPaymentSchedule(operationDate, financialTerms.payment_term, "0", 0).at(-1)!.due_date;
+    } catch {
+      reviewedDueDate = "";
+      reviewedDueDateInvalid = true;
+    }
+  }
   function selectBank(id: string) {
     setBankId(id);
     setPaymentAmount("");
@@ -283,7 +298,16 @@ function CompanyCurrencyWorkspace({
     if (!company || !canRead) return;
     api
       .getSubledgerWorkspace(
-        queryString({ company_id: company, as_of: asOf, side, party_id: partyId, currency, source_document_id: sourceDocumentId, offset, limit: 50 }),
+        queryString({
+          company_id: company,
+          as_of: asOf,
+          side,
+          party_id: partyId,
+          currency,
+          source_document_id: sourceDocumentId,
+          offset,
+          limit: 50,
+        }),
       )
       .then((result) => {
         if (!cancelled) {
@@ -322,17 +346,24 @@ function CompanyCurrencyWorkspace({
     void (async () => {
       const [bill, current] = await Promise.all([
         api.getPurchaseDocument(sourceDocumentId, company),
-        api.getSubledgerWorkspace(queryString({ company_id: company, as_of: today(), source_document_id: sourceDocumentId, limit: 50 })),
+        api.getSubledgerWorkspace(
+          queryString({ company_id: company, as_of: today(), source_document_id: sourceDocumentId, limit: 50 }),
+        ),
       ]);
-      const linked=current.operations.find(operation=>operation.id===bill.finance_operation_id)??current.operations.find(operation=>"source_document_id" in operation.input&&operation.input.source_document_id===bill.id);
-      if(linked) {
-        if(cancelled)return;
-        preparedSource.current=`${company}:${sourceDocumentId}`;
-        setSide("payable");setTab("documents");
+      const linked =
+        current.operations.find((operation) => operation.id === bill.finance_operation_id) ??
+        current.operations.find(
+          (operation) => "source_document_id" in operation.input && operation.input.source_document_id === bill.id,
+        );
+      if (linked) {
+        if (cancelled) return;
+        preparedSource.current = `${company}:${sourceDocumentId}`;
+        setSide("payable");
+        setTab("documents");
         setMessage(`Open ${linked.code} in the financial operations below for independent review and posting.`);
         return;
       }
-      if(bill.kind==="payment"||bill.kind==="multi_payment")
+      if (bill.kind === "payment" || bill.kind === "multi_payment")
         throw new Error("Prepare this instruction's source-linked accounting from its Purchase detail first.");
       if (bill.kind !== "bill" || bill.state !== "approved" || !bill.supplier_id || !bill.supplier_name)
         throw new Error("Select an approved bill with an active supplier.");
@@ -368,7 +399,9 @@ function CompanyCurrencyWorkspace({
       setTab("documents");
       setPartyId(party.id);
       setCurrency(bill.currency);
-      const governedBill = bill.lines.some((line) => line.tax_definition_id) || !!bill.additional_charges?.some((charge) => charge.tax_definition_id);
+      const governedBill =
+        bill.lines.some((line) => line.tax_definition_id) ||
+        !!bill.additional_charges?.some((charge) => charge.tax_definition_id);
       setSourceGovernedTax(governedBill);
       setDocumentAmount(decimalText(governedBill ? net : gross, scale));
       setTaxAmount(decimalText(gross > net ? gross - net : 0n, scale));
@@ -436,33 +469,142 @@ function CompanyCurrencyWorkspace({
       setBusy(false);
     }
   }
-  async function exportPostedReport(balances:boolean) {
-    if(!company||busy||!data||(!balances&&!report))return;
-    const scope=balances?currentScope.current:currentReportScope.current;
-    const total=balances?data.total_balances:report!.total_rows;
-    setBusy(true);setError("");
+  async function exportPostedReport(balances: boolean) {
+    if (!company || busy || !data || (!balances && !report)) return;
+    const scope = balances ? currentScope.current : currentReportScope.current;
+    const total = balances ? data.total_balances : report!.total_rows;
+    setBusy(true);
+    setError("");
     try {
-      if(total>100000)throw new Error("Narrow the filters to 100,000 rows or fewer before exporting.");
-      const records:Record<string,string>[]=[];
-      for(let start=0;start<Math.max(1,total);start+=100) {
-        if(balances) {
-          const result=await api.getSubledgerWorkspace(queryString({company_id:company,as_of:asOf,side,party_id:partyId,currency,offset:start,limit:100}));
-          if(result.total_balances!==total||result.carrying_total!==data.carrying_total||currentScope.current!==scope)throw new Error("Balance evidence changed during export. Reopen the report and try again.");
-          records.push(...result.balances.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,String(value)]))));
-        }else {
-          const result=await api.getSubledgerReport(queryString({company_id:company,as_of:asOf,from:reportFrom,...(["statement","fx"].includes(reportKind)?{side,party_id:partyId,currency}:{}),report:reportKind,presentation_currency:presentation,offset:start,limit:100}));
-          if(result.total_rows!==total||result.debit!==report!.debit||result.credit!==report!.credit||result.balance!==report!.balance||currentReportScope.current!==scope)throw new Error("Posted evidence changed during export. Run the report again before exporting.");
-          records.push(...result.rows.map(row=>Object.fromEntries(Object.entries(row).map(([key,value])=>[key,value===null?"":String(value)]))));
+      if (total > 100000) throw new Error("Narrow the filters to 100,000 rows or fewer before exporting.");
+      const records: Record<string, string>[] = [];
+      for (let start = 0; start < Math.max(1, total); start += 100) {
+        if (balances) {
+          const result = await api.getSubledgerWorkspace(
+            queryString({
+              company_id: company,
+              as_of: asOf,
+              side,
+              party_id: partyId,
+              currency,
+              offset: start,
+              limit: 100,
+            }),
+          );
+          if (
+            result.total_balances !== total ||
+            result.carrying_total !== data.carrying_total ||
+            currentScope.current !== scope
+          )
+            throw new Error("Balance evidence changed during export. Reopen the report and try again.");
+          records.push(
+            ...result.balances.map((row) =>
+              Object.fromEntries(Object.entries(row).map(([key, value]) => [key, String(value)])),
+            ),
+          );
+        } else {
+          const result = await api.getSubledgerReport(
+            queryString({
+              company_id: company,
+              as_of: asOf,
+              from: reportFrom,
+              ...(["statement", "fx"].includes(reportKind) ? { side, party_id: partyId, currency } : {}),
+              report: reportKind,
+              presentation_currency: presentation,
+              offset: start,
+              limit: 100,
+            }),
+          );
+          if (
+            result.total_rows !== total ||
+            result.debit !== report!.debit ||
+            result.credit !== report!.credit ||
+            result.balance !== report!.balance ||
+            currentReportScope.current !== scope
+          )
+            throw new Error("Posted evidence changed during export. Run the report again before exporting.");
+          records.push(
+            ...result.rows.map((row) =>
+              Object.fromEntries(Object.entries(row).map(([key, value]) => [key, value === null ? "" : String(value)])),
+            ),
+          );
         }
       }
-      const columns=balances?["party_name","side","currency","base_currency","outstanding","carrying","unrealized","current","days_1_30","days_31_60","days_61_90","days_over_90"]:["date","code","name","type","currency","original","debit","credit","balance","presentation_balance","rate","journal_id"];
-      const lines=[[balances?"Posted payables/receivables ageing":reportKind,`As of ${asOf}`,`From ${reportFrom||"Report default"}`],[`Company ${company}`,`Side ${side}`,`Party ${partyId||"All"}`,`Currency ${currency||"All original currencies"}`],columns,...records.map(row=>columns.map(key=>row[key]??"")),[],balances?["Full-filter functional carrying",data.base_currency,data.carrying_total]:["Full-filter debit / credit / balance",report!.base_currency,report!.debit,report!.credit,report!.balance],["Presentation currency",balances?data.base_currency:report!.presentation_currency],...(!balances?[[report!.translation_method]]:[])];
-      downloadReportCsv("\uFEFF"+lines.map(line=>line.map(reportCsvCell).join(",")).join("\r\n"),`${balances?"ageing":reportKind}-${asOf}.csv`);
-    }catch(caught){setError(explain(caught));}finally{setBusy(false);}
+      const columns = balances
+        ? [
+            "party_name",
+            "side",
+            "currency",
+            "base_currency",
+            "outstanding",
+            "carrying",
+            "unrealized",
+            "current",
+            "days_1_30",
+            "days_31_60",
+            "days_61_90",
+            "days_over_90",
+          ]
+        : [
+            "date",
+            "code",
+            "name",
+            "type",
+            "currency",
+            "original",
+            "debit",
+            "credit",
+            "balance",
+            "presentation_balance",
+            "rate",
+            "journal_id",
+          ];
+      const lines = [
+        [
+          balances ? "Posted payables/receivables ageing" : reportKind,
+          `As of ${asOf}`,
+          `From ${reportFrom || "Report default"}`,
+        ],
+        [
+          `Company ${company}`,
+          `Side ${side}`,
+          `Party ${partyId || "All"}`,
+          `Currency ${currency || "All original currencies"}`,
+        ],
+        columns,
+        ...records.map((row) => columns.map((key) => row[key] ?? "")),
+        [],
+        balances
+          ? ["Full-filter functional carrying", data.base_currency, data.carrying_total]
+          : [
+              "Full-filter debit / credit / balance",
+              report!.base_currency,
+              report!.debit,
+              report!.credit,
+              report!.balance,
+            ],
+        ["Presentation currency", balances ? data.base_currency : report!.presentation_currency],
+        ...(!balances ? [[report!.translation_method]] : []),
+      ];
+      downloadReportCsv(
+        "\uFEFF" + lines.map((line) => line.map(reportCsvCell).join(",")).join("\r\n"),
+        `${balances ? "ageing" : reportKind}-${asOf}.csv`,
+      );
+    } catch (caught) {
+      setError(explain(caught));
+    } finally {
+      setBusy(false);
+    }
   }
   async function create(type: "recognition" | "settlement" | "offset" | "revaluation") {
     if (!company) return;
-    const common = { company_id: company, date: operationDate, reason, reference };
+    const common = {
+      company_id: company,
+      date: operationDate,
+      reason,
+      reference,
+      ...(Object.keys(dimensions).length ? { dimensions } : {}),
+    };
     const alloc = Object.entries(allocations)
       .filter(([, value]) => value && !/^0(?:\.0*)?$/.test(value))
       .map(([item_id, amount]) => ({ item_id, amount }));
@@ -474,9 +616,10 @@ function CompanyCurrencyWorkspace({
         side,
         party_id: partyId,
         kind,
+        ...(kind === "invoice" && debitNote ? { document_type: "debit_note" as const } : {}),
         ...(kind === "advance" ? {} : { currency }),
         amount: documentAmount,
-        due_date: dueDate,
+        due_date: reviewedDueDate,
         monetary,
         ...(kind !== "advance"
           ? sourceGovernedTax
@@ -488,8 +631,8 @@ function CompanyCurrencyWorkspace({
         ...(!monetary && kind === "advance" ? { counter_account_id: advanceAccount } : {}),
         ...(kind !== "advance" && documentCounterAccount ? { counter_account_id: documentCounterAccount } : {}),
         ...(kind === "advance" ? { bank_account_id: bankId } : {}),
-        ...(sourceBill&&kind==='invoice' ? { source_document_id: sourceBill } : {}),
-        ...(kind==='credit_note'&&originalItemId?{original_item_id:originalItemId}:{}),
+        ...(sourceBill && kind === "invoice" ? { source_document_id: sourceBill } : {}),
+        ...(kind === "credit_note" && originalItemId ? { original_item_id: originalItemId } : {}),
       };
     else if (type === "settlement")
       input = {
@@ -561,6 +704,48 @@ function CompanyCurrencyWorkspace({
           maxLength={500}
         />
       </Field>
+      {(
+        [
+          "project",
+          "department",
+          "cost_centre",
+          "branch",
+          "division",
+          "business_unit",
+          "warehouse",
+          "location",
+        ] as const
+      ).map((dimension) => {
+        const options = data?.dimension_options?.filter((option) => option.dimension === dimension) ?? [];
+        return (
+          options.length > 0 && (
+            <Field
+              key={dimension}
+              label={dimension.replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase())}
+            >
+              <select
+                className={workSelectClass}
+                value={dimensions[dimension] ?? ""}
+                onChange={(event) =>
+                  setDimensions((previous) => {
+                    const next = { ...previous };
+                    if (event.target.value) next[dimension] = event.target.value;
+                    else delete next[dimension];
+                    return next;
+                  })
+                }
+              >
+                <option value="">Choose if applicable</option>
+                {options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.code} · {option.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          )
+        );
+      })}
     </>
   );
   if (!company)
@@ -585,9 +770,7 @@ function CompanyCurrencyWorkspace({
       >
         {!embedded && (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Finance
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Finance</p>
             <h1 className="mt-1 text-2xl font-semibold">
               {operational
                 ? side === "receivable"
@@ -720,10 +903,39 @@ function CompanyCurrencyWorkspace({
       )}
       {data && (
         <>
+          {data.readiness &&
+            (!data.readiness.policy_configured ||
+              data.readiness.unconfigured_customers > 0 ||
+              data.readiness.unconfigured_suppliers > 0 ||
+              data.readiness.active_tax_definitions === 0) && (
+              <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
+                Financial setup requires review: {!data.readiness.policy_configured && "company control policy; "}
+                {data.readiness.unconfigured_customers} customers and {data.readiness.unconfigured_suppliers} suppliers
+                without reviewed financial terms.
+                {data.readiness.active_tax_definitions === 0 &&
+                  " Tax treatment has no active definitions and requires review."}
+              </p>
+            )}
           {tab === "balances" && (
             <>
-              <div className="flex justify-end gap-2 print:hidden"><Button type="button" size="sm" variant="outline" disabled={busy} onClick={()=>void exportPostedReport(true)}>Export CSV</Button><Button type="button" size="sm" variant="outline" onClick={()=>window.print()}>Print</Button></div>
-              <p className="hidden text-xs print:block">As of {asOf}. Printed page: {data.balances.length} of {data.total_balances} balance rows. CSV includes all filtered rows.</p>
+              <div className="flex justify-end gap-2 print:hidden">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void exportPostedReport(true)}
+                >
+                  Export CSV
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => window.print()}>
+                  Print
+                </Button>
+              </div>
+              <p className="hidden text-xs print:block">
+                As of {asOf}. Printed page: {data.balances.length} of {data.total_balances} balance rows. CSV includes
+                all filtered rows.
+              </p>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-border bg-card p-4">
                   <p className="text-xs text-muted-foreground">Posted open-item carrying value</p>
@@ -827,6 +1039,22 @@ function CompanyCurrencyWorkspace({
                   <option value="advance">On-account receipt / prepayment</option>
                 </select>
               </Field>
+              {kind === "invoice" && !sourceBill && (
+                <Field label="Invoice classification">
+                  <select
+                    className={workSelectClass}
+                    value={debitNote ? "debit_note" : "invoice"}
+                    onChange={(event) => setDebitNote(event.target.value === "debit_note")}
+                  >
+                    <option value="invoice">Invoice</option>
+                    <option value="debit_note">
+                      {side === "payable"
+                        ? "Supplier-issued debit note (increases payable)"
+                        : "Customer debit note (increases receivable)"}
+                    </option>
+                  </select>
+                </Field>
+              )}
               <Field
                 label={taxDefinition || sourceGovernedTax ? "Taxable amount before tax" : "Amount in original currency"}
               >
@@ -838,8 +1066,33 @@ function CompanyCurrencyWorkspace({
                 />
               </Field>
               <Field label="Due date">
-                <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
+                <Input
+                  type="date"
+                  value={reviewedDueDate}
+                  readOnly={kind === "invoice" && !sourceBill && !!financialTerms?.payment_term}
+                  onChange={(event) => setDueDate(event.target.value)}
+                  required
+                />
               </Field>
+              {kind === "invoice" && financialTerms && !sourceBill && (
+                <p className="col-span-full text-sm text-muted-foreground">
+                  {financialTerms.payment_term
+                    ? "Due dates use reviewed financial terms."
+                    : "Enter the reviewed document due date."}{" "}
+                  Customer credit is checked again at approval and posting.
+                </p>
+              )}
+              {reviewedDueDateInvalid && (
+                <p role="alert" className="col-span-full text-sm text-destructive">
+                  The posting date cannot produce a valid payment schedule. Choose a supported posting date.
+                </p>
+              )}
+              {kind === "invoice" && side === "receivable" && partyId && !financialTerms && (
+                <p role="alert" className="col-span-full text-sm text-destructive">
+                  Review this customer&apos;s financial terms and credit limit in{" "}
+                  {operational ? "Add customer" : "Accounting setup"} before preparing an invoice.
+                </p>
+              )}
               {kind !== "advance" && (
                 <>
                   {companyTaxContext() && !sourceGovernedTax && (
@@ -921,12 +1174,33 @@ function CompanyCurrencyWorkspace({
                 </>
               )}
               {commonFields}
-              {side === "payable" && kind==='invoice' && (
+              {side === "payable" && kind === "invoice" && (
                 <Field label="Approved procurement bill ID (optional)">
                   <Input value={sourceBill} onChange={(event) => setSourceBill(event.target.value)} />
                 </Field>
               )}
-              {kind==='credit_note'&&<Field label="Original invoice"><select className={workSelectClass} value={originalItemId} onChange={event=>{const item=data.items.find(item=>item.id===event.target.value);setOriginalItemId(event.target.value);if(item)setCurrency(item.currency);}}><option value="">Select original invoice (required for asset returns)</option>{data.items.filter(item=>item.kind==='invoice'&&item.side===side&&item.party_id===partyId).map(item=><option key={item.id} value={item.id}>{item.code} · {item.date} · {item.currency} {item.original_amount}</option>)}</select></Field>}
+              {kind === "credit_note" && (
+                <Field label="Original invoice">
+                  <select
+                    className={workSelectClass}
+                    value={originalItemId}
+                    onChange={(event) => {
+                      const item = data.items.find((item) => item.id === event.target.value);
+                      setOriginalItemId(event.target.value);
+                      if (item) setCurrency(item.currency);
+                    }}
+                  >
+                    <option value="">Select original invoice (required for asset returns)</option>
+                    {data.items
+                      .filter((item) => item.kind === "invoice" && item.side === side && item.party_id === partyId)
+                      .map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.code} · {item.date} · {item.currency} {item.original_amount}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+              )}
               {side === "payable" && kind !== "advance" && (
                 <>
                   <Field label="Purchase accounting account">
@@ -1005,7 +1279,12 @@ function CompanyCurrencyWorkspace({
               <Button
                 type="submit"
                 disabled={
-                  busy || !canManage || !partyId || !(kind === "advance" ? paymentCurrency : currency) || !data.policy
+                  busy ||
+                  !canManage ||
+                  !partyId ||
+                  !(kind === "advance" ? paymentCurrency : currency) ||
+                  !data.policy ||
+                  (kind === "invoice" && side === "receivable" && !financialTerms)
                 }
               >
                 Save financial draft
@@ -1240,8 +1519,24 @@ function CompanyCurrencyWorkspace({
               </form>
               {report && (
                 <div className="grid gap-3 rounded-lg border border-border bg-card p-4">
-                  <div className="flex justify-end gap-2 print:hidden"><Button type="button" size="sm" variant="outline" disabled={busy} onClick={()=>void exportPostedReport(false)}>Export CSV</Button><Button type="button" size="sm" variant="outline" onClick={()=>window.print()}>Print</Button></div>
-                  <p className="hidden text-xs print:block">As of {report.as_of}. Printed page: {report.rows.length} of {report.total_rows} rows. CSV includes all filtered rows.</p>
+                  <div className="flex justify-end gap-2 print:hidden">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void exportPostedReport(false)}
+                    >
+                      Export CSV
+                    </Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => window.print()}>
+                      Print
+                    </Button>
+                  </div>
+                  <p className="hidden text-xs print:block">
+                    As of {report.as_of}. Printed page: {report.rows.length} of {report.total_rows} rows. CSV includes
+                    all filtered rows.
+                  </p>
                   <p className="text-sm text-muted-foreground">{report.translation_method}</p>
                   <div className="flex flex-wrap gap-4">
                     <span>
@@ -1352,20 +1647,40 @@ function CompanyCurrencyWorkspace({
                 {side === "payable" && (
                   <>
                     <Field label="Find existing supplier">
-                      <Input value={supplierSearch} maxLength={100} onChange={(event) => setSupplierSearch(event.target.value)} />
+                      <Input
+                        value={supplierSearch}
+                        maxLength={100}
+                        onChange={(event) => setSupplierSearch(event.target.value)}
+                      />
                     </Field>
                     <Field label="Existing supplier (optional)">
-                      <select className={workSelectClass} value={sourceSupplier} disabled={supplierLoading} onChange={(event) => {
-                        const id = event.target.value;
-                        setSourceSupplier(id);
-                        setPartyName(supplierMasters.items.find((item) => item.id === id)?.name ?? "");
-                      }}>
+                      <select
+                        className={workSelectClass}
+                        value={sourceSupplier}
+                        disabled={supplierLoading}
+                        onChange={(event) => {
+                          const id = event.target.value;
+                          setSourceSupplier(id);
+                          setPartyName(supplierMasters.items.find((item) => item.id === id)?.name ?? "");
+                        }}
+                      >
                         <option value="">Create a new supplier master</option>
-                        {sourceSupplier && !supplierMasters.items.some((item) => item.id === sourceSupplier) && <option value={sourceSupplier}>{partyName}</option>}
-                        {supplierMasters.items.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}
+                        {sourceSupplier && !supplierMasters.items.some((item) => item.id === sourceSupplier) && (
+                          <option value={sourceSupplier}>{partyName}</option>
+                        )}
+                        {supplierMasters.items.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.code} · {item.name}
+                          </option>
+                        ))}
                       </select>
                     </Field>
-                    <p className="text-sm text-muted-foreground" role="status">{supplierLoading ? "Loading suppliers…" : `${supplierMasters.items.length} of ${supplierMasters.total} matching suppliers. Search to narrow the list.`} New suppliers require vendor review before use in Purchasing.</p>
+                    <p className="text-sm text-muted-foreground" role="status">
+                      {supplierLoading
+                        ? "Loading suppliers…"
+                        : `${supplierMasters.items.length} of ${supplierMasters.total} matching suppliers. Search to narrow the list.`}{" "}
+                      New suppliers require vendor review before use in Purchasing.
+                    </p>
                   </>
                 )}
                 <Button type="submit" disabled={busy || !canManage || !currency}>
@@ -1421,6 +1736,18 @@ function CompanyCurrencyWorkspace({
                   </Button>
                 </form>
               )}
+              <PartyFinancialSetup
+                company={company}
+                parties={data.parties}
+                baseCurrency={data.base_currency}
+                disabled={busy || !canManage}
+                onSave={(id, input) => {
+                  void perform(
+                    () => api.configureSubledgerParty(id, input, csrfToken(), crypto.randomUUID()),
+                    "Reviewed financial terms saved.",
+                  );
+                }}
+              />
             </div>
           )}
           {!["reports", "setup"].includes(tab) && (
@@ -1549,7 +1876,7 @@ function OperationRow({
   reverse,
 }: {
   operation: SubledgerOperation;
-  accounts:SubledgerWorkspace["accounts"];
+  accounts: SubledgerWorkspace["accounts"];
   busy: boolean;
   canManage: boolean;
   canApprove: boolean;
@@ -1575,7 +1902,12 @@ function OperationRow({
           </Button>
         </td>
         <td className="whitespace-nowrap p-3">{operation.date}</td>
-        <td className="p-3">{operation.type}</td>
+        <td className="p-3">
+          {operation.type}
+          {operation.input.type === "recognition" && operation.input.document_type === "debit_note" && (
+            <span className="block text-xs text-muted-foreground">Debit note</span>
+          )}
+        </td>
         <td className="p-3">
           <Badge variant="outline">{operation.state}</Badge>
         </td>
@@ -1654,6 +1986,28 @@ function OperationRow({
                     <Money currency={operation.preview.base_currency} value={operation.preview.unrealized_gain} />
                   </span>
                   <span>Accounting policy version {operation.preview.policy_version}</span>
+                  {operation.preview.item?.due_schedule &&
+                    operation.preview.item.due_schedule.length > 1 &&
+                    operation.preview.item.due_schedule.map((part, index) => (
+                      <span key={index}>
+                        Due {part.due_date}: <Money currency={operation.preview!.item!.currency} value={part.amount} />
+                      </span>
+                    ))}
+                  {operation.preview.party_configuration && (
+                    <span>
+                      Financial terms version {operation.preview.party_configuration.version}
+                      {operation.preview.party_configuration.credit_limit !== null && (
+                        <>
+                          {" "}
+                          · customer credit limit{" "}
+                          <Money
+                            currency={operation.preview.party_configuration.credit_currency}
+                            value={operation.preview.party_configuration.credit_limit}
+                          />
+                        </>
+                      )}
+                    </span>
+                  )}
                   {operation.preview.taxes.map((tax, index) => (
                     <span key={`${tax.definition_id}:${index}`}>
                       {tax.print_label || tax.name} / {tax.code} / revision {tax.revision} / {tax.rate}% on{" "}
@@ -1672,11 +2026,42 @@ function OperationRow({
                     </span>
                   )}
                 </div>
-                {operation.preview.purchase_suppliers?.length ? <WorkTable tableId={`purchase-financial-preview:${operation.id}`} label="Supplier payment preview" keyboardScroll tools={false} className="w-full text-left text-xs">
-                  <caption className="mb-2 text-left font-semibold">Supplier allocations — one atomic payment group</caption>
-                  <thead><tr>{["Supplier","Gross","Bill allocation","Discount","Withholding","Advance","Net cash"].map(label=><th key={label} scope="col" className="p-2">{label}</th>)}</tr></thead>
-                  <tbody>{operation.preview.purchase_suppliers.map(supplier=><tr key={supplier.supplier_id} className="border-t border-border"><td className="p-2">{supplier.name}</td>{(["gross","allocated","discount","withholding","advance","net"] as const).map(key=><td key={key} className="p-2"><Money currency={supplier.currency} value={supplier[key]}/></td>)}</tr>)}</tbody>
-                </WorkTable>:null}
+                {operation.preview.purchase_suppliers?.length ? (
+                  <WorkTable
+                    tableId={`purchase-financial-preview:${operation.id}`}
+                    label="Supplier payment preview"
+                    keyboardScroll
+                    tools={false}
+                    className="w-full text-left text-xs"
+                  >
+                    <caption className="mb-2 text-left font-semibold">
+                      Supplier allocations — one atomic payment group
+                    </caption>
+                    <thead>
+                      <tr>
+                        {["Supplier", "Gross", "Bill allocation", "Discount", "Withholding", "Advance", "Net cash"].map(
+                          (label) => (
+                            <th key={label} scope="col" className="p-2">
+                              {label}
+                            </th>
+                          ),
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {operation.preview.purchase_suppliers.map((supplier) => (
+                        <tr key={supplier.supplier_id} className="border-t border-border">
+                          <td className="p-2">{supplier.name}</td>
+                          {(["gross", "allocated", "discount", "withholding", "advance", "net"] as const).map((key) => (
+                            <td key={key} className="p-2">
+                              <Money currency={supplier.currency} value={supplier[key]} />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </WorkTable>
+                ) : null}
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <caption className="mb-2 text-left font-semibold">Posting lines and exchange-rate evidence</caption>
@@ -1693,7 +2078,10 @@ function OperationRow({
                     <tbody>
                       {operation.preview.lines.map((line, index) => (
                         <tr key={index} className="border-t border-border">
-                          <td className="p-2">{accounts.find(account=>account.id===line.accountId)?.code??line.accountId} · {accounts.find(account=>account.id===line.accountId)?.name??"Account reference"}</td>
+                          <td className="p-2">
+                            {accounts.find((account) => account.id === line.accountId)?.code ?? line.accountId} ·{" "}
+                            {accounts.find((account) => account.id === line.accountId)?.name ?? "Account reference"}
+                          </td>
                           <td className="p-2">{line.description}</td>
                           <td className="p-2">
                             <Money currency={line.currency} value={line.debit} />

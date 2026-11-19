@@ -10883,6 +10883,77 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "dimension_options": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "dimension": {
+                            "type": "string",
+                            "enum": [
+                              "project",
+                              "department",
+                              "cost_centre",
+                              "branch",
+                              "division",
+                              "business_unit",
+                              "warehouse",
+                              "location"
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "code": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "name": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "dimension",
+                          "id",
+                          "code",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "readiness": {
+                      "type": "object",
+                      "properties": {
+                        "policy_configured": {
+                          "type": "boolean"
+                        },
+                        "unconfigured_customers": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "unconfigured_suppliers": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "active_tax_definitions": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "policy_configured",
+                        "unconfigured_customers",
+                        "unconfigured_suppliers",
+                        "active_tax_definitions"
+                      ],
+                      "additionalProperties": false
+                    },
                     "company_id": {
                       "type": "string",
                       "minLength": 1,
@@ -10962,6 +11033,72 @@
                               "watch",
                               "blocked"
                             ]
+                          },
+                          "financial_configuration": {
+                            "nullable": true,
+                            "type": "object",
+                            "properties": {
+                              "company_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "payment_term": {
+                                "nullable": true,
+                                "type": "string",
+                                "enum": [
+                                  "immediate",
+                                  "days_15",
+                                  "days_21",
+                                  "days_30",
+                                  "days_45",
+                                  "end_following_month",
+                                  "days_10_after_end_next_month",
+                                  "percent_30_now_balance_60_days"
+                                ]
+                              },
+                              "credit_limit": {
+                                "nullable": true,
+                                "type": "string",
+                                "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                              },
+                              "reason": {
+                                "type": "string",
+                                "minLength": 3,
+                                "maxLength": 500
+                              },
+                              "party_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "version": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "exclusiveMinimum": true,
+                                "maximum": 9007199254740991
+                              },
+                              "credit_currency": {
+                                "type": "string",
+                                "pattern": "^[A-Z]{3}$"
+                              }
+                            },
+                            "required": [
+                              "company_id",
+                              "payment_term",
+                              "credit_limit",
+                              "reason",
+                              "party_id",
+                              "version",
+                              "credit_currency"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "supplier_credit_days": {
+                            "nullable": true,
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
                           }
                         },
                         "required": [
@@ -11110,6 +11247,30 @@
                             "type": "string",
                             "format": "date",
                             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          "due_schedule": {
+                            "minItems": 1,
+                            "maxItems": 24,
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "due_date": {
+                                  "type": "string",
+                                  "format": "date",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                },
+                                "amount": {
+                                  "type": "string",
+                                  "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                }
+                              },
+                              "required": [
+                                "due_date",
+                                "amount"
+                              ],
+                              "additionalProperties": false
+                            }
                           },
                           "original_amount": {
                             "type": "string",
@@ -11272,6 +11433,14 @@
                                     "minLength": 3,
                                     "maxLength": 500
                                   },
+                                  "dimensions": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128
+                                    }
+                                  },
                                   "type": {
                                     "type": "string",
                                     "enum": [
@@ -11310,6 +11479,27 @@
                                     "type": "string",
                                     "format": "date",
                                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  "payment_term": {
+                                    "type": "string",
+                                    "enum": [
+                                      "immediate",
+                                      "days_15",
+                                      "days_21",
+                                      "days_30",
+                                      "days_45",
+                                      "end_following_month",
+                                      "days_10_after_end_next_month",
+                                      "percent_30_now_balance_60_days"
+                                    ]
+                                  },
+                                  "document_type": {
+                                    "type": "string",
+                                    "enum": [
+                                      "invoice",
+                                      "debit_note",
+                                      "credit_note"
+                                    ]
                                   },
                                   "monetary": {
                                     "default": true,
@@ -11388,6 +11578,14 @@
                                     "type": "string",
                                     "minLength": 3,
                                     "maxLength": 500
+                                  },
+                                  "dimensions": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128
+                                    }
                                   },
                                   "type": {
                                     "type": "string",
@@ -11503,6 +11701,14 @@
                                     "minLength": 3,
                                     "maxLength": 500
                                   },
+                                  "dimensions": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128
+                                    }
+                                  },
                                   "type": {
                                     "type": "string",
                                     "enum": [
@@ -11581,6 +11787,14 @@
                                     "minLength": 3,
                                     "maxLength": 500
                                   },
+                                  "dimensions": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128
+                                    }
+                                  },
                                   "type": {
                                     "type": "string",
                                     "enum": [
@@ -11638,6 +11852,14 @@
                                     "minLength": 3,
                                     "maxLength": 500
                                   },
+                                  "dimensions": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128
+                                    }
+                                  },
                                   "type": {
                                     "type": "string",
                                     "enum": [
@@ -11682,6 +11904,14 @@
                                     "type": "string",
                                     "minLength": 3,
                                     "maxLength": 500
+                                  },
+                                  "dimensions": {
+                                    "type": "object",
+                                    "additionalProperties": {
+                                      "type": "string",
+                                      "minLength": 1,
+                                      "maxLength": 128
+                                    }
                                   },
                                   "type": {
                                     "type": "string",
@@ -11759,6 +11989,65 @@
                             "nullable": true,
                             "type": "object",
                             "properties": {
+                              "party_configuration": {
+                                "type": "object",
+                                "properties": {
+                                  "company_id": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "payment_term": {
+                                    "nullable": true,
+                                    "type": "string",
+                                    "enum": [
+                                      "immediate",
+                                      "days_15",
+                                      "days_21",
+                                      "days_30",
+                                      "days_45",
+                                      "end_following_month",
+                                      "days_10_after_end_next_month",
+                                      "percent_30_now_balance_60_days"
+                                    ]
+                                  },
+                                  "credit_limit": {
+                                    "nullable": true,
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                  },
+                                  "reason": {
+                                    "type": "string",
+                                    "minLength": 3,
+                                    "maxLength": 500
+                                  },
+                                  "party_id": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "version": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "exclusiveMinimum": true,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "credit_currency": {
+                                    "type": "string",
+                                    "pattern": "^[A-Z]{3}$"
+                                  }
+                                },
+                                "required": [
+                                  "company_id",
+                                  "payment_term",
+                                  "credit_limit",
+                                  "reason",
+                                  "party_id",
+                                  "version",
+                                  "credit_currency"
+                                ],
+                                "additionalProperties": false
+                              },
                               "taxes": {
                                 "default": [],
                                 "maxItems": 100,
@@ -12055,6 +12344,30 @@
                                     "format": "date",
                                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                                   },
+                                  "due_schedule": {
+                                    "minItems": 1,
+                                    "maxItems": 24,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "due_date": {
+                                          "type": "string",
+                                          "format": "date",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                        },
+                                        "amount": {
+                                          "type": "string",
+                                          "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                        }
+                                      },
+                                      "required": [
+                                        "due_date",
+                                        "amount"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
                                   "original_amount": {
                                     "type": "string",
                                     "pattern": "^-?(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
@@ -12189,6 +12502,30 @@
                                       "type": "string",
                                       "format": "date",
                                       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "due_schedule": {
+                                      "minItems": 1,
+                                      "maxItems": 24,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "due_date": {
+                                            "type": "string",
+                                            "format": "date",
+                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                          },
+                                          "amount": {
+                                            "type": "string",
+                                            "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                          }
+                                        },
+                                        "required": [
+                                          "due_date",
+                                          "amount"
+                                        ],
+                                        "additionalProperties": false
+                                      }
                                     },
                                     "original_amount": {
                                       "type": "string",
@@ -12390,6 +12727,30 @@
                                       "type": "string",
                                       "format": "date",
                                       "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "due_schedule": {
+                                      "minItems": 1,
+                                      "maxItems": 24,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "due_date": {
+                                            "type": "string",
+                                            "format": "date",
+                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                          },
+                                          "amount": {
+                                            "type": "string",
+                                            "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                          }
+                                        },
+                                        "required": [
+                                          "due_date",
+                                          "amount"
+                                        ],
+                                        "additionalProperties": false
+                                      }
                                     },
                                     "original_amount": {
                                       "type": "string",
@@ -13338,6 +13699,72 @@
                         "watch",
                         "blocked"
                       ]
+                    },
+                    "financial_configuration": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "company_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "payment_term": {
+                          "nullable": true,
+                          "type": "string",
+                          "enum": [
+                            "immediate",
+                            "days_15",
+                            "days_21",
+                            "days_30",
+                            "days_45",
+                            "end_following_month",
+                            "days_10_after_end_next_month",
+                            "percent_30_now_balance_60_days"
+                          ]
+                        },
+                        "credit_limit": {
+                          "nullable": true,
+                          "type": "string",
+                          "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 500
+                        },
+                        "party_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "version": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "exclusiveMinimum": true,
+                          "maximum": 9007199254740991
+                        },
+                        "credit_currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        }
+                      },
+                      "required": [
+                        "company_id",
+                        "payment_term",
+                        "credit_limit",
+                        "reason",
+                        "party_id",
+                        "version",
+                        "credit_currency"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "supplier_credit_days": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
@@ -13347,6 +13774,252 @@
                     "default_currency",
                     "id",
                     "code"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/finance/subledger/parties/{partyId}/configuration": {
+      "post": {
+        "operationId": "configureSubledgerParty",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "partyId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "company_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "expected_version": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "payment_term": {
+                    "nullable": true,
+                    "type": "string",
+                    "enum": [
+                      "immediate",
+                      "days_15",
+                      "days_21",
+                      "days_30",
+                      "days_45",
+                      "end_following_month",
+                      "days_10_after_end_next_month",
+                      "percent_30_now_balance_60_days"
+                    ]
+                  },
+                  "credit_limit": {
+                    "nullable": true,
+                    "type": "string",
+                    "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "company_id",
+                  "expected_version",
+                  "payment_term",
+                  "credit_limit",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated financial result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "company_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "payment_term": {
+                      "nullable": true,
+                      "type": "string",
+                      "enum": [
+                        "immediate",
+                        "days_15",
+                        "days_21",
+                        "days_30",
+                        "days_45",
+                        "end_following_month",
+                        "days_10_after_end_next_month",
+                        "percent_30_now_balance_60_days"
+                      ]
+                    },
+                    "credit_limit": {
+                      "nullable": true,
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                    },
+                    "reason": {
+                      "type": "string",
+                      "minLength": 3,
+                      "maxLength": 500
+                    },
+                    "party_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "version": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "exclusiveMinimum": true,
+                      "maximum": 9007199254740991
+                    },
+                    "credit_currency": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{3}$"
+                    }
+                  },
+                  "required": [
+                    "company_id",
+                    "payment_term",
+                    "credit_limit",
+                    "reason",
+                    "party_id",
+                    "version",
+                    "credit_currency"
                   ],
                   "additionalProperties": false
                 }
@@ -13760,6 +14433,14 @@
                         "minLength": 3,
                         "maxLength": 500
                       },
+                      "dimensions": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        }
+                      },
                       "type": {
                         "type": "string",
                         "enum": [
@@ -13798,6 +14479,27 @@
                         "type": "string",
                         "format": "date",
                         "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "payment_term": {
+                        "type": "string",
+                        "enum": [
+                          "immediate",
+                          "days_15",
+                          "days_21",
+                          "days_30",
+                          "days_45",
+                          "end_following_month",
+                          "days_10_after_end_next_month",
+                          "percent_30_now_balance_60_days"
+                        ]
+                      },
+                      "document_type": {
+                        "type": "string",
+                        "enum": [
+                          "invoice",
+                          "debit_note",
+                          "credit_note"
+                        ]
                       },
                       "monetary": {
                         "default": true,
@@ -13848,7 +14550,6 @@
                       "side",
                       "kind",
                       "amount",
-                      "due_date",
                       "monetary"
                     ],
                     "additionalProperties": false
@@ -13875,6 +14576,14 @@
                         "type": "string",
                         "minLength": 3,
                         "maxLength": 500
+                      },
+                      "dimensions": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        }
                       },
                       "type": {
                         "type": "string",
@@ -13989,6 +14698,14 @@
                         "minLength": 3,
                         "maxLength": 500
                       },
+                      "dimensions": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        }
+                      },
                       "type": {
                         "type": "string",
                         "enum": [
@@ -14067,6 +14784,14 @@
                         "minLength": 3,
                         "maxLength": 500
                       },
+                      "dimensions": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        }
+                      },
                       "type": {
                         "type": "string",
                         "enum": [
@@ -14123,6 +14848,14 @@
                         "type": "string",
                         "minLength": 3,
                         "maxLength": 500
+                      },
+                      "dimensions": {
+                        "type": "object",
+                        "additionalProperties": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        }
                       },
                       "type": {
                         "type": "string",
@@ -14240,6 +14973,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -14278,6 +15019,27 @@
                               "type": "string",
                               "format": "date",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "payment_term": {
+                              "type": "string",
+                              "enum": [
+                                "immediate",
+                                "days_15",
+                                "days_21",
+                                "days_30",
+                                "days_45",
+                                "end_following_month",
+                                "days_10_after_end_next_month",
+                                "percent_30_now_balance_60_days"
+                              ]
+                            },
+                            "document_type": {
+                              "type": "string",
+                              "enum": [
+                                "invoice",
+                                "debit_note",
+                                "credit_note"
+                              ]
                             },
                             "monetary": {
                               "default": true,
@@ -14356,6 +15118,14 @@
                               "type": "string",
                               "minLength": 3,
                               "maxLength": 500
+                            },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
                             },
                             "type": {
                               "type": "string",
@@ -14471,6 +15241,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -14549,6 +15327,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -14606,6 +15392,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -14650,6 +15444,14 @@
                               "type": "string",
                               "minLength": 3,
                               "maxLength": 500
+                            },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
                             },
                             "type": {
                               "type": "string",
@@ -14727,6 +15529,65 @@
                       "nullable": true,
                       "type": "object",
                       "properties": {
+                        "party_configuration": {
+                          "type": "object",
+                          "properties": {
+                            "company_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "payment_term": {
+                              "nullable": true,
+                              "type": "string",
+                              "enum": [
+                                "immediate",
+                                "days_15",
+                                "days_21",
+                                "days_30",
+                                "days_45",
+                                "end_following_month",
+                                "days_10_after_end_next_month",
+                                "percent_30_now_balance_60_days"
+                              ]
+                            },
+                            "credit_limit": {
+                              "nullable": true,
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 3,
+                              "maxLength": 500
+                            },
+                            "party_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991
+                            },
+                            "credit_currency": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            }
+                          },
+                          "required": [
+                            "company_id",
+                            "payment_term",
+                            "credit_limit",
+                            "reason",
+                            "party_id",
+                            "version",
+                            "credit_currency"
+                          ],
+                          "additionalProperties": false
+                        },
                         "taxes": {
                           "default": [],
                           "maxItems": 100,
@@ -15023,6 +15884,30 @@
                               "format": "date",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                             },
+                            "due_schedule": {
+                              "minItems": 1,
+                              "maxItems": 24,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "due_date": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                  }
+                                },
+                                "required": [
+                                  "due_date",
+                                  "amount"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
                             "original_amount": {
                               "type": "string",
                               "pattern": "^-?(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
@@ -15157,6 +16042,30 @@
                                 "type": "string",
                                 "format": "date",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              "due_schedule": {
+                                "minItems": 1,
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "due_date": {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "due_date",
+                                    "amount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "original_amount": {
                                 "type": "string",
@@ -15358,6 +16267,30 @@
                                 "type": "string",
                                 "format": "date",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              "due_schedule": {
+                                "minItems": 1,
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "due_date": {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "due_date",
+                                    "amount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "original_amount": {
                                 "type": "string",
@@ -15792,6 +16725,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -15830,6 +16771,27 @@
                               "type": "string",
                               "format": "date",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "payment_term": {
+                              "type": "string",
+                              "enum": [
+                                "immediate",
+                                "days_15",
+                                "days_21",
+                                "days_30",
+                                "days_45",
+                                "end_following_month",
+                                "days_10_after_end_next_month",
+                                "percent_30_now_balance_60_days"
+                              ]
+                            },
+                            "document_type": {
+                              "type": "string",
+                              "enum": [
+                                "invoice",
+                                "debit_note",
+                                "credit_note"
+                              ]
                             },
                             "monetary": {
                               "default": true,
@@ -15908,6 +16870,14 @@
                               "type": "string",
                               "minLength": 3,
                               "maxLength": 500
+                            },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
                             },
                             "type": {
                               "type": "string",
@@ -16023,6 +16993,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -16101,6 +17079,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -16158,6 +17144,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -16202,6 +17196,14 @@
                               "type": "string",
                               "minLength": 3,
                               "maxLength": 500
+                            },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
                             },
                             "type": {
                               "type": "string",
@@ -16279,6 +17281,65 @@
                       "nullable": true,
                       "type": "object",
                       "properties": {
+                        "party_configuration": {
+                          "type": "object",
+                          "properties": {
+                            "company_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "payment_term": {
+                              "nullable": true,
+                              "type": "string",
+                              "enum": [
+                                "immediate",
+                                "days_15",
+                                "days_21",
+                                "days_30",
+                                "days_45",
+                                "end_following_month",
+                                "days_10_after_end_next_month",
+                                "percent_30_now_balance_60_days"
+                              ]
+                            },
+                            "credit_limit": {
+                              "nullable": true,
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 3,
+                              "maxLength": 500
+                            },
+                            "party_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991
+                            },
+                            "credit_currency": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            }
+                          },
+                          "required": [
+                            "company_id",
+                            "payment_term",
+                            "credit_limit",
+                            "reason",
+                            "party_id",
+                            "version",
+                            "credit_currency"
+                          ],
+                          "additionalProperties": false
+                        },
                         "taxes": {
                           "default": [],
                           "maxItems": 100,
@@ -16575,6 +17636,30 @@
                               "format": "date",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                             },
+                            "due_schedule": {
+                              "minItems": 1,
+                              "maxItems": 24,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "due_date": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                  }
+                                },
+                                "required": [
+                                  "due_date",
+                                  "amount"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
                             "original_amount": {
                               "type": "string",
                               "pattern": "^-?(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
@@ -16709,6 +17794,30 @@
                                 "type": "string",
                                 "format": "date",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              "due_schedule": {
+                                "minItems": 1,
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "due_date": {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "due_date",
+                                    "amount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "original_amount": {
                                 "type": "string",
@@ -16910,6 +18019,30 @@
                                 "type": "string",
                                 "format": "date",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              "due_schedule": {
+                                "minItems": 1,
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "due_date": {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "due_date",
+                                    "amount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "original_amount": {
                                 "type": "string",
@@ -17321,6 +18454,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -17359,6 +18500,27 @@
                               "type": "string",
                               "format": "date",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            "payment_term": {
+                              "type": "string",
+                              "enum": [
+                                "immediate",
+                                "days_15",
+                                "days_21",
+                                "days_30",
+                                "days_45",
+                                "end_following_month",
+                                "days_10_after_end_next_month",
+                                "percent_30_now_balance_60_days"
+                              ]
+                            },
+                            "document_type": {
+                              "type": "string",
+                              "enum": [
+                                "invoice",
+                                "debit_note",
+                                "credit_note"
+                              ]
                             },
                             "monetary": {
                               "default": true,
@@ -17437,6 +18599,14 @@
                               "type": "string",
                               "minLength": 3,
                               "maxLength": 500
+                            },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
                             },
                             "type": {
                               "type": "string",
@@ -17552,6 +18722,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -17630,6 +18808,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -17687,6 +18873,14 @@
                               "minLength": 3,
                               "maxLength": 500
                             },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
+                            },
                             "type": {
                               "type": "string",
                               "enum": [
@@ -17731,6 +18925,14 @@
                               "type": "string",
                               "minLength": 3,
                               "maxLength": 500
+                            },
+                            "dimensions": {
+                              "type": "object",
+                              "additionalProperties": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              }
                             },
                             "type": {
                               "type": "string",
@@ -17808,6 +19010,65 @@
                       "nullable": true,
                       "type": "object",
                       "properties": {
+                        "party_configuration": {
+                          "type": "object",
+                          "properties": {
+                            "company_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "payment_term": {
+                              "nullable": true,
+                              "type": "string",
+                              "enum": [
+                                "immediate",
+                                "days_15",
+                                "days_21",
+                                "days_30",
+                                "days_45",
+                                "end_following_month",
+                                "days_10_after_end_next_month",
+                                "percent_30_now_balance_60_days"
+                              ]
+                            },
+                            "credit_limit": {
+                              "nullable": true,
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 3,
+                              "maxLength": 500
+                            },
+                            "party_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "version": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "exclusiveMinimum": true,
+                              "maximum": 9007199254740991
+                            },
+                            "credit_currency": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            }
+                          },
+                          "required": [
+                            "company_id",
+                            "payment_term",
+                            "credit_limit",
+                            "reason",
+                            "party_id",
+                            "version",
+                            "credit_currency"
+                          ],
+                          "additionalProperties": false
+                        },
                         "taxes": {
                           "default": [],
                           "maxItems": 100,
@@ -18104,6 +19365,30 @@
                               "format": "date",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
                             },
+                            "due_schedule": {
+                              "minItems": 1,
+                              "maxItems": 24,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "due_date": {
+                                    "type": "string",
+                                    "format": "date",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                  },
+                                  "amount": {
+                                    "type": "string",
+                                    "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                  }
+                                },
+                                "required": [
+                                  "due_date",
+                                  "amount"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
                             "original_amount": {
                               "type": "string",
                               "pattern": "^-?(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
@@ -18238,6 +19523,30 @@
                                 "type": "string",
                                 "format": "date",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              "due_schedule": {
+                                "minItems": 1,
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "due_date": {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "due_date",
+                                    "amount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "original_amount": {
                                 "type": "string",
@@ -18439,6 +19748,30 @@
                                 "type": "string",
                                 "format": "date",
                                 "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                              },
+                              "due_schedule": {
+                                "minItems": 1,
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "due_date": {
+                                      "type": "string",
+                                      "format": "date",
+                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                    },
+                                    "amount": {
+                                      "type": "string",
+                                      "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                                    }
+                                  },
+                                  "required": [
+                                    "due_date",
+                                    "amount"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               },
                               "original_amount": {
                                 "type": "string",
@@ -126651,7 +127984,7 @@
             ]
           },
           "payment_term": {
-            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Omission on a new bill adopts reviewed supplier financial terms when configured. Null explicitly selects a manual due date.",
             "anyOf": [
               {
                 "type": "string",
@@ -128237,7 +129570,7 @@
             ]
           },
           "payment_term": {
-            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Omission on a new bill adopts reviewed supplier financial terms when configured. Null explicitly selects a manual due date.",
             "anyOf": [
               {
                 "type": "string",
@@ -129777,7 +131110,7 @@
                   ]
                 },
                 "payment_term": {
-                  "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+                  "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Omission on a new bill adopts reviewed supplier financial terms when configured. Null explicitly selects a manual due date.",
                   "anyOf": [
                     {
                       "type": "string",
@@ -131326,7 +132659,7 @@
             ]
           },
           "payment_term": {
-            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+            "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Omission on a new bill adopts reviewed supplier financial terms when configured. Null explicitly selects a manual due date.",
             "anyOf": [
               {
                 "type": "string",
@@ -132603,7 +133936,7 @@
                 ]
               },
               "payment_term": {
-                "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+                "description": "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Omission on a new bill adopts reviewed supplier financial terms when configured. Null explicitly selects a manual due date.",
                 "anyOf": [
                   {
                     "type": "string",

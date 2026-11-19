@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { taxSnapshotSchema } from "./taxes.js";
+import { billPaymentTermSchema } from "../procurement/bill-payment-terms.js";
 
 const id = z.string().trim().min(1).max(128);
 const amount = z.string().regex(/^(0|[1-9]\d{0,29})(\.\d{1,8})?$/);
@@ -24,6 +25,23 @@ export const subledgerPartyInputSchema = z.strictObject({
   default_currency: currency,
   source_supplier_id: id.optional(),
 });
+export const subledgerPartyConfigurationInputSchema = z.strictObject({
+  company_id: id,
+  expected_version: z.number().int().nonnegative(),
+  payment_term: billPaymentTermSchema.nullable(),
+  credit_limit: amount.nullable(),
+  reason: z.string().trim().min(3).max(500),
+});
+export const subledgerPartyConfigurationSchema = subledgerPartyConfigurationInputSchema
+  .omit({ expected_version: true })
+  .extend({ party_id: id, version: z.number().int().positive(), credit_currency: currency });
+export const subledgerDimensionsSchema = z
+  .record(z.string().trim().min(1).max(64), z.string().trim().min(1).max(128))
+  .refine((value) => Object.keys(value).length <= 25, "At most 25 dimensions are supported.");
+export const subledgerDueScheduleSchema = z
+  .array(z.strictObject({ due_date: date, amount }))
+  .min(1)
+  .max(24);
 export const subledgerSupplierQuerySchema = z.strictObject({
   company_id: id,
   search: z.string().trim().max(100).default(""),
@@ -60,6 +78,7 @@ const common = {
   date,
   reference: z.string().trim().max(160).default(""),
   reason: z.string().trim().min(3).max(500),
+  dimensions: subledgerDimensionsSchema.optional(),
 };
 export const subledgerRecognitionSchema = z.strictObject({
   ...common,
@@ -70,6 +89,8 @@ export const subledgerRecognitionSchema = z.strictObject({
   currency,
   amount,
   due_date: date,
+  payment_term: billPaymentTermSchema.optional(),
+  document_type: z.enum(["invoice", "debit_note", "credit_note"]).optional(),
   monetary: z.boolean().default(true),
   bank_account_id: id.optional(),
   source_document_id: id.optional(),
@@ -149,7 +170,7 @@ export const subledgerOperationInputSchema = z.discriminatedUnion("type", [
 ]);
 /** Requests may omit bank-derived currency; persisted operations remain canonical. */
 export const subledgerOperationRequestSchema = z.discriminatedUnion("type", [
-  subledgerRecognitionSchema.partial({ currency: true }).superRefine((input, context) => {
+  subledgerRecognitionSchema.partial({ currency: true, due_date: true }).superRefine((input, context) => {
     if (!input.currency && (input.kind !== "advance" || !input.bank_account_id))
       context.addIssue({
         code: "custom",
@@ -175,6 +196,8 @@ export const subledgerPartySchema = subledgerPartyInputSchema.extend({
   canonical_party_id: id.optional(),
   status: z.enum(["active", "inactive"]).optional(),
   risk_status: z.enum(["normal", "watch", "blocked"]).optional(),
+  financial_configuration: subledgerPartyConfigurationSchema.nullable().optional(),
+  supplier_credit_days: z.number().int().nonnegative().nullable().optional(),
 });
 export const subledgerPolicySchema = subledgerPolicyInputSchema
   .omit({ expected_version: true })
@@ -192,6 +215,7 @@ export const subledgerItemSchema = z.strictObject({
   base_decimal_places: z.number().int(),
   date,
   due_date: date,
+  due_schedule: subledgerDueScheduleSchema.optional(),
   original_amount: signedAmount,
   original_base: signedAmount,
   outstanding: signedAmount,
@@ -205,6 +229,7 @@ export const subledgerItemSchema = z.strictObject({
   rate_id: id.nullable(),
 });
 export const subledgerPreviewSchema = z.strictObject({
+  party_configuration: subledgerPartyConfigurationSchema.optional(),
   taxes: z.array(taxSnapshotSchema).max(100).default([]),
   base_currency: currency,
   base_decimal_places: z.number().int(),
@@ -290,6 +315,33 @@ export const subledgerBalanceSchema = z.strictObject({
   days_over_90: signedAmount,
 });
 export const subledgerWorkspaceSchema = z.strictObject({
+  dimension_options: z
+    .array(
+      z.strictObject({
+        dimension: z.enum([
+          "project",
+          "department",
+          "cost_centre",
+          "branch",
+          "division",
+          "business_unit",
+          "warehouse",
+          "location",
+        ]),
+        id,
+        code: id,
+        name: z.string(),
+      }),
+    )
+    .optional(),
+  readiness: z
+    .strictObject({
+      policy_configured: z.boolean(),
+      unconfigured_customers: z.number().int().nonnegative(),
+      unconfigured_suppliers: z.number().int().nonnegative(),
+      active_tax_definitions: z.number().int().nonnegative(),
+    })
+    .optional(),
   company_id: id,
   base_currency: currency,
   base_decimal_places: z.number().int(),
@@ -356,6 +408,8 @@ export type SubledgerInput = z.infer<typeof subledgerOperationInputSchema>;
 export type SubledgerAction = z.infer<typeof subledgerActionSchema>;
 export type SubledgerQuery = z.infer<typeof subledgerQuerySchema>;
 export type SubledgerPartyInput = z.infer<typeof subledgerPartyInputSchema>;
+export type SubledgerPartyConfigurationInput = z.infer<typeof subledgerPartyConfigurationInputSchema>;
+export type SubledgerPartyConfiguration = z.infer<typeof subledgerPartyConfigurationSchema>;
 export type SubledgerSupplierQuery = z.infer<typeof subledgerSupplierQuerySchema>;
 export type SubledgerSupplierDirectory = z.infer<typeof subledgerSupplierDirectorySchema>;
 export type SubledgerPolicyInput = z.infer<typeof subledgerPolicyInputSchema>;

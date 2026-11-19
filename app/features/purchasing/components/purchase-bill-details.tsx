@@ -25,6 +25,7 @@ export function PurchaseBillDetailsForm({
   disabled,
   sourceField,
   onChange,
+  allowSupplierDefaults = false,
 }: {
   input: SavePurchaseRequest;
   options: ProcurementOptions;
@@ -33,6 +34,7 @@ export function PurchaseBillDetailsForm({
   disabled: boolean;
   sourceField: ReactNode;
   onChange: (patch: Partial<SavePurchaseRequest>) => void;
+  allowSupplierDefaults?: boolean;
 }) {
   const billDate = input.bill_date ?? input.document_date;
   let schedule: ReturnType<typeof billPaymentSchedule> = [],
@@ -118,12 +120,23 @@ export function PurchaseBillDetailsForm({
               <Field label="Payment term">
                 <select
                   className={purchaseSelectClass}
-                  value={input.payment_term ?? ""}
+                  value={
+                    input.payment_term === undefined && allowSupplierDefaults
+                      ? "supplier_default"
+                      : (input.payment_term ?? "")
+                  }
                   onChange={(event) => {
+                    if (event.target.value === "supplier_default") {
+                      update({ payment_term: undefined, due_date: null });
+                      return;
+                    }
                     const term = billPaymentTermSchema.safeParse(event.target.value);
                     update({ payment_term: term.success ? term.data : null });
                   }}
                 >
+                  {allowSupplierDefaults && (
+                    <option value="supplier_default">Use reviewed supplier financial terms</option>
+                  )}
                   <option value="">Specific due date</option>
                   {billPaymentTerms.map((term) => (
                     <option key={term.value} value={term.value}>
@@ -135,7 +148,7 @@ export function PurchaseBillDetailsForm({
               <Field label="Due date">
                 <Input
                   type="date"
-                  readOnly={!!input.payment_term}
+                  readOnly={!!input.payment_term || (allowSupplierDefaults && input.payment_term === undefined)}
                   value={schedule.at(-1)?.due_date ?? input.due_date ?? ""}
                   onChange={(event) => update({ due_date: event.target.value || null })}
                 />

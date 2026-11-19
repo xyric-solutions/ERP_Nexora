@@ -43,14 +43,16 @@ import { paymentEntries, PurchasePaymentDetailsForm } from "./purchase-payment-d
 import { PurchaseBillDetailsForm } from "./purchase-bill-details";
 import { PurchaseAssetDetailsDialog } from "@/features/fixed-assets/components/purchase-asset-details-dialog";
 import { PurchaseAccounting } from "./purchase-accounting";
-import {PurchaseBudgetFields} from "./purchase-budget-fields";
+import { PurchaseBudgetFields } from "./purchase-budget-fields";
 
 const CUSTOM_PRODUCT_VALUE = "__custom_product__";
 const newLine = (): PurchaseLine => ({
   id: `line-${crypto.randomUUID()}`,
   source_line_id: null,
   item_code: "",
-  product_id: null,unit_id:undefined,unit_snapshot:undefined,
+  product_id: null,
+  unit_id: undefined,
+  unit_snapshot: undefined,
   product_name: "",
   description: "",
   quantity: "1",
@@ -119,7 +121,7 @@ export function PurchaseDocumentForm({
     invited_supplier_ids: [],
     source_id: null,
     document_date: new Date().toLocaleDateString("en-CA"),
-    ...(kind === "bill" ? { bill_date: new Date().toLocaleDateString("en-CA"), payment_term: null } : {}),
+    ...(kind === "bill" ? { bill_date: new Date().toLocaleDateString("en-CA") } : {}),
     due_date: null,
     currency: payment ? "" : (options.currencies[0]?.code ?? ""),
     reference: "",
@@ -295,9 +297,10 @@ export function PurchaseDocumentForm({
               id: `line-${crypto.randomUUID()}`,
               source_line_id: kind === "bill" && source.kind === "receipt" ? line.source_line_id : (line.id ?? null),
             })),
-        allocations: payment && purchaseAvailableAmount(source) !== "0.00"
-          ? [{ bill_id: source.id, amount: purchaseAvailableAmount(source) }]
-          : [],
+        allocations:
+          payment && purchaseAvailableAmount(source) !== "0.00"
+            ? [{ bill_id: source.id, amount: purchaseAvailableAmount(source) }]
+            : [],
       }));
     },
     [kind, payment],
@@ -577,7 +580,9 @@ export function PurchaseDocumentForm({
       onDirtyChange?.(false);
       setReason("");
       setPendingAction(null);
-      notify(`${result.record.code} ${result.record.state}.${result.budget_warnings?.length?` ${result.budget_warnings.join(" ")}`:""}`);
+      notify(
+        `${result.record.code} ${result.record.state}.${result.budget_warnings?.length ? ` ${result.budget_warnings.join(" ")}` : ""}`,
+      );
       if (action === "submit" && continueFlow) {
         if (result.record.approver_id === session?.user.id) onNavigate(step.form, `review:${result.record.id}`);
       }
@@ -1026,6 +1031,7 @@ export function PurchaseDocumentForm({
         />
       ) : kind === "bill" ? (
         <PurchaseBillDetailsForm
+          allowSupplierDefaults={!record}
           input={input}
           options={options}
           disabled={!canSave || busy}
@@ -1599,7 +1605,9 @@ export function PurchaseDocumentForm({
                                 if (value === CUSTOM_PRODUCT_VALUE) {
                                   setCustomLines((current) => new Set(current).add(line.id ?? index));
                                   updateLine(index, {
-                                    product_id: null,unit_id:undefined,unit_snapshot:undefined,
+                                    product_id: null,
+                                    unit_id: undefined,
+                                    unit_snapshot: undefined,
                                     ...(line.product_id ? { item_code: "", product_name: "" } : {}),
                                   });
                                   return;
@@ -1613,14 +1621,21 @@ export function PurchaseDocumentForm({
                                 if (selected)
                                   updateLine(index, {
                                     product_id: selected.id,
-                                    unit_id: undefined,unit_snapshot: undefined,
+                                    unit_id: undefined,
+                                    unit_snapshot: undefined,
                                     item_code: selected.code,
                                     product_name: selected.name,
                                     uom: selected.uom,
                                     description: line.description || selected.name,
                                   });
                                 else if (!value)
-                                  updateLine(index, { product_id: null,unit_id:undefined,unit_snapshot:undefined, item_code: "", product_name: "" });
+                                  updateLine(index, {
+                                    product_id: null,
+                                    unit_id: undefined,
+                                    unit_snapshot: undefined,
+                                    item_code: "",
+                                    product_name: "",
+                                  });
                               }}
                               footer={
                                 <div className="grid gap-1 text-sm">
@@ -1715,7 +1730,7 @@ export function PurchaseDocumentForm({
                             ))}
                           </select>
                         ) : null}
-                        {["request","rfq","order","bill"].includes(kind) && options.nominals?.length ? (
+                        {["request", "rfq", "order", "bill"].includes(kind) && options.nominals?.length ? (
                           <select
                             className={`${purchaseSelectClass} mt-2`}
                             aria-label={`Line ${index + 1} nominal account`}
@@ -1746,7 +1761,13 @@ export function PurchaseDocumentForm({
                             ))}
                           </select>
                         ) : null}
-                        <PurchaseBudgetFields line={line} index={index} options={options} disabled={!canSave||busy||["receipt","bill"].includes(kind)&&!!input.source_id} onChange={patch=>updateLine(index,patch)}/>
+                        <PurchaseBudgetFields
+                          line={line}
+                          index={index}
+                          options={options}
+                          disabled={!canSave || busy || (["receipt", "bill"].includes(kind) && !!input.source_id)}
+                          onChange={(patch) => updateLine(index, patch)}
+                        />
                         {kind === "bill" &&
                         options.nominals?.some(
                           (nominal) => nominal.id === line.nominal_account_id && nominal.fixed_asset,
@@ -1813,20 +1834,49 @@ export function PurchaseDocumentForm({
                         />
                       </td>
                       <td className="p-2">
-                        {line.product_id && kind === "request" ? <ProductUnitSelect surface="purchases" company={company} product={line.product_id} quantity={line.quantity} value={line.unit_id} fallback={line.uom} label={`Line ${index + 1} unit`} disabled={sourceLocked} onChange={(id,name)=>{
-                          if (Number(line.unit_price)>0 && !window.confirm("Change this unit and clear its unit price? Enter the price for the new unit before saving.")) return;
-                          updateLine(index,{unit_id:id,uom:name,unit_price:"0.00",unit_snapshot:undefined});
-                        }}/> : <>
-                        <Input
-                          aria-label={`Line ${index + 1} unit`}
-                          required
-                          disabled={kind !== "request" || !!line.product_id}
-                          maxLength={32}
-                          value={line.uom}
-                          onChange={(event) => updateLine(index, { uom: event.target.value })}
-                        />
-                        {line.unit_snapshot ? <p className="mt-1 text-xs text-muted-foreground">{line.unit_snapshot.base_quantity} {line.unit_snapshot.base_unit_name}</p>:null}
-                        </>}
+                        {line.product_id && kind === "request" ? (
+                          <ProductUnitSelect
+                            surface="purchases"
+                            company={company}
+                            product={line.product_id}
+                            quantity={line.quantity}
+                            value={line.unit_id}
+                            fallback={line.uom}
+                            label={`Line ${index + 1} unit`}
+                            disabled={sourceLocked}
+                            onChange={(id, name) => {
+                              if (
+                                Number(line.unit_price) > 0 &&
+                                !window.confirm(
+                                  "Change this unit and clear its unit price? Enter the price for the new unit before saving.",
+                                )
+                              )
+                                return;
+                              updateLine(index, {
+                                unit_id: id,
+                                uom: name,
+                                unit_price: "0.00",
+                                unit_snapshot: undefined,
+                              });
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <Input
+                              aria-label={`Line ${index + 1} unit`}
+                              required
+                              disabled={kind !== "request" || !!line.product_id}
+                              maxLength={32}
+                              value={line.uom}
+                              onChange={(event) => updateLine(index, { uom: event.target.value })}
+                            />
+                            {line.unit_snapshot ? (
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {line.unit_snapshot.base_quantity} {line.unit_snapshot.base_unit_name}
+                              </p>
+                            ) : null}
+                          </>
+                        )}
                       </td>
                       <td className="p-2">
                         <Input
@@ -2158,8 +2208,14 @@ export function PurchaseDocumentForm({
             : "Approval matches this bill to the approved order and products already received. It does not post an accounts-payable journal."}
         </p>
       ) : null}
-      {record?.state === "approved" && (record.kind === "bill" || payment) ?
-        <PurchaseAccounting key={`${record.id}:${record.version}`} record={record} disabled={busy||dirty} onReview={()=>onNavigate("supplier-currency-accounts",record.id)}/>:null}
+      {record?.state === "approved" && (record.kind === "bill" || payment) ? (
+        <PurchaseAccounting
+          key={`${record.id}:${record.version}`}
+          record={record}
+          disabled={busy || dirty}
+          onReview={() => onNavigate("supplier-currency-accounts", record.id)}
+        />
+      ) : null}
       {payment ? (
         <p className="m-0 text-xs text-muted-foreground">
           This is a payment instruction. Approval reserves these allocations; it does not transfer funds or mark the

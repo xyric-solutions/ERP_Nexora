@@ -17,7 +17,7 @@ describe("OpenAPI contract", () => {
       schema: { type: "string", minLength: 1, maxLength: 128 },
     });
     for (const path of ["/procurement/products", "/procurement/approvers", "/procurement/suppliers"] as const)
-      expect(paths[path].get.parameters.map((parameter) => parameter.name)).not.toContain("supplier_id");
+      expect(paths[path].get.parameters).not.toContainEqual(expect.objectContaining({ name: "supplier_id" }));
   });
 
   it("matches the committed snapshot and versioned paths", async () => {
@@ -60,6 +60,7 @@ describe("OpenAPI contract", () => {
       "/finance/subledger/workspace",
       "/finance/subledger/reports",
       "/finance/subledger/parties",
+      "/finance/subledger/parties/{partyId}/configuration",
       "/finance/subledger/policy",
       "/finance/subledger/operations",
       "/finance/subledger/purchase/{documentId}/prepare",

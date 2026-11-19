@@ -149,6 +149,12 @@ const app = createApp({
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
+    party_financial_configuration: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.finance_party_configuration') is not null and to_regprocedure('public.finance_due_installments(jsonb,date,numeric,numeric)') is not null and exists(select 1 from information_schema.columns where table_schema='public' and table_name='finance_subledger_item' and column_name='due_schedule') and exists(select 1 from nexora_schema_migration where module_name='finance' and version=43 and name='party_financial_configuration') as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Party financial configuration migration 0043 is required");
+    },
     canonical_business_parties: async () => {
       const result = await pool.query<{ available: boolean }>(
         "select exists(select 1 from nexora_schema_migration where module_name='procurement' and version=8 and name='canonical_business_parties') as available",

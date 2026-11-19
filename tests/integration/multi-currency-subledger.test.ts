@@ -3,7 +3,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   subledgerQuerySchema,
   subledgerReportQuerySchema,
-  type SubledgerInput,
   type SubledgerRequest,
   type SubledgerOperation,
   savePurchaseRequestSchema,
@@ -12,7 +11,7 @@ import {
   type PurchaseKind,
 } from "../../packages/contracts/src/index.js";
 import { createDisposableSourceDatabase } from "../security/disposable-source-database.js";
-import { setupSubledgerFixture, subledgerActor } from "./subledger-fixture.js";
+import { setupSubledgerFixture, subledgerActor, configureCustomerCreditFixture } from "./subledger-fixture.js";
 import { SubledgerReports } from "../../server/api/src/modules/finance/subledger/reports.js";
 import { SourceSubledgerRepository } from "../../server/api/src/modules/finance/subledger/source-repository.js";
 import { SourceProcurementRepository } from "../../server/api/src/modules/procurement/source-repository.js";
@@ -70,11 +69,13 @@ run("persistent multi-currency customer/vendor accounting", () => {
       subledgerReportQuerySchema.parse({ company_id: fixture.company, as_of, report: kind, ...rest }),
     );
   async function party(kind: "customer" | "supplier" = "customer") {
-    return fixture.repository.createParty(
+    const record = await fixture.repository.createParty(
       maker,
       { company_id: fixture.company, name: `Currency party ${randomUUID()}`, kind, default_currency: "USD" },
       randomUUID(),
     );
+    if (kind === "customer") await configureCustomerCreditFixture(fixture, record.id);
+    return record;
   }
   const recognize = (
     party_id: string,
@@ -83,7 +84,7 @@ run("persistent multi-currency customer/vendor accounting", () => {
     date = "2026-09-20",
     side: "receivable" | "payable" = "receivable",
     kind: "invoice" | "credit_note" | "advance" = "invoice",
-  ): SubledgerInput => ({
+  ): Extract<SubledgerRequest, { type: "recognition" }> => ({
     company_id: fixture.company,
     type: "recognition",
     party_id,
@@ -775,7 +776,8 @@ run("persistent multi-currency customer/vendor accounting", () => {
       { company_id: isolated.company, kind: "customer", name: "Full valuation and precision", default_currency: "USD" },
       randomUUID(),
     );
-    const record = async (input: SubledgerInput) =>
+    await configureCustomerCreditFixture(isolated, customer.id);
+    const record = async (input: SubledgerRequest) =>
       post({ ...input, company_id: isolated.company }, isolated.repository);
     const invoice = await record(recognize(customer.id, "USD", "1000", "2026-09-20"));
     const valuation = await record({
@@ -1176,6 +1178,7 @@ run("persistent multi-currency customer/vendor accounting", () => {
       },
       randomUUID(),
     );
+    await configureCustomerCreditFixture(second, customer.id);
     let op = await second.repository.create(
       maker,
       { ...recognize(customer.id, "EUR", "100", "2026-09-20"), company_id: second.company },

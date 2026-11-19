@@ -1,5 +1,30 @@
 # Remaining UI migration checklist
 
+## 2026-11-19 - AP/AR financial readiness
+
+- Extended the persistent financial workspace with reviewed payment terms,
+  finite functional-currency customer credit, configuration readiness and bounded
+  dimension selections. Added `party-financial-setup.tsx` using existing shared
+  controls. New purchase bills can inherit reviewed supplier defaults; explicit
+  manual dates and existing saved document terms remain intact.
+- Preserved routes, company control-account policy, posting/approval permissions,
+  original create/setup forms and existing layout order. No legacy stylesheet
+  was retired. Mobile, Manufacturing and Fleet navigation stays hidden.
+- Theme audit write/check: zero direct feature-view font or colour exceptions
+  across 134 view sources. The existing application-wide artwork exception remains
+  in `global-theme-audit.md`; these source percentages do not represent every menu.
+- Authenticated real-API screenshots at desktop 1440, tablet 820 and mobile 390
+  in both themes were captured under
+  `tmp/ap-ar-readiness-phase2/evidence/financial-setup-*.png`. Desktop/light and
+  mobile/dark captures were inspected. Setup forms fit narrow widths; no theme
+  overrides or separate palette were added.
+- Unit suite: 1,630 passed; financial PostgreSQL suites: 266 passed; contracts:
+  27 passed. Required AR/AP browser journeys: 2 passed; existing multi-currency:
+  2 passed; manual/CSV/Excel reconciliation: 3 passed. Production web build and
+  source/type/drift/catalogue/theme checks passed. Final release evidence and
+  business configuration prerequisites are in
+  [the AP/AR handoff](ap-ar-readiness-phase2.md).
+
 ## 2026-11-19 - Stabilization runtime alignment
 
 - Activated the compatible accounting/canonical-party API and existing approved

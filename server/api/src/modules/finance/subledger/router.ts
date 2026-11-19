@@ -4,6 +4,7 @@ import {
   subledgerActionSchema,
   subledgerOperationRequestSchema,
   subledgerPartyInputSchema,
+  subledgerPartyConfigurationInputSchema,
   subledgerPolicyInputSchema,
   subledgerQuerySchema,
   subledgerSupplierQuerySchema,
@@ -49,7 +50,11 @@ export function createSubledgerRouter(
   }
   router.get("/supplier-masters", async (req, res) => {
     const query = subledgerSupplierQuerySchema.parse(req.query);
-    res.json(await handle(async () => dependencies.repository.supplierMasters(await loadBankingSessionContext(req, dependencies), query)));
+    res.json(
+      await handle(async () =>
+        dependencies.repository.supplierMasters(await loadBankingSessionContext(req, dependencies), query),
+      ),
+    );
   });
   router.get("/workspace", async (req, res) => {
     const query = subledgerQuerySchema.parse(req.query);
@@ -84,6 +89,21 @@ export function createSubledgerRouter(
     res.json(
       await handle(async () =>
         dependencies.repository.configure(await loadBankingSessionContext(req, dependencies, true), input, key),
+      ),
+    );
+  });
+  router.post("/parties/:id/configuration", async (req, res) => {
+    const input = subledgerPartyConfigurationInputSchema.parse(req.body);
+    const key = guard(req, input.expected_version);
+    const id = z.string().trim().min(1).max(128).parse(req.params.id);
+    res.json(
+      await handle(async () =>
+        dependencies.repository.configureParty(
+          await loadBankingSessionContext(req, dependencies, true),
+          id,
+          input,
+          key,
+        ),
       ),
     );
   });

@@ -1,7 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { billPaymentSchedule, billPaymentTerms } from "../../packages/contracts/src/procurement/bill-payment-terms.js";
+import {
+  billPaymentSchedule,
+  billPaymentTerms,
+  financialPaymentSchedule,
+} from "../../packages/contracts/src/procurement/bill-payment-terms.js";
 
 describe("Bill-date payment terms", () => {
+  it("retains purchase cent bounds and leading-zero compatibility", () => {
+    expect(billPaymentSchedule("2026-11-11", "days_15", "00010.00")[0].amount).toBe("10.00");
+    expect(() => billPaymentSchedule("2026-11-11", "days_15", "1000000000000")).toThrow();
+  });
+  it("splits financial installments at the actual currency precision without losing minor units", () => {
+    expect(
+      financialPaymentSchedule("2026-11-11", "percent_30_now_balance_60_days", "0.005", 3).map((part) => part.amount),
+    ).toEqual(["0.002", "0.003"]);
+    expect(
+      financialPaymentSchedule("2026-11-11", "percent_30_now_balance_60_days", "1", 0).map((part) => part.amount),
+    ).toEqual(["0", "1"]);
+  });
   it.each([
     ["immediate", "2026-11-11"],
     ["days_15", "2026-11-26"],

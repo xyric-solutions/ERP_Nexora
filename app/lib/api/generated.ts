@@ -61,6 +61,8 @@ import type {
   SubledgerReport,
   SubledgerParty,
   SubledgerPartyInput,
+  SubledgerPartyConfiguration,
+  SubledgerPartyConfigurationInput,
   SubledgerSupplierDirectory,
   SubledgerPolicy,
   SubledgerPolicyInput,
@@ -5052,6 +5054,22 @@ export class NexoraApiClient {
     idempotencyKey: string,
   ): Promise<SubledgerPolicy> {
     return this.request("/api/v1/finance/subledger/policy", {
+      method: "POST",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  configureSubledgerParty(
+    id: string,
+    payload: SubledgerPartyConfigurationInput,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<SubledgerPartyConfiguration> {
+    return this.request("/api/v1/finance/subledger/parties/" + encodeURIComponent(id) + "/configuration", {
       method: "POST",
       headers: {
         "x-csrf-token": csrfToken,

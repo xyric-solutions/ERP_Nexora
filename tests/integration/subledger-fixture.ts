@@ -30,6 +30,26 @@ export const subledgerActor = (id = "r06.maker"): BankingActorContext => ({
   },
 });
 
+/** Explicit finite policy for isolated scenarios that exercise legacy manual
+ * invoice dates. Production onboarding has no automatic credit allowance. */
+export async function configureCustomerCreditFixture(
+  fixture: { repository: SourceSubledgerRepository; company: string },
+  partyId: string,
+) {
+  return fixture.repository.configureParty(
+    subledgerActor(),
+    partyId,
+    {
+      company_id: fixture.company,
+      expected_version: 0,
+      payment_term: null,
+      credit_limit: "1000000000000000000000000",
+      reason: "Reviewed finite isolated accounting test credit with manual due dates",
+    },
+    randomUUID(),
+  );
+}
+
 export async function setupSubledgerFixture(pool: DatabasePool, company = `mc-${randomUUID()}`, base = "PKR") {
   await migrateSourceSchema(pool);
   await ensureSourceAuthorizationFixture(pool);

@@ -10,9 +10,9 @@ import {
 } from "../../packages/contracts/src/procurement/index.js";
 import { SourceProcurementRepository } from "../../server/api/src/modules/procurement/source-repository.js";
 import { SupplierProfileCrypto } from "../../server/api/src/modules/procurement/supplier-profile-crypto.js";
-import type { SubledgerInput } from "../../packages/contracts/src/finance/subledger.js";
+import type { SubledgerRequest } from "../../packages/contracts/src/finance/subledger.js";
 import { createDisposableSourceDatabase } from "../security/disposable-source-database.js";
-import { setupSubledgerFixture, subledgerActor } from "./subledger-fixture.js";
+import { setupSubledgerFixture, subledgerActor, configureCustomerCreditFixture } from "./subledger-fixture.js";
 import { ensureSourceSuperAdministratorFixture } from "./source-security-fixture.js";
 import { SourceTaxRepository } from "../../server/api/src/modules/finance/taxes/source-repository.js";
 import { resolveTax } from "../../server/api/src/modules/finance/taxes/resolver.js";
@@ -77,7 +77,7 @@ run("unified tax configuration and accounting", () => {
     reason: "Configure isolated tax",
     ...extra,
   });
-  async function post(input: SubledgerInput) {
+  async function post(input: SubledgerRequest) {
     let op = await f.repository.create(subledgerActor(), input, randomUUID());
     for (const [action, user] of [
       ["submit", "r06.maker"],
@@ -187,6 +187,7 @@ run("unified tax configuration and accounting", () => {
         },
         randomUUID(),
       );
+      if (party.kind === "customer") await configureCustomerCreditFixture(f, party.id);
       const op = await post({
         type: "recognition",
         company_id: f.company,
@@ -263,6 +264,7 @@ run("unified tax configuration and accounting", () => {
       { company_id: f.company, name: "Withholding supplier", kind: "supplier", default_currency: "USD" },
       randomUUID(),
     );
+    if (party.kind === "customer") await configureCustomerCreditFixture(f, party.id);
     const invoice = await post({
       type: "recognition",
       company_id: f.company,
@@ -309,6 +311,7 @@ run("unified tax configuration and accounting", () => {
       { company_id: f.company, name: "Cross withholding supplier", kind: "supplier", default_currency: "USD" },
       randomUUID(),
     );
+    if (party.kind === "customer") await configureCustomerCreditFixture(f, party.id);
     const recognize = (amount: string, date: string) =>
       post({
         type: "recognition",
@@ -562,7 +565,10 @@ run("unified tax configuration and accounting", () => {
         await procurement.saveSupplier(
           prep,
           null,
-          supplierInputSchema.parse({ company_id: f.company, name: "Governed bill vendor" }),
+          supplierInputSchema.parse({
+            company_id: f.company,
+            name: `Governed bill vendor ${adjusted ? "adjusted" : asset ? "asset" : "standard"}`,
+          }),
           randomUUID(),
           randomUUID(),
         )
@@ -654,6 +660,7 @@ run("unified tax configuration and accounting", () => {
         },
         randomUUID(),
       );
+      if (party.kind === "customer") await configureCustomerCreditFixture(f, party.id);
       const operation = await post({
         type: "recognition",
         company_id: f.company,
@@ -748,6 +755,7 @@ run("unified tax configuration and accounting", () => {
       { company_id: f.company, name: "Stale tax customer", kind: "customer", default_currency: "USD" },
       randomUUID(),
     );
+    if (party.kind === "customer") await configureCustomerCreditFixture(f, party.id);
     let operation = await f.repository.create(
       subledgerActor(),
       {
@@ -820,6 +828,7 @@ run("unified tax configuration and accounting", () => {
       { company_id: f.company, name: "Invoice WHT supplier", kind: "supplier", default_currency: "USD" },
       randomUUID(),
     );
+    if (party.kind === "customer") await configureCustomerCreditFixture(f, party.id);
     const invoice = await post({
       type: "recognition",
       company_id: f.company,
@@ -999,6 +1008,7 @@ run("unified tax configuration and accounting", () => {
           },
           randomUUID(),
         );
+        if (party.kind === "customer") await configureCustomerCreditFixture(f, party.id);
         const op = await post({
           type: "recognition",
           company_id: f.company,

@@ -1,11 +1,16 @@
 import { z } from "zod";
-import { budgetDimensionsSchema,budgetReferenceOptionsSchema } from "../budget/index.js";
+import { budgetDimensionsSchema, budgetReferenceOptionsSchema } from "../budget/index.js";
 import { unitSnapshotSchema } from "../inventory/units.js";
 import { taxSnapshotSchema } from "../finance/taxes.js";
 import { supplierProfileSchema } from "./supplier-profile.js";
 import { billPaymentTermSchema } from "./bill-payment-terms.js";
 import { purchaseAssetRegistrationSchema } from "../fixed-assets/index.js";
-export { billPaymentTermSchema, billPaymentTerms, billPaymentSchedule } from "./bill-payment-terms.js";
+export {
+  billPaymentTermSchema,
+  billPaymentTerms,
+  billPaymentSchedule,
+  financialPaymentSchedule,
+} from "./bill-payment-terms.js";
 export type { BillPaymentTerm } from "./bill-payment-terms.js";
 export {
   supplierProfileSchema,
@@ -149,7 +154,7 @@ export const purchaseTermsSchema = z.strictObject({
     .nullable()
     .optional()
     .describe(
-      "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Null selects a manual due date.",
+      "Bill-only term calculated from bill_date; due_date stores the final scheduled date. Omission on a new bill adopts reviewed supplier financial terms when configured. Null explicitly selects a manual due date.",
     ),
   due_date: date.nullable().default(null),
   currency: z.string().regex(/^[A-Z]{3}$/),
@@ -303,7 +308,7 @@ export const procurementCompaniesSchema = z.strictObject({
   items: z.array(z.strictObject({ id: identity, code: z.string(), name: z.string() })),
 });
 export const procurementOptionsSchema = z.strictObject({
-  budget_dimensions:budgetReferenceOptionsSchema.optional(),
+  budget_dimensions: budgetReferenceOptionsSchema.optional(),
   nominals: z
     .array(
       z.strictObject({
@@ -352,7 +357,11 @@ export const purchaseApproverDirectorySchema = z.strictObject({
 export type ProcurementLookupQuery = z.infer<typeof procurementLookupQuerySchema>;
 export type PurchaseProductDirectory = z.infer<typeof purchaseProductDirectorySchema>;
 export type PurchaseApproverDirectory = z.infer<typeof purchaseApproverDirectorySchema>;
-export const purchaseMutationSchema = z.strictObject({ record: purchaseDocumentSchema, audit_event_id: identity,budget_warnings:z.array(z.string()).optional() });
+export const purchaseMutationSchema = z.strictObject({
+  record: purchaseDocumentSchema,
+  audit_event_id: identity,
+  budget_warnings: z.array(z.string()).optional(),
+});
 export const supplierMutationSchema = z.strictObject({ record: supplierSchema, audit_event_id: identity });
 export type PurchaseKind = z.infer<typeof purchaseKindSchema>;
 export type PurchaseLine = z.infer<typeof purchaseLineSchema>;

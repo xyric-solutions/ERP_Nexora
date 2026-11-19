@@ -6,6 +6,8 @@ import {
   subledgerOperationSchema,
   subledgerPartyInputSchema,
   subledgerPartySchema,
+  subledgerPartyConfigurationInputSchema,
+  subledgerPartyConfigurationSchema,
   subledgerSupplierDirectorySchema,
   subledgerPolicyInputSchema,
   subledgerPolicySchema,
@@ -149,6 +151,21 @@ export function subledgerPaths() {
     },
     "/finance/subledger/parties": {
       post: post("createSubledgerParty", subledgerPartyInputSchema, subledgerPartySchema, false, 201),
+    },
+    "/finance/subledger/parties/{partyId}/configuration": {
+      post: {
+        ...post(
+          "configureSubledgerParty",
+          subledgerPartyConfigurationInputSchema,
+          subledgerPartyConfigurationSchema,
+          true,
+        ),
+        parameters: [
+          ...mutation,
+          { in: "header", name: "if-match", required: true, schema: { type: "string" } },
+          { in: "path", name: "partyId", required: true, schema: { type: "string" } },
+        ],
+      },
     },
     "/finance/subledger/policy": {
       post: post("configureSubledgerPolicy", subledgerPolicyInputSchema, subledgerPolicySchema, true),

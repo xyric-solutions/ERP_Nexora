@@ -1,8 +1,8 @@
 import { procurementDigest as digest, writeProcurementEvidence } from "./audit-writer.js";
 import { purchaseReservationSql } from "./accounting-projection.js";
-import {reserveBudgetPurchase} from "../budget/accounting-bridge.js";
-import {BudgetError} from "../budget/transaction.js";
-import {validateBudgetReferences} from "../budget/references.js";
+import { reserveBudgetPurchase } from "../budget/accounting-bridge.js";
+import { BudgetError } from "../budget/transaction.js";
+import { validateBudgetReferences } from "../budget/references.js";
 import { purchaseAvailableAmount } from "@nexora/contracts";
 import { resolveTax, TaxError } from "../finance/taxes/resolver.js";
 import { productUnitChoices, productUnitSnapshot } from "../inventory/units-repository.js";
@@ -37,6 +37,7 @@ import {
   assetPolicyStart,
   assetFieldDefinitionsSchema,
   type PurchaseDocument,
+  type BillPaymentTerm,
   type PurchaseKind,
   type SavePurchaseRequest,
   type SavePurchaseInput,
@@ -177,10 +178,13 @@ export class SourceProcurementRepository {
     } catch (error) {
       await client.query("rollback");
       if (error instanceof AssetError) fail(error.message, error.code, error.status);
-      if(error instanceof BudgetError)fail(error.message,error.code,error.status);
+      if (error instanceof BudgetError) fail(error.message, error.code, error.status);
       if (error && typeof error === "object" && "code" in error) {
         if ("constraint" in error && error.constraint === "erp_party_duplicate")
-          fail("A matching supplier already exists in this company. Use its existing master record.", "PARTY_IDENTITY_EXISTS");
+          fail(
+            "A matching supplier already exists in this company. Use its existing master record.",
+            "PARTY_IDENTITY_EXISTS",
+          );
         if (["42P01", "42703"].includes(String(error.code)))
           fail(
             "The Purchase database migration is required. Contact your administrator.",
@@ -256,12 +260,37 @@ export class SourceProcurementRepository {
       );
       return {
         currencies: result.rows,
-        budget_dimensions:{
-          departments:(await client.query("select id,code,name from organization_unit where tenant_id=$1 and type='department' and status='active' and organization_unit_is_within_company($1,id,$2) order by code limit 1000",[context.tenantId,company])).rows,
-          branches:(await client.query("select id,code,name from organization_unit where tenant_id=$1 and type='branch' and status='active' and organization_unit_is_within_company($1,id,$2) order by code limit 1000",[context.tenantId,company])).rows,
-          projects:(await client.query("select id,code,name from erp_project where tenant_id=$1 and company_id=$2 and status='active' order by code limit 1000",[context.tenantId,company])).rows,
-          cost_centres:(await client.query("select id,code,name from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='cost_center' and status='active' order by code limit 1000",[context.tenantId,company])).rows,
-          periods:(await client.query("select id,fiscal_calendar_id,period_number as number,period_start::text as start,period_end::text as end,status from financial_period where tenant_id=$1 and company_id=$2 order by period_start limit 1200",[context.tenantId,company])).rows,
+        budget_dimensions: {
+          departments: (
+            await client.query(
+              "select id,code,name from organization_unit where tenant_id=$1 and type='department' and status='active' and organization_unit_is_within_company($1,id,$2) order by code limit 1000",
+              [context.tenantId, company],
+            )
+          ).rows,
+          branches: (
+            await client.query(
+              "select id,code,name from organization_unit where tenant_id=$1 and type='branch' and status='active' and organization_unit_is_within_company($1,id,$2) order by code limit 1000",
+              [context.tenantId, company],
+            )
+          ).rows,
+          projects: (
+            await client.query(
+              "select id,code,name from erp_project where tenant_id=$1 and company_id=$2 and status='active' order by code limit 1000",
+              [context.tenantId, company],
+            )
+          ).rows,
+          cost_centres: (
+            await client.query(
+              "select id,code,name from hr_master_record where tenant_id=$1 and company_id=$2 and master_type='cost_center' and status='active' order by code limit 1000",
+              [context.tenantId, company],
+            )
+          ).rows,
+          periods: (
+            await client.query(
+              "select id,fiscal_calendar_id,period_number as number,period_start::text as start,period_end::text as end,status from financial_period where tenant_id=$1 and company_id=$2 order by period_start limit 1200",
+              [context.tenantId, company],
+            )
+          ).rows,
         },
         nominals: (
           await client.query(
@@ -709,6 +738,18 @@ export class SourceProcurementRepository {
         let paymentDetails = parsed.payment_details;
         let billDate = parsed.bill_date;
         let paymentTerm = parsed.payment_term;
+        if (!id && parsed.kind === "bill" && paymentTerm === undefined && parsed.supplier_id) {
+          const configured = (
+            await client.query<{ payment_term: BillPaymentTerm | null }>(
+              `select s.payment_term from finance_party_configuration s join finance_party_directory p
+             on (p.tenant_id,p.company_id,p.id)=(s.tenant_id,s.company_id,s.party_id)
+             where s.tenant_id=$1 and s.company_id=$2 and p.source_supplier_id=$3 and p.kind='supplier'
+              and p.status='active' and p.risk_status<>'blocked' order by s.version desc limit 1`,
+              [context.tenantId, parsed.company_id, parsed.supplier_id],
+            )
+          ).rows[0];
+          paymentTerm = configured?.payment_term;
+        }
         let makers = [context.actor.userId];
         if (id) {
           const before = await this.load(client, context.tenantId, parsed.company_id, id, true);
@@ -1386,10 +1427,11 @@ export class SourceProcurementRepository {
       for (const line of terms.lines) {
         const sourceLine = source.lines.find((item) => item.id === line.source_line_id);
         if (!sourceLine) fail("Every line must reference a line on the selected source.");
-        if(["receipt","bill"].includes(terms.kind)){
-          if(sourceLine.dimensions)line.dimensions=sourceLine.dimensions;
-          if(sourceLine.budget_period_id)line.budget_period_id=sourceLine.budget_period_id;
-          if(sourceLine.nominal_account_id&&line.nominal_account_id!==sourceLine.nominal_account_id)fail("Receipt and bill nominals must match the approved source mapping.","PURCHASE_ACCOUNT_MISMATCH");
+        if (["receipt", "bill"].includes(terms.kind)) {
+          if (sourceLine.dimensions) line.dimensions = sourceLine.dimensions;
+          if (sourceLine.budget_period_id) line.budget_period_id = sourceLine.budget_period_id;
+          if (sourceLine.nominal_account_id && line.nominal_account_id !== sourceLine.nominal_account_id)
+            fail("Receipt and bill nominals must match the approved source mapping.", "PURCHASE_ACCOUNT_MISMATCH");
         }
         if (sourceLine.unit_snapshot) {
           const converted = convertUnitQuantity(
@@ -1456,7 +1498,10 @@ export class SourceProcurementRepository {
       }
     }
     const total = documentTotal(terms.lines, terms);
-    await validateBudgetReferences(client,tenant,terms.company_id,[...terms.lines,...(terms.additional_charges??[])]);
+    await validateBudgetReferences(client, tenant, terms.company_id, [
+      ...terms.lines,
+      ...(terms.additional_charges ?? []),
+    ]);
     if (["order", "bill"].includes(terms.kind) && total === "0.00")
       fail("A Purchase Order or bill must have a positive amount.");
     return total;
@@ -1498,7 +1543,7 @@ export class SourceProcurementRepository {
       vendors.add(bill.supplier_id);
       if (
         scaled(allocation.amount, 2) + scaled(allocation.discount ?? "0", 2) >
-        scaled(purchaseAvailableAmount({...bill,reserved_amount:committing?bill.reserved_amount:"0"}),2)
+        scaled(purchaseAvailableAmount({ ...bill, reserved_amount: committing ? bill.reserved_amount : "0" }), 2)
       )
         fail("The amount exceeds the bill amount available for payment instructions.", "PAYMENT_ALLOCATION_EXCEEDED");
       total += scaled(allocation.amount, 2);
@@ -1735,7 +1780,10 @@ export class SourceProcurementRepository {
       }
       if (["submit", "approve"].includes(parsed.action))
         await this.validate(client, context.tenantId, id, before, parsed.action === "approve", context, false);
-      const budgetWarnings=parsed.action==="approve"?await reserveBudgetPurchase(client,context.tenantId,parsed.company_id,id,context.actor.userId):[];
+      const budgetWarnings =
+        parsed.action === "approve"
+          ? await reserveBudgetPurchase(client, context.tenantId, parsed.company_id, id, context.actor.userId)
+          : [];
       const instance = await this.workflow(client, context, before, parsed.action, reason);
       const state = { submit: "submitted", approve: "approved", reject: "rejected", cancel: "cancelled" }[
         parsed.action
@@ -1761,7 +1809,7 @@ export class SourceProcurementRepository {
         override,
         budgetWarnings,
       );
-      return { record, audit_event_id: auditId,...(budgetWarnings.length?{budget_warnings:budgetWarnings}:{}) };
+      return { record, audit_event_id: auditId, ...(budgetWarnings.length ? { budget_warnings: budgetWarnings } : {}) };
     });
   }
   private async workflow(
@@ -1826,15 +1874,25 @@ export class SourceProcurementRepository {
     fingerprint: string,
     correlation: string,
     override: string | null = null,
-    budgetWarnings:readonly string[] = [],
+    budgetWarnings: readonly string[] = [],
   ) {
     const evidenceRecord =
       entity === "supplier" && "risk_status" in record
         ? { ...record, profile: this.protectProfile(record.profile, context.tenantId, company, id) }
         : record;
     return writeProcurementEvidence(client, context, {
-      entity, id, company, version, action, reason, record: evidenceRecord,
-      key, fingerprint, correlation, override, budgetWarnings,
+      entity,
+      id,
+      company,
+      version,
+      action,
+      reason,
+      record: evidenceRecord,
+      key,
+      fingerprint,
+      correlation,
+      override,
+      budgetWarnings,
     });
   }
 }

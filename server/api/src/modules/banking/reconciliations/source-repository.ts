@@ -1307,6 +1307,9 @@ export class SourceBankReconciliationRepository implements BankingReconciliation
               "Manual selections are available only on an editable manual reconciliation.",
             );
           }
+          // The header lock serializes selection changes. Lock the mandatory
+          // capture here; PostgreSQL cannot lock the nullable outer-join row.
+          // The following upsert locks an existing selection when present.
           const candidate = await client.query<{ selected: boolean | null }>(
             `select selection.selected
                from bank_reconciliation_ledger_line capture
@@ -1319,7 +1322,7 @@ export class SourceBankReconciliationRepository implements BankingReconciliation
                 and selection.journal_line_id=capture.journal_line_id
               where capture.tenant_id=$1 and capture.company_id=$2 and capture.reconciliation_id=$3
                 and capture.journal_line_id=$4 and capture.reconciled_at is null and journal.status='posted'
-              for update of capture,selection`,
+              for update of capture`,
             [context.tenantId, row.company_id, id, input.journal_line_id],
           );
           if (candidate.rowCount !== 1) {

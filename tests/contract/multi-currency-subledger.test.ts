@@ -3,11 +3,37 @@ import {
   subledgerOperationInputSchema,
   subledgerOperationRequestSchema,
   subledgerQuerySchema,
+  subledgerPartyConfigurationInputSchema,
+  subledgerDimensionsSchema,
 } from "../../packages/contracts/src/finance/subledger.js";
 import { savePurchaseInputSchema, savePurchaseRequestSchema } from "../../packages/contracts/src/procurement/index.js";
 import { buildOpenApiDocument } from "../../packages/contracts/src/openapi-c4.js";
 
 describe("persistent currency accounting API", () => {
+  it("requires explicit financial settings and bounds applicable dimension input", () => {
+    const settings = {
+      company_id: "company",
+      expected_version: 0,
+      payment_term: "days_30",
+      credit_limit: "0",
+      reason: "Approved terms",
+    };
+    expect(subledgerPartyConfigurationInputSchema.safeParse(settings).success).toBe(true);
+    expect(subledgerPartyConfigurationInputSchema.safeParse({ ...settings, credit_limit: "-1" }).success).toBe(false);
+    expect(subledgerPartyConfigurationInputSchema.safeParse({ ...settings, credit_limit: undefined }).success).toBe(
+      false,
+    );
+    expect(subledgerDimensionsSchema.safeParse({ project: "project-1", department: "department-1" }).success).toBe(
+      true,
+    );
+    expect(
+      subledgerDimensionsSchema.safeParse(
+        Object.fromEntries(Array.from({ length: 26 }, (_, i) => [`dimension-${i}`, "value"])),
+      ).success,
+    ).toBe(false);
+    const operation = buildOpenApiDocument().paths["/finance/subledger/parties/{partyId}/configuration"]?.post;
+    expect(operation).toBeDefined();
+  });
   it("accepts bank-derived request currencies while keeping stored documents strict", () => {
     const settlement = {
       company_id: "company",

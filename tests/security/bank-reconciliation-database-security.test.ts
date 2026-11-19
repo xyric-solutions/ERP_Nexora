@@ -365,8 +365,8 @@ run("Bank Statement and Reconciliation database security baseline", () => {
         `insert into journal_entry
           (id,tenant_id,company_id,created_by,posting_date,period_id,source_type,source_id,status,
            entry_number,created_at,posted_at)
-         values ($1,$2,$3,'r06.maker','2187-10-20',$4,'br02_security',$1,'posted',$5,now(),now())`,
-        [journalId, sourceTestTenantId, sourceTestCompanyId, periodId, `BR02-J-${suffix}`],
+         values ($1,$2,$3,'r06.maker','2187-10-20',$4,'br02_security',$1,'draft',null,now(),null)`,
+        [journalId, sourceTestTenantId, sourceTestCompanyId, periodId],
       );
       await client.query(
         `insert into journal_line
@@ -375,6 +375,10 @@ run("Bank Statement and Reconciliation database security baseline", () => {
           ($1,$3,$4,1,$5,100,0,'USD',100,0),
           ($2,$3,$4,2,$6,0,100,'USD',0,100)`,
         [bankJournalLineId, `br02-offset-line-${suffix}`, journalId, sourceTestTenantId, ledgerId, offsetId],
+      );
+      await client.query(
+        "update journal_entry set status='posted',entry_number=$3,posted_at=now() where tenant_id=$1 and id=$2",
+        [sourceTestTenantId, journalId, `BR02-J-${suffix}`],
       );
       await client.query(
         `insert into bank_reconciliation
