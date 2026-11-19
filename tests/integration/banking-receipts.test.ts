@@ -90,7 +90,7 @@ function receiptInput(postingDate: string, reference: string) {
         nominal_account_id: incomeId,
         narration: "Controlled customer receipt",
         amount: "125.25",
-        dimensions: { department: "finance" },
+        dimensions: { department: `${companyId}-finance` },
       },
     ],
   };
@@ -134,6 +134,10 @@ run("Bank Receipt governed repository", () => {
       [companyId, sourceTestTenantId, `REC-${suffix}`],
     );
     await ensureCompanyCurrencyFixture(pool, companyId, baseCurrency, []);
+    await pool.query(
+      "insert into organization_unit(id,tenant_id,parent_id,type,code,name,status) values($1,$2,$3,'department',$1,'Synthetic finance department','active')",
+      [`${companyId}-finance`, sourceTestTenantId, companyId],
+    );
     for (const grant of [
       {
         policyId: "r06-uat-policy-maker",
@@ -291,7 +295,7 @@ run("Bank Receipt governed repository", () => {
       expect(detail.lines[0]?.dimensions).toMatchObject({
         project: project.id,
         location: location.id,
-        department: "finance",
+        department: `${companyId}-finance`,
       });
       const submitted = await repository.submit(maker, created.id, { expected_version: 1 }, randomUUID(), randomUUID());
       await assertUnassignedCheckerDenied(pool, sourceTestTenantId, companyId, "receipt", () =>

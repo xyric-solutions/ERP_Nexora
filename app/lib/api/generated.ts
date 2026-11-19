@@ -61,6 +61,7 @@ import type {
   SubledgerReport,
   SubledgerParty,
   SubledgerPartyInput,
+  SubledgerSupplierDirectory,
   SubledgerPolicy,
   SubledgerPolicyInput,
   SubledgerRequest,
@@ -5027,6 +5028,9 @@ export class NexoraApiClient {
   }
   getSubledgerWorkspace(query: string): Promise<SubledgerWorkspace> {
     return this.request("/api/v1/finance/subledger/workspace" + query);
+  }
+  getSubledgerSupplierMasters(query: string): Promise<SubledgerSupplierDirectory> {
+    return this.request("/api/v1/finance/subledger/supplier-masters" + query);
   }
   getSubledgerReport(query: string): Promise<SubledgerReport> {
     return this.request("/api/v1/finance/subledger/reports" + query);

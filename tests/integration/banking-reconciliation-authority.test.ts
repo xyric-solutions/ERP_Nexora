@@ -204,8 +204,8 @@ run("Bank Reconciliation governed repository", () => {
       `insert into journal_line
         (id,journal_id,tenant_id,line_number,account_id,debit,credit,currency,fx_rate,base_debit,base_credit,dimensions)
        values
-        ($1,$3,$4,1,$5,100,0,'USD',1,100,0,'{}'),
-        ($2,$3,$4,2,$6,0,100,'USD',1,0,100,'{}')`,
+        ($1,$3,$4,1,$5,100,0,'USD',null,100,0,'{}'),
+        ($2,$3,$4,2,$6,0,100,'USD',null,0,100,'{}')`,
       [
         `reconciliation-bank-line-${suffix}`,
         `reconciliation-counter-line-${suffix}`,
@@ -241,7 +241,6 @@ run("Bank Reconciliation governed repository", () => {
         sizeBytes: 128,
         checksumSha256: sha(`reconciliation-file-${suffix}`),
         contentType: "text/csv",
-        etag: sha(`reconciliation-etag-${suffix}`),
       },
       lines: [
         {
@@ -256,6 +255,7 @@ run("Bank Reconciliation governed repository", () => {
           transactionType: null,
           accountText: null,
           paymentMode: null,
+          runningBalance: null,
           rowFingerprint: sha(`reconciliation-row-${suffix}`),
           inclusionState: "included",
           exclusionReason: null,

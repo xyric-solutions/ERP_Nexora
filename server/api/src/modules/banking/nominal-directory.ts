@@ -20,6 +20,7 @@ export async function readBankNominalDirectory(
        select account.id,account.code,account.name,account.type as account_type,account.required_dimensions,
          case
            when not account.manual_posting_allowed or account.reconciliation_required or account.is_system_account
+             or finance_is_subledger_control(account.tenant_id,account.company_id,account.id)
              or exists (select 1 from bank_account bank where bank.tenant_id=account.tenant_id
                          and bank.company_id=account.company_id and bank.account_id=account.id and bank.status='active')
              then 'protected'

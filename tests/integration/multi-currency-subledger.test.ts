@@ -993,7 +993,7 @@ run("persistent multi-currency customer/vendor accounting", () => {
         await procurement.saveSupplier(
           prep,
           null,
-          supplierInputSchema.parse({ company_id: fixture.company, name: "Approved source vendor" }),
+          supplierInputSchema.parse({ company_id: fixture.company, name: `Approved source vendor ${adjusted}` }),
           randomUUID(),
           randomUUID(),
         )

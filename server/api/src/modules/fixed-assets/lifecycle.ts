@@ -242,7 +242,7 @@ export class AssetLifecycleService {
         const note = (
           await client.query<{ journal_id: string; credit: string; document_date: string }>(
             `select i.journal_id,j.posting_date::text as document_date,sum(l.base_credit-l.base_debit)::text as credit
-      from finance_subledger_item i join finance_subledger_party p on p.tenant_id=i.tenant_id and p.company_id=i.company_id and p.id=i.party_id
+      from finance_subledger_item i join finance_party_directory p on p.tenant_id=i.tenant_id and p.company_id=i.company_id and p.id=i.party_id
       join finance_subledger_operation o on o.tenant_id=i.tenant_id and o.company_id=i.company_id and o.id=i.operation_id
       join journal_entry j on j.tenant_id=i.tenant_id and j.company_id=i.company_id and j.id=i.journal_id and j.status='posted'
       join journal_line l on l.tenant_id=j.tenant_id and l.journal_id=j.id and l.account_id=$5

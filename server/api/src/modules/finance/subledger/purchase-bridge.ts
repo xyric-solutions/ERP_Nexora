@@ -52,7 +52,7 @@ export async function purchaseSource(client: PoolClient, tenant: string, company
 export async function purchaseParty(client: PoolClient, tenant: string, company: string, supplier: string) {
   const row = (
     await client.query<{ id: string }>(
-      `select id from finance_subledger_party
+      `select id from finance_party_directory
     where tenant_id=$1 and company_id=$2 and source_supplier_id=$3`,
       [tenant, company, supplier],
     )

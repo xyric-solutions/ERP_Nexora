@@ -6,7 +6,7 @@ import type { SubledgerWorkspace } from "../../packages/contracts/src/index.js";
 import { MultiCurrencyWorkspace } from "../../app/features/finance/views/multi-currency-workspace.js";
 
 const harness = vi.hoisted(() => ({
-  api: { getSubledgerWorkspace: vi.fn(), createSubledgerOperation: vi.fn(), createSubledgerParty: vi.fn() },
+  api: { getSubledgerWorkspace: vi.fn(), getSubledgerSupplierMasters: vi.fn(), createSubledgerOperation: vi.fn(), createSubledgerParty: vi.fn() },
   company: "company-one",
 }));
 vi.mock("@/lib/session/session-provider", () => ({
@@ -80,6 +80,7 @@ beforeEach(() => {
   harness.api.getSubledgerWorkspace.mockImplementation(async () => workspace());
   harness.api.createSubledgerOperation.mockResolvedValue({});
   harness.api.createSubledgerParty.mockResolvedValue({});
+  harness.api.getSubledgerSupplierMasters.mockResolvedValue({ items: [{ id: "canonical-vendor", code: "SUP-001", name: "Shared supplier", status: "active", risk_status: "normal" }], total: 1 });
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -158,5 +159,29 @@ describe("bank-derived operational settlement", () => {
     await settle();
     expect(container.textContent).toContain("Accounting setup");
     expect(field("Ledger")).toHaveProperty("disabled", false);
+  });
+  it("links a bounded shared supplier selection instead of copying an arbitrary ID", async () => {
+    await act(async () => root.render(<MultiCurrencyWorkspace operational initialSide="payable" initialTab="setup" />));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+    await select("Original currency", "USD");
+    await select("Existing supplier (optional)", "canonical-vendor");
+    expect(field("Name").value).toBe("Shared supplier");
+    expect(field("Name")).toHaveProperty("readOnly", true);
+    expect(harness.api.getSubledgerSupplierMasters).toHaveBeenCalledWith(expect.stringContaining("company_id=company-one"));
+    expect(harness.api.getSubledgerSupplierMasters).toHaveBeenCalledWith(expect.stringContaining("limit=20"));
+    expect(container.textContent).toContain("vendor review before use in Purchasing");
+    await act(async () => field("Name").closest("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(harness.api.createSubledgerParty).toHaveBeenCalledWith(expect.objectContaining({ kind: "supplier", name: "Shared supplier", source_supplier_id: "canonical-vendor" }), "test-csrf", expect.any(String));
+  });
+  it("reports supplier directory failures and permits retry without a copied identifier", async () => {
+    harness.api.getSubledgerSupplierMasters.mockRejectedValueOnce(new Error("Supplier directory temporarily unavailable"));
+    await act(async () => root.render(<MultiCurrencyWorkspace operational initialSide="payable" initialTab="setup" />));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+    expect(container.textContent).toContain("Supplier directory temporarily unavailable");
+    expect(field("Existing supplier (optional)")).toHaveProperty("disabled", false);
+    expect(field("Existing supplier (optional)").value).toBe("");
+    enter("Find existing supplier", "Shared");
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 200)); });
+    expect(field("Existing supplier (optional)").querySelector('option[value="canonical-vendor"]')).not.toBeNull();
   });
 });

@@ -6,6 +6,7 @@ import {
   subledgerPartyInputSchema,
   subledgerPolicyInputSchema,
   subledgerQuerySchema,
+  subledgerSupplierQuerySchema,
   subledgerReportQuerySchema,
   purchaseAccountingPrepareSchema,
   connectedReportQuerySchema,
@@ -46,6 +47,10 @@ export function createSubledgerRouter(
       throw new HttpError(412, "SUBLEDGER_PRECONDITION_FAILED", "Supply the quoted current version in If-Match.");
     return key;
   }
+  router.get("/supplier-masters", async (req, res) => {
+    const query = subledgerSupplierQuerySchema.parse(req.query);
+    res.json(await handle(async () => dependencies.repository.supplierMasters(await loadBankingSessionContext(req, dependencies), query)));
+  });
   router.get("/workspace", async (req, res) => {
     const query = subledgerQuerySchema.parse(req.query);
     res.json(

@@ -380,6 +380,7 @@ export class SourceFinanceJournalRepository {
        where account.tenant_id=$1 and account.company_id=$2 and account.id=any($3::text[])
          and account.status='active' and not account.is_header and account.manual_posting_allowed
          and not account.is_system_account
+         and not finance_is_subledger_control(account.tenant_id,account.company_id,account.id)
          and (
            (account.managed_general_nominal and not account.managed_bank_nominal and exists(
              select 1 from finance_general_nominal nominal
@@ -548,6 +549,7 @@ export class SourceFinanceJournalRepository {
            from account
          where account.tenant_id=$1 and account.company_id=$2 and account.status='active'
            and not account.is_header and account.manual_posting_allowed and not account.is_system_account
+           and not finance_is_subledger_control(account.tenant_id,account.company_id,account.id)
            and (
              (account.managed_general_nominal and not account.managed_bank_nominal and exists(
                select 1 from finance_general_nominal nominal

@@ -65,7 +65,7 @@ function postCommand(
         accountId: debitAccountId,
         debit: "125.25",
         credit: "0",
-        dimensions: { department: "finance" },
+        dimensions: { department: `finance-department-${suffix}` },
         description: "Controlled posting debit",
         sourceMetadata: { payment_line: "primary" },
       },
@@ -211,6 +211,10 @@ run("Finance posting service", () => {
       missingCurrency,
       raceCurrency,
     ]);
+    await pool.query(
+      "insert into organization_unit(id,tenant_id,parent_id,type,code,name,status) values($1,$2,$3,'department',$1,'Synthetic finance department','active')",
+      [`finance-department-${suffix}`, sourceTestTenantId, companyId],
+    );
     await pool.query(
       `insert into security_user_company_access
        (tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference)

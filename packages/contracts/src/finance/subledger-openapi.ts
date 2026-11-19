@@ -6,6 +6,7 @@ import {
   subledgerOperationSchema,
   subledgerPartyInputSchema,
   subledgerPartySchema,
+  subledgerSupplierDirectorySchema,
   subledgerPolicyInputSchema,
   subledgerPolicySchema,
   subledgerWorkspaceSchema,
@@ -56,6 +57,25 @@ export function subledgerPaths() {
     responses: { [status]: { description: "Validated financial result", content: json(output) }, ...errors },
   });
   return {
+    "/finance/subledger/supplier-masters": {
+      get: {
+        operationId: "getSubledgerSupplierMasters",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          scope,
+          { in: "query", name: "search", schema: { type: "string", maxLength: 100 } },
+          { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100, default: 20 } },
+          { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 1000000, default: 0 } },
+        ],
+        responses: {
+          200: {
+            description: "Company supplier identities without banking or profile details",
+            content: json(subledgerSupplierDirectorySchema),
+          },
+          ...errors,
+        },
+      },
+    },
     "/finance/subledger/connected-reports": {
       get: {
         operationId: "getConnectedReport",

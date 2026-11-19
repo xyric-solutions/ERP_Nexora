@@ -1046,7 +1046,7 @@ export class SourceBankReconciliationAdjustmentRepository implements BankReconci
           // against the transaction currency, so remove insignificant trailing
           // zeroes without rounding or otherwise changing statement evidence.
           const amount = normalizeFinanceAmount(previous.amount);
-          const description = previous.narrative;
+          const description = previous.narrative.trim();
           const posted = await this.finance.post(financeClient, {
             tenantId: context.tenantId,
             companyId: reconciliation.company_id,
@@ -1112,7 +1112,7 @@ export class SourceBankReconciliationAdjustmentRepository implements BankReconci
             `insert into bank_reconciliation_ledger_line
               (tenant_id,company_id,reconciliation_id,journal_line_id,journal_id,posting_date,
                direction,amount,currency,reference,narrative)
-             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$10)`,
+             values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,left($11,500))`,
             [
               context.tenantId,
               reconciliation.company_id,
@@ -1124,6 +1124,7 @@ export class SourceBankReconciliationAdjustmentRepository implements BankReconci
               previous.amount,
               previous.currency,
               posted.entryNumber,
+              description,
             ],
           );
           await client.query(

@@ -1502,7 +1502,8 @@ export class SourceBankPaymentRepository {
     const accounts = await client.query<{ id: string; required_dimensions: unknown }>(
       `select id,required_dimensions from account
         where tenant_id=$1 and company_id=$2 and id=any($3::text[]) and status='active'
-          and not is_header and manual_posting_allowed and not reconciliation_required and not is_system_account for share`,
+          and not is_header and manual_posting_allowed and not reconciliation_required and not is_system_account
+          and not finance_is_subledger_control(tenant_id,company_id,id) for share`,
       [tenantId, companyId, ids],
     );
     if (accounts.rows.length !== ids.length || ids.includes(controlAccountId))

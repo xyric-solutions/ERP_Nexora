@@ -86,6 +86,13 @@ export interface PersistedFinanceLine {
 }
 
 export interface FinancePostingRepository {
+  validatePostingReferences(
+    client: FinancePostingClient,
+    tenantId: string,
+    companyId: string,
+    sourceType: string,
+    lines: readonly { accountId: string; dimensions: Readonly<Record<string, string>> }[],
+  ): Promise<void>;
   lockBudget?(client:FinancePostingClient,tenant:string,company:string):Promise<void>;
   applyBudget?(client:FinancePostingClient,input:BudgetPosting):Promise<void>;
   assertTenantContext(client: FinancePostingClient, tenantId: string): Promise<boolean>;
@@ -252,6 +259,20 @@ export async function lockFinanceRateAuthority(
 }
 
 export class SourceFinancePostingRepository implements FinancePostingRepository {
+  async validatePostingReferences(
+    client: FinancePostingClient,
+    tenantId: string,
+    companyId: string,
+    sourceType: string,
+    lines: readonly { accountId: string; dimensions: Readonly<Record<string, string>> }[],
+  ): Promise<void> {
+    await client.query("select finance_validate_posting_references($1,$2,$3,$4::jsonb)", [
+      tenantId,
+      companyId,
+      sourceType,
+      JSON.stringify(lines.map(({ accountId, dimensions }) => ({ accountId, dimensions }))),
+    ]);
+  }
   async lockBudget(client:FinancePostingClient,tenant:string,company:string){await lockBudget(client,tenant,company);}
   async applyBudget(client:FinancePostingClient,input:BudgetPosting){await applyBudgetPosting(client,input);}
   async assertTenantContext(client: FinancePostingClient, tenantId: string): Promise<boolean> {

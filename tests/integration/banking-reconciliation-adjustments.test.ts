@@ -6,6 +6,10 @@ import type { AuthenticatedAccount } from "../../packages/auth/src/index.js";
 import type { BankStatementMappingSnapshot } from "../../packages/contracts/src/index.js";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import { migrateSourceSchema } from "../../packages/db/src/source-migrations.js";
+import {
+  FinancePostingService,
+  createFinanceTransactionClient,
+} from "../../server/api/src/modules/finance/posting/index.js";
 import { SourceBankReconciliationAdjustmentRepository } from "../../server/api/src/modules/banking/reconciliations/adjustment-repository.js";
 import { SourceBankReconciliationRepository } from "../../server/api/src/modules/banking/reconciliations/source-repository.js";
 import type { BankingActorContext } from "../../server/api/src/modules/banking/source-repository.js";
@@ -67,6 +71,7 @@ const makerPermissions = [
 const maker = actor("r06.maker", makerPermissions);
 const checker = actor("r06.checker", [
   "banking.reconciliation.read",
+  "banking.reconciliation.approve",
   "banking.reconciliation_adjustment.read",
   "banking.reconciliation_adjustment.approve",
 ]);
@@ -223,7 +228,6 @@ run("Bank Reconciliation governed adjustments", () => {
         sizeBytes: 128,
         checksumSha256: sha(`adjustment-file-${suffix}`),
         contentType: "text/csv",
-        etag: sha(`adjustment-etag-${suffix}`),
       },
       lines: [
         {
@@ -444,6 +448,25 @@ run("Bank Reconciliation governed adjustments", () => {
       `correlation-adjustment-post-${suffix}`,
     );
     expect(posted.adjustment.state).toBe("posted");
+    const capturedEvidence = await pool.query<{
+      reference: string;
+      narrative: string;
+      entry_number: string;
+      posted_narrative: string;
+    }>(
+      `select capture.reference,capture.narrative,journal.entry_number,
+              event.payload->'audit_lines'->(line.line_number-1)->>'description' as posted_narrative
+         from bank_reconciliation_ledger_line capture
+         join journal_entry journal on journal.tenant_id=capture.tenant_id and journal.id=capture.journal_id
+         join journal_line line on line.tenant_id=capture.tenant_id and line.id=capture.journal_line_id
+         join accounting_event event on event.tenant_id=journal.tenant_id and event.id=journal.source_id
+        where capture.tenant_id=$1 and capture.company_id=$2 and capture.reconciliation_id=$3
+          and capture.journal_id=$4`,
+      [sourceTestTenantId, companyId, reconciliationId, posted.adjustment.journal_id],
+    );
+    expect(capturedEvidence.rows).toHaveLength(1);
+    expect(capturedEvidence.rows[0]?.reference).toBe(capturedEvidence.rows[0]?.entry_number);
+    expect(capturedEvidence.rows[0]?.narrative).toBe(capturedEvidence.rows[0]?.posted_narrative);
     await expect(
       adjustments.post(
         maker,
@@ -554,5 +577,67 @@ run("Bank Reconciliation governed adjustments", () => {
         `correlation-adjustment-reconciliation-submit-${suffix}`,
       ),
     ).resolves.toMatchObject({ state: "submitted" });
+
+    // A genuine new posting must still invalidate the captured population.
+    const submittedDetail = await reconciliations.get(maker, reconciliationId);
+    const returned = await reconciliations.decide(
+      checker,
+      reconciliationId,
+      {
+        action: "reject",
+        expected_version: submittedDetail.version,
+        reason: "Independent review before a new bank posting",
+      },
+      `adjustment-reconciliation-return-${suffix}`,
+      `correlation-adjustment-reconciliation-return-${suffix}`,
+    );
+    const client = await pool.connect();
+    try {
+      await client.query("begin");
+      await client.query("select set_config('nexora.tenant_id',$1,true),set_config('nexora.user_id',$2,true)", [
+        sourceTestTenantId,
+        maker.actor.userId,
+      ]);
+      await new FinancePostingService().post(await createFinanceTransactionClient(client), {
+        tenantId: sourceTestTenantId,
+        companyId,
+        actorId: maker.actor.userId,
+        sourceType: "banking.payment",
+        sourceId: `unrelated-payment-${suffix}`,
+        eventType: "bank_payment.posted",
+        externalIdempotencyKey: `unrelated-payment-${suffix}`,
+        transactionCurrency: "USD",
+        postingDate,
+        exchangeRateId: null,
+        exchangeRateValue: "1",
+        payloadHashMaterial: {},
+        lines: [
+          {
+            accountId: offsetLedgerId,
+            debit: "1",
+            credit: "0",
+            dimensions: {},
+            description: "Independent bank charge",
+          },
+          { accountId: bankLedgerId, debit: "0", credit: "1", dimensions: {}, description: "Independent bank charge" },
+        ],
+      });
+      await client.query("commit");
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
+    await expect(
+      reconciliations.submit(
+        maker,
+        reconciliationId,
+        { expected_version: returned.version },
+        `adjustment-reconciliation-stale-submit-${suffix}`,
+        `correlation-adjustment-reconciliation-stale-submit-${suffix}`,
+      ),
+    ).rejects.toMatchObject({ status: 409, code: "RECONCILIATION_LEDGER_REFRESH_REQUIRED" });
+    expect((await reconciliations.get(maker, reconciliationId)).state).toBe("in_progress");
   }, 60_000);
 });

@@ -20,6 +20,7 @@ import {
   type SubledgerPolicyInput,
   type SubledgerReport,
   type SubledgerWorkspace,
+  type SubledgerSupplierDirectory,
 } from "@nexora/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,6 +186,9 @@ function CompanyCurrencyWorkspace({
     [sourceBill, setSourceBill] = useState("");
   const [sourceGovernedTax, setSourceGovernedTax] = useState(false);
   const [policyValues, setPolicyValues] = useState<Record<string, string>>({});
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [supplierMasters, setSupplierMasters] = useState<SubledgerSupplierDirectory>({ items: [], total: 0 });
+  const [supplierLoading, setSupplierLoading] = useState(false);
   const permissions = new Set(session?.user.permissions ?? []);
   const canRead = permissions.has("finance.subledger.read"),
     canManage = permissions.has("finance.subledger.manage"),
@@ -192,6 +196,31 @@ function CompanyCurrencyWorkspace({
     canPost = permissions.has("finance.subledger.post"),
     canReport = permissions.has("finance.subledger.report");
   const company = activeCompany?.id;
+  useEffect(() => {
+    if (!company || !canRead || tab !== "setup" || side !== "payable") return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      setSupplierLoading(true);
+      api
+        .getSubledgerSupplierMasters(queryString({ company_id: company, search: supplierSearch, limit: 20 }))
+        .then((value) => {
+          if (!cancelled) setSupplierMasters(value);
+        })
+        .catch((caught: unknown) => {
+          if (!cancelled) {
+            setSupplierMasters({ items: [], total: 0 });
+            setError(caught instanceof Error ? caught.message : "Supplier masters could not be loaded.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setSupplierLoading(false);
+        });
+    }, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [api, company, canRead, tab, side, supplierSearch]);
   const preparedSource = useRef("");
   const currentScope = useRef("");
   const scopeKey = queryString({
@@ -500,6 +529,7 @@ function CompanyCurrencyWorkspace({
         .map((party) => (
           <option key={party.id} value={party.id}>
             {party.code} · {party.name}
+            {party.status === "inactive" ? " (inactive)" : party.risk_status === "blocked" ? " (blocked)" : ""}
           </option>
         ))}
     </>
@@ -1296,12 +1326,12 @@ function CompanyCurrencyWorkspace({
                             name: partyName,
                             kind: side === "receivable" ? "customer" : "supplier",
                             default_currency: currency,
-                            ...(sourceSupplier ? { source_supplier_id: sourceSupplier } : {}),
+                            ...(side === "payable" && sourceSupplier ? { source_supplier_id: sourceSupplier } : {}),
                           },
                           csrfToken(),
                           crypto.randomUUID(),
                         ),
-                      "Persistent party created with an automatically reserved code.",
+                      "Shared master account saved with its stable reference.",
                     );
                 }}
               >
@@ -1312,6 +1342,7 @@ function CompanyCurrencyWorkspace({
                     onChange={(event) => setPartyName(event.target.value)}
                     required
                     maxLength={200}
+                    readOnly={side === "payable" && !!sourceSupplier}
                   />
                 </Field>
                 <p className="text-sm text-muted-foreground">
@@ -1319,9 +1350,23 @@ function CompanyCurrencyWorkspace({
                   active company currency.
                 </p>
                 {side === "payable" && (
-                  <Field label="Existing supplier ID (optional)">
-                    <Input value={sourceSupplier} onChange={(event) => setSourceSupplier(event.target.value)} />
-                  </Field>
+                  <>
+                    <Field label="Find existing supplier">
+                      <Input value={supplierSearch} maxLength={100} onChange={(event) => setSupplierSearch(event.target.value)} />
+                    </Field>
+                    <Field label="Existing supplier (optional)">
+                      <select className={workSelectClass} value={sourceSupplier} disabled={supplierLoading} onChange={(event) => {
+                        const id = event.target.value;
+                        setSourceSupplier(id);
+                        setPartyName(supplierMasters.items.find((item) => item.id === id)?.name ?? "");
+                      }}>
+                        <option value="">Create a new supplier master</option>
+                        {sourceSupplier && !supplierMasters.items.some((item) => item.id === sourceSupplier) && <option value={sourceSupplier}>{partyName}</option>}
+                        {supplierMasters.items.map((item) => <option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}
+                      </select>
+                    </Field>
+                    <p className="text-sm text-muted-foreground" role="status">{supplierLoading ? "Loading suppliers…" : `${supplierMasters.items.length} of ${supplierMasters.total} matching suppliers. Search to narrow the list.`} New suppliers require vendor review before use in Purchasing.</p>
+                  </>
                 )}
                 <Button type="submit" disabled={busy || !canManage || !currency}>
                   Create financial party

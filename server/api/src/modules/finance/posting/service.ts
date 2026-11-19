@@ -73,6 +73,28 @@ function financeError(
 
 function mappedFinanceError(error: unknown): FinancePostingError {
   if (error instanceof FinancePostingError) return error;
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    error.code === "23514" &&
+    "constraint" in error
+  ) {
+    if (error.constraint === "finance_subledger_control_required")
+      return new FinancePostingError(
+        409,
+        "FINANCE_SUBLEDGER_CONTROL_REQUIRED",
+        "AP/AR control accounts require the customer or supplier accounting workflow.",
+        { cause: error },
+      );
+    if (error.constraint === "finance_dimension_reference")
+      return new FinancePostingError(
+        409,
+        "FINANCE_DIMENSION_INVALID",
+        "Select active accounting dimensions belonging to this company.",
+        { cause: error },
+      );
+  }
   if(error instanceof BudgetError)return new FinancePostingError(error.status,"FINANCE_BUDGET_BLOCKED",error.message,{cause:error});
   if (
     error &&
@@ -670,6 +692,13 @@ export class FinancePostingService {
       normalized,
       await this.repository.loadAccounts(client, command.tenantId, command.companyId, accountIds),
     );
+    await this.repository.validatePostingReferences(
+      client,
+      command.tenantId,
+      command.companyId,
+      command.sourceType,
+      normalized,
+    );
     const persisted = normalized.map<PersistedFinanceLine>((line) => {
       const debit = parseFinanceDecimal(line.debit, {
         fractionalDigits: amountScale,
@@ -888,6 +917,13 @@ export class FinancePostingService {
       await this.repository.loadAccounts(client, command.tenantId, command.companyId, [
         ...new Set(normalized.map((line) => line.accountId)),
       ]),
+    );
+    await this.repository.validatePostingReferences(
+      client,
+      command.tenantId,
+      command.companyId,
+      command.sourceType,
+      normalized,
     );
     const persisted = normalized.map<PersistedFinanceLine>((line) => {
       const resolvedRate = resolvedRates.get(`${line.currency}:${line.exchangeRateDate ?? "base"}`)!;

@@ -1,3 +1,4 @@
+import { procurementDigest as digest, writeProcurementEvidence } from "./audit-writer.js";
 import { purchaseReservationSql } from "./accounting-projection.js";
 import {reserveBudgetPurchase} from "../budget/accounting-bridge.js";
 import {BudgetError} from "../budget/transaction.js";
@@ -14,7 +15,7 @@ import {
   CompanyCurrencyAuthorityError,
 } from "../finance/currencies/company-authority.js";
 import { companyAuthoritySql as companyAuthority } from "../security/company-authority.js";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { SupplierProfileCrypto, isEncryptedSupplierProfile } from "./supplier-profile-crypto.js";
 import { evaluateApprovalActor } from "@nexora/auth";
@@ -94,22 +95,6 @@ const prefixes: Record<PurchaseKind, string> = {
   payment: "PAY",
   multi_payment: "MVP",
 };
-function digest(value: unknown): string {
-  const canonical = (item: unknown): unknown =>
-    Array.isArray(item)
-      ? item.map(canonical)
-      : item && typeof item === "object"
-        ? Object.fromEntries(
-            Object.entries(item)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([key, child]) => [key, canonical(child)]),
-          )
-        : item;
-  return createHash("sha256")
-    .update(JSON.stringify(canonical(value)))
-    .digest("hex");
-}
-
 const documentProjection = `d.id,d.company_id,d.kind,d.code,d.supplier_id,d.approver_id,coalesce(nullif(btrim(approver.display_name),''),approver.id) as approver_name,d.source_id,d.invited_supplier_ids,
  to_char(d.document_date,'YYYY-MM-DD') as document_date,to_char(d.due_date,'YYYY-MM-DD') as due_date,
  to_char(d.bill_date,'YYYY-MM-DD') as bill_date,d.payment_term,
@@ -194,6 +179,8 @@ export class SourceProcurementRepository {
       if (error instanceof AssetError) fail(error.message, error.code, error.status);
       if(error instanceof BudgetError)fail(error.message,error.code,error.status);
       if (error && typeof error === "object" && "code" in error) {
+        if ("constraint" in error && error.constraint === "erp_party_duplicate")
+          fail("A matching supplier already exists in this company. Use its existing master record.", "PARTY_IDENTITY_EXISTS");
         if (["42P01", "42703"].includes(String(error.code)))
           fail(
             "The Purchase database migration is required. Contact your administrator.",
@@ -649,8 +636,8 @@ export class SourceProcurementRepository {
         const code = `SUP-${result.rows[0]!.next.padStart(3, "0")}`;
         id = `supplier-${randomUUID()}`;
         await client.query(
-          "insert into party(id,tenant_id,type,code,name,tax_id,status,risk_status,created_at) values($1,$2,'vendor',$3,$4,$5,$6,'normal',now())",
-          [id, context.tenantId, code, parsed.name, parsed.tax_id, parsed.status],
+          "insert into party(id,tenant_id,company_id,type,code,name,tax_id,status,risk_status,created_at) values($1,$2,$7,'vendor',$3,$4,$5,$6,'normal',now())",
+          [id, context.tenantId, code, parsed.name, parsed.tax_id, parsed.status, parsed.company_id],
         );
         await client.query(
           "insert into procurement_supplier(tenant_id,company_id,id,code,name,tax_id,email,phone,address,status,created_by,updated_by,profile) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,$12::jsonb)",
@@ -1845,57 +1832,9 @@ export class SourceProcurementRepository {
       entity === "supplier" && "risk_status" in record
         ? { ...record, profile: this.protectProfile(record.profile, context.tenantId, company, id) }
         : record;
-    await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
-      `nexora:platform:audit:${context.tenantId}`,
-    ]);
-    const prior = await client.query<{ sequence: string; event_hash: string }>(
-      "select sequence,event_hash from platform_admin_audit_event where tenant_id=$1 order by sequence desc limit 1",
-      [context.tenantId],
-    );
-    const before = await client.query<{ record: unknown }>(
-      "select result->'record' as record from procurement_change where tenant_id=$1 and company_id=$2 and entity_type=$3 and entity_id=$4 and record_version=$5",
-      [context.tenantId, company, entity, id, version - 1],
-    );
-    const event = {
-      id: `audit-${randomUUID()}`,
-      tenant_id: context.tenantId,
-      sequence: Number(prior.rows[0]?.sequence ?? 0) + 1,
-      actor_id: context.actor.userId,
-      correlation_id: correlation,
-      action: `procurement.${entity}.${action}`,
-      entity_type: `procurement_${entity}`,
-      entity_id: id,
-      before_hash: digest(before.rows[0]?.record ?? null),
-      after_hash: digest(evidenceRecord),
-      source_reference: `company:${company}`,
-      approval_reference: override,
-      occurred_at: new Date().toISOString(),
-      previous_event_hash: prior.rows[0]?.event_hash ?? digest({ genesis: context.tenantId }),
-    };
-    await client.query(
-      `insert into platform_admin_audit_event(id,tenant_id,sequence,actor_id,correlation_id,action,entity_type,entity_id,before_hash,after_hash,source_reference,approval_reference,occurred_at,previous_event_hash,event_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-      [...Object.values(event), digest(event)],
-    );
-    await client.query(
-      `insert into procurement_change(tenant_id,company_id,id,entity_type,entity_id,record_version,actor_id,action,reason,audit_event_id,approval_override_event_id,idempotency_key,request_sha256,snapshot,result)
-      select $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,to_jsonb(r),$14::jsonb from procurement_${entity} r where r.tenant_id=$1 and r.company_id=$2 and r.id=$5`,
-      [
-        context.tenantId,
-        company,
-        randomUUID(),
-        entity,
-        id,
-        version,
-        context.actor.userId,
-        action,
-        reason,
-        event.id,
-        override,
-        key,
-        fingerprint,
-        JSON.stringify({ record: evidenceRecord, audit_event_id: event.id,...(budgetWarnings.length?{budget_warnings:budgetWarnings}:{}) }),
-      ],
-    );
-    return event.id;
+    return writeProcurementEvidence(client, context, {
+      entity, id, company, version, action, reason, record: evidenceRecord,
+      key, fingerprint, correlation, override, budgetWarnings,
+    });
   }
 }

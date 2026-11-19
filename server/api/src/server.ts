@@ -149,6 +149,18 @@ const app = createApp({
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
+    canonical_business_parties: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select exists(select 1 from nexora_schema_migration where module_name='procurement' and version=8 and name='canonical_business_parties') as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Canonical business party migration 0008 is required");
+    },
+    accounting_integrity: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select exists(select 1 from nexora_schema_migration where module_name='finance' and version=42 and name='accounting_integrity_guards') as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Accounting integrity migration 0042 is required");
+    },
     budget_management: async () => {
       const result = await pool.query<{ available: boolean }>(
         "select to_regclass('public.budget_commitment_event') is not null and exists(select 1 from nexora_schema_migration where module_name='budget' and version=3) and exists(select 1 from nexora_schema_migration where module_name='security' and version=24) as available",

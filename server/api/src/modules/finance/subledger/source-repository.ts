@@ -3,6 +3,7 @@ import type { Pool, PoolClient } from "pg";
 import { z } from "zod";
 import {
   purchaseDocumentSchema,
+  supplierSchema,
   purchaseTotals,
   calculateTax,
   absolute,
@@ -18,6 +19,7 @@ import {
   subledgerOperationSchema,
   subledgerPartyInputSchema,
   subledgerPartySchema,
+  subledgerSupplierDirectorySchema,
   subledgerPolicyInputSchema,
   subledgerPolicySchema,
   subledgerWorkspaceSchema,
@@ -29,6 +31,7 @@ import {
   type SubledgerItem,
   type SubledgerOperation,
   type SubledgerPartyInput,
+  type SubledgerSupplierQuery,
   type SubledgerPolicy,
   type SubledgerPolicyInput,
   type SubledgerQuery,
@@ -37,6 +40,7 @@ import {
 import type { BankingActorContext } from "../../banking/source-repository.js";
 import { companyAuthoritySql } from "../../security/company-authority.js";
 import { hasAssetJournalReferences } from "../../fixed-assets/sources.js";
+import { procurementDigest, writeProcurementEvidence } from "../../procurement/audit-writer.js";
 import { SourceAssetRepository, AssetError } from "../../fixed-assets/source-repository.js";
 import { registerPostedPurchase } from "../../fixed-assets/purchase-registration.js";
 import { resolveTax, recordTaxApplications, reverseTaxApplications, TaxError } from "../taxes/resolver.js";
@@ -139,6 +143,12 @@ export class SourceSubledgerRepository {
         throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof z.ZodError)
         throw new SubledgerError(400, "SUBLEDGER_INPUT_INVALID", "Financial input or stored evidence is invalid.");
+      if (error && typeof error === "object" && "constraint" in error && error.constraint === "erp_party_duplicate")
+        throw new SubledgerError(
+          409,
+          "PARTY_IDENTITY_EXISTS",
+          "A matching customer or supplier already exists in this company. Use its existing master record.",
+        );
       if (error instanceof Error && /decimal|Allocation exceeds|exchange rate/i.test(error.message))
         throw new SubledgerError(400, "SUBLEDGER_AMOUNT_INVALID", error.message);
       if (
@@ -227,6 +237,24 @@ export class SourceSubledgerRepository {
     return `${prefix}-${value.value.padStart(3, "0")}`;
   }
 
+  async supplierMasters(context: BankingActorContext, query: SubledgerSupplierQuery) {
+    return this.transaction(context, query.company_id, "finance.subledger.read", false, async (client) => {
+      const search = `%${query.search.replace(/[\\%_]/g, "\\$&")}%`;
+      const filter = `p.tenant_id=$1 and p.company_id=$2 and p.type='vendor' and p.status='active' and p.risk_status<>'blocked'
+        and exists(select 1 from procurement_supplier s where s.tenant_id=p.tenant_id and s.company_id=p.company_id and s.id=p.id and s.risk_status<>'blocked')
+        and (p.name ilike $3 escape '\\' or p.code ilike $3 escape '\\')`;
+      const rows = await client.query(
+        `select p.id,p.code,p.name,p.status,p.risk_status from party p where ${filter} order by p.name,p.id limit $4 offset $5`,
+        [context.tenantId, query.company_id, search, query.limit, query.offset],
+      );
+      const total = await client.query<{ total: number }>(
+        `select count(*)::integer as total from party p where ${filter}`,
+        [context.tenantId, query.company_id, search],
+      );
+      return subledgerSupplierDirectorySchema.parse({ items: rows.rows, total: total.rows[0]!.total });
+    });
+  }
+
   async createParty(context: BankingActorContext, raw: SubledgerPartyInput, key: string) {
     const input = subledgerPartyInputSchema.parse(raw);
     return this.transaction(context, input.company_id, "finance.subledger.manage", true, (client) =>
@@ -252,6 +280,11 @@ export class SourceSubledgerRepository {
             ).rows[0];
             if (input.kind !== "supplier" || !supplier || supplier.name !== input.name)
               reject("The supplier reference does not match the company supplier.");
+            const linked = (await client.query(
+              "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 and source_supplier_id=$3 and status='active' and risk_status<>'blocked'",
+              [context.tenantId, input.company_id, input.source_supplier_id],
+            )).rows[0];
+            if (linked) return subledgerPartySchema.parse(linked);
           }
           const result = {
             ...input,
@@ -277,6 +310,32 @@ export class SourceSubledgerRepository {
               context.actor.userId,
             ],
           );
+          const canonical = (await client.query(
+            "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 and id=$3",
+            [context.tenantId, input.company_id, result.id],
+          )).rows[0];
+          const party = subledgerPartySchema.parse({
+            ...canonical,
+            source_supplier_id: canonical.source_supplier_id ?? undefined,
+          });
+          if (input.kind === "supplier" && !input.source_supplier_id) {
+            const profile = supplierSchema.parse((await client.query(
+              "select id,company_id,code,name,tax_id,email,phone,address,status,risk_status,profile,row_version as version from procurement_supplier where tenant_id=$1 and company_id=$2 and id=$3",
+              [context.tenantId, input.company_id, party.canonical_party_id],
+            )).rows[0]);
+            await writeProcurementEvidence(client, context, {
+              entity: "supplier",
+              id: profile.id,
+              company: input.company_id,
+              version: 1,
+              action: "created",
+              reason: "Inactive profile from financial supplier onboarding; vendor activation remains separately authorized",
+              record: profile,
+              key: `financial-profile:${procurementDigest({ key, id: party.id })}`,
+              fingerprint: procurementDigest(profile),
+              correlation: randomUUID(),
+            });
+          }
           await this.audit(
             client,
             context,
@@ -284,9 +343,9 @@ export class SourceSubledgerRepository {
             "party_created",
             null,
             "Created persistent financial party",
-            result,
+            party,
           );
-          return subledgerPartySchema.parse(result);
+          return party;
         },
       ),
     );
@@ -512,7 +571,7 @@ export class SourceSubledgerRepository {
       });
       const parties = (
         await client.query(
-          "select id,company_id,kind,code,name,default_currency,source_supplier_id from finance_subledger_party where tenant_id=$1 and company_id=$2 order by name,id",
+          "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 order by name,id",
           [context.tenantId, query.company_id],
         )
       ).rows.map((row) =>
@@ -787,7 +846,7 @@ export class SourceSubledgerRepository {
     if ("party_id" in input && input.party_id) {
       const party = (
         await client.query<{ kind: string }>(
-          "select kind from finance_subledger_party where tenant_id=$1 and company_id=$2 and id=$3",
+          "select kind from finance_party_directory where tenant_id=$1 and company_id=$2 and id=$3 and status='active' and risk_status<>'blocked'",
           [context.tenantId, input.company_id, input.party_id],
         )
       ).rows[0];
@@ -961,7 +1020,7 @@ export class SourceSubledgerRepository {
         const source = (
           await client.query<{ currency: string; total: string }>(
             `select d.currency,d.total_amount::text as total
-          from procurement_document d join finance_subledger_party p
+          from procurement_document d join finance_party_directory p
           on p.tenant_id=d.tenant_id and p.company_id=d.company_id and p.source_supplier_id=d.supplier_id
           where d.tenant_id=$1 and d.company_id=$2 and d.id=$3 and p.id=$4 and d.kind='bill' and d.state='approved'`,
             [context.tenantId, input.company_id, input.source_document_id, input.party_id],
@@ -1009,7 +1068,7 @@ export class SourceSubledgerRepository {
       }
       const partyName = (
         await client.query<{ name: string }>(
-          "select name from finance_subledger_party where tenant_id=$1 and company_id=$2 and id=$3",
+          "select name from finance_party_directory where tenant_id=$1 and company_id=$2 and id=$3",
           [context.tenantId, input.company_id, input.party_id],
         )
       ).rows[0]!.name;

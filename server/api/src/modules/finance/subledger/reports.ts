@@ -144,7 +144,7 @@ export class SubledgerReports {
             `select e.id,e.event_date::text as date,o.code,p.name,i.side,i.currency,i.party_id,i.decimal_places,e.foreign_delta::text as foreign,e.base_delta::text as base,o.type as kind,e.journal_id,i.rate::text
           from finance_subledger_item_event e join finance_subledger_item i on i.tenant_id=e.tenant_id and i.company_id=e.company_id and i.id=e.item_id
           join finance_subledger_operation o on o.tenant_id=e.tenant_id and o.company_id=e.company_id and o.id=e.operation_id
-          join finance_subledger_party p on p.tenant_id=i.tenant_id and p.company_id=i.company_id and p.id=i.party_id
+          join finance_party_directory p on p.tenant_id=i.tenant_id and p.company_id=i.company_id and p.id=i.party_id
           where e.tenant_id=$1 and e.company_id=$2 and e.event_date<=$3::date and ($4::text is null or i.party_id=$4)
             and ($5::text is null or i.side=$5) and ($6::text is null or i.currency=$6)
             order by e.event_date,e.created_at,e.id limit 100001`,

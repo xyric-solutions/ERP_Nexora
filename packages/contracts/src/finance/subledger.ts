@@ -24,6 +24,24 @@ export const subledgerPartyInputSchema = z.strictObject({
   default_currency: currency,
   source_supplier_id: id.optional(),
 });
+export const subledgerSupplierQuerySchema = z.strictObject({
+  company_id: id,
+  search: z.string().trim().max(100).default(""),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).max(1000000).default(0),
+});
+export const subledgerSupplierDirectorySchema = z.strictObject({
+  items: z.array(
+    z.strictObject({
+      id,
+      code: id,
+      name: z.string(),
+      status: z.enum(["active", "inactive"]),
+      risk_status: z.enum(["normal", "watch", "blocked"]),
+    }),
+  ),
+  total: z.number().int().nonnegative(),
+});
 export const subledgerPolicyInputSchema = z.strictObject({
   company_id: id,
   expected_version: z.number().int().min(0),
@@ -151,7 +169,13 @@ export const subledgerActionSchema = z.strictObject({
   action: z.enum(["submit", "approve", "reject", "post"]),
   reason: z.string().trim().min(3).max(500),
 });
-export const subledgerPartySchema = subledgerPartyInputSchema.extend({ id, code: id });
+export const subledgerPartySchema = subledgerPartyInputSchema.extend({
+  id,
+  code: id,
+  canonical_party_id: id.optional(),
+  status: z.enum(["active", "inactive"]).optional(),
+  risk_status: z.enum(["normal", "watch", "blocked"]).optional(),
+});
 export const subledgerPolicySchema = subledgerPolicyInputSchema
   .omit({ expected_version: true })
   .extend({ version: z.number().int().positive() });
@@ -332,6 +356,8 @@ export type SubledgerInput = z.infer<typeof subledgerOperationInputSchema>;
 export type SubledgerAction = z.infer<typeof subledgerActionSchema>;
 export type SubledgerQuery = z.infer<typeof subledgerQuerySchema>;
 export type SubledgerPartyInput = z.infer<typeof subledgerPartyInputSchema>;
+export type SubledgerSupplierQuery = z.infer<typeof subledgerSupplierQuerySchema>;
+export type SubledgerSupplierDirectory = z.infer<typeof subledgerSupplierDirectorySchema>;
 export type SubledgerPolicyInput = z.infer<typeof subledgerPolicyInputSchema>;
 export type SubledgerPolicy = z.infer<typeof subledgerPolicySchema>;
 export type SubledgerParty = z.infer<typeof subledgerPartySchema>;

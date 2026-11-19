@@ -162,6 +162,7 @@ run("Bank Revaluation preview and draft authority", () => {
     id: string;
     postingDate: string;
     periodId?: string;
+    fxRate?: string;
     lines: ReadonlyArray<{
       accountId: string;
       debit: string;
@@ -180,7 +181,7 @@ run("Bank Revaluation preview and draft authority", () => {
       await pool.query(
         `insert into journal_line
           (id,journal_id,tenant_id,line_number,account_id,debit,credit,currency,fx_rate,base_debit,base_credit,dimensions)
-         values($1,$2,$3,$4,$5,$6,$7,$8,277,$9,$10,'{}')`,
+         values($1,$2,$3,$4,$5,$6,$7,$8,$11,$9,$10,'{}')`,
         [
           `${input.id}-line-${index + 1}`,
           input.id,
@@ -192,6 +193,7 @@ run("Bank Revaluation preview and draft authority", () => {
           foreignCurrency,
           line.baseDebit,
           line.baseCredit,
+          input.fxRate ?? "275",
         ],
       );
     }
@@ -404,6 +406,7 @@ run("Bank Revaluation preview and draft authority", () => {
     await postJournal({
       id: `fxr-journal-future-${suffix}`,
       postingDate: futureDate,
+      fxRate: "277",
       lines: [
         { accountId: bankOneLedger, debit: "500", credit: "0", baseDebit: "138500", baseCredit: "0" },
         { accountId: counterLedger, debit: "0", credit: "500", baseDebit: "0", baseCredit: "138500" },

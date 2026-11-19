@@ -1,5 +1,9 @@
 import { test, expect, type Browser, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
+import {
+  subledgerWorkspaceSchema,
+  subledgerSupplierDirectorySchema,
+} from "../../packages/contracts/src/finance/subledger.js";
 
 const enabled = process.env.NEXORA_SUBLEDGER_E2E === "true";
 const password = process.env.NEXORA_E2E_PASSWORD;
@@ -52,6 +56,97 @@ async function finish(browser: Browser, maker: Page, code: string) {
 
 test.describe("persistent multi-currency accounting", () => {
   test.skip(!enabled || !password, "Run through the isolated multi-currency browser harness.");
+  test("canonical customer creation, duplicate rejection and shared supplier reuse survive reload", async ({
+    browser,
+  }) => {
+    test.setTimeout(120000);
+    const maker = await signIn(browser, "r06.maker");
+    const { page } = maker;
+    const apiOrigin = `http://127.0.0.1:${process.env.NEXORA_BANK_CONTEXT_E2E_PORT}`;
+    const workspace = async () => {
+      const response = await maker.context.request.get(
+        `${apiOrigin}/api/v1/finance/subledger/workspace?company_id=nexora-currency-browser&as_of=2026-11-30`,
+      );
+      expect(response.status()).toBe(200);
+      return subledgerWorkspaceSchema.parse(await response.json());
+    };
+    try {
+      await page.getByRole("button", { name: "Accounting setup", exact: true }).click();
+      await page.getByLabel("Original currency", { exact: true }).selectOption("USD");
+      await page.getByLabel("Name", { exact: true }).fill("Browser canonical customer");
+      await page.getByRole("button", { name: "Create financial party", exact: true }).click();
+      await expect(
+        page.getByText("Shared master account saved with its stable reference.", { exact: true }),
+      ).toBeVisible();
+      const customer = (await workspace()).parties.find((p) => p.name === "Browser canonical customer")!;
+      expect(customer.canonical_party_id).toBe(customer.id);
+      await page.getByLabel("Name", { exact: true }).fill("browser   CANONICAL customer");
+      await page.getByRole("button", { name: "Create financial party", exact: true }).click();
+      await expect(page.getByText(/A matching customer or supplier already exists/)).toBeVisible();
+      expect(
+        (await workspace()).parties.filter((p) => p.canonical_party_id === customer.canonical_party_id),
+      ).toHaveLength(1);
+      await page.getByLabel("Ledger", { exact: true }).selectOption("payable");
+      await page.getByLabel("Original currency", { exact: true }).selectOption("USD");
+      await page.getByLabel("Name", { exact: true }).fill("Browser canonical supplier");
+      await page.getByRole("button", { name: "Create financial party", exact: true }).click();
+      await expect(
+        page.getByText("Shared master account saved with its stable reference.", { exact: true }),
+      ).toBeVisible();
+      const supplier = (await workspace()).parties.find((p) => p.name === "Browser canonical supplier")!;
+      expect(supplier.source_supplier_id).toBe(supplier.canonical_party_id);
+      await page.getByLabel("Find existing supplier", { exact: true }).fill("Browser canonical supplier");
+      const selector = page.getByLabel("Existing supplier (optional)", { exact: true });
+      await expect(selector.locator("option").filter({ hasText: /Browser canonical supplier/ })).toHaveCount(1);
+      await selector.selectOption(supplier.canonical_party_id!);
+      await expect(page.getByLabel("Name", { exact: true })).toHaveAttribute("readonly", "");
+      await page.getByRole("button", { name: "Create financial party", exact: true }).click();
+      await expect(
+        page.getByText("Shared master account saved with its stable reference.", { exact: true }),
+      ).toBeVisible();
+      expect(
+        (await workspace()).parties.filter((p) => p.canonical_party_id === supplier.canonical_party_id),
+      ).toHaveLength(1);
+      const directory = await maker.context.request.get(
+        `${apiOrigin}/api/v1/finance/subledger/supplier-masters?company_id=nexora-currency-browser&search=Browser&limit=1`,
+      );
+      expect(directory.status()).toBe(200);
+      expect(subledgerSupplierDirectorySchema.parse(await directory.json()).items).toHaveLength(1);
+      const denied = await maker.context.request.get(
+        `${apiOrigin}/api/v1/finance/subledger/supplier-masters?company_id=unpermitted-company`,
+      );
+      expect(denied.status()).toBe(403);
+      const invalid = await maker.context.request.get(
+        `${apiOrigin}/api/v1/finance/subledger/supplier-masters?company_id=nexora-currency-browser&limit=101`,
+      );
+      expect(invalid.status()).toBe(400);
+      await mkdir("tmp/multi-currency-evidence", { recursive: true });
+      for (const [width, height, size] of [
+        [1440, 1000, "desktop"],
+        [820, 1180, "tablet"],
+        [390, 844, "mobile"],
+      ] as const) {
+        await page.setViewportSize({ width, height });
+        for (const theme of ["light", "dark"] as const) {
+          await page.evaluate((value) => {
+            document.documentElement.dataset.theme = value;
+          }, theme);
+          await expect(selector).toBeVisible();
+          await page.screenshot({
+            path: `tmp/multi-currency-evidence/canonical-supplier-${size}-${theme}.png`,
+            fullPage: true,
+          });
+        }
+      }
+      await page.reload();
+      await expect(page.getByLabel("Balances as of", { exact: true })).toBeVisible();
+      expect((await workspace()).parties.find((p) => p.id === supplier.id)?.canonical_party_id).toBe(
+        supplier.canonical_party_id,
+      );
+    } finally {
+      await maker.context.close();
+    }
+  });
   test("invoice -> partial receipt -> valuation -> final receipt -> historical report and reload", async ({
     browser,
   }) => {

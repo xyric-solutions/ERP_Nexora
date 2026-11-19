@@ -1,5 +1,34 @@
 # Local startup (Windows)
 
+## Current matched stabilization release — 19 November 2026
+
+The verified local business database is now at Finance **42** and Procurement
+**8**. The reconciliation narrative correction and the previously approved
+accounting/canonical-party prerequisites are active. All other module versions,
+existing business fields, ledger balances, credentials, permissions and fiscal
+periods were preserved. See the [verification and remaining acceptance
+prerequisites](../architecture/integration-stabilization-phase1.md).
+
+Ports 4000 and 3000 use the same pinned source at
+`tmp/stabilization-phase1/release/source`, frontend build
+`cK_78vAmcGo8cz8q_eKWK`. With the existing dependencies running, start a stopped
+service using its checksum-verified private helper:
+
+```powershell
+powershell -NoProfile -File tmp/stabilization-phase1/start.ps1 -Service api
+powershell -NoProfile -File tmp/stabilization-phase1/start.ps1 -Service web
+```
+
+The helper rejects occupied ports and verifies pinned compiled files. Automatic
+migrations remain disabled. Do not run older release helpers or replace this
+candidate with an arbitrary workspace build. Prepare and verify a new pinned
+candidate for subsequent changes. No worker was enabled by stabilization.
+
+Older dated release/setup entries below are historical; their source paths,
+migration versions and activation-pending statements are superseded by this
+current release. Existing account/approval restrictions still apply. Full AP/AR
+testing requires the owner's approved policy and genuine customer/supplier setup.
+
 ## Taxes viewing access — independent assignment required (18 November 2026)
 
 The owner explicitly approved company-scoped `finance.tax.read` for username

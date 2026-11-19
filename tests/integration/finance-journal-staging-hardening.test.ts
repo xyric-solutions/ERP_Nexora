@@ -220,6 +220,12 @@ run("Finance Journal staging hardening", () => {
        values($1,$2,'company',$2,'Journal Integration Company','active')`,
       [sourceTestTenantId, companyId],
     );
+    await pool.query(
+      `insert into currency(tenant_id,code,name,decimal_places,is_base,status,catalog_code,row_version,adopted_by,adopted_at)
+       select $1,code,name,decimal_places,false,'active',code,1,'r06.maker',clock_timestamp()
+       from currency_catalog where code='EUR' on conflict(tenant_id,code) do nothing`,
+      [sourceTestTenantId],
+    );
     await ensureCompanyCurrencyFixture(pool, companyId, "USD", ["EUR"]);
     await pool.query(
       `insert into account

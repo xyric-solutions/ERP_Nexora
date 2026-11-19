@@ -1,5 +1,77 @@
 # Remaining UI migration checklist
 
+## 2026-11-19 - Stabilization runtime alignment
+
+- Activated the compatible accounting/canonical-party API and existing approved
+  frontend together. Supplier selection and the hidden Mobile, Manufacturing and
+  Fleet entries are retained; no presentation classes or styles were changed.
+- Full unit suite: 1,625 passed; financial database suites: 237 passed; contracts:
+  26 passed. Type/build, drift/catalogue, targeted lint, theme and diff checks
+  passed. Real-response desktop/mobile login checks passed; served scripts match
+  the pinned release. Captures: `tmp/stabilization-phase1/live-login-*.png`.
+- Current startup and remaining AP/AR acceptance prerequisites are documented in
+  [the stabilization handoff](integration-stabilization-phase1.md). The earlier
+  navigation-only runtime below is superseded by this matched release.
+
+## 2026-11-19 - Mobile module hidden
+
+- Added Mobile to the existing hidden-module list. Sidebar navigation and global
+  search omit it; registered pages, deep links, permissions and feature code remain
+  intact. No views or styles changed or retired.
+- Verified: all 12 shell navigation tests, `npm.cmd run catalogue:check`,
+  `npm.cmd run build:web`, `git diff --check` and theme audit write/check passed.
+  Initially only the workspace build was updated; port 3000 still used the older
+  production output. Reproduced the visible Mobile menu in Chromium, then built
+  and activated a navigation-only release from the deployed HEAD source. The
+  live port 3000 browser check now confirms Mobile is absent and its deep link
+  remains available (API requests intercepted; no business-data writes). Runtime
+  helper and evidence: `tmp/mobile-navigation-release/`. API/database unchanged.
+
+## 2026-11-19 - Canonical supplier selection in financial workspaces
+
+- `multi-currency-workspace.tsx` now links company suppliers through a bounded,
+  authorized API directory with name/code search, loading/error/retry behavior and
+  a read-only selected name. Existing forms, routes, shared controls, permissions,
+  posting flows and explicit sample Sales routes are preserved. No styles retired.
+- New financial suppliers get an audited inactive Purchasing profile; vendor
+  activation still uses the existing authorized editor. API metadata exposes the
+  canonical reference/status without altering financial IDs or posted history.
+- Verified: 51 focused UI/unit tests, 138 database integration tests, 26 contract
+  tests, two authenticated Chromium scenarios, type checks, targeted lint,
+  production web build, diff checks and theme audit write/check. Zero direct
+  feature-view font/color exceptions. Desktop/tablet/mobile light/dark captures
+  are in `tmp/multi-currency-evidence/canonical-supplier-*`; desktop light and
+  mobile dark were visually inspected.
+- Business-data preflight, legacy identity decisions and release activation remain
+  separate. See [canonical business-party handoff](canonical-business-parties.md).
+
+## 2026-11-19 - Fleet menu simplification
+
+- Hid Fleet Command Centre, Vehicles & Drivers, Assignments & Dispatch, Fuel &
+  Road Costs, Maintenance & Components, Compliance & Incidents, and Cost,
+  Controls & Reports with the existing group visibility setting. Vehicles,
+  Drivers, Fuel, Maintenance and Fuel Efficiency remain visible. All 38 hidden
+  prototype page destinations remain registered; no styles or workflows changed.
+- `node --import tsx tmp/verify-fleet-navigation.mjs` passed for visible entries
+  and every preserved deep link. Regenerated the navigation manifest and passed
+  `npm.cmd run catalogue:check`. `npm.cmd run build:web`, all 12 shell navigation
+  tests, `git diff --check` and theme audit write/check passed. No browser
+  appearance check was performed for this configuration-only change.
+
+## 2026-11-19 - Manufacturing menu simplification
+
+- Hid Product Engineering, Planning, Production and Exceptions & Cost using the
+  existing group visibility setting. Bill of Materials, Production Planning and
+  Manufacturing Orders remain visible. All 16 prototype destinations and their
+  deep links are preserved; no feature styles or business workflows changed.
+- Shell navigation tests passed (12 tests); `node --import tsx
+  tmp/verify-manufacturing-navigation.mjs` verified the three visible entries and
+  all preserved prototype deep links. `npm.cmd run build:web`, catalogue check
+  (after regenerating the manifest), and `git diff --check` passed. Theme audit
+  write/check passed with no feature-view font or colour exceptions.
+  Browser appearance was not rechecked
+  for this configuration-only change.
+
 ## 2026-11-19 - Sign-in and organisation setup
 
 - Existing accounts go through company selection after sign-in and open the ERP

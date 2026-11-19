@@ -307,7 +307,7 @@ describe("Atomic purchase commitments and GL budget controls", () => {
               description: "Exceeds remaining budget",
             },
             {
-              accountId: f.policy.payable_account_id,
+              accountId: `${f.company}-bank-USD`,
               debit: "0",
               credit: "950",
               dimensions: {},

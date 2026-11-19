@@ -253,6 +253,7 @@ function originalMultiCurrencyPosting(): ReturnType<typeof originalPosting> {
 function repository(overrides: Partial<FinancePostingRepository> = {}): FinancePostingRepository {
   const calls: string[] = [];
   const value = {
+    validatePostingReferences: vi.fn(async () => undefined),
     assertTenantContext: vi.fn(async () => true),
     lockSource: vi.fn(async () => {
       calls.push("lock-source");
@@ -335,6 +336,19 @@ function callsOf(value: FinancePostingRepository): string[] {
 }
 
 describe("Finance posting fixed-scale arithmetic", () => {
+  it.each([
+    ["finance_subledger_control_required", "FINANCE_SUBLEDGER_CONTROL_REQUIRED"],
+    ["finance_dimension_reference", "FINANCE_DIMENSION_INVALID"],
+  ])("maps %s to a safe financial problem before persisting effects", async (constraint, code) => {
+    const backing = repository({
+      validatePostingReferences: vi.fn(async () => {
+        throw Object.assign(new Error("Private database details"), { code: "23514", constraint });
+      }),
+    });
+    await expect(new FinancePostingService(backing).post(client, command())).rejects.toMatchObject({ status: 409, code });
+    expect(backing.insertEvent).not.toHaveBeenCalled();
+  });
+
   it("parses the numeric(38,8) boundary without binary floating point", () => {
     expect(
       parseFinanceDecimal("999999999999999999999999999999.99999999", {

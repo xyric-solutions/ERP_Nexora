@@ -101,7 +101,7 @@ function paymentInput(bankId: string, postingDate: string, reference: string) {
         nominal_account_id: expenseId,
         narration: "Controlled supplier settlement",
         amount: "125.25",
-        dimensions: { department: "finance" },
+        dimensions: { department: `${companyId}-finance` },
       },
     ],
   };
@@ -163,6 +163,10 @@ run("Bank Payment governed repository", () => {
       [companyId, sourceTestTenantId, `PAY-${suffix}`],
     );
     await ensureCompanyCurrencyFixture(pool, companyId, baseCurrency, [foreignCurrency]);
+    await pool.query(
+      "insert into organization_unit(id,tenant_id,parent_id,type,code,name,status) values($1,$2,$3,'department',$1,'Synthetic finance department','active')",
+      [`${companyId}-finance`, sourceTestTenantId, companyId],
+    );
     await pool.query(
       `insert into security_role_permission_grant
         (tenant_id,role_policy_id,permission_key,field_allow_mode)
@@ -352,7 +356,7 @@ run("Bank Payment governed repository", () => {
       expect(detail.lines[0]?.dimensions).toMatchObject({
         project: project.id,
         location: location.id,
-        department: "finance",
+        department: `${companyId}-finance`,
       });
       const submitted = await repository.submit(maker, created.id, { expected_version: 1 }, randomUUID(), randomUUID());
       await assertUnassignedCheckerDenied(pool, sourceTestTenantId, companyId, "payment", () =>

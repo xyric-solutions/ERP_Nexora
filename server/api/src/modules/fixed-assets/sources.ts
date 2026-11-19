@@ -25,7 +25,7 @@ export async function acquisitionSources(
     join company_currency_profile profile on profile.tenant_id=j.tenant_id and profile.company_id=j.company_id
     left join bank_payment bp on bp.tenant_id=j.tenant_id and bp.company_id=j.company_id and bp.original_journal_entry_id=j.id and bp.state='posted'
     left join finance_subledger_item i on i.tenant_id=j.tenant_id and i.company_id=j.company_id and i.journal_id=j.id and i.side='payable' and i.kind='invoice'
-    left join finance_subledger_party p on p.tenant_id=i.tenant_id and p.company_id=i.company_id and p.id=i.party_id
+    left join finance_party_directory p on p.tenant_id=i.tenant_id and p.company_id=i.company_id and p.id=i.party_id
     left join procurement_document d on d.tenant_id=i.tenant_id and d.company_id=i.company_id and d.id=i.source_document_id and d.state='approved' and d.kind='bill'
     left join lateral(select sum(amount) as amount from fixed_asset_acquisition r where r.tenant_id=l.tenant_id and r.company_id=j.company_id and r.source_line_id=l.id) reserved on true
     where j.tenant_id=$1 and j.company_id=$2 and j.status='posted' and l.base_debit>l.base_credit
