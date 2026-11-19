@@ -22,6 +22,10 @@ vi.mock("../../app/features/ai/components/nexora-intelligence.js", () => ({
   NexoraIntelligenceLayer: () => null,
 }));
 
+vi.mock("../../app/shell/workspace-company-select.js", () => ({
+  WorkspaceCompanySelect: () => null,
+}));
+
 import { PrototypeShell } from "../../app/shell/prototype-shell.js";
 
 const reconciliationId = "bank-reconciliation-9f4b74f4-b118-4ac1-a531-54a0e61f6c89";

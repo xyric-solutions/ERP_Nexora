@@ -183,6 +183,7 @@ export const prototypeModules = [
           p("receipts", "Receipts", "list", "live"),
           // Moved from the retired Customers module (12 Nov 2026).
           p("customers", "Customers", "list", "live"),
+          // Hidden: keeps the upstream Sales currency deep link working without a menu entry.
           p("currency-balances", "Currency Accounts", "list", "live", true),
         ],
         false,
@@ -329,17 +330,33 @@ export const prototypeModules = [
     category: "Operations & people",
     modes: allModes,
     groups: [
+      // Live (meeting 16 Nov 2026): Vehicles, Drivers, Fuel and Maintenance sit first, with the
+      // Fuel Efficiency report. Add Vehicle and Add Driver are buttons on the Vehicles page.
+      // Everything below stays prototype.
+      g(
+        "fleet-live",
+        "Fleet",
+        [
+          p("vehicles", "Vehicles", "list", "live"),
+          p("drivers", "Drivers", "list", "live"),
+          p("fuel-register", "Fuel", "list", "live"),
+          p("maintenance-entries", "Maintenance", "list", "live"),
+          p("fuel-efficiency", "Fuel Efficiency", "report", "live"),
+          p("add-vehicle", "Add Vehicle", "form", "live", true),
+          p("add-driver", "Add Driver", "form", "live", true),
+          p("add-fuel-entry", "Add Fuel Entry", "form", "live", true),
+          p("add-maintenance-entry", "Add Maintenance", "form", "live", true),
+        ],
+        false,
+        true,
+      ),
       g("fleet-command", "Fleet Command Centre", [
         p("fleet-overview", "Fleet Overview", "dashboard"),
         p("fleet-calendar", "Fleet Calendar", "dashboard"),
       ]),
       g("fleet-masters", "Vehicles & Drivers", [
-        p("vehicles", "Vehicle Register"),
-        p("add-vehicle", "Add Vehicle", "form"),
         p("vehicle-detail", "Vehicle 360°", "detail"),
         p("vehicle-categories", "Vehicle Categories & Policies", "settings"),
-        p("drivers", "Driver Register"),
-        p("add-driver", "Add Driver", "form"),
         p("driver-detail", "Driver 360°", "detail"),
       ]),
       g("fleet-dispatch", "Assignments & Dispatch", [
@@ -352,8 +369,6 @@ export const prototypeModules = [
         p("route-planning", "Route Planning", "workflow"),
       ]),
       g("fleet-fuel", "Fuel & Road Costs", [
-        p("fuel-register", "Fuel Register"),
-        p("add-fuel-entry", "Add Fuel Entry", "form"),
         p("fuel-card-management", "Fuel Cards"),
         p("fuel-reconciliation", "Fuel Reconciliation", "workflow"),
         p("tolls-fines", "Tolls, Fines & Other Costs"),
@@ -382,7 +397,6 @@ export const prototypeModules = [
       g("fleet-analysis", "Cost, Controls & Reports", [
         p("vehicle-costing", "Vehicle Whole-life Cost", "report"),
         p("utilisation-downtime", "Utilisation & Downtime", "report"),
-        p("fuel-efficiency", "Fuel Efficiency", "report"),
         p("maintenance-cost-analysis", "Maintenance Cost Analysis", "report"),
         p("fleet-reports", "Fleet Reports", "report"),
         p("fleet-approvals", "Fleet Approvals", "approval"),
@@ -399,10 +413,25 @@ export const prototypeModules = [
     category: "Operations & people",
     modes: ["manufacturing"],
     groups: [
+      // Live (meeting decision 13 Nov 2026): the three working sections sit first, directly under the
+      // module, in flow order; the module opens on Bill of Materials. Everything below stays prototype.
+      g(
+        "manufacturing-live",
+        "Manufacturing",
+        [
+          p("boms", "Bill of Materials", "list", "live"),
+          p("production-plans", "Production Planning", "list", "live"),
+          p("production-orders", "Manufacturing Orders", "list", "live"),
+          p("bom-editor", "Add Bill of Materials", "form", "live", true),
+          p("production-plan", "Production Planning", "form", "live", true),
+          p("add-production-order", "Add Manufacturing Order", "form", "live", true),
+          p("production-order-detail", "Manufacturing Order", "detail", "live", true),
+        ],
+        false,
+        true,
+      ),
       g("engineering", "Product Engineering", [
         p("manufacturing-overview", "Production Overview", "dashboard"),
-        p("boms", "BOM Catalogue"),
-        p("bom-editor", "BOM Editor", "form"),
         p("routings", "Routings"),
         p("routing-editor", "Routing Editor", "form"),
         p("work-centres", "Work Centres & Machines"),
@@ -414,9 +443,6 @@ export const prototypeModules = [
         p("capacity-planner", "Capacity Planner", "dashboard"),
       ]),
       g("production", "Production", [
-        p("production-orders", "Production Orders"),
-        p("add-production-order", "Add Production Order", "form"),
-        p("production-order-detail", "Production Order Detail", "detail"),
         p("release-production-order", "Release Production Order", "approval"),
         p("material-issue", "Material Issue", "form"),
         p("wip-tracking", "WIP Tracking", "workflow"),

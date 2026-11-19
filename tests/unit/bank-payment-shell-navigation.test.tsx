@@ -28,6 +28,10 @@ vi.mock("../../app/features/ai/components/nexora-intelligence.js", () => ({
   NexoraIntelligenceLayer: () => null,
 }));
 
+vi.mock("../../app/shell/workspace-company-select.js", () => ({
+  WorkspaceCompanySelect: () => null,
+}));
+
 import { PrototypeShell } from "../../app/shell/prototype-shell.js";
 
 let container: HTMLDivElement;

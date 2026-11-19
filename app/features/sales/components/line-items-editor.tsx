@@ -9,13 +9,19 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AmountInput } from "@/shared/ui/amount-input";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { currencyDigits } from "@/shared/constants/countries";
 import { cn } from "cn";
-import { selectClass, tableClass } from "./sales-ui";
+import { tableClass } from "./sales-ui";
 import { BASE_CURRENCY } from "../model/sales-currency";
 import { SALES_CATALOG } from "../model/sales-constants";
 import { blankLine, lineAmount } from "../model/sales-workflow";
 import type { SalesLine } from "../model/sales-types";
+
+const productOptions = [
+  { value: "", label: "Other charge" },
+  ...SALES_CATALOG.map((item) => ({ value: item.sku, label: `${item.sku} · ${item.name}` })),
+];
 
 export function LineItemsEditor({
   lines,
@@ -63,10 +69,10 @@ export function LineItemsEditor({
               <th>#</th>
               <th>Product / service</th>
               <th>Description</th>
-              <th className="text-right!">Qty</th>
+              <th>Qty</th>
               <th>Unit</th>
-              <th className="text-right!">Rate</th>
-              <th className="text-right!">Tax %</th>
+              <th>Rate</th>
+              <th>Tax %</th>
               <th className="text-right!">Amount</th>
               <th><span className="sr-only">Remove</span></th>
             </tr>
@@ -77,10 +83,16 @@ export function LineItemsEditor({
                 <tr key={index}>
                   <td className="text-muted-foreground">{index + 1}</td>
                   <td className="min-w-55">
-                    <select className={cn(selectClass, "h-8.5")} value={item.sku} aria-label={`Product, line ${index + 1}`} onChange={(event) => chooseItem(index, event.target.value)}>
-                      <option value="">Other charge</option>
-                      {SALES_CATALOG.map((option) => <option key={option.sku} value={option.sku}>{option.sku} · {option.name}</option>)}
-                    </select>
+                    <SearchableSelect
+                      className="h-8.5"
+                      label={`Product, line ${index + 1}`}
+                      searchLabel={`Search products, line ${index + 1}`}
+                      searchPlaceholder="Search by product code or name…"
+                      placeholder="Select product or service"
+                      value={item.sku}
+                      options={productOptions}
+                      onValueChange={(sku) => chooseItem(index, sku)}
+                    />
                   </td>
                   <td className="min-w-45">
                     <Input className="h-8.5" value={item.desc} aria-label={`Description, line ${index + 1}`} onChange={(event) => updateLine(index, { desc: event.target.value })} />

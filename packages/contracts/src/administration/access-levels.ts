@@ -59,6 +59,8 @@ export const permissionActionTiers: Readonly<Record<string, PermissionActionTier
   organization_change: "user",
   work_location_change: "user",
   allocate: "user",
+  // Manufacturing: turning a production plan into a draft Manufacturing Order (not an approval).
+  convert: "user",
   maintain: "user",
   return: "admin",
   impair: "admin",
