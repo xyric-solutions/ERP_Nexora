@@ -4,6 +4,7 @@ import { Info } from "lucide-react";
 import type { ComponentProps, ReactNode } from "react";
 
 import { WorkTable } from "@/shared/ui/work-table";
+import { WorkspaceHeader } from "@/shared/ui/module-design";
 
 /**
  * Page frame shared by the Administration views. The shell content area already
@@ -26,14 +27,7 @@ export function AdminPage({
 }) {
   return (
     <section className="grid min-w-0 gap-5">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid min-w-0 gap-1">
-          <p className="m-0 text-xs font-semibold tracking-[0.14em] text-primary uppercase">Administration</p>
-          <h1 className="m-0 text-2xl font-semibold tracking-tight text-foreground">{title}</h1>
-          <p className="m-0 max-w-3xl text-sm text-muted-foreground">{description}</p>
-        </div>
-        {actions ? <div className="flex shrink-0 flex-wrap gap-2 [&>button]:max-sm:flex-1">{actions}</div> : null}
-      </header>
+      <WorkspaceHeader eyebrow="Administration" title={title} description={description} actions={actions} />
       {prototype ? <PrototypeNotice /> : null}
       {children}
     </section>
@@ -151,7 +145,7 @@ export function StatTile({
       <span className="text-xs text-muted-foreground">{detail}</span>
     </>
   );
-  const className = `relative grid min-w-0 content-start gap-2 overflow-hidden rounded-[var(--nx-radius-lg)] border border-border bg-card p-4 text-left before:absolute before:inset-x-0 before:top-0 before:h-0.5 ${accent}`;
+  const className = `relative grid min-w-0 content-start gap-2 overflow-hidden rounded-[10px] border border-border bg-card px-5 py-4 text-left ${accent}`;
   return onClick ? (
     <button
       type="button"
@@ -175,7 +169,7 @@ const statusTone: Record<string, string> = {
 export function UserStatusBadge({ status }: { status: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap capitalize ${statusTone[status] ?? ""}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-[5px] border border-transparent px-2 py-1 text-xs font-semibold whitespace-nowrap capitalize before:size-1.5 before:rounded-full before:bg-current before:content-[''] ${statusTone[status] ?? ""}`}
     >
       {status}
     </span>

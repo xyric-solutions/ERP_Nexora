@@ -3,8 +3,8 @@
   "source": "app/prototype-data.ts",
   "counts": {
     "modules": 30,
-    "groups": 120,
-    "pages": 674
+    "groups": 122,
+    "pages": 678
   },
   "modules": [
     {
@@ -956,6 +956,70 @@
       ],
       "groups": [
         {
+          "id": "fleet-live",
+          "label": "Fleet",
+          "pages": [
+            {
+              "id": "vehicles",
+              "label": "Vehicles",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "drivers",
+              "label": "Drivers",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "fuel-register",
+              "label": "Fuel",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "maintenance-entries",
+              "label": "Maintenance",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "fuel-efficiency",
+              "label": "Fuel Efficiency",
+              "archetype": "report",
+              "status": "live"
+            },
+            {
+              "id": "add-vehicle",
+              "label": "Add Vehicle",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-driver",
+              "label": "Add Driver",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-fuel-entry",
+              "label": "Add Fuel Entry",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-maintenance-entry",
+              "label": "Add Maintenance",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            }
+          ]
+        },
+        {
           "id": "fleet-command",
           "label": "Fleet Command Centre",
           "pages": [
@@ -978,18 +1042,6 @@
           "label": "Vehicles & Drivers",
           "pages": [
             {
-              "id": "vehicles",
-              "label": "Vehicle Register",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-vehicle",
-              "label": "Add Vehicle",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
               "id": "vehicle-detail",
               "label": "Vehicle 360°",
               "archetype": "detail",
@@ -999,18 +1051,6 @@
               "id": "vehicle-categories",
               "label": "Vehicle Categories & Policies",
               "archetype": "settings",
-              "status": "prototype"
-            },
-            {
-              "id": "drivers",
-              "label": "Driver Register",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-driver",
-              "label": "Add Driver",
-              "archetype": "form",
               "status": "prototype"
             },
             {
@@ -1073,18 +1113,6 @@
           "id": "fleet-fuel",
           "label": "Fuel & Road Costs",
           "pages": [
-            {
-              "id": "fuel-register",
-              "label": "Fuel Register",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-fuel-entry",
-              "label": "Add Fuel Entry",
-              "archetype": "form",
-              "status": "prototype"
-            },
             {
               "id": "fuel-card-management",
               "label": "Fuel Cards",
@@ -1236,12 +1264,6 @@
               "status": "prototype"
             },
             {
-              "id": "fuel-efficiency",
-              "label": "Fuel Efficiency",
-              "archetype": "report",
-              "status": "prototype"
-            },
-            {
               "id": "maintenance-cost-analysis",
               "label": "Maintenance Cost Analysis",
               "archetype": "report",
@@ -1279,6 +1301,58 @@
       ],
       "groups": [
         {
+          "id": "manufacturing-live",
+          "label": "Manufacturing",
+          "pages": [
+            {
+              "id": "boms",
+              "label": "Bill of Materials",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "production-plans",
+              "label": "Production Planning",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "production-orders",
+              "label": "Manufacturing Orders",
+              "archetype": "list",
+              "status": "live"
+            },
+            {
+              "id": "bom-editor",
+              "label": "Add Bill of Materials",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "production-plan",
+              "label": "Production Planning",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "add-production-order",
+              "label": "Add Manufacturing Order",
+              "archetype": "form",
+              "status": "live",
+              "hiddenFromNavigation": true
+            },
+            {
+              "id": "production-order-detail",
+              "label": "Manufacturing Order",
+              "archetype": "detail",
+              "status": "live",
+              "hiddenFromNavigation": true
+            }
+          ]
+        },
+        {
           "id": "engineering",
           "label": "Product Engineering",
           "pages": [
@@ -1286,18 +1360,6 @@
               "id": "manufacturing-overview",
               "label": "Production Overview",
               "archetype": "dashboard",
-              "status": "prototype"
-            },
-            {
-              "id": "boms",
-              "label": "BOM Catalogue",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "bom-editor",
-              "label": "BOM Editor",
-              "archetype": "form",
               "status": "prototype"
             },
             {
@@ -1354,24 +1416,6 @@
           "id": "production",
           "label": "Production",
           "pages": [
-            {
-              "id": "production-orders",
-              "label": "Production Orders",
-              "archetype": "list",
-              "status": "prototype"
-            },
-            {
-              "id": "add-production-order",
-              "label": "Add Production Order",
-              "archetype": "form",
-              "status": "prototype"
-            },
-            {
-              "id": "production-order-detail",
-              "label": "Production Order Detail",
-              "archetype": "detail",
-              "status": "prototype"
-            },
             {
               "id": "release-production-order",
               "label": "Release Production Order",

@@ -1,7 +1,9 @@
 "use client";
+import { WorkspaceHeader } from "@/shared/ui/module-design";
 import { WorkTable } from "@/shared/ui/work-table";
 import { BudgetWorkspace } from "@/features/budget/views/budget-workspace";
 import { WorkForm } from "@/shared/ui/work-form";
+import { ProjectServiceField } from "@/features/projects/components/project-service-field";
 import { WorkSurfaceContext } from "@/shared/ui/work-surface-context";
 
 import { FilterBar } from "../shared/ui/filter-bar";
@@ -153,8 +155,12 @@ import { HrLoanBenefitsWorkspace } from "@prototype/features/hr/views/hr-benefit
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
 import { InventoryOperationsWorkspace } from "@prototype/features/inventory/views/inventory-operations-workspace";
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
+import { ManufacturingLiveWorkspace } from "@prototype/features/manufacturing/views/manufacturing-live-workspace";
+import { isManufacturingLivePage } from "@prototype/features/manufacturing/model/manufacturing";
 import { UnitsWorkspace } from "@prototype/features/inventory/views/units-workspace";
 import { FixedAssetsWorkspace } from "@/features/fixed-assets/views/fixed-assets-workspace";
+import { FleetLiveWorkspace } from "@prototype/features/fleet/views/fleet-live-workspace";
+import { isFleetLivePage } from "@prototype/features/fleet/model/fleet";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
 import { PurchaseAssetReturnsWorkspace, isPurchaseAssetReturnPage } from "@/features/purchasing/views/purchase-asset-returns";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
@@ -296,6 +302,7 @@ function PageIntro({
 }) {
   const status = statusLabel ?? (context.status === "prototype" ? "Prototype only" : titleCase(context.status));
   const statusNotice = /read[- ]only/i.test(status) ? "Read only" : /connected|^live$/i.test(status) ? null : status;
+  if (context.moduleId === "manufacturing") return <WorkspaceHeader eyebrow={context.moduleLabel} title={context.pageLabel} status={statusNotice ? <StatusChip status={statusNotice} /> : undefined} actions={children} />;
   return (
     <div className="nx-page-intro">
       <div>
@@ -837,6 +844,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
             </tbody>
           </WorkTable>
         </div>
+        {context.moduleId !== "manufacturing" ? (
         <div className="nx-pagination">
           <span>Showing 1–{filtered.length} of 128 records</span>
           <div>
@@ -851,6 +859,7 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
             <button type="button">Next</button>
           </div>
         </div>
+        ) : null}
       </section>
       <RecordPreviewDrawer
         record={selectedRecord}
@@ -1139,6 +1148,14 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
     },
   ];
 
+  const transactionControl = (<EnterpriseTransactionControl
+        subject={blueprint.recordLabel}
+        reference={blueprint.numberPrefix}
+        roleId={context.roleId}
+        companyMode={context.companyMode}
+        family={blueprint.family}
+        onAction={onAction}
+      />);
   return (
     <>
       <PageIntro context={context}>
@@ -1172,14 +1189,7 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           <small>One review item remains</small>
         </div>
       </section>
-      <EnterpriseTransactionControl
-        subject={blueprint.recordLabel}
-        reference={blueprint.numberPrefix}
-        roleId={context.roleId}
-        companyMode={context.companyMode}
-        family={blueprint.family}
-        onAction={onAction}
-      />
+      {context.moduleId === "manufacturing" ? <details className="rounded-[10px] border border-border bg-card"><summary className="cursor-pointer px-5 py-4 text-sm font-semibold">Workflow & readiness controls</summary><div className="p-4">{transactionControl}</div></details> : transactionControl}
       <WorkForm
         className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(16.875rem,19.375rem)] items-start gap-3.5 max-xl:grid-cols-1"
         onSubmit={(event) => {
@@ -1202,7 +1212,9 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
             </div>
             <div className="grid grid-cols-12 gap-x-4 gap-y-3.5 p-4 max-sm:grid-cols-1">
               {essentialFields.map((field) => (
-                <BlueprintInput field={field} key={field.label} />
+                context.moduleId === "projects" && field.label === blueprint.partyLabel ? (
+                  <ProjectServiceField key={field.label} label={field.label} required={field.required} className="col-span-8 grid min-w-0 gap-1.5 max-md:col-span-6 max-sm:col-span-1" />
+                ) : <BlueprintInput field={field} key={field.label} />
               ))}
             </div>
           </section>
@@ -1397,13 +1409,15 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
                     <option>CC-100 — Corporate</option>
                   </select>
                 </label>
-                <label className="col-span-4 max-md:col-span-6 max-sm:col-span-1">
+                {context.moduleId === "projects" ? (
+                  <ProjectServiceField label="Project / contract" className="col-span-4 grid min-w-0 gap-1.5 max-md:col-span-6 max-sm:col-span-1" />
+                ) : <label className="col-span-4 max-md:col-span-6 max-sm:col-span-1">
                   <span>Project / contract</span>
                   <select defaultValue="PRJ-1042 — Atlas rollout">
                     <option>PRJ-1042 — Atlas rollout</option>
                     <option>No project</option>
                   </select>
-                </label>
+                </label>}
                 <label htmlFor="transaction-source-document" className="col-span-4 max-md:col-span-6 max-sm:col-span-1">
                   <span>Source document</span>
                   <Input id="transaction-source-document" defaultValue="Linked automatically where applicable" />
@@ -3325,6 +3339,30 @@ function PrototypeContentBody(props: PrototypeContentProps) {
         </>
       );
     }
+  }
+
+  // Live Manufacturing pages (Bill of Materials, Production Planning, Manufacturing Orders) come before the prototypes.
+  if (context.moduleId === "manufacturing" && isManufacturingLivePage(context.pageId)) {
+    return (
+      <ManufacturingLiveWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
+  }
+
+  // Live Fleet pages (Vehicles, Drivers, Fuel, Maintenance, Fuel Efficiency) come before the prototypes.
+  if (context.moduleId === "fleet" && isFleetLivePage(context.pageId)) {
+    return (
+      <FleetLiveWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
   }
 
   if (context.moduleId === "manufacturing" && isManufacturingMaturityPage(context.pageId)) {

@@ -23,8 +23,8 @@ function pendingColumns(state: SalesState): ListColumn<SalesDocument>[] {
     return approved ? `${quotation!.code} · approved by ${approverName(approved)}` : "Direct order";
   };
   return [
-    { id: "order", label: "Order", required: true, cell: (order) => <><span className="font-mono font-semibold">{order.code}</span><small>{source(order)}</small></> },
-    { id: "customer", label: "Customer", required: true, cell: (order) => <><strong>{findCustomer(state, order.customerId)?.display}</strong><small>{deliveryAddress(findCustomer(state, order.customerId))}</small></> },
+    { id: "order", label: "Order", required: true, cell: (order) => <><span className="font-mono font-semibold">{order.code}</span><small>{order.links.quotation || "Direct order"}</small></> },
+    { id: "customer", label: "Customer", required: true, cell: (order) => <><strong>{findCustomer(state, order.customerId)?.display}</strong><small>{findCustomer(state, order.customerId)?.code}</small></> },
     {
       id: "date2",
       label: "Delivery date",
@@ -35,11 +35,13 @@ function pendingColumns(state: SalesState): ListColumn<SalesDocument>[] {
         </>
       ),
     },
+    { id: "source", label: "Approval source", optional: true, cell: source },
+    { id: "address", label: "Delivery address", optional: true, cell: (order) => deliveryAddress(findCustomer(state, order.customerId)) },
     { id: "warehouse", label: "Ship from", cell: (order) => order.warehouse },
-    { id: "items", label: "Items", cell: (order) => order.lines.map((item, index) => <span key={`${item.sku}-${index}`} className="block">{item.qty} × {item.desc}</span>) },
-    { id: "amount", label: "Amount", align: "right", cell: (order) => moneyWhole(documentTotal(order), docCurrency(order)) },
+    { id: "items", label: "Items", optional: true, cell: (order) => order.lines.map((item, index) => <span key={`${item.sku}-${index}`} className="block">{item.qty} × {item.desc}</span>) },
+    { id: "amount", label: "Amount", align: "right", optional: true, cell: (order) => moneyWhole(documentTotal(order), docCurrency(order)) },
     { id: "stage", label: "Fulfilment", cell: (order) => <StatusPill status={fulfilmentStage(order)} /> },
-    { id: "next", label: "Next action", required: true, cell: () => <span className="text-xs font-semibold whitespace-nowrap text-[var(--nx-brand)]">Confirm Delivery →</span> },
+    { id: "next", label: "Next step", required: true, cell: () => <span className="text-xs font-semibold whitespace-nowrap text-[var(--nx-brand)]">Confirm Delivery →</span> },
   ];
 }
 
@@ -134,8 +136,8 @@ export function DeliveryView({ nav }: { nav: SalesNav }) {
         eyebrow="Sales · Delivery"
         title="Delivery"
         status={<StatusPill status="Prototype only" />}
-        description="Confirmed sales orders appear here. Click an order to confirm its delivery, then create the invoice once delivered. No further approval is needed."
-        actions={<ListViewMenu view={view} />}
+        description="Prepare confirmed orders, record delivery and continue to invoicing."
+
       />
       <MetricTiles
         metrics={[
@@ -151,6 +153,7 @@ export function DeliveryView({ nav }: { nav: SalesNav }) {
             {chip("done", `Delivered (${delivered.length})`)}
           </div>
           <SearchBox value={query} onChange={setQuery} placeholder="Search order, delivery, customer or invoice" />
+          <ListViewMenu view={view} />
         </ListToolbar>
         {rows.length ? (
           <>

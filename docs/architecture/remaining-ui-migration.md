@@ -1,5 +1,26 @@
 # Remaining UI migration checklist
 
+## 2026-11-19 - Integration of the ERP branches on main
+
+- Integrated Fleet and Manufacturing workspaces, the shared module presentation,
+  and the Administration and Sales view updates. Retained the Budget and regional
+  Tax routes, the persistent Sales currency routes, the Purchase Returns menu,
+  and Banking navigation guards. Manufacturing prototype pages still use their
+  existing stylesheet.
+- The security migration chain retains Budget at 0024, Fleet at 0025, and Super
+  Admin permission synchronization at 0026. Manufacturing permissions now run
+  at 0027. The main migration chain was verified from a fresh database and from
+  a database with Budget at 0024. A database whose 0024 entry is already
+  `manufacturing_permissions` needs a separate reconciliation before deployment.
+- TypeScript, the Next.js production build, the generated API and catalogue
+  checks, the theme audit, 1,621 unit tests, 26 contract tests and 70 focused
+  PostgreSQL integration tests passed. Chrome completed the Manufacturing BOM, planning, conversion
+  and approval workflow at widths of 1440, 768 and 390 pixels against an isolated
+  API and database. The browser run covered Manufacturing.
+- The full-repository formatting check still flags inherited files. The focused
+  formatting and lint checks for the migration, readiness and test updates
+  passed. Resume any broader UI review from the resulting main branch.
+
 ## 2026-11-18 - Temporarily hidden workspace modules
 
 - Owner-requested navigation hiding for Operations, Quality, CRM, Projects,
@@ -785,6 +806,158 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   supplier-bank editor with 23px horizontal overflow at 1440px. Its existing tests
   remain in place; the six changed-surface Payment checks pass independently.
 
+
+
+## 2026-11-16 - Searchable Sales Product / service selection
+
+- Replaced the native product select in the shared Sales LineItemsEditor with
+  the existing SearchableSelect. Clicking the field opens and focuses a search
+  input above the options. Search matches product code or name without case
+  sensitivity; selection closes the popup and displays the chosen product.
+  This applies to quotations, sales orders, invoices and recurring bill forms.
+- Reused the existing Sales catalogue and chooseItem handler. Other charge,
+  description, unit, tax, foreign-currency rate conversion, quantities, totals,
+  and line add/remove behavior are preserved. No API, catalogue, shared dropdown
+  implementation or stylesheet was changed for this follow-up.
+- Verification: focused Vitest run (searchable-select, sales-workflow,
+  sales-recurring) passed 3 files / 40 tests. New integration assertions cover
+  opening/focusing search, lookup by SKU and name, product selection and total,
+  another line remaining unchanged, FX conversion and no-match recovery.
+  Targeted ESLint, theme audit --write/--check and git diff --check passed.
+  npm.cmd run build:web passed using tmp/module-design-build, including
+  TypeScript and all static pages; next-env.d.ts was restored after the build.
+- Browser screenshots were not captured in this follow-up; the previous browser
+  review was blocked by the Computer Use stop/unavailable browser host. Resume
+  visual verification on Sales > Quotations > New > Products & services.
+
+
+## 2026-11-16 - Sales, Administration and Manufacturing design rollout
+
+- Reference: the existing review in tmp/nexora-uiux-review/index.html and its
+  32-destination coverage.json. No new design artifact was created. Earlier
+  line-heading and Projects search changes alone did not implement this design.
+- Shared presentation: module-design.tsx scopes the review's typography, neutral
+  cards, compact tables, controls, tabs and badges to Sales, Administration and
+  Manufacturing. The shell provides this context to feature pages and overlays;
+  Dialog, AlertDialog and Sheet keep it through portals. Other modules retain
+  their existing presentation. Existing legacy CSS remains because active
+  prototype routes still use it; no stylesheet was deleted or added.
+- Sales: quotation defaults now match the six review columns (Quotation,
+  Customer, Valid until, Amount, Status, Next step). Codes include their date;
+  verbose approval/source/reference information remains available in Columns.
+  Next-step buttons open the relevant quotation or linked order. Columns lives
+  beside search/status filters across the lists. Delivery, receipts and customer
+  defaults are reduced; all optional data remains available. Display preferences
+  use a versioned storage key so old wide-column defaults cannot hide this rollout.
+  Entry forms, recurring forms, invoice/customer/fulfilment drawers and decision,
+  discard, payment and batch dialogs share the new presentation. Quotation
+  workflow details are expandable. Qty/Rate/Tax retain left alignment and matching
+  header/input padding. Calculations and existing workflow permissions are unchanged.
+- Administration: common page/panel/metric/status styling applies to Dashboard,
+  Tenant Directory, Organisation/companies, Structure, Users, Access Levels and
+  Activity Log. User drawers now use Details, Companies, Access and Review (or
+  Account actions) tabs; mounted fields retain values across tabs, and validation
+  returns to the relevant section. Module access is searchable without changing
+  grants. Users show compact access summaries. Activity search and a read-only
+  before/after dialog use the existing session audit data and omit secret keys.
+- Manufacturing: BOM/planning/order live lists have a combined search/status/
+  columns toolbar and compact tables. Their forms use consistent headings and
+  sticky action bars; BOM components use a single aligned grid. Release and
+  variance prototype pages receive neutral panels/tabs/KPIs. The other review
+  destinations (overview, routing, work centres, demand, MRP, requirements,
+  capacity, issue, WIP, completion, scrap/rework, subcontracting and reports)
+  inherit the same design through their existing generic renderers. Workflow/
+  readiness controls remain available in an expandable section. Duplicate
+  illustrative pagination is hidden for Manufacturing; WorkTable retains its
+  working pagination. Native unsaved-change prompts are retained.
+- No endpoint, database, posting, authorization or audit-write behavior changed.
+  Existing live Manufacturing services remain live; prototype manufacturing
+  concepts and browser-session Sales/Administration data remain clearly labelled.
+  Artifact sample counts/records and proposed backend capabilities were not copied.
+- Verification: 11 focused Vitest files / 99 tests passed, including compact
+  quotation columns, record preservation, linked-order and keyboard navigation,
+  scope isolation, access search, drawer tab value retention and invalid-form
+  navigation, existing Sales workflows, shared tables and Projects lookup.
+  TypeScript and targeted ESLint passed. Theme audit --write and --check passed
+  with zero direct feature-view font/colour exceptions (128 view files); the
+  existing monochrome print exception remains. git diff --check passed.
+- Final production verification: npm.cmd run build:web passed with
+  NEXT_DIST_DIR=tmp/module-design-build, including TypeScript and all eight
+  static page generations. Network access was used only to fetch the existing
+  Google font after the sandboxed build could not reach it. next-env.d.ts was
+  restored and has no diff; the development runtime was not restarted.
+- An additional administration-contracts run exposed an existing catalogue test
+  mismatch: contracts still include Tax and Costing while the navigation catalogue
+  redirects those modules. Those files are unchanged by this UI task; 21 other
+  assertions in that file passed. Access contracts were not altered to mask it.
+- Browser evidence: native Chrome showed the new six-column quotation table with
+  all eight records and the refreshed Administration Users/create drawer in dark
+  theme at 1280 x 672; a narrow restored window also showed the wrapped toolbar
+  and table scroll containment. Screenshots were displayed by Computer Use,
+  not saved as files. No business record, credential or permission was saved.
+  The user then stopped Computer Use with physical Escape; after 'continue',
+  the tool still reported that stop and an unavailable browser host.
+- Remaining / safe resume: complete route-by-route visual comparison for all
+  Manufacturing screens and remaining Sales/Admin overlays, plus light theme,
+  tablet/mobile, focus/error/empty/disabled states. Shared implementation is in
+  place, but full pixel parity across every artifact mode is not yet verified.
+  Review native Manufacturing discard prompts separately if custom dialogs are
+  desired. Do not describe this as a complete backend feature migration.
+
+
+## 2026-11-16 - Line heading alignment and Projects inline lookup
+
+- In the shared Sales line editor, aligned Qty, Rate and Tax headings with the
+  left edge of their existing input boxes, following the marked screenshot.
+  Column order, values, add/remove handlers, currency conversion and tax/total
+  calculations are unchanged. No stylesheets were added or retired.
+- In Projects & Professional Services prototype forms only, replaced the static
+  Project / client and advanced Project / contract picks with a project lookup.
+  Users type a code or name in the selection input itself. The existing generated
+  Master Data API supplies company-scoped results with debounced search, cursor
+  pagination, retry and stale-response protection. Existing project records,
+  including inactive records returned by that API, remain searchable. No API,
+  permissions, database, posting or prototype save actions were changed.
+- Added opt-in inline search to the shared SearchableSelect. Its default popup
+  search mode remains unchanged for all existing callers. The Projects component
+  owns its lookup state; selection labels survive result refreshes, and options
+  and selection do not cross company scope. Controls use existing semantic theme
+  tokens and primitives, with required, loading, error, empty and focus states.
+- Verification: `npx.cmd tsc --noEmit --pretty false` passed; targeted ESLint
+  passed. Focused Vitest run covering searchable-select, project-service-field,
+  sales-workflow and sales-recurring passed 4 files / 39 tests. Checks cover
+  same-input search/selection, scoped server search, pagination, scope changes,
+  retry, existing dropdown behavior and Sales workflow calculations.
+- Theme audit `--write` and `--check` passed: zero direct font or colour
+  exceptions across 128 feature view files; the existing print exception remains.
+  Browser evidence is unavailable: the computer-use inventory reported that the
+  browser access host was unavailable. Desktop/tablet/mobile visual checks and
+  light/dark browser verification remain pending; no screenshot evidence claimed.
+- Production build: the first isolated `build:web` attempt could not fetch the
+  existing Geist Mono Google Font. The network-enabled `npm.cmd run build:web`
+  retry passed using `NEXT_DIST_DIR=tmp/project-search-build`, including Next's
+  TypeScript checks and static page generation. `git diff --check` passed.
+  Generated Next environment paths were restored; `next-env.d.ts` has no diff.
+- Safe resume: verify the changed fields in a running browser. This batch does
+  not implement the earlier all-module design artifact or migrate other screens.
+
+### Localhost follow-up verification, 2026-11-16
+
+- Confirmed the running ERP is Next dev on `127.0.0.1:3005` from this repository.
+  Port 3000 belongs to a different project and was not changed or restarted.
+- Native Chrome inspection succeeded despite the browser connector inventory
+  reporting an unavailable host. At `/#/sales/quotations/new`, scrolled to the
+  line editor and visually confirmed Qty, Rate and Tax headings start at their
+  corresponding input columns. At `/#/projects/add-project`, typed `PRJ` into
+  Project / client, observed `PRJ-001 · Xyric` from the existing directory,
+  selected it, and confirmed its label remained in the same input after closing.
+- Observed at 1280 × 672 in the existing dark theme. Screenshots were displayed
+  by computer-use for inspection; no screenshot files were saved. No form saves,
+  submissions, project creation, permission changes or business-data writes were
+  performed. The form was left open on the selected project for the user.
+- These changes are inside the entry forms, not the quotation list or Projects
+  dashboard. No additional application code or runtime restart was needed during
+  this verification. Light theme and tablet/mobile browser checks remain pending.
 
 ## 2026-11-12 - Accounting menu cleanup and company fiscal setup
 
@@ -8656,6 +8829,21 @@ Company Chart adoption/review checkpoint (2026-10-20):
   parse/undeclared-name check of changed files, `git diff --check`, theme audit `--check`,
   prototype manifest `--check`, OpenAPI JSON validity. Not yet run: `npm run typecheck`,
   unit/integration tests, `npm run build:web`, browser pass.
+
+## Manufacturing live pages (2026-11-13)
+
+- Live: Bill of Materials (`boms`, `bom-editor`), Production Planning (`production-plans`, `production-plan`),
+  Manufacturing Orders (`production-orders`, `add-production-order`, `production-order-detail`) in
+  `app/features/manufacturing/views/manufacturing-live-workspace.tsx`, Tailwind + shared primitives only, no new stylesheet.
+- Still prototype (legacy `manufacturing-workspace.tsx` + its CSS): `release-production-order`, `production-variance`
+  and every other Manufacturing menu page. The CSS stays until those pages migrate.
+- Simplified flow (requested later on 2026-11-13, migration `manufacturing/0004`): Production Planning takes a
+  finished product + production quantity (no BOM required), Save Production Planning, then one-click Convert to
+  Manufacturing Order; a draft order is confirmed and approved in one step (Confirm & Approve, needs
+  `manufacturing.order.approve`). Plan/order BOM and ingredient integration is deferred; Bill of Materials stays a
+  standalone screen.
+- Evidence: `tests/e2e/manufacturing-workflow.spec.ts` (plan -> save -> convert -> confirm & approve) passing on
+  2026-11-13; theme audit 0 exceptions.
 
 ## 2026-11-13 — Payroll: row lists, overtime policy move, loans de-duplicated
 

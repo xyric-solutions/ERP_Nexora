@@ -16,7 +16,7 @@ describe("Consolidated Purchase workflow", () => {
     for (const action of ["submit", "reject", "cancel"])
       expect(purchaseActionRequestSchema.safeParse({ ...input, action }).success).toBe(false);
   });
-  it("includes Suppliers alongside the seven Purchase workflow entries", () => {
+  it("includes Purchase Returns and Suppliers alongside the seven Purchase workflow entries", () => {
     const purchaseModule = prototypeModules.find((item) => item.id === "purchases")!;
     const pages = purchaseModule.groups
       .filter((group) => !group.hiddenFromNavigation)
@@ -27,11 +27,15 @@ describe("Consolidated Purchase workflow", () => {
       "Purchase Order",
       "Receive Products",
       "Bills",
+      "Purchase Returns",
       "Payment",
       "Multi-vendor Payment",
       "Suppliers",
     ]);
-    expect(pages.map((page) => page.id)).toEqual([...purchaseSteps.map((step) => step.page), "suppliers"]);
+    expect(pages.map((page) => page.id)).toEqual([
+      ...purchaseSteps.flatMap((step) => (step.kind === "bill" ? [step.page, "purchase-returns"] : [step.page])),
+      "suppliers",
+    ]);
     expect(prototypeModules.some((module) => module.id === "suppliers")).toBe(false);
     expect(findPrototypePage("purchases", "suppliers").page.hiddenFromNavigation).not.toBe(true);
   });

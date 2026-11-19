@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { WorkspaceHeader } from "@/shared/ui/module-design";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +12,11 @@ import { cn } from "cn";
 type Tone = "success" | "warning" | "danger" | "info" | "purple" | "neutral";
 
 const STATUS_TONE: Record<string, Tone> = {
-  Open: "info", Saved: "neutral", Ordered: "success", Confirmed: "info", Issued: "success",
+  Open: "info", Saved: "neutral", Ordered: "neutral", Confirmed: "info", Issued: "success",
   Delivered: "purple", Invoiced: "success", Unpaid: "warning", "Partially paid": "warning", Overdue: "danger",
   Paid: "success", Recorded: "success", Active: "success", Inactive: "neutral", Paused: "neutral",
   "Pending approval": "warning", Approved: "success", Rejected: "danger", "On credit hold": "danger",
-  "Not invoiced": "warning", Draft: "neutral", "Prototype only": "neutral", "Changes requested": "warning",
+  "Not invoiced": "warning", Draft: "warning", "Prototype only": "neutral", "Changes requested": "warning",
   "Not submitted": "neutral", "Not started": "neutral", "Not applicable": "neutral", "Ready to confirm": "info",
   "Ready for delivery": "info", "Ready to invoice": "info", "Ready to deliver": "info",
   Posted: "success", Allocated: "success", "Partly allocated": "warning", "On account": "info", Returned: "purple",
@@ -35,7 +36,7 @@ export function StatusPill({ status }: { status: string }) {
   return (
     <span
       className={cn(
-        "inline-flex min-h-5.5 items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold leading-tight whitespace-nowrap before:size-1.5 before:rounded-full before:bg-current before:content-['']",
+        "inline-flex min-h-5.5 items-center gap-1.5 rounded-[5px] border border-transparent px-2 py-1 text-xs font-semibold leading-tight whitespace-nowrap before:size-1.5 before:rounded-full before:bg-current before:content-['']",
         TONE_CLASS[STATUS_TONE[status] ?? "neutral"],
       )}
     >
@@ -76,20 +77,7 @@ export function PageHead({
   description?: string;
   actions?: ReactNode;
 }) {
-  return (
-    // Side by side only when there is room; the actions keep one row instead of stacking under each other.
-    <header className="flex flex-col items-start justify-between gap-4 border-b border-border pb-4 xl:flex-row xl:items-end xl:gap-6">
-      <div className="min-w-0 xl:flex-1">
-        <span className="text-xs font-bold uppercase tracking-[0.06em] text-[var(--nx-brand)]">{eyebrow}</span>
-        <div className="mt-1 flex flex-wrap items-center gap-2.5">
-          <h1 className="m-0 text-2xl font-bold leading-tight tracking-tight text-foreground">{title}</h1>
-          {status}
-        </div>
-        {description ? <p className="mt-1.5 mb-0 max-w-190 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
-      </div>
-      {actions ? <div className="flex w-full flex-wrap items-center justify-start gap-2 xl:w-auto xl:shrink-0 xl:justify-end">{actions}</div> : null}
-    </header>
-  );
+  return <WorkspaceHeader eyebrow={eyebrow} title={title} status={status} description={description} actions={actions} />;
 }
 
 export interface Metric {
@@ -102,16 +90,16 @@ export interface Metric {
 
 export function MetricTiles({ metrics }: { metrics: readonly Metric[] }) {
   return (
-    <section className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+    <section className={cn("grid gap-3.5 sm:grid-cols-2", metrics.length === 3 ? "xl:grid-cols-3" : "xl:grid-cols-4")}>
       {metrics.map((metric) => {
         const body = (
           <>
             <span className="block text-xs text-muted-foreground">{metric.label}</span>
-            <strong className="my-1 block text-lg font-bold tracking-tight text-foreground">{metric.value}</strong>
+            <strong className="my-2 block text-[1.625rem] font-semibold tracking-tight text-foreground">{metric.value}</strong>
             <small className="block text-xs text-muted-foreground">{metric.hint}</small>
           </>
         );
-        const base = "min-w-0 rounded border border-border bg-card p-3.5 text-left shadow-sm";
+        const base = "min-w-0 rounded-[10px] border border-border bg-card px-5 py-4 text-left";
         return metric.onSelect ? (
           <button
             key={metric.label}
@@ -134,7 +122,7 @@ export function MetricTiles({ metrics }: { metrics: readonly Metric[] }) {
 
 export function Card({ title, aside, children, className }: { title?: string; aside?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cn("min-w-0 rounded-lg border border-border bg-card shadow-sm", className)}>
+    <section className={cn("min-w-0 overflow-hidden rounded-[10px] border border-border bg-card shadow-none", className)}>
       {title ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
           <h2 className="m-0 text-sm font-bold text-foreground">{title}</h2>
@@ -149,7 +137,7 @@ export function Card({ title, aside, children, className }: { title?: string; as
 /* ---------------------------------------------------------------- lists */
 
 export const tableClass =
-  "w-full border-collapse text-[0.8125rem] [&_th]:whitespace-nowrap [&_th]:border-b [&_th]:border-border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-[0.6875rem] [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-[0.055em] [&_th]:text-muted-foreground [&_td]:border-b [&_td]:border-border [&_td]:px-3 [&_td]:py-2.5 [&_td]:align-middle [&_tbody_tr:last-child_td]:border-b-0 [&_td_small]:block [&_td_small]:text-xs [&_td_small]:text-muted-foreground";
+  "w-full border-collapse text-[0.8125rem] [&_th]:whitespace-nowrap [&_th]:border-b [&_th]:border-border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-medium [&_th]:normal-case [&_th]:tracking-normal [&_th]:text-muted-foreground [&_td]:border-b [&_td]:border-border [&_td]:px-4 [&_td]:py-4 [&_td]:align-middle [&_tbody_tr:last-child_td]:border-b-0 [&_td_small]:block [&_td_small]:text-xs [&_td_small]:text-muted-foreground";
 
 export const clickableRow = "cursor-pointer hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
 
@@ -163,12 +151,12 @@ export function rowKeyHandler(open: () => void) {
 }
 
 export function ListToolbar({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2 rounded-t-lg border-b border-border bg-muted px-3 py-2.5">{children}</div>;
+  return <div className="flex flex-wrap items-center gap-2 rounded-t-[10px] border-b border-border bg-card px-4 py-3">{children}</div>;
 }
 
 export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
   return (
-    <div className="flex min-w-0 max-w-95 flex-[1_1_15rem] items-center gap-2 rounded-[var(--nx-radius-md)] border border-input bg-card px-2.5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
+    <div className="flex min-w-0 max-w-md flex-[1_1_18rem] items-center gap-2 rounded-[var(--nx-radius-md)] border border-input bg-card px-2.5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
       <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       <Input
         type="search"
@@ -198,9 +186,9 @@ export function FilterSelect({
 }) {
   return (
     <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-      {label}
+      <span className="sr-only">{label}</span>
       <select className={cn(selectClass, "h-9 w-auto")} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">All</option>
+        <option value="">All {label === "Status" ? "statuses" : label.toLowerCase()+"s"}</option>
         {options.map((option) => {
           const [optionValue, optionLabel] = typeof option === "string" ? [option, option] : option;
           return (
@@ -338,7 +326,7 @@ export function EntryTabs<T extends string>({
   label: string;
 }) {
   return (
-    <div className="flex min-h-11 items-end gap-1 overflow-x-auto border-b border-border bg-primary/10 px-3" role="tablist" aria-label={label}>
+    <div className="flex min-h-11 items-end gap-1 overflow-x-auto border-b border-border bg-card px-3" role="tablist" aria-label={label}>
       {tabs.map(([id, text]) => (
         <button
           key={id}
@@ -447,10 +435,10 @@ export function NextActionBar({
   children?: ReactNode;
 }) {
   const toneClass = {
-    action: "border-[var(--nx-brand-line)] border-l-primary bg-[var(--nx-brand-soft)]",
-    wait: "border-[var(--nx-warning-border)] border-l-[var(--nx-warning)] bg-[var(--nx-warning-soft)]",
-    done: "border-[var(--nx-success-border)] border-l-[var(--nx-success)] bg-[var(--nx-success-soft)]",
-    stopped: "border-[var(--nx-danger-border)] border-l-[var(--nx-danger)] bg-[var(--nx-danger-soft)]",
+      action: "border-border border-l-primary bg-card",
+      wait: "border-border border-l-[var(--nx-warning)] bg-card",
+      done: "border-border border-l-[var(--nx-success)] bg-card",
+      stopped: "border-border border-l-[var(--nx-danger)] bg-card",
   }[tone];
   const eyebrowClass = {
     action: "text-[var(--nx-brand)]",

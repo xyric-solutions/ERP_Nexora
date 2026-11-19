@@ -134,9 +134,9 @@ export function RecurringBillsView({
 
   const columns: ListColumn<RecurringBill>[] = [
     { id: "code", label: "Template", required: true, cell: (bill) => <span className="font-mono font-semibold">{bill.code}</span> },
-    { id: "scope", label: "Type", cell: (bill) => (bill.scope === "Batch" ? "Batch" : "Single") },
+    { id: "scope", label: "Type", optional: true, cell: (bill) => (bill.scope === "Batch" ? "Batch" : "Single") },
     { id: "customer", label: "Customer", required: true, cell: (bill) => customersCell(state, bill) },
-    { id: "name", label: "Billed for", cell: (bill) => bill.name },
+    { id: "name", label: "Billed for", optional: true, cell: (bill) => bill.name },
     { id: "frequency", label: "Frequency", cell: (bill) => bill.frequency },
     { id: "project", label: "Project", optional: true, cell: (bill) => referenceLabel(bill.project) || "—" },
     { id: "location", label: "Location", optional: true, cell: (bill) => referenceLabel(bill.location) || "—" },
@@ -155,6 +155,7 @@ export function RecurringBillsView({
     {
       id: "progress",
       label: "This period",
+      optional: true,
       nowrap: true,
       cell: (bill) => {
         const done = bill.customerIds.length - recurringPending(bill).length;
@@ -186,10 +187,10 @@ export function RecurringBillsView({
         eyebrow="Sales · Recurring Bills"
         title="Recurring Bills"
         status={<StatusPill status="Prototype only" />}
-        description="Invoice templates for customers billed every week or month. Set up a template once; when it is due, click Create Invoice and the invoice form opens with everything filled in, then click Save & Post. A batch template bills several customers with the same lines in one step."
+        description="Reusable invoice templates for single customers and customer groups."
         actions={
           <>
-            <ListViewMenu view={view} />
+
             <Button type="button" variant="outline" disabled={!dueInvoices} onClick={createDue}>Bill everything due in 30 days ({dueInvoices})</Button>
             <ActionMenu
               label="+ New Template"
@@ -214,6 +215,7 @@ export function RecurringBillsView({
         <p className="m-0 flex-[1_1_18rem]">How recurring bills are settled is still being researched. This shows the simplest version: a schedule that creates normal invoices.</p>
       </div>
       <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3"><span className="text-xs text-muted-foreground">{rows.length} templates ? {filter === "all" ? "All templates" : filter}</span><ListViewMenu view={view} /></div>
         {rows.length ? (
           <>
             <ListTable view={view} rows={paging.pageRows} rowKey={(bill) => bill.code} onOpen={(bill) => nav.open(bill.code)} selected={selected} />

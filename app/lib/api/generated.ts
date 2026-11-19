@@ -104,6 +104,44 @@ import type {
   InventoryCompanies,
   InventoryOptions,
   ProductLookupDirectory,
+  FleetCompanies,
+  FleetLookupDirectory,
+  FleetVehicleInput,
+  FleetVehicle,
+  FleetVehicleDirectory,
+  FleetVehicleMutation,
+  FleetToolInput,
+  FleetToolList,
+  FleetToolMutation,
+  FleetDriverInput,
+  FleetDriver,
+  FleetDriverDirectory,
+  FleetDriverMutation,
+  FleetFuelEntryInput,
+  FleetFuelDirectory,
+  FleetFuelMutation,
+  FleetMaintenanceInput,
+  FleetMaintenanceDirectory,
+  FleetMaintenanceMutation,
+  FleetFuelEfficiencyReport,
+  ManufacturingSurface,
+  ManufacturingCompanies,
+  ManufacturingLookupDirectory,
+  BomInput,
+  Bom,
+  BomDirectory,
+  BomMutation,
+  ProductionPlanInput,
+  ProductionPlan,
+  ProductionPlanDirectory,
+  ProductionPlanMutation,
+  ConvertProductionPlanInput,
+  ConvertProductionPlanResult,
+  ManufacturingOrderInput,
+  ManufacturingOrder,
+  ManufacturingOrderDirectory,
+  ManufacturingOrderMutation,
+  ManufacturingOrderAction,
   MeasurementUnit,
   UnitInput,
   UnitDirectory,
@@ -1011,6 +1049,210 @@ export class NexoraApiClient {
       },
       body: JSON.stringify(payload),
     });
+  }
+  listManufacturingCompanies(surface: ManufacturingSurface): Promise<ManufacturingCompanies> {
+    return this.request(`/api/v1/manufacturing/companies?surface=${encodeURIComponent(surface)}`);
+  }
+  listManufacturingLookups(query: string): Promise<ManufacturingLookupDirectory> {
+    return this.request(`/api/v1/manufacturing/lookups${query}`);
+  }
+  listBoms(query: string): Promise<BomDirectory> {
+    return this.request(`/api/v1/manufacturing/boms${query}`);
+  }
+  getBom(id: string, company: string): Promise<Bom> {
+    return this.request(
+      `/api/v1/manufacturing/boms/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`,
+    );
+  }
+  getBomByProduct(productId: string, company: string, surface: ManufacturingSurface): Promise<Bom> {
+    return this.request(
+      `/api/v1/manufacturing/boms/by-product/${encodeURIComponent(productId)}?company_id=${encodeURIComponent(company)}&surface=${encodeURIComponent(surface)}`,
+    );
+  }
+  saveBom(id: string | null, payload: BomInput, csrf: string, key: string): Promise<BomMutation> {
+    return this.request(`/api/v1/manufacturing/boms${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${payload.expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  listProductionPlans(query: string): Promise<ProductionPlanDirectory> {
+    return this.request(`/api/v1/manufacturing/plans${query}`);
+  }
+  getProductionPlan(id: string, company: string): Promise<ProductionPlan> {
+    return this.request(
+      `/api/v1/manufacturing/plans/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`,
+    );
+  }
+  saveProductionPlan(
+    id: string | null,
+    payload: ProductionPlanInput,
+    csrf: string,
+    key: string,
+  ): Promise<ProductionPlanMutation> {
+    return this.request(`/api/v1/manufacturing/plans${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${payload.expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  convertProductionPlan(
+    id: string,
+    payload: ConvertProductionPlanInput,
+    csrf: string,
+    key: string,
+  ): Promise<ConvertProductionPlanResult> {
+    return this.request(`/api/v1/manufacturing/plans/${encodeURIComponent(id)}/convert`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
+      body: JSON.stringify(payload),
+    });
+  }
+  listManufacturingOrders(query: string): Promise<ManufacturingOrderDirectory> {
+    return this.request(`/api/v1/manufacturing/orders${query}`);
+  }
+  getManufacturingOrder(id: string, company: string): Promise<ManufacturingOrder> {
+    return this.request(
+      `/api/v1/manufacturing/orders/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`,
+    );
+  }
+  saveManufacturingOrder(
+    id: string | null,
+    payload: ManufacturingOrderInput,
+    csrf: string,
+    key: string,
+  ): Promise<ManufacturingOrderMutation> {
+    return this.request(`/api/v1/manufacturing/orders${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${payload.expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  actOnManufacturingOrder(
+    id: string,
+    payload: ManufacturingOrderAction,
+    csrf: string,
+    key: string,
+  ): Promise<ManufacturingOrderMutation> {
+    return this.request(`/api/v1/manufacturing/orders/${encodeURIComponent(id)}/actions`, {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": `"${payload.expected_version}"` },
+      body: JSON.stringify(payload),
+    });
+  }
+  listFleetCompanies(): Promise<FleetCompanies> {
+    return this.request("/api/v1/fleet/companies");
+  }
+  listFleetLookups(query: string): Promise<FleetLookupDirectory> {
+    return this.request(`/api/v1/fleet/lookups${query}`);
+  }
+  listFleetVehicles(query: string): Promise<FleetVehicleDirectory> {
+    return this.request(`/api/v1/fleet/vehicles${query}`);
+  }
+  getFleetVehicle(id: string, company: string): Promise<FleetVehicle> {
+    return this.request(`/api/v1/fleet/vehicles/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`);
+  }
+  saveFleetVehicle(
+    id: string | null,
+    payload: FleetVehicleInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetVehicleMutation> {
+    return this.request(`/api/v1/fleet/vehicles${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${(payload as { expected_version?: number }).expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  listFleetVehicleTools(vehicleId: string, company: string): Promise<FleetToolList> {
+    return this.request(
+      `/api/v1/fleet/vehicles/${encodeURIComponent(vehicleId)}/tools?company_id=${encodeURIComponent(company)}`,
+    );
+  }
+  saveFleetVehicleTool(
+    vehicleId: string,
+    toolId: string | null,
+    payload: FleetToolInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetToolMutation> {
+    return this.request(
+      `/api/v1/fleet/vehicles/${encodeURIComponent(vehicleId)}/tools${toolId ? "/" + encodeURIComponent(toolId) : ""}`,
+      {
+        method: toolId ? "PATCH" : "POST",
+        headers: {
+          "x-csrf-token": csrf,
+          "idempotency-key": key,
+          ...(toolId ? { "if-match": `"${payload.expected_version}"` } : {}),
+        },
+        body: JSON.stringify(payload),
+      },
+    );
+  }
+  listFleetDrivers(query: string): Promise<FleetDriverDirectory> {
+    return this.request(`/api/v1/fleet/drivers${query}`);
+  }
+  getFleetDriver(id: string, company: string): Promise<FleetDriver> {
+    return this.request(`/api/v1/fleet/drivers/${encodeURIComponent(id)}?company_id=${encodeURIComponent(company)}`);
+  }
+  saveFleetDriver(
+    id: string | null,
+    payload: FleetDriverInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetDriverMutation> {
+    return this.request(`/api/v1/fleet/drivers${id ? "/" + encodeURIComponent(id) : ""}`, {
+      method: id ? "PATCH" : "POST",
+      headers: {
+        "x-csrf-token": csrf,
+        "idempotency-key": key,
+        ...(id ? { "if-match": `"${(payload as { expected_version?: number }).expected_version}"` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+  listFleetFuelEntries(query: string): Promise<FleetFuelDirectory> {
+    return this.request(`/api/v1/fleet/fuel${query}`);
+  }
+  createFleetFuelEntry(payload: FleetFuelEntryInput, csrf: string, key: string): Promise<FleetFuelMutation> {
+    return this.request("/api/v1/fleet/fuel", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(payload),
+    });
+  }
+  listFleetMaintenanceEntries(query: string): Promise<FleetMaintenanceDirectory> {
+    return this.request(`/api/v1/fleet/maintenance${query}`);
+  }
+  createFleetMaintenanceEntry(
+    payload: FleetMaintenanceInput,
+    csrf: string,
+    key: string,
+  ): Promise<FleetMaintenanceMutation> {
+    return this.request("/api/v1/fleet/maintenance", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(payload),
+    });
+  }
+  getFleetFuelEfficiency(query: string): Promise<FleetFuelEfficiencyReport> {
+    return this.request(`/api/v1/fleet/reports/fuel-efficiency${query}`);
   }
   listProcurementCompanies(): Promise<ProcurementCompanies> {
     return this.request("/api/v1/procurement/companies");

@@ -179,6 +179,7 @@ export function WorkTable({
   continuation,
   paging = true,
   keyboardScroll = false,
+  toolbar,
   ...props
 }: ComponentProps<"table"> & {
   tableId: string;
@@ -188,6 +189,8 @@ export function WorkTable({
   continuation?: WorkContinuation;
   paging?: boolean;
   keyboardScroll?: boolean;
+  /** Feature-owned remote filters; keeps this table's columns and pager in one surface. */
+  toolbar?: React.ReactNode;
 }) {
   const inForm = useContext(WorkFormContext),
     surface = useContext(WorkSurfaceContext),
@@ -395,7 +398,7 @@ export function WorkTable({
   return (
     <div data-work-table={tableId} className="min-w-0 w-full text-foreground">
       <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border bg-card p-3 print:hidden">
-        <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium">
+        {toolbar ?? <><span className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium">
           <List className="size-4" aria-hidden="true" />
           List
         </span>
@@ -410,6 +413,7 @@ export function WorkTable({
             setPage(0);
           }}
         />
+        </>}
         <Button
           type="button"
           variant={filterOpen ? "secondary" : "outline"}

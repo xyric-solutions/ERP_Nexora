@@ -129,6 +129,7 @@ function columnsFor(state: SalesState, nav: SalesNav): ListColumn<CustomerReceip
     {
       id: "applied",
       label: "Invoices / against",
+      optional: true,
       cell: (doc) =>
         doc.against ? (
           <LinkButton mono onClick={() => nav.open(doc.against!)}>{doc.against}</LinkButton>
@@ -141,15 +142,15 @@ function columnsFor(state: SalesState, nav: SalesNav): ListColumn<CustomerReceip
         ),
     },
     { id: "method", label: "Method", cell: (doc) => <>{doc.method}<small>{doc.account}</small></> },
-    { id: "reference", label: "Reference", cell: (doc) => doc.reference || "—" },
+    { id: "reference", label: "Reference", optional: true, cell: (doc) => doc.reference || "—" },
     { id: "amount", label: "Amount", align: "right", required: true, cell: (doc) => <span className="font-semibold">{docMoney(doc.amount, doc)}</span> },
     { id: "onAccount", label: "On account", align: "right", optional: true, cell: (doc) => (doc.type === "Receipt" && isPosted(doc) ? docMoney(unallocatedOf(state, doc), doc) : "—") },
-    { id: "settlement", label: "Settlement", cell: (doc) => <StatusPill status={settlementOf(state, doc)} /> },
+    { id: "settlement", label: "Settlement", optional: true, cell: (doc) => <StatusPill status={settlementOf(state, doc)} /> },
     { id: "status", label: "Status", required: true, cell: (doc) => <StatusPill status={doc.status} /> },
     { id: "source", label: "Source", optional: true, cell: (doc) => SOURCE_LABEL[receiptSource(doc)] },
     { id: "project", label: "Project", optional: true, cell: (doc) => referenceLabel(doc.project) || "—" },
     { id: "location", label: "Location", optional: true, cell: (doc) => referenceLabel(doc.location) || "—" },
-    { id: "owner", label: "Recorded by", cell: (doc) => doc.owner || "—" },
+    { id: "owner", label: "Recorded by", optional: true, cell: (doc) => doc.owner || "—" },
   ];
 }
 
@@ -504,12 +505,11 @@ export function ReceiptList({
         eyebrow="Sales · Receipts"
         title="Receipts"
         status={<StatusPill status="Prototype only" />}
-        description="Payments received from customers, payments made to them and their returns. A receipt lists the customer's outstanding invoices automatically so a full or part payment can be allocated; anything not allocated stays on account. Drafts have no effect until they are posted."
+        description="Record customer money movements and allocate receipts to outstanding invoices."
         actions={
           <>
             <ActionMenu label="Add New" options={addNew} tone="primary" />
             <ActionMenu label="Batch" options={batch} tone="secondary" />
-            <ListViewMenu view={view} />
             <Button type="button" variant="outline" onClick={() => nav.go("invoices")}>Invoices</Button>
           </>
         }
@@ -522,6 +522,7 @@ export function ReceiptList({
           <FilterSelect label="Type" value={type} options={MONEY_DOC_TYPES.map((meta) => [meta.type, meta.label] as const)} onChange={setType} />
           <FilterSelect label="Status" value={status} options={["Draft", "Posted"]} onChange={setStatus} />
           <FilterSelect label="Method" value={method} options={RECEIPT_METHODS} onChange={setMethod} />
+          <ListViewMenu view={view} />
         </ListToolbar>
         {rows.length ? (
           <>

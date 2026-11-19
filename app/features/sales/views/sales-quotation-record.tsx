@@ -276,13 +276,14 @@ export function QuotationRecord({ code, nav }: { code: string; nav: SalesNav }) 
         </NextActionBar>
       )}
 
-      <Card title="Workflow" aside={<span className="text-xs text-muted-foreground">Quotation → Approval → Confirm Order → Delivery → Invoice → Payment</span>}>
-        <ol className="m-0 grid list-none grid-cols-1 gap-3 p-3.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6" aria-label="Quotation workflow">
+      <details className="overflow-hidden rounded-[10px] border border-border bg-card">
+        <summary className="cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-ring">Workflow & linked records</summary>
+        <ol className="m-0 grid list-none grid-cols-1 gap-3 border-t border-border p-3.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6" aria-label="Quotation workflow">
           {stages.map((stage, index) => (
             <StageCard key={stage.key} stage={stage} index={index} onOpen={openStage(stage)} />
           ))}
         </ol>
-      </Card>
+      </details>
 
       <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <Card title="Products and services" aside={doc.reference ? <span className="text-xs text-muted-foreground">Reference {doc.reference}</span> : undefined}>
