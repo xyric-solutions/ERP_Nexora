@@ -30,6 +30,7 @@ import {
   subledgerWorkspaceSchema,
   subledgerPreviewSchema,
   purchaseAccountingPrepareSchema,
+  salesSourcePrepareSchema,
   type SubledgerAction,
   type SubledgerInput,
   type SubledgerRequest,
@@ -64,6 +65,10 @@ import {
   PurchaseAccrualError,
 } from "../../inventory/purchase-accrual.js";
 import { InventoryError } from "../../inventory/errors.js";
+import { OperationalError } from "../../shared/operational-transaction.js";
+import { salesFinancialSource } from "../../sales/financial-source.js";
+import { loadSalesSource } from "../../sales/records.js";
+import { postedSalesInvoice } from "../../sales/credit-tax.js";
 import {
   createFinanceTransactionClient,
   FinancePostingError,
@@ -153,7 +158,7 @@ export class SourceSubledgerRepository {
     } catch (error) {
       await client.query("rollback");
       if (error instanceof SubledgerError) throw error;
-      if (error instanceof PurchaseAccrualError || error instanceof InventoryError)
+      if (error instanceof PurchaseAccrualError || error instanceof InventoryError || error instanceof OperationalError)
         throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof AssetError) throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof TaxError) throw new SubledgerError(error.status, error.code, error.message);
@@ -173,7 +178,7 @@ export class SourceSubledgerRepository {
         error &&
         typeof error === "object" &&
         "code" in error &&
-        ["23503", "23505", "23514", "40001", "40P01"].includes(String(error.code))
+        ["23503", "23505", "23514", "40001", "40P01", "P0001"].includes(String(error.code))
       ) {
         const mapped = new SubledgerError(
           409,
@@ -560,7 +565,14 @@ export class SourceSubledgerRepository {
     client: PoolClient,
     tenant: string,
     query: Pick<SubledgerQuery, "company_id" | "as_of" | "party_id" | "side" | "currency">,
-    options: { limit?: number; offset?: number; openOnly?: boolean; monetaryOnly?: boolean; ids?: string[] } = {},
+    options: {
+      limit?: number;
+      offset?: number;
+      openOnly?: boolean;
+      monetaryOnly?: boolean;
+      ids?: string[];
+      salesDocument?: string;
+    } = {},
   ): Promise<SubledgerItem[]> {
     const rows = (
       await client.query<{
@@ -594,6 +606,7 @@ export class SourceSubledgerRepository {
         monetary,control_account_id,journal_id,rate::text,rate_id,due_schedule from item_balances
         where (not $7::boolean or outstanding<>0) and ($8::text[] is null or id=any($8::text[]))
         and (not $11::boolean or monetary)
+        and ($12::text is null or sales_document_id=$12)
         order by document_date,id limit $9 offset $10`,
         [
           ...itemBalanceParameters(tenant, query),
@@ -602,6 +615,7 @@ export class SourceSubledgerRepository {
           options.limit ?? 2001,
           options.offset ?? 0,
           options.monetaryOnly ?? false,
+          options.salesDocument ?? null,
         ],
       )
     ).rows;
@@ -623,11 +637,15 @@ export class SourceSubledgerRepository {
     return this.transaction(context, query.company_id, "finance.subledger.read", false, async (client) => {
       const configurations = await this.configurations(client, context.tenantId, query.company_id);
       const base = await resolveCompanyBaseCurrency(client, context.tenantId, query.company_id, false);
-      const values = itemBalanceParameters(context.tenantId, query);
-      const items = await this.items(client, context.tenantId, query, { limit: query.limit, offset: query.offset });
+      const values = [...itemBalanceParameters(context.tenantId, query), query.sales_document_id ?? null];
+      const items = await this.items(client, context.tenantId, query, {
+        limit: query.limit,
+        offset: query.offset,
+        ...(query.sales_document_id ? { salesDocument: query.sales_document_id } : {}),
+      });
       const totals = (
         await client.query<{ total: number; carrying: string; unrealized: string }>(
-          `${itemBalancesSql} select count(*)::integer as total,coalesce(sum(carrying),0)::text as carrying,coalesce(sum(unrealized),0)::text as unrealized from item_balances`,
+          `${itemBalancesSql} select count(*)::integer as total,coalesce(sum(carrying),0)::text as carrying,coalesce(sum(unrealized),0)::text as unrealized from item_balances where($7::text is null or sales_document_id=$7)`,
           values,
         )
       ).rows[0]!;
@@ -639,7 +657,7 @@ export class SourceSubledgerRepository {
         sum(age_31_60)::text as days_31_60,
         sum(age_61_90)::text as days_61_90,
         sum(age_over_90)::text as days_over_90
-        from item_balances group by party_id,party_name,side,currency,base_currency,decimal_places
+        from item_balances where($7::text is null or sales_document_id=$7) group by party_id,party_name,side,currency,base_currency,decimal_places
       )`;
       const balanceCount = (
         await client.query<{ total: number }>(
@@ -663,7 +681,7 @@ export class SourceSubledgerRepository {
           days_31_60: string;
           days_61_90: string;
           days_over_90: string;
-        }>(`${balancesSql} select * from currency_balances order by party_name,party_id,currency limit $7 offset $8`, [
+        }>(`${balancesSql} select * from currency_balances order by party_name,party_id,currency limit $8 offset $9`, [
           ...values,
           query.limit,
           query.offset,
@@ -702,7 +720,13 @@ export class SourceSubledgerRepository {
         and ($4::text is null or payload->>'side'=$4 or type='reversal')
         and ($5::text is null or payload->>'party_id'=$5 or type='revaluation' or type='reversal')
         and ($6::text is null or payload->>'currency'=$6 or payload->>'payment_currency'=$6 or type in ('offset','reversal'))
-        and ($7::text is null or payload->>'source_document_id'=$7)`;
+        and ($7::text is null or payload->>'source_document_id'=$7)
+        and ($8::text is null or sales_document_id=$8
+          or payload->>'original_item_id' in(select id from finance_subledger_item where tenant_id=$1 and company_id=$2 and sales_document_id=$8)
+          or exists(select 1 from jsonb_array_elements(coalesce(payload->'allocations','[]'::jsonb)) allocation join finance_subledger_item linked on linked.tenant_id=$1 and linked.company_id=$2 and linked.sales_document_id=$8 and linked.id=allocation->>'item_id')
+          or(type='reversal' and payload->>'operation_id' in(select original.id from finance_subledger_operation original where original.tenant_id=$1 and original.company_id=$2 and(original.sales_document_id=$8
+            or original.payload->>'original_item_id' in(select id from finance_subledger_item where tenant_id=$1 and company_id=$2 and sales_document_id=$8)
+            or exists(select 1 from jsonb_array_elements(coalesce(original.payload->'allocations','[]'::jsonb)) allocation join finance_subledger_item linked on linked.tenant_id=$1 and linked.company_id=$2 and linked.sales_document_id=$8 and linked.id=allocation->>'item_id')))))`;
       const operationValues = [
         context.tenantId,
         query.company_id,
@@ -711,10 +735,11 @@ export class SourceSubledgerRepository {
         query.party_id ?? null,
         query.currency ?? null,
         query.source_document_id ?? null,
+        query.sales_document_id ?? null,
       ];
       const operations = (
         await client.query<OperationRow>(
-          `select ${operationProjection} from finance_subledger_operation where ${operationFilter} order by created_at desc,id limit $8 offset $9`,
+          `select ${operationProjection} from finance_subledger_operation where ${operationFilter} order by created_at desc,id limit $9 offset $10`,
           [...operationValues, query.limit, query.offset],
         )
       ).rows.map((row) => this.operation(row));
@@ -810,7 +835,7 @@ export class SourceSubledgerRepository {
     deferBankCash = false,
   ): Promise<Preview> {
     if (input.type !== "reversal" && input.dimensions) {
-      if (Object.keys(input.dimensions).some((key) => /^(purchase_|asset_)/.test(key)))
+      if (Object.keys(input.dimensions).some((key) => /^(purchase_|asset_|sales_)/.test(key)))
         reject("Source accounting references are assigned by their owning workflow.");
       await client.query("select finance_validate_dimensions($1,$2,$3::jsonb)", [
         context.tenantId,
@@ -942,6 +967,8 @@ export class SourceSubledgerRepository {
         ...tax,
         basis: decimalText(-decimal(tax.basis, tax.decimal_places, true), tax.decimal_places),
         amount: decimalText(-decimal(tax.amount, tax.decimal_places, true), tax.decimal_places),
+        prior_basis: decimalText(-decimal(tax.prior_basis, tax.decimal_places, true), tax.decimal_places),
+        prior_amount: decimalText(-decimal(tax.prior_amount, tax.decimal_places, true), tax.decimal_places),
       }));
       const reversedBanks = (
         await client.query<{ id: string; currency: string; decimal_places: number }>(
@@ -1033,6 +1060,7 @@ export class SourceSubledgerRepository {
         reject("The document type must agree with its invoice or credit accounting effect.");
       const a = await authority(input.currency);
       const basis = decimal(input.amount, a.sourceDecimalPlaces);
+      const sales = await salesFinancialSource(client, context, input, policy);
       if (
         input.tax_definition_id &&
         (input.tax_amount !== undefined || input.tax_account_id || input.kind === "advance")
@@ -1062,7 +1090,9 @@ export class SourceSubledgerRepository {
       ];
       const sourceGoverned = sourceTaxEntries.some(({ line }) => line.tax_definition_id);
       const governedTaxes = [];
-      if (sourceGoverned) {
+      if (sales) {
+        governedTaxes.push(...sales.taxes);
+      } else if (sourceGoverned) {
         if (input.tax_amount !== undefined || input.tax_account_id)
           reject("An approved governed bill resolves its own tax mappings; manual overrides are not allowed.");
         let sourceBasis = 0n;
@@ -1273,7 +1303,28 @@ export class SourceSubledgerRepository {
       };
       add(control, signed * orientation, input.currency, a, `${code} control`);
       const signedTax = signed > 0n ? tax : -tax;
-      if (
+      if (sales) {
+        const direction = input.kind === "credit_note" ? 1n : -1n;
+        for (const allocation of sales.allocations) {
+          const first = result.lines.length;
+          add(
+            allocation.account,
+            direction * dbMinor(allocation.line.net_amount, a.sourceDecimalPlaces),
+            input.currency,
+            a,
+            `${code} ${allocation.line.description}`,
+          );
+          for (const line of result.lines.slice(first))
+            line.dimensions = Object.fromEntries(
+              Object.entries({
+                ...input.dimensions,
+                ...allocation.line.dimensions,
+                sales_document_id: sales.source.id,
+                sales_line_id: allocation.line.id,
+              }).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+            );
+        }
+      } else if (
         input.side === "payable" &&
         input.kind === "invoice" &&
         (sourceCharges.length > 0 || sourceTaxLines.length > 0)
@@ -1433,6 +1484,7 @@ export class SourceSubledgerRepository {
           // An approved source bill owns its terms, including legacy manual dates.
           term = sourceTerm?.payment_term ?? undefined;
         }
+        if (sales) term = sales.source.payment_term ?? undefined;
         const items = [result.item, ...(result.additional_items ?? [])];
         for (const item of items) {
           item.due_schedule = term
@@ -1825,7 +1877,10 @@ export class SourceSubledgerRepository {
               await this.configurations(client, context.tenantId, request.company_id, normalized.party_id)
             ).get(normalized.party_id);
             const term =
-              normalized.payment_term ?? (normalized.kind === "invoice" ? configuration?.payment_term : undefined);
+              normalized.payment_term ??
+              (normalized.kind === "invoice" && !normalized.sales_document_id
+                ? configuration?.payment_term
+                : undefined);
             const due = term
               ? financialPaymentSchedule(normalized.date, term, "0", 0).at(-1)!.due_date
               : normalized.due_date;
@@ -1856,6 +1911,20 @@ export class SourceSubledgerRepository {
           const preview = await this.preview(client, context, input, id, code);
           if (
             input.type === "recognition" &&
+            input.sales_document_id &&
+            (
+              await client.query(
+                "select 1 from finance_subledger_operation where(tenant_id,company_id,sales_document_id)=($1,$2,$3)",
+                [context.tenantId, input.company_id, input.sales_document_id],
+              )
+            ).rowCount
+          )
+            reject(
+              "This Sales document already has a financial operation. Open its existing review.",
+              "SALES_ALREADY_LINKED",
+            );
+          if (
+            input.type === "recognition" &&
             input.source_document_id &&
             (
               await client.query(
@@ -1879,6 +1948,101 @@ export class SourceSubledgerRepository {
               input.date,
               context.actor.userId,
               JSON.stringify(input),
+              JSON.stringify(preview),
+            ],
+          );
+          await this.audit(client, context, input.company_id, "created", id, input.reason, preview);
+          return this.operation(await this.loadOperation(client, context.tenantId, input.company_id, id));
+        },
+      ),
+    );
+  }
+
+  /** Source adoption creates a review draft; independent Finance approval/posting is unchanged. */
+  async prepareSales(
+    context: BankingActorContext,
+    documentId: string,
+    raw: z.input<typeof salesSourcePrepareSchema>,
+    key: string,
+  ) {
+    const input = salesSourcePrepareSchema.parse(raw);
+    return this.transaction(context, input.company_id, "finance.subledger.manage", true, (client) =>
+      this.idempotent(
+        client,
+        context,
+        input.company_id,
+        key,
+        { action: "prepare_sales", documentId, ...input },
+        (value) => subledgerOperationSchema.parse(value),
+        async () => {
+          if (
+            !context.actor.permissions.includes("sales.document.read") ||
+            !(
+              await client.query("select 1 where bank_has_live_permission($1,$2,$3,'sales.document.read')", [
+                context.tenantId,
+                input.company_id,
+                context.actor.userId,
+              ])
+            ).rowCount
+          )
+            reject(
+              "Current Sales read authority is required for this source-owned accounting draft.",
+              "SALES_SOURCE_PERMISSION_REQUIRED",
+              403,
+            );
+          const source = await loadSalesSource(client, context.tenantId, input.company_id, documentId, true);
+          if (source.version !== input.expected_version)
+            reject("The Sales document changed. Reload before preparing accounting.", "STALE_VERSION");
+          if (source.state !== "approved" || !["invoice", "credit"].includes(source.kind))
+            reject("Prepare accounting from an approved Sales invoice or credit.", "SALES_SOURCE_INELIGIBLE");
+          const existing = (
+            await client.query<OperationRow>(
+              `select ${operationProjection} from finance_subledger_operation where(tenant_id,company_id,sales_document_id)=($1,$2,$3)`,
+              [context.tenantId, input.company_id, source.id],
+            )
+          ).rows[0];
+          if (existing) return this.operation(existing);
+          const original =
+            source.kind === "credit"
+              ? await postedSalesInvoice(client, context.tenantId, input.company_id, source.source_id!)
+              : null;
+          const payload = subledgerOperationInputSchema.parse({
+            company_id: input.company_id,
+            type: "recognition",
+            side: "receivable",
+            kind: source.kind === "credit" ? "credit_note" : "invoice",
+            party_id: source.customer_id,
+            currency: source.currency,
+            date: source.document_date,
+            due_date: source.due_date ?? source.document_date,
+            amount: decimalText(dbMinor(source.net_amount, source.decimal_places), source.decimal_places),
+            ...(source.payment_term ? { payment_term: source.payment_term } : {}),
+            ...(original ? { original_item_id: original.item_id } : {}),
+            sales_document_id: source.id,
+            monetary: true,
+            reference: source.code,
+            reason: input.reason,
+            dimensions: { project: source.project_id, location: source.location_id },
+          });
+          const id = randomUUID(),
+            code = await this.code(
+              client,
+              context.tenantId,
+              input.company_id,
+              source.kind === "credit" ? "ARC" : "ARI",
+            ),
+            preview = await this.preview(client, context, payload, id, code);
+          await client.query(
+            "insert into finance_subledger_operation(tenant_id,company_id,id,code,type,operation_date,maker_id,payload,preview) values($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+            [
+              context.tenantId,
+              input.company_id,
+              id,
+              code,
+              payload.type,
+              source.document_date,
+              context.actor.userId,
+              JSON.stringify(payload),
               JSON.stringify(preview),
             ],
           );

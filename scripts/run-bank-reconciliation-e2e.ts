@@ -22,6 +22,11 @@ const s3Region = process.env.S3_REGION ?? "us-east-1";
 const s3AccessKeyId = process.env.TEST_S3_ACCESS_KEY_ID ?? "nexora-test";
 const s3SecretAccessKey = process.env.TEST_S3_SECRET_ACCESS_KEY ?? "nexora-test-secret";
 const bootstrap = new URL(bootstrapUrl);
+const salesAcceptance = process.env.NEXORA_SALES_E2E === "true";
+if (salesAcceptance) {
+  process.env.NEXORA_AP_AR_E2E = "true";
+  process.env.NEXORA_STOCK_E2E = "true";
+}
 const apArAcceptance = process.env.NEXORA_AP_AR_E2E === "true";
 const stockAcceptance = process.env.NEXORA_STOCK_E2E === "true";
 if (apArAcceptance || stockAcceptance) process.env.NEXORA_SUBLEDGER_E2E = "true";
@@ -30,21 +35,23 @@ const subledgerAcceptance = process.env.NEXORA_SUBLEDGER_E2E === "true";
 const taxAcceptance = process.env.NEXORA_TAX_E2E === "true";
 const budgetAcceptance = process.env.NEXORA_BUDGET_E2E === "true";
 const fiscalAcceptance = process.env.NEXORA_FINANCE_CALENDAR_E2E === "true";
-const acceptanceName = stockAcceptance
-  ? "Posted stock and manufacturing"
-  : apArAcceptance
-    ? "AP/AR posting and reconciliation"
-    : budgetAcceptance
-      ? "Budget management"
-      : fiscalAcceptance
-        ? "Company financial setup"
-        : taxAcceptance
-          ? "Unified tax management"
-          : subledgerAcceptance
-            ? "Multi-currency accounting"
-            : revaluationAcceptance
-              ? "Bank Revaluation"
-              : "Bank Reconciliation";
+const acceptanceName = salesAcceptance
+  ? "Operational purchase, manufacturing and Sales"
+  : stockAcceptance
+    ? "Posted stock and manufacturing"
+    : apArAcceptance
+      ? "AP/AR posting and reconciliation"
+      : budgetAcceptance
+        ? "Budget management"
+        : fiscalAcceptance
+          ? "Company financial setup"
+          : taxAcceptance
+            ? "Unified tax management"
+            : subledgerAcceptance
+              ? "Multi-currency accounting"
+              : revaluationAcceptance
+                ? "Bank Revaluation"
+                : "Bank Reconciliation";
 if (!["127.0.0.1", "localhost", "[::1]"].includes(bootstrap.hostname)) {
   throw new Error("The reconciliation E2E bootstrap database must be local.");
 }
@@ -176,21 +183,23 @@ try {
     [
       "test",
       "--workers=1",
-      ...(stockAcceptance
-        ? ["tests/e2e/posted-stock.spec.ts"]
-        : apArAcceptance
-          ? ["tests/e2e/ap-ar-acceptance.spec.ts"]
-          : budgetAcceptance
-            ? ["tests/e2e/budget-management.spec.ts"]
-            : fiscalAcceptance
-              ? ["tests/e2e/company-financial-setup.spec.ts"]
-              : taxAcceptance
-                ? ["tests/e2e/tax-management.spec.ts"]
-                : subledgerAcceptance
-                  ? ["tests/e2e/multi-currency-accounting.spec.ts"]
-                  : revaluationAcceptance
-                    ? ["tests/e2e/bank-revaluations.spec.ts"]
-                    : ["tests/e2e/bank-reconciliation.spec.ts", "tests/e2e/bank-statement-import.spec.ts"]),
+      ...(salesAcceptance
+        ? ["tests/e2e/operational-sales.spec.ts"]
+        : stockAcceptance
+          ? ["tests/e2e/posted-stock.spec.ts"]
+          : apArAcceptance
+            ? ["tests/e2e/ap-ar-acceptance.spec.ts"]
+            : budgetAcceptance
+              ? ["tests/e2e/budget-management.spec.ts"]
+              : fiscalAcceptance
+                ? ["tests/e2e/company-financial-setup.spec.ts"]
+                : taxAcceptance
+                  ? ["tests/e2e/tax-management.spec.ts"]
+                  : subledgerAcceptance
+                    ? ["tests/e2e/multi-currency-accounting.spec.ts"]
+                    : revaluationAcceptance
+                      ? ["tests/e2e/bank-revaluations.spec.ts"]
+                      : ["tests/e2e/bank-reconciliation.spec.ts", "tests/e2e/bank-statement-import.spec.ts"]),
     ],
     {
       ...sharedEnv,

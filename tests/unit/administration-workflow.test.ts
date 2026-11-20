@@ -187,6 +187,11 @@ describe("navigation visibility", () => {
   });
 
   it("keeps mock modules visible until module access records exist", () => {
-    expect(isModuleVisible("sales", new Set(["hr.employee.read"]))).toBe(true);
+    expect(isModuleVisible("costing", new Set(["hr.employee.read"]))).toBe(true);
+  });
+  it("requires live Sales access while preserving existing AR navigation", () => {
+    expect(isModuleVisible("sales", new Set(["hr.employee.read"]))).toBe(false);
+    expect(isModuleVisible("sales", new Set(["sales.document.read"]))).toBe(true);
+    expect(isModuleVisible("sales", new Set(["finance.subledger.read"]))).toBe(true);
   });
 });

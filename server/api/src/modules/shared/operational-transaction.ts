@@ -5,6 +5,8 @@ import type { ReferenceMasterContext } from "../master-data/source-repository.js
 import { companyAuthoritySql } from "../security/company-authority.js";
 import { FinancePostingError } from "../finance/posting/types.js";
 import { CompanyCurrencyAuthorityError } from "../finance/currencies/company-authority.js";
+import { TaxError } from "../finance/taxes/resolver.js";
+import { InventoryError } from "../inventory/errors.js";
 
 export class OperationalError extends Error {
   constructor(
@@ -75,7 +77,12 @@ export async function operationalTransaction<T>(
   } catch (error) {
     await client.query("rollback");
     if (error instanceof OperationalError) throw error;
-    if (error instanceof FinancePostingError || error instanceof CompanyCurrencyAuthorityError)
+    if (
+      error instanceof FinancePostingError ||
+      error instanceof CompanyCurrencyAuthorityError ||
+      error instanceof TaxError ||
+      error instanceof InventoryError
+    )
       throw new OperationalError(error.status, error.code, error.message);
     if (error instanceof z.ZodError)
       throw new OperationalError(400, "OPERATION_INPUT_INVALID", "Operational input or stored evidence is invalid.");

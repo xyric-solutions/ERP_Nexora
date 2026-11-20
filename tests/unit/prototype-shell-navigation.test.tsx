@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
 
+// Navigation is isolated from live activity; authenticated acceptance covers the real adapter.
+vi.mock("../../app/features/sales/model/persistent-sales-activity.js", () => ({
+  usePersistentSalesActivity: () => ({ counts: {}, notifications: [], markRead: vi.fn(), retry: vi.fn(), error: "" }),
+}));
+
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -51,8 +56,24 @@ afterEach(() => {
 
 describe("Prototype shell module navigation", () => {
   it("hides the requested modules while retaining their registered destinations", () => {
-    const hidden = ["operations", "quality", "crm", "projects", "resources", "support", "expenses",
-      "documents", "portals", "migration", "approvals", "configuration", "notifications", "integrations", "audit", "mobile"];
+    const hidden = [
+      "operations",
+      "quality",
+      "crm",
+      "projects",
+      "resources",
+      "support",
+      "expenses",
+      "documents",
+      "portals",
+      "migration",
+      "approvals",
+      "configuration",
+      "notifications",
+      "integrations",
+      "audit",
+      "mobile",
+    ];
     const buttons = [...container.querySelectorAll<HTMLButtonElement>(".nx-module-button")];
     for (const id of hidden) {
       const entry = prototypeModules.find((item) => item.id === id)!;
@@ -92,7 +113,9 @@ describe("Prototype shell module navigation", () => {
     });
     await settle();
     expect([...container.querySelectorAll(".nx-breadcrumbs li")].map((item) => item.textContent)).toEqual([
-      "Workspace", "Purchases", label,
+      "Workspace",
+      "Purchases",
+      label,
     ]);
     expect(window.location.hash).toContain("asset-source-123");
     expect(container.querySelector('[data-testid="mock-prototype-content"]')?.getAttribute("data-record-ref")).toBe(

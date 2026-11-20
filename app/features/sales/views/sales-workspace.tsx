@@ -1,20 +1,19 @@
 "use client";
 
 /**
- * Sales, Revenue and Customers workspace (prototype).
+ * Sales workspace. Normal routes use persistent commercial sources and Finance.
  *
  * Follows the Purchase module pattern: one list per document with a single
  * New button, a form with one Save, and one next action on every record.
  * Flow (meeting of 11 Nov 2026): Quotation (optional approver) → Approved →
  * Confirm Order → Delivery → Create Invoice → Receipts. Sale
  * Return is recorded from an opened invoice; the separate Returns & Control
- * pages were removed. Data is session-only mock data; no Sales, Customer or
- * Revenue API exists yet.
+ * pages were removed. Explicit prototype: routes retain the historical sample
+ * workflow without sharing its store with normal commercial routes.
  */
 
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { MultiCurrencyWorkspace } from "@/features/finance/views/multi-currency-workspace";
 import { useSession } from "@/lib/session/session-provider";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { kindOfCode, ROUTE_BY_KIND, type SalesNav } from "../components/sales-nav";
@@ -27,6 +26,7 @@ import { DocumentRecord } from "./sales-document-record";
 import { QuotationRecord } from "./sales-quotation-record";
 import { ReceiptList } from "./sales-receipts-view";
 import { RecurringBillsView } from "./sales-recurring-view";
+import { PersistentSalesWorkspace } from "./persistent-sales-workspace";
 
 export function isSalesWorkspacePage(moduleId: string, pageId: string): boolean {
   return SALES_MODULE_PAGES[moduleId]?.includes(pageId) ?? false;
@@ -35,6 +35,7 @@ export function isSalesWorkspacePage(moduleId: string, pageId: string): boolean 
 interface SalesWorkspaceProps {
   context: { moduleId: string; pageId: string; recordRef?: string };
   onNavigate: (moduleId: string, pageId: string, recordRef?: string, options?: { replace?: boolean }) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const NEW_KIND_BY_PAGE = { quotations: "quotation", "sales-orders": "order", invoices: "invoice" } as const;
@@ -47,36 +48,17 @@ export function SalesWorkspace(props: SalesWorkspaceProps) {
     // Customers moved into the Sales module; old Customers-module links stay recognised.
     (["sales", "customers"].includes(context.moduleId) && context.pageId === "customers");
   const prototype = context.recordRef?.startsWith("prototype:") ?? false;
-  if (financial && !prototype)
-    return (
-      <div className="grid gap-3">
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => onNavigate(context.moduleId, context.pageId, "prototype:")}
-          >
-            View sample sales workflow
-          </Button>
-        </div>
-        <MultiCurrencyWorkspace
-          operational
-          key={context.pageId}
-          initialTab={
-            context.pageId === "invoices" ? "documents" : context.pageId === "receipts" ? "settlement" : "balances"
-          }
-        />
-      </div>
-    );
+  if (!prototype) return <PersistentSalesWorkspace {...props} />;
   const prototypeContext = prototype
     ? { ...context, recordRef: context.recordRef?.slice("prototype:".length) || undefined }
     : context;
   const prototypeNavigate: SalesWorkspaceProps["onNavigate"] = (moduleId, pageId, reference, options) => {
-    const targetFinancial =
-      (moduleId === "sales" && ["invoices", "receipts"].includes(pageId)) ||
-      (["sales", "customers"].includes(moduleId) && pageId === "customers");
-    onNavigate(moduleId, pageId, targetFinancial ? `prototype:${reference ?? ""}` : reference, options);
+    onNavigate(
+      moduleId,
+      pageId,
+      isSalesWorkspacePage(moduleId, pageId) ? `prototype:${reference ?? ""}` : reference,
+      options,
+    );
   };
   return (
     <div className="grid gap-3">

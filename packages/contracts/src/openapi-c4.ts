@@ -49,6 +49,20 @@ import {
 } from "./manufacturing/index.js";
 import { inventoryPaths } from "./inventory/openapi.js";
 import { stockPaths } from "./inventory/stock-openapi.js";
+import { salesPaths } from "./sales/openapi.js";
+import {
+  salesDocumentInputSchema,
+  salesDocumentUpdateSchema,
+  salesDocumentSchema,
+  salesDirectorySchema,
+  salesDetailSchema,
+  salesLookupDirectorySchema,
+  salesActionSchema,
+  salesDerivedDraftInputSchema,
+  salesSourcePrepareSchema,
+  salesStockPrepareSchema,
+  salesOverviewSchema,
+} from "./sales/index.js";
 import {
   stockPolicyInputSchema,
   stockPolicySchema,
@@ -1211,6 +1225,7 @@ export function buildOpenApiDocument() {
       ...procurementPaths(),
       ...inventoryPaths(),
       ...stockPaths(),
+      ...salesPaths(),
       ...manufacturingPaths(),
       ...fixedAssetPaths(),
       ...fleetPaths(),
@@ -8578,6 +8593,17 @@ export function buildOpenApiDocument() {
       },
       schemas: {
         StockPolicyInput: schema(stockPolicyInputSchema),
+        SalesDocumentInput: schema(salesDocumentInputSchema),
+        SalesDocumentUpdate: schema(salesDocumentUpdateSchema),
+        SalesDocument: schema(salesDocumentSchema),
+        SalesDirectory: schema(salesDirectorySchema),
+        SalesDetail: schema(salesDetailSchema),
+        SalesLookupDirectory: schema(salesLookupDirectorySchema),
+        SalesAction: schema(salesActionSchema),
+        SalesDerivedDraftInput: schema(salesDerivedDraftInputSchema),
+        SalesSourcePrepare: schema(salesSourcePrepareSchema),
+        SalesStockPrepare: schema(salesStockPrepareSchema),
+        SalesOverview: schema(salesOverviewSchema),
         StockPolicy: schema(stockPolicySchema),
         StockValuationInput: schema(stockValuationInputSchema),
         StockValuation: schema(stockValuationSchema),

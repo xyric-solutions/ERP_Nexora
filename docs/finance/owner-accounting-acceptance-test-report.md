@@ -4,6 +4,15 @@
 executed in Phase 3: 0.** This document contains a controlled plan and the actual
 read-only results obtained so far. It is not a certificate of business approval.
 
+20 November software integration update: the separate
+[operational repair report](../architecture/operational-integration-repair.md)
+records authenticated disposable-PostgreSQL stock/manufacturing, Sales, AP/AR,
+banking and reconciliation journeys. Those technical tests do not execute or
+approve any of the owner cases below. The baseline/build and report observations
+below remain the historical 19 November snapshot; consult that repair report for
+the current software release and migration verification. Business configuration,
+historical record disposition and the existing bank difference remain pending.
+
 Application baseline: `f71ffe9`; active frontend build
 `nXe0dnHNr_y0YWqWMezFO`; Finance 43 / Procurement 8. The
 [configuration register](owner-accounting-configuration-register.md) and

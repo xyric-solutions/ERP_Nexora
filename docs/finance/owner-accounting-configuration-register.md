@@ -29,14 +29,14 @@ Its stock setup is verified in disposable databases and is **not activated** on
 the business database. This adds no approval to the historical observations
 below and selects no live account, value or valuation method.
 
-| Configuration item | Existing business value | Required owner decision | Proposed value | Approval status | Dependencies |
-| --- | --- | --- | --- | --- | --- |
-| Stock valuation | No posted stock ledger in the pinned Inventory 3 runtime | Choose FIFO or weighted average per tracked product using approved accounting evidence | — | PENDING | Company/cutover scope; actual product, base UOM and stock asset account |
-| Receipt accrual | No reviewed stock policy | Select the active goods-received-not-invoiced liability | — | PENDING | Eligible company accounts; actual receipts and AP source references |
-| Opening stock offset | Master opening plans are not posted quantities or accounting balances | Approve the equity offset, dated warehouse quantities and supported total values | — | PENDING | Historical cutover, independently reviewed opening evidence |
-| Manufacturing WIP | Approved orders currently represent authorization/planning | Select WIP asset account and authorize actual component consumption/output | — | PENDING | Posted components, actual warehouses, approved order and source dimensions |
-| Purchase price/exchange variance | No reviewed stock variance mapping | Select the separate expense mapping for receipt/bill differences | — | PENDING | Receipt historical cost, approved native bill and governed FX rates |
-| Sales COGS | Persistent commercial Sales integration remains the next increment | Review each tracked product's expense/COGS mapping and physical delivery/return rules | — | PENDING | Persistent Sales, posted stock, actual product and Finance controls |
+| Configuration item               | Existing business value                                               | Required owner decision                                                                | Proposed value | Approval status | Dependencies                                                               |
+| -------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------- | --------------- | -------------------------------------------------------------------------- |
+| Stock valuation                  | No posted stock ledger in the pinned Inventory 3 runtime              | Choose FIFO or weighted average per tracked product using approved accounting evidence | —              | PENDING         | Company/cutover scope; actual product, base UOM and stock asset account    |
+| Receipt accrual                  | No reviewed stock policy                                              | Select the active goods-received-not-invoiced liability                                | —              | PENDING         | Eligible company accounts; actual receipts and AP source references        |
+| Opening stock offset             | Master opening plans are not posted quantities or accounting balances | Approve the equity offset, dated warehouse quantities and supported total values       | —              | PENDING         | Historical cutover, independently reviewed opening evidence                |
+| Manufacturing WIP                | Approved orders currently represent authorization/planning            | Select WIP asset account and authorize actual component consumption/output             | —              | PENDING         | Posted components, actual warehouses, approved order and source dimensions |
+| Purchase price/exchange variance | No reviewed stock variance mapping                                    | Select the separate expense mapping for receipt/bill differences                       | —              | PENDING         | Receipt historical cost, approved native bill and governed FX rates        |
+| Sales COGS                       | Persistent commercial Sales integration remains the next increment    | Review each tracked product's expense/COGS mapping and physical delivery/return rules  | —              | PENDING         | Persistent Sales, posted stock, actual product and Finance controls        |
 
 The new setup never posts existing BILL/PAY/MO records or derives openings from
 master plans. Maker/checker/poster authority and the existing financial policy,
@@ -82,6 +82,24 @@ Do not reuse one gain account for two distinct required roles merely to complete
 the form, alter types silently, or route an AP/AR entry through a generic voucher.
 
 ## Evidence and approval record
+
+Operational integration update, 20 November 2026: software now provides reviewed
+stock policy and product valuation setup, actual receipt/manufacturing movements,
+and source-owned Sales accounting. This adds no approved business values. Before
+new live workflows, the owner must confirm inventory/GRNI/WIP/variance accounts,
+FIFO or weighted-average valuation, each tracked product's stock and COGS account,
+Sales income mapping, actual warehouse/unit conversions, opening quantities and
+costs, and whether invoice recognition requires posted delivery. Customer credit,
+terms, taxes, currencies and the eight-account AP/AR policy above remain pending.
+Use the governed Stock setup and Accounting setup forms, with explicit reasons
+and independent posting actors. Existing MO-001 is an approved instruction;
+it does not establish opening stock or authorize automatic consumption/completion.
+
+No historical invoice/payment queue is authorized for execution by this release.
+Normal Sales routes display actual persisted records; acceptance-only examples
+remain accessible only through explicit prototype references. Test fixture
+configuration and postings occur in disposable PostgreSQL databases and provide
+no evidence of owner approval of business settings.
 
 E-01: [approved central chart design](../superpowers/specs/2026-10-20-central-chart-template-design.md)
 identifies the workbook as the approved catalogue source. Actual workbook and

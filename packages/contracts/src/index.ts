@@ -16,4 +16,5 @@ export * from "./security/bank-self-approval.js";
 
 export * from "./inventory/index.js";
 export * from "./inventory/stock.js";
+export * from "./sales/index.js";
 export * from "./fixed-assets/index.js";

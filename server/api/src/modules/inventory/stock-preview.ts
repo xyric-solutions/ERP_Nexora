@@ -25,6 +25,7 @@ import {
 } from "../finance/currencies/company-authority.js";
 import { productUnitChoices, productUnitSnapshot } from "./units-repository.js";
 import { issueStockCost } from "./stock-costing.js";
+import { appendSalesStock } from "../sales/stock-source.js";
 
 const productRecord = z.object({
   id: z.string(),
@@ -80,7 +81,9 @@ export async function buildStockPreview(
       ? "procurement.document.read"
       : input.kind.startsWith("manufacturing_")
         ? "manufacturing.order.read"
-        : null;
+        : input.kind === "delivery" || input.kind === "return"
+          ? "sales.document.read"
+          : null;
   if (
     sourcePermission &&
     (!context.actor.permissions.includes(sourcePermission) ||
@@ -548,10 +551,7 @@ export async function buildStockPreview(
       orderDimensions(order, issue.input.dimensions),
     );
   } else {
-    fail(
-      "The commercial Sales stock source must be installed before delivery or return posting.",
-      "SALES_STOCK_SOURCE_REQUIRED",
-    );
+    await appendSalesStock(client, context, op, result, { entry, leg });
   }
   result.evidence.accounts = jsonEvidence(
     (

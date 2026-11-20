@@ -47,9 +47,14 @@ type UnitAudit = (
 ) => Promise<string>;
 const projection =
   "id,company_id,code,name,symbol,category,numerator::text,denominator::text,precision,status,(standard_key is not null) as standard,row_version as version";
-export async function companyUnits(client: PoolClient, tenant: string, company: string): Promise<MeasurementUnit[]> {
+export async function companyUnits(
+  client: PoolClient,
+  tenant: string,
+  company: string,
+  lock = true,
+): Promise<MeasurementUnit[]> {
   const result = await client.query(
-    `select ${projection} from inventory_unit where tenant_id=$1 and company_id=$2 order by code limit 1001 for share`,
+    `select ${projection} from inventory_unit where tenant_id=$1 and company_id=$2 order by code limit 1001 ${lock ? "for share" : ""}`,
     [tenant, company],
   );
   if (result.rows.length > 1000) fail("This company exceeds the supported 1,000 unit catalogue limit.");
@@ -61,13 +66,14 @@ export async function productUnitChoices(
   company: string,
   productIds: string[],
   allowInactiveProduct = false,
+  lock = true,
 ) {
-  const units = await companyUnits(client, tenant, company);
+  const units = await companyUnits(client, tenant, company, lock);
   const products = await client.query<{
     id: string;
     details: { unit: string; unit_id?: string; packaging_rules?: unknown[] };
   }>(
-    `select id,details from inventory_product where tenant_id=$1 and company_id=$2 and id=any($3::text[]) ${allowInactiveProduct ? "" : "and status='active'"} for share`,
+    `select id,details from inventory_product where tenant_id=$1 and company_id=$2 and id=any($3::text[]) ${allowInactiveProduct ? "" : "and status='active'"} ${lock ? "for share" : ""}`,
     [tenant, company, productIds],
   );
   if (products.rows.length !== productIds.length)

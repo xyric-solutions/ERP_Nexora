@@ -1,5 +1,6 @@
 import { SourceInventoryRepository } from "./modules/inventory/source-repository.js";
 import { SourceStockRepository } from "./modules/inventory/stock-repository.js";
+import { SourceSalesRepository } from "./modules/sales/source-repository.js";
 import { SourceManufacturingRepository } from "./modules/manufacturing/source-repository.js";
 import { FixedAssetsService } from "./modules/fixed-assets/service.js";
 import { SourceFleetRepository } from "./modules/fleet/source-repository.js";
@@ -145,12 +146,19 @@ const app = createApp({
   ),
   inventoryRepository: new SourceInventoryRepository(pool),
   stockRepository: new SourceStockRepository(pool),
+  salesRepository: new SourceSalesRepository(pool),
   manufacturingRepository: new SourceManufacturingRepository(pool),
   fixedAssetsService: new FixedAssetsService(pool, objectStorage),
   fleetRepository: new SourceFleetRepository(pool),
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
+    operational_integration: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.inventory_stock_entry') is not null and to_regclass('public.sales_document') is not null and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=5 and name='purchase_receipt_accrual') and exists(select 1 from nexora_schema_migration where module_name='sales' and version=4 and name='compensation_and_tax') and exists(select 1 from nexora_schema_migration where module_name='security' and version=29 and name='persistent_sales_permissions') as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Operational stock and Sales migrations are required");
+    },
     party_financial_configuration: async () => {
       const result = await pool.query<{ available: boolean }>(
         "select to_regclass('public.finance_party_configuration') is not null and to_regprocedure('public.finance_due_installments(jsonb,date,numeric,numeric)') is not null and exists(select 1 from information_schema.columns where table_schema='public' and table_name='finance_subledger_item' and column_name='due_schedule') and exists(select 1 from nexora_schema_migration where module_name='finance' and version=43 and name='party_financial_configuration') as available",

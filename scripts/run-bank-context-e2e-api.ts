@@ -513,6 +513,26 @@ try {
       );
     }
   }
+  if (process.env.NEXORA_SALES_E2E === "true") {
+    const company = "nexora-currency-browser";
+    for (const [policy, keys] of [
+      [
+        "r06-uat-policy-maker",
+        ["sales.document.read", "sales.document.create", "master_data.project.manage", "master_data.location.manage"],
+      ],
+      ["r06-uat-policy-checker", ["sales.document.read", "sales.document.approve"]],
+      ["r06-uat-policy-payment-poster", ["sales.document.read", "procurement.document.read"]],
+    ] as const) {
+      await fixture.query(
+        "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[])p on conflict do nothing",
+        [sourceTestTenantId, policy, keys],
+      );
+      await fixture.query(
+        "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[])p on conflict do nothing",
+        [sourceTestTenantId, policy, keys, company],
+      );
+    }
+  }
   if (process.env.NEXORA_TAX_E2E === "true") {
     const company = "nexora-currency-browser";
     await fixture.query(

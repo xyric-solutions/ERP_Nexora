@@ -144,7 +144,7 @@ describe("access level expansion", () => {
     expect(expandModuleAccessToPermissionKeys({}, permissionKeys)).toEqual([]);
     expect(expandModuleAccessToPermissionKeys({ hr: "none" }, permissionKeys)).toEqual([]);
     expect(expandModuleAccessToPermissionKeys({ sales: "view" }, permissionKeys)).toEqual(
-      [...referenceReadPermissionKeys].sort(),
+      [...referenceReadPermissionKeys, "sales.document.read"].sort(),
     );
   });
 });

@@ -3338,7 +3338,9 @@ function PrototypeContentBody(props: PrototypeContentProps) {
 
   // Simplified Sales, Revenue and Customers workspace (approved 10 Nov 2026).
   if (isSalesWorkspacePage(context.moduleId, context.pageId)) {
-    return <SalesWorkspace context={context} onNavigate={props.onNavigate} />;
+    return (
+      <SalesWorkspace context={context} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange} />
+    );
   }
 
   if (isCommercialMaturityPage(context.moduleId, context.pageId)) {

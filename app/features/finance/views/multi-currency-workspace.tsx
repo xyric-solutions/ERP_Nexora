@@ -93,13 +93,18 @@ type WorkspaceProps = {
   initialSide?: Side;
   initialReport?: SubledgerReport["report"];
   sourceDocumentId?: string;
+  salesDocumentId?: string;
+  initialPartyId?: string;
+  initialCurrency?: string;
+  initialReference?: string;
+  initialDimensions?: Record<string, string>;
 };
 
 export function MultiCurrencyWorkspace(props: WorkspaceProps) {
   const { activeCompany } = useSession();
   return (
     <CompanyCurrencyWorkspace
-      key={`${activeCompany?.id}:${props.initialSide}:${props.initialTab}:${props.initialReport}:${props.sourceDocumentId}`}
+      key={`${activeCompany?.id}:${props.initialSide}:${props.initialTab}:${props.initialReport}:${props.sourceDocumentId}:${props.salesDocumentId}:${props.initialPartyId}`}
       {...props}
     />
   );
@@ -112,19 +117,24 @@ function CompanyCurrencyWorkspace({
   initialSide = "receivable",
   initialReport = "statement",
   sourceDocumentId,
+  salesDocumentId,
+  initialPartyId,
+  initialCurrency,
+  initialReference,
+  initialDimensions,
 }: WorkspaceProps) {
   const { api, activeCompany, session, csrfToken } = useSession();
   const [tab, setTab] = useState<Tab>(initialTab),
     [side, setSide] = useState<Side>(initialSide);
   const [asOf, setAsOf] = useState(today),
-    [partyId, setPartyId] = useState(""),
-    [currency, setCurrency] = useState("");
+    [partyId, setPartyId] = useState(initialPartyId ?? ""),
+    [currency, setCurrency] = useState(initialCurrency ?? "");
   const [loaded, setLoaded] = useState<{ scope: string; value: SubledgerWorkspace } | null>(null),
     [report, setReport] = useState<SubledgerReport | null>(null);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState("");
-  const [dimensions, setDimensions] = useState<Record<string, string>>({});
+  const [dimensions, setDimensions] = useState<Record<string, string>>(initialDimensions ?? {});
   const [debitNote, setDebitNote] = useState(false);
   const [offset, setOffset] = useState(0),
     [reportKind, setReportKind] = useState(initialReport),
@@ -132,7 +142,7 @@ function CompanyCurrencyWorkspace({
     [reportFrom, setReportFrom] = useState("");
   const [operationDate, setOperationDate] = useState(today),
     [dueDate, setDueDate] = useState(today),
-    [reference, setReference] = useState(""),
+    [reference, setReference] = useState(initialReference ?? ""),
     [reason, setReason] = useState("");
   const [kind, setKind] = useState<"invoice" | "credit_note" | "advance">("invoice"),
     [documentAmount, setDocumentAmount] = useState(""),
@@ -234,6 +244,7 @@ function CompanyCurrencyWorkspace({
     party_id: partyId,
     currency,
     source_document_id: sourceDocumentId,
+    sales_document_id: salesDocumentId,
     offset,
     limit: 50,
   });
@@ -281,6 +292,7 @@ function CompanyCurrencyWorkspace({
       party_id: partyId,
       currency,
       source_document_id: sourceDocumentId,
+      sales_document_id: salesDocumentId,
       offset,
       limit: 50,
     });
@@ -292,7 +304,7 @@ function CompanyCurrencyWorkspace({
         policyRoles.map((role) => [`${role}_account_id`, result.policy?.[`${role}_account_id`] ?? ""]),
       ),
     );
-  }, [api, company, canRead, asOf, side, partyId, currency, offset, sourceDocumentId]);
+  }, [api, company, canRead, asOf, side, partyId, currency, offset, sourceDocumentId, salesDocumentId]);
   useEffect(() => {
     let cancelled = false;
     if (!company || !canRead) return;
@@ -305,6 +317,7 @@ function CompanyCurrencyWorkspace({
           party_id: partyId,
           currency,
           source_document_id: sourceDocumentId,
+          sales_document_id: salesDocumentId,
           offset,
           limit: 50,
         }),
@@ -320,6 +333,7 @@ function CompanyCurrencyWorkspace({
               party_id: partyId,
               currency,
               source_document_id: sourceDocumentId,
+              sales_document_id: salesDocumentId,
               offset,
               limit: 50,
             }),
@@ -338,7 +352,7 @@ function CompanyCurrencyWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, company, canRead, asOf, side, partyId, currency, offset, sourceDocumentId]);
+  }, [api, company, canRead, asOf, side, partyId, currency, offset, sourceDocumentId, salesDocumentId]);
   useEffect(() => {
     if (!company || !sourceDocumentId || !canManage || preparedSource.current === `${company}:${sourceDocumentId}`)
       return;
@@ -1001,7 +1015,7 @@ function CompanyCurrencyWorkspace({
               </div>
             </>
           )}
-          {tab === "documents" && (
+          {tab === "documents" && !salesDocumentId && (
             <form
               className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3"
               onSubmit={(event) => {

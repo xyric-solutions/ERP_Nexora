@@ -34,7 +34,13 @@ export interface AdministrationModuleDefinition {
 
 export const administrationModuleCatalogue = [
   { id: "banking", label: "Banking & Treasury", permissionPrefixes: ["banking."], live: true },
-  { id: "sales", label: "Sales & Billing", permissionPrefixes: [], live: false },
+  {
+    id: "sales",
+    label: "Sales & Billing",
+    permissionPrefixes: ["sales."],
+    sharedAdminKeys: ["finance.subledger.read"],
+    live: true,
+  },
   { id: "purchases", label: "Purchases", permissionPrefixes: ["procurement."], live: true },
   { id: "inventory", label: "Inventory", permissionPrefixes: ["inventory."], live: true },
   { id: "costing", label: "Costing & Landed Cost", permissionPrefixes: [], live: false },

@@ -1,5 +1,27 @@
 # Remaining UI migration checklist
 
+## 2026-11-20 - Persistent Sales integration candidate
+
+- Normal quotation, order, delivery/return, invoice/credit, recurring, customer and
+  receipt routes use generated APIs and canonical masters. Existing Sales cards,
+  forms, tables and detail panels are preserved. Fixtures are confined to explicit
+  `prototype:` references. Shell Sales badges and notices read actual activity.
+- Added persistent Sales form/lookup/record/list/workspace and feature-owned
+  activity, exact money and print helpers. Finance accepts a source focus and
+  preserves its existing approval/posting workspace. Record Refresh exposes
+  decisions made by another operator; settled invoices show their actual state.
+- Browser acceptance exercises actual manufacturing stock into Sales and receipt
+  to bank reconciliation. Evidence: `tmp/operational-sales-acceptance/` at
+  1440/800/390 widths in light/dark. Desktop light and mobile dark were inspected;
+  no document overflow or serious/critical Axe findings. A nested evidence-table
+  wrapper was corrected and is covered by the final browser regression.
+- Theme audit reports 137 view sources and zero direct font/colour exceptions.
+  Monochrome browser print/PDF CSS is a deliberate export-only exception; normal
+  interface colours and typography use shared semantic tokens. No legacy feature
+  stylesheet is removed. These source counts do not establish route coverage.
+- Safe release and current verification are recorded in
+  `operational-integration-repair.md`; owner financial configuration remains pending.
+
 ## 2026-11-20 - Stock and actual manufacturing candidate (unreleased)
 
 - Added the API-backed Stock Movements & Valuation view and feature-owned setup,
@@ -136,7 +158,7 @@
   Manufacturing Orders remain visible. All 16 prototype destinations and their
   deep links are preserved; no feature styles or business workflows changed.
 - Shell navigation tests passed (12 tests); `node --import tsx
-  tmp/verify-manufacturing-navigation.mjs` verified the three visible entries and
+tmp/verify-manufacturing-navigation.mjs` verified the three visible entries and
   all preserved prototype deep links. `npm.cmd run build:web`, catalogue check
   (after regenerating the manifest), and `git diff --check` passed. Theme audit
   write/check passed with no feature-view font or colour exceptions.
@@ -190,7 +212,7 @@
   also remains visible below the small-screen breakpoint. No font, colour or
   stylesheet was introduced or retired. Other module menus remain available.
 - Tests: `npm.cmd run test:unit -- tests/unit/prototype-shell-navigation.test.tsx
-  tests/unit/administration-workflow.test.ts` passed (28 tests). The shell test
+tests/unit/administration-workflow.test.ts` passed (28 tests). The shell test
   isolates its company selector because the real selector requires SessionProvider.
   The initial broader run also included the unchanged bank-reconciliation shell
   test, whose fixture still fails with `SessionProvider is missing`; that separate
@@ -384,7 +406,6 @@
   exceptions; it is not a claim about all menu routes. Source is complete. Local
   business activation remains pending the renewed release-scope clarification;
   verify the final candidate after activation before marking the release live.
-
 
 ## 2026-11-17 - Compact Journal workspace and review tables
 
@@ -962,8 +983,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   supplier-bank editor with 23px horizontal overflow at 1440px. Its existing tests
   remain in place; the six changed-surface Payment checks pass independently.
 
-
-
 ## 2026-11-16 - Searchable Sales Product / service selection
 
 - Replaced the native product select in the shared Sales LineItemsEditor with
@@ -985,7 +1004,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
 - Browser screenshots were not captured in this follow-up; the previous browser
   review was blocked by the Computer Use stop/unavailable browser host. Resume
   visual verification on Sales > Quotations > New > Products & services.
-
 
 ## 2026-11-16 - Sales, Administration and Manufacturing design rollout
 
@@ -1059,7 +1077,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   place, but full pixel parity across every artifact mode is not yet verified.
   Review native Manufacturing discard prompts separately if custom dialogs are
   desired. Do not describe this as a complete backend feature migration.
-
 
 ## 2026-11-16 - Line heading alignment and Projects inline lookup
 
@@ -1219,7 +1236,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Reload the browser for the consolidated menu. No source styling migration
   remains for this requested surface.
 
-
 ## 2026-11-12 - Tax theme alignment and bounded form
 
 - Matched the Taxes console and form to the ERP's existing neutral surfaces and
@@ -1262,7 +1278,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   `tmp/tax-runtime-before.json`; active release is recorded in
   `tmp/localhost-postpull-runtime-20261112.json`. Reload the browser for new assets.
 
-
 ## 2026-11-12 - Local tax API and access activation repair
 
 - Investigated the real company-tax permission denial after activating the web
@@ -1297,7 +1312,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   eligible nominals, while the second needs company nominal setup before a tax
   can be mapped. No tax definitions or financial entries were created.
 - Verification: `python tmp/run-local-api-task.py
-  tmp/repair-local-tax-access.mjs --apply` and
+tmp/repair-local-tax-access.mjs --apply` and
   `python tmp/run-local-api-task.py tmp/verify-local-tax-access.mjs` passed.
   Wrong company, wrong tenant and missing-read-permission checks remain HTTP-403
   equivalent domain denials; only the six approved company-scope rows exist.
@@ -1307,7 +1322,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   `tax-api-activation.json`. Reloading the web page restores fresh permissions
   through the normal session endpoint; no password reset or sign-in bypass was
   introduced.
-
 
 ## 2026-11-12 - Localhost menu runtime activation
 
@@ -1330,7 +1344,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   endpoint remained HTTP 200. Tax API/migration activation requirements below
   remain unchanged. An already-open browser must reload to load the new assets.
 
-
 ## 2026-11-12 ? Accounting and unified Tax Management Console
 
 - Renamed the Finance module's visible shell labels to Accounting, retained stable
@@ -1348,7 +1361,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   independent review remains required for financial posting. Payroll configuration
   links explicit components and preserves existing statutory calculation/review.
 - Browser evidence: `tmp/tax-management-evidence/{desktop-light,desktop-dark,
-  tablet-dark,mobile-light,mobile-dark}.png`. Desktop 1440?1000, tablet 900?1100,
+tablet-dark,mobile-light,mobile-dark}.png`. Desktop 1440?1000, tablet 900?1100,
   mobile 390?844. Browser tests exercise create, edit, deactivate, reload, history,
   read-only role restrictions, API cross-company denial and CSRF enforcement.
   Screenshot review caught native table spacing/overflow, corrected using a
@@ -1373,7 +1386,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   38 and HR 152, explicit company grants and actual nominal/rate configuration.
   Only synthetic disposable local data was changed. Fixed Assets posting and
   statutory filing are outside this change; see the Finance migration guide.
-
 
 ## 2026-11-12 — Persistent multicurrency financial workflows
 
@@ -1417,6 +1429,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   changed. See `docs/migrations/FIN-PG-01-finance-postgresql.md`. Consolidation,
   cash-flow/budget analytics and automatic migration of legacy Sales samples are
   outside this approved multicurrency scope.
+
 ## 2026-11-12 — Administration UI review pass
 
 - Audited every Administration screen, the user/tenant drawers, the one-time password
@@ -1568,7 +1581,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   `NEXT_DIST_DIR=tmp/purchase-unified-form-build`, including TypeScript. No new
   API, database, dependency, stylesheet or font change was required.
 - `npm.cmd exec playwright -- test tests/e2e/purchase-payment-layout.spec.ts
-  --workers=1 --output tmp/purchase-unified-form-results` passed all six
+--workers=1 --output tmp/purchase-unified-form-results` passed all six
   light/dark 1440/768/390px cases, including the single heading, uniform
   borderless groups, visible fully allocated zero-balance rows, disabled selection,
   axe, overflow, partial allocations and bank-currency transitions. Screenshots:
@@ -1590,12 +1603,12 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   bank/currency and company/tenant validation remain authoritative. No API,
   schema, dependency or stylesheet change was needed for this refinement.
 - Verification: 30 tests passed with `npm.cmd run test:unit --
-  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
-  --maxWorkers=1`; targeted ESLint/Prettier, theme audit write/check, design detector
+tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+--maxWorkers=1`; targeted ESLint/Prettier, theme audit write/check, design detector
   and `git diff --check` passed. `npm.cmd run build:web` passed with
   `NEXT_DIST_DIR=tmp/purchase-bank-currency-build`, including TypeScript.
 - `npm.cmd exec playwright -- test tests/e2e/purchase-payment-layout.spec.ts
-  --workers=1 --output tmp/purchase-bank-currency-results` passed all six light/dark
+--workers=1 --output tmp/purchase-bank-currency-results` passed all six light/dark
   1440/768/390px cases, including absent controls, USD/EUR switching, incompatible
   allocation clearing, same-currency preservation and unsupported-bank exclusion.
   Axe and overflow checks passed; screenshots remain under
@@ -1625,18 +1638,18 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Installment schedules do not execute or schedule bank transfers. For rollback,
   retain the additive columns and historical data rather than dropping them.
 - Verification passed: `npm.cmd run test:unit --
-  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
-  tests/unit/purchase-bill-payment-terms.test.ts tests/unit/purchase-export.test.ts
-  --maxWorkers=1` (45 tests); `npm.cmd run test:integration --
-  tests/integration/procurement-workflow.test.ts tests/integration/postgres-migrations.test.ts`
+tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+tests/unit/purchase-bill-payment-terms.test.ts tests/unit/purchase-export.test.ts
+--maxWorkers=1` (45 tests); `npm.cmd run test:integration --
+tests/integration/procurement-workflow.test.ts tests/integration/postgres-migrations.test.ts`
   (39 tests); `npm.cmd run test:contract -- tests/contract/openapi.test.ts
-  --maxWorkers=1 --testTimeout=15000` (7 tests). Typecheck, targeted ESLint/Prettier,
+--maxWorkers=1 --testTimeout=15000` (7 tests). Typecheck, targeted ESLint/Prettier,
   API generation/check, theme audit write/check, design detector and diff checks
   passed. Build: `NEXT_DIST_DIR=tmp/purchase-bill-terms-build npm.cmd run build:web`.
 - The isolated production browser run passed 12 tests across
   `purchase-payment-layout.spec.ts`, `purchase-flow-layout.spec.ts` and
   `purchase-workflow.spec.ts`, filtered to `Supplier-driven|creates suppliers|
-  guides an authorized creator|Purchase stage context`. Includes axe, light/dark,
+guides an authorized creator|Purchase stage context`. Includes axe, light/dark,
   1440/768/390px payment layouts, 1440/390px bill layouts, real single/multi
   payment approval and saving/approving/reopening a bill with 30-day terms.
   Evidence remains under `tmp/purchase-payment-evidence/` and
@@ -1670,11 +1683,11 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   idempotency, multi-supplier minimums and the instruction-only boundary remain.
   Status labels describe reservations accurately rather than asserting bank payment.
 - Verification passed: `npm.cmd run test:unit --
-  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
-  --maxWorkers=1` (29 tests); `npm.cmd run test:integration --
-  tests/integration/procurement-workflow.test.ts` (22 tests, isolated database);
+tests/unit/purchase-document-form.test.tsx tests/unit/purchase-payment-amounts.test.ts
+--maxWorkers=1` (29 tests); `npm.cmd run test:integration --
+tests/integration/procurement-workflow.test.ts` (22 tests, isolated database);
   `npm.cmd run test:contract -- tests/contract/openapi.test.ts --maxWorkers=1
-  --testTimeout=15000` (7 tests); `npm.cmd run typecheck`; targeted ESLint/Prettier;
+--testTimeout=15000` (7 tests); `npm.cmd run typecheck`; targeted ESLint/Prettier;
   `npm.cmd run api:check`; `git diff --check`; and `npm.cmd run build:web` with
   `NEXT_DIST_DIR=tmp/purchase-payment-layout-build`. Theme audit `--write` and
   `--check` passed with no feature-view exceptions; the Impeccable scan was clear.
@@ -1972,23 +1985,23 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   document the WCAG 2.1.1 scroll-region requirement. They do not suppress descendant
   checks or browser accessibility tests.
 - Verification: `npm.cmd run test:unit --
-  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-flow-header.test.tsx
-  tests/unit/purchase-workflow.test.ts tests/unit/purchase-export.test.ts
-  tests/unit/purchase-suppliers.test.tsx` passed **30 tests**; final focused form
+tests/unit/purchase-document-form.test.tsx tests/unit/purchase-flow-header.test.tsx
+tests/unit/purchase-workflow.test.ts tests/unit/purchase-export.test.ts
+tests/unit/purchase-suppliers.test.tsx` passed **30 tests**; final focused form
   and tracker reruns passed **10** and **4** tests. `npm.cmd run test:integration
-  -- tests/integration/procurement-workflow.test.ts` passed **16 tests**, including
+-- tests/integration/procurement-workflow.test.ts` passed **16 tests**, including
   ancestry from Bill, exact partial-receipt counts, unrelated-flow exclusion,
   scoped pagination and permission/company/tenant boundaries. `npm.cmd run
-  test:contract -- tests/contract/openapi.test.ts` passed **6 tests**.
+test:contract -- tests/contract/openapi.test.ts` passed **6 tests**.
 - `npm.cmd run typecheck`, targeted ESLint/Prettier, `npm.cmd run api:check`,
   theme audit `--write`/`--check` and `git diff --check` passed. Audit: 114 feature
   view sources, zero direct font/colour exceptions; the design detector returned
   `[]`. `$env:NEXT_DIST_DIR='tmp/purchase-flow-workspace-build'; npm.cmd run
-  build:web` passed with TypeScript.
+build:web` passed with TypeScript.
 - With existing-web mode on port 3227, `NEXORA_PURCHASE_E2E=true` and an explicit
   disposable local bootstrap database, `npx.cmd playwright test
-  tests/e2e/purchase-workflow.spec.ts tests/e2e/purchase-flow-layout.spec.ts
-  --workers=1` passed **13/13**. Tests cover the full real API/database workflow,
+tests/e2e/purchase-workflow.spec.ts tests/e2e/purchase-flow-layout.spec.ts
+--workers=1` passed **13/13**. Tests cover the full real API/database workflow,
   keeping final Bill approval in place, reopening previous stages, chooser behavior,
   both themes at desktop/tablet/phone widths, keyboard table scrolling, separate
   CSV/print columns and zero axe violations. The final Bill assertion waits for
@@ -2026,19 +2039,19 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
 - Verification passed: **24 unit**, **30 database/migration**, **6 contract**
   tests; the additional assigned-approver compatibility assertion passed in a
   focused rerun. Exact commands: `npm.cmd run test:unit --
-  tests/unit/purchase-document-form.test.tsx tests/unit/purchase-workflow.test.ts
-  tests/unit/purchase-export.test.ts tests/unit/purchase-suppliers.test.tsx`,
+tests/unit/purchase-document-form.test.tsx tests/unit/purchase-workflow.test.ts
+tests/unit/purchase-export.test.ts tests/unit/purchase-suppliers.test.tsx`,
   `npm.cmd run test:integration -- tests/integration/procurement-workflow.test.ts
-  tests/integration/postgres-migrations.test.ts`, and `npm.cmd run test:contract
-  -- tests/contract/openapi.test.ts`. `npm.cmd run typecheck`, targeted ESLint and
+tests/integration/postgres-migrations.test.ts`, and `npm.cmd run test:contract
+-- tests/contract/openapi.test.ts`. `npm.cmd run typecheck`, targeted ESLint and
   Prettier, `npm.cmd run api:check`, `git diff --check`, and theme audit
   `--write`/`--check` passed (114 feature views, zero direct font/colour exceptions).
   The design detector returned `[]`.
 - `$env:NEXT_DIST_DIR='tmp/purchase-guided-approval-final-build'; npm.cmd run
-  build:web` passed. With `PLAYWRIGHT_USE_EXISTING_WEB=true`,
+build:web` passed. With `PLAYWRIGHT_USE_EXISTING_WEB=true`,
   `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3225`, `NEXORA_PURCHASE_E2E=true` and the
   explicit disposable local bootstrap database, `npx.cmd playwright test
-  tests/e2e/purchase-workflow.spec.ts --workers=1` passed **9/9**. It exercises
+tests/e2e/purchase-workflow.spec.ts --workers=1` passed **9/9**. It exercises
   the complete assigned self-review-to-Bill flow, explicit submitted/approved
   database states, separate CSV/print columns, retained independent approvals
   through payment instructions, and light/dark layouts at 1440/768/390px. Purchase
@@ -2063,7 +2076,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   precision, create permissions, Transactions/Recurring tabs and the full Journal
   editor are preserved. No API, database, shared palette or stylesheet changes.
 - `npm.cmd run test:unit -- tests/unit/finance-journals-workspace.test.tsx
-  tests/unit/finance-journal-form.test.ts` passed **16/16**. Targeted ESLint,
+tests/unit/finance-journal-form.test.ts` passed **16/16**. Targeted ESLint,
   Prettier, `git diff --check`, theme audit `--write`/`--check` and the design
   detector (`[]`) passed. No new font/colour exception was introduced.
 - `$env:NEXT_DIST_DIR='tmp/journal-compact-header-build'; npm.cmd run build:web`
@@ -2101,13 +2114,13 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   unsaved-change confirmation remain unchanged. No API, posting or database work
   was required; browser checks intercept all API calls and prohibit writes.
 - `npm.cmd run test:unit -- tests/unit/finance-journals-workspace.test.tsx
-  tests/unit/finance-journal-form.test.ts` passed **16/16**. Targeted ESLint and
+tests/unit/finance-journal-form.test.ts` passed **16/16**. Targeted ESLint and
   Prettier, `git diff --check`, theme audit `--write`/`--check`, and the design
   detector (`[]`) passed. No new direct font/colour exception was introduced.
   `$env:NEXT_DIST_DIR='tmp/journal-full-form-build'; npm.cmd run build:web`
   passed with TypeScript.
 - With existing-web mode on local port 3222, `npm.cmd run test:e2e --
-  tests/e2e/finance-journal-layout.spec.ts --max-failures=1` passed **10/10**:
+tests/e2e/finance-journal-layout.spec.ts --max-failures=1` passed **10/10**:
   light/dark at 1440/768/559/390/320px, viewport bounds, all line fields,
   account dropdowns, required dimensions, add/remove state, error visibility,
   accessible save/cancel and unsaved-change confirmation. Axe reported no
@@ -2147,7 +2160,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Tablet light errors and desktop dark Bank Accounts were also reviewed.
   With `NEXORA_PURCHASE_E2E=true`, an explicit local bootstrap database and
   existing-web mode on port 3220, `npm.cmd run test:e2e --
-  tests/e2e/purchase-workflow.spec.ts --max-failures=1` passed **8/8**. Includes
+tests/e2e/purchase-workflow.spec.ts --max-failures=1` passed **8/8**. Includes
   encrypted profile persistence/reload, direct-route Save/Cancel, the complete
   Purchase workflow, no page overflow and zero axe violations in the supplier
   form at all six theme/width combinations.
@@ -2211,9 +2224,9 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Approval, independent server revalidation, CSRF, idempotency, audit and posting
   boundaries remain unchanged. Same-currency creation keeps its existing table.
 - Focused view/model/shared-display suites passed **50/50** using `npm.cmd run
-  test:unit -- tests/unit/banking-transfer-entry.test.tsx
-  tests/unit/bank-fx-transfer-preview.test.ts tests/unit/currency-rate-display.test.ts
-  tests/unit/finance-currencies-view.test.tsx`. The final FX suites passed **31/31**
+test:unit -- tests/unit/banking-transfer-entry.test.tsx
+tests/unit/bank-fx-transfer-preview.test.ts tests/unit/currency-rate-display.test.ts
+tests/unit/finance-currencies-view.test.tsx`. The final FX suites passed **31/31**
   again after the reciprocal display adjustment. Tests cover exact large totals,
   invalid inputs, readonly estimates, metadata/fees, multiple lines, stale saved
   evidence, account filtering and unchanged full-precision mutation payloads.
@@ -2226,15 +2239,15 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   preserved standard-transfer branch; removed it without casts or suppressions.
 - Preview browser checks with existing-web mode on port 3218 passed **12/12**:
   `npm.cmd run test:e2e -- tests/e2e/bank-transfer-menu.spec.ts
-  tests/e2e/bank-transfer-policy-setup.spec.ts
-  tests/e2e/company-currency-rate-save.spec.ts --max-failures=1`.
+tests/e2e/bank-transfer-policy-setup.spec.ts
+tests/e2e/company-currency-rate-save.spec.ts --max-failures=1`.
   These cover light/dark at 1440/768/390px, aligned amount fields, full-width
   quote controls, two-decimal receiving estimates, no body overflow, setup
   permissions and currency-rate saving. Fixtures intercept API calls; no real
   company rate, transfer or journal was created. Desktop/mobile evidence under
   `tmp/bank-transfer-menu-evidence/` was visually reviewed as one batch.
 - The final build `$env:NEXT_DIST_DIR='tmp/fx-transfer-form-build'; npm.cmd run
-  build:web` passed with TypeScript. After the small-inverse display adjustment,
+build:web` passed with TypeScript. After the small-inverse display adjustment,
   `npm.cmd run test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --max-failures=1`
   passed **6/6** again. One desktop/mobile confirmation batch shows the final
   rate display, aligned amounts and complete metadata/actions without body
@@ -2254,7 +2267,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   with integer arithmetic, avoiding floating-point errors even at the maximum
   supported whole/fraction precision. The formatter is presentation-only.
 - `npm.cmd run test:unit -- tests/unit/currency-rate-display.test.ts
-  tests/unit/finance-currencies-view.test.tsx` passed **19/19**, covering decimal
+tests/unit/finance-currencies-view.test.tsx` passed **19/19**, covering decimal
   padding, half-up rounding, carry, large rates, malformed values, two-decimal
   list/history display, exact correction inputs and unchanged save payloads.
 - Targeted ESLint/Prettier, `git diff --check`, theme audit `--write`/`--check`
@@ -2262,7 +2275,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   exceptions across 114 views. No CSS, contracts, server or database changes.
 - `$env:NEXT_DIST_DIR='tmp/currency-display-build'; npm.cmd run build:web` passed
   with TypeScript. With existing-web mode, `npm.cmd run test:e2e --
-  tests/e2e/company-currency-rate-save.spec.ts --max-failures=1` passed **4/4** on
+tests/e2e/company-currency-rate-save.spec.ts --max-failures=1` passed **4/4** on
   preview port 3218 and **4/4** on active port 3000. Typed/restored PKR entries
   still submit `0.0036`, then reload as `0.00` with the full API value in the cell
   title. Browser API calls use fixtures; no business records were created.
@@ -2289,8 +2302,8 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   exponential and overprecision rates, missing dates, API conflicts, activation,
   base setup and read-only access remain covered. Shared contract/authority tests
   passed **13/13** with `npm.cmd run test:unit --
-  tests/unit/company-currency-contracts.test.ts
-  tests/unit/company-currency-authority.test.ts`.
+tests/unit/company-currency-contracts.test.ts
+tests/unit/company-currency-authority.test.ts`.
 - `$env:NEXT_DIST_DIR='tmp/currency-rate-submit-build'; npm.cmd run build:web`
   passed with TypeScript. Targeted ESLint/Prettier, theme audit `--write`/`--check`,
   the design detector (`[]`) and `git diff --check` passed. Theme audit remains
@@ -2298,7 +2311,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   or permission changes were needed.
 - With `PLAYWRIGHT_USE_EXISTING_WEB=true` and the preview base URL on port 3218,
   `npm.cmd run test:e2e -- tests/e2e/company-currency-rate-save.spec.ts
-  --max-failures=1` passed **4/4**. Light desktop and dark mobile cases each test
+--max-failures=1` passed **4/4**. Light desktop and dark mobile cases each test
   typed and restored **1 PKR = 0.0036 USD**, effective **2026-11-06**, exact request
   values, dialog closure and refreshed data. Browser API calls use fixtures;
   no actual company rate or bank transaction was created from the screenshot.
@@ -2326,20 +2339,20 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   rate and a valid effective date. Rate-only users no longer fetch country mappings.
   Failed saves retain the input and show actionable errors inside the open dialog.
 - The final focused view suite `npm.cmd run test:unit --
-  tests/unit/finance-currencies-view.test.tsx` passed **8/8**, including successful
+tests/unit/finance-currencies-view.test.tsx` passed **8/8**, including successful
   country-free save, zero/negative/exponential-rate rejection, missing-date
   rejection, in-dialog failure feedback, retained input and read-only restrictions.
   Supporting currency contract and authority checks also passed in the initial
   **20-test** run with `tests/unit/company-currency-contracts.test.ts` and
   `tests/unit/company-currency-authority.test.ts`. `npm.cmd run test:integration --
-  tests/integration/company-currencies.test.ts` passed **7/7** in disposable databases.
+tests/integration/company-currencies.test.ts` passed **7/7** in disposable databases.
 - `$env:NEXT_DIST_DIR='tmp/currency-rate-save-build'; npm.cmd run build:web` passed
   including TypeScript. Targeted ESLint/Prettier and `git diff --check` passed;
   theme audit `--write` and `--check` retain zero direct feature exceptions across
   114 views, and the design detector returned `[]`. No CSS, API contract, server
   permission, database schema or financial-period changes were required.
 - `npm.cmd run test:e2e -- tests/e2e/company-currency-rate-save.spec.ts
-  --max-failures=1` with existing-web mode passed **2/2** on port 3217 and **2/2**
+--max-failures=1` with existing-web mode passed **2/2** on port 3217 and **2/2**
   after activating the same artifact on port 3000. Light desktop and dark mobile
   checks use the user's exact screenshot values, **1 PKR = 0.0036 USD**, effective
   **2026-11-05**. They verify enabled Save and Close, the exact request, dialog
@@ -2374,13 +2387,13 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   explain the company setup location and distinguish the entered bank quote from
   the valuation rate. Finance policy saves now display actionable API errors.
 - `npm.cmd run test:unit -- tests/unit/banking-transfer-entry.test.tsx
-  tests/unit/banking-api-router.test.ts tests/unit/banking-contracts.test.ts
-  tests/unit/bank-payment-shell-navigation.test.tsx` passed **60/60**.
+tests/unit/banking-api-router.test.ts tests/unit/banking-contracts.test.ts
+tests/unit/bank-payment-shell-navigation.test.tsx` passed **60/60**.
   `npm.cmd run test:integration -- tests/integration/banking-transfers.test.ts
-  tests/integration/finance-currencies.test.ts` passed **7/7** in disposable
+tests/integration/finance-currencies.test.ts` passed **7/7** in disposable
   databases; this includes policy readiness, persistence/audit, missing-rate
   diagnostics and the FX approval/posting/reversal lifecycle. `npm.cmd run
-  test:contract -- tests/contract/openapi.test.ts` passed **6/6**.
+test:contract -- tests/contract/openapi.test.ts` passed **6/6**.
 - `npm.cmd run typecheck`, `npm.cmd run api:check`, targeted ESLint and Prettier,
   `git diff --check`, and the production build with
   `$env:NEXT_DIST_DIR='tmp/transfer-policy-build'; npm.cmd run build:web` passed.
@@ -2388,13 +2401,13 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   114 views; the design detector returned `[]`. No CSS or schema migration was added.
 - With `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3216` and
   `PLAYWRIGHT_USE_EXISTING_WEB=true`, `npm.cmd run test:e2e --
-  tests/e2e/bank-transfer-menu.spec.ts tests/e2e/bank-transfer-policy-setup.spec.ts
-  --max-failures=1` passed **8/8**. Browser API reads were fixtures and writes were
+tests/e2e/bank-transfer-menu.spec.ts tests/e2e/bank-transfer-policy-setup.spec.ts
+--max-failures=1` passed **8/8**. Browser API reads were fixtures and writes were
   blocked. Existing FX light/dark and responsive checks remain; new administrator
   and maker checks cover setup permissions, disabled saving and refresh without
   losing input. Final active-port setup smoke passed **2/2** using
   `npm.cmd run test:e2e -- tests/e2e/bank-transfer-policy-setup.spec.ts
-  --max-failures=1`. Evidence: `tmp/bank-transfer-menu-evidence/policy-setup-*.png`.
+--max-failures=1`. Evidence: `tmp/bank-transfer-menu-evidence/policy-setup-*.png`.
 - Updated API and web artifact are active on local ports 4000 and 3000; task
   previews were stopped. No role grants, accounting periods or exchange-rate
   values were changed. Database module heads remain unchanged.
@@ -2435,10 +2448,10 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   shifts, and insignificant trailing zeros are normalized before native-currency
   precision validation. Directory ordering still uses the underlying indexed date.
 - `npm.cmd run test:unit -- tests/unit/bank-transfer-conversion-contract.test.ts
-  tests/unit/banking-transfer-entry.test.tsx tests/unit/banking-transfer-detail.test.tsx
-  tests/unit/banking-transfer-service.test.ts tests/unit/banking-transfers-list.test.tsx
-  tests/unit/banking-api-router.test.ts tests/unit/banking-contracts.test.ts
-  tests/unit/bank-transfer-routing.test.ts` passed **79/79**.
+tests/unit/banking-transfer-entry.test.tsx tests/unit/banking-transfer-detail.test.tsx
+tests/unit/banking-transfer-service.test.ts tests/unit/banking-transfers-list.test.tsx
+tests/unit/banking-api-router.test.ts tests/unit/banking-contracts.test.ts
+tests/unit/bank-transfer-routing.test.ts` passed **79/79**.
 - `npm.cmd run test:integration -- tests/integration/banking-transfers.test.ts`
   passed **5/5**, including negotiated gains/losses, immutable quotes, inconsistent
   receiving-amount rejection, audit evidence, header-only edit preservation,
@@ -2448,7 +2461,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   test assumption and the two round-trip defects above; corrected and rerun.
 - `npm.cmd run test:contract -- tests/contract/openapi.test.ts` passed **6/6**.
   With the explicit local test database, `npm.cmd run test:security --
-  tests/security/bank-transfer-database-security.test.ts` passed **3/3**.
+tests/security/bank-transfer-database-security.test.ts` passed **3/3**.
   `npm.cmd run typecheck`, final API compilation, `npm.cmd run api:check`, targeted
   ESLint and Prettier passed. The production build with
   `$env:NEXT_DIST_DIR='tmp/bank-fx-rate-final-build'; npm.cmd run build:web` passed.
@@ -2458,7 +2471,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   at the established 131 baseline and all other module heads are unchanged.
 - With `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3215` and
   `PLAYWRIGHT_USE_EXISTING_WEB=true`, `npm.cmd run test:e2e --
-  tests/e2e/bank-transfer-menu.spec.ts --max-failures=1` passed **6/6** against the
+tests/e2e/bank-transfer-menu.spec.ts --max-failures=1` passed **6/6** against the
   final artifact. It covers the entered quote, explicit direction, compact row,
   both creation choices and currency filtering in light/dark at 1440/768/390px.
   The mobile transaction table retains its existing horizontal scroll behavior.
@@ -2467,7 +2480,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
 - The verified artifact is active on port 3000; the updated API is on port 4000.
   Final browser smoke command on port 3000 with the same existing-web environment,
   `npm.cmd run test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --grep
-  'light, 1440px|dark, 390px' --max-failures=1`, passed **2/2**. No business bank
+'light, 1440px|dark, 390px' --max-failures=1`, passed **2/2**. No business bank
   transactions were created or posted. Task preview processes were stopped.
   Safe resume: keep company valuation rates configured even when entering a bank
   quote; no external bank execution or currency-master override was introduced.
@@ -2486,14 +2499,14 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   policy. This change adds no negotiated-rate override or financial posting logic,
   changes no API contract or schema, and grants no additional permissions.
 - Verification: `npm.cmd run test:unit -- tests/unit/bank-transfer-routing.test.ts
-  tests/unit/banking-transfer-entry.test.tsx` passed **15/15**; `npm.cmd run
-  test:unit -- tests/unit/banking-transfers-list.test.tsx
-  tests/unit/banking-transfer-detail.test.tsx tests/unit/banking-transfer-service.test.ts
-  tests/unit/bank-payment-shell-navigation.test.tsx` passed **7/7**.
+tests/unit/banking-transfer-entry.test.tsx` passed **15/15**; `npm.cmd run
+test:unit -- tests/unit/banking-transfers-list.test.tsx
+tests/unit/banking-transfer-detail.test.tsx tests/unit/banking-transfer-service.test.ts
+tests/unit/bank-payment-shell-navigation.test.tsx` passed **7/7**.
 - Production build: `$env:NEXT_DIST_DIR='tmp/bank-transfer-menu-build'; npm.cmd
-  run build:web` passed, including TypeScript. With `PLAYWRIGHT_BASE_URL` pointing
+run build:web` passed, including TypeScript. With `PLAYWRIGHT_BASE_URL` pointing
   to the isolated preview and `PLAYWRIGHT_USE_EXISTING_WEB=true`, `npm.cmd run
-  test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --max-failures=1` passed **6/6**:
+test:e2e -- tests/e2e/bank-transfer-menu.spec.ts --max-failures=1` passed **6/6**:
   keyboard menu opening, both entry routes, account currency filtering, light/dark
   at 1440/768/390px, no page overflow or page errors. Browser API reads were
   intercepted fixtures; no bank records were saved or posted. An initial test
@@ -2501,8 +2514,8 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   and rerun. Evidence: `tmp/bank-transfer-menu-evidence/`.
 - The same artifact is active on local port 3000. Final active-port command with
   the same browser environment: `npm.cmd run test:e2e --
-  tests/e2e/bank-transfer-menu.spec.ts --grep 'light, 1440px|dark, 390px'
-  --max-failures=1` passed **2/2**. The isolated preview was stopped afterward.
+tests/e2e/bank-transfer-menu.spec.ts --grep 'light, 1440px|dark, 390px'
+--max-failures=1` passed **2/2**. The isolated preview was stopped afterward.
 - Targeted ESLint and Prettier checks passed. Theme audit `--write` and `--check`
   reported zero direct feature font/colour exceptions across 114 views; Impeccable
   detector returned `[]`; `git diff --check` passed. No feature CSS was added or
@@ -2530,11 +2543,11 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Existing Inventory permissions are reused without new role grants; see
   `docs/architecture/inventory-products.md` for their precise scope.
 - Verification: `npm.cmd run test:unit -- tests/unit/inventory-products.test.ts
-  tests/unit/purchase-workflow.test.ts tests/unit/purchase-document-form.test.tsx
-  tests/unit/prototype-shell-navigation.test.tsx tests/unit/bank-payment-shell-navigation.test.tsx`
+tests/unit/purchase-workflow.test.ts tests/unit/purchase-document-form.test.tsx
+tests/unit/prototype-shell-navigation.test.tsx tests/unit/bank-payment-shell-navigation.test.tsx`
   passed **25/25**. `npm.cmd run test:integration --
-  tests/integration/inventory-products.test.ts tests/integration/procurement-workflow.test.ts
-  tests/integration/postgres-migrations.test.ts` passed **39/39** in disposable
+tests/integration/inventory-products.test.ts tests/integration/procurement-workflow.test.ts
+tests/integration/postgres-migrations.test.ts` passed **39/39** in disposable
   databases. `npm.cmd run test:contract -- tests/contract/openapi.test.ts` passed
   **6/6**. `npm.cmd run typecheck` and final API/contracts/database compilation
   passed. The production web build with
@@ -2542,7 +2555,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   including TypeScript. The tested artifact is promoted without rebuilding it.
 - `NEXORA_INVENTORY_E2E=true`, an explicit local bootstrap test database,
   `PLAYWRIGHT_USE_EXISTING_WEB=true` and `npm.cmd run test:e2e --
-  tests/e2e/inventory-products.spec.ts --max-failures=1` passed **11/11** on the
+tests/e2e/inventory-products.spec.ts --max-failures=1` passed **11/11** on the
   preview: product manufacture/account/location persistence, warehouse creation/
   reload/edit, same-warehouse rejection, transfer create/edit with immutable line
   evidence, read-only and missing-record safeguards, light/dark at 1440/768/390px.
@@ -2575,7 +2588,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   product opening values remain unposted plans. Keep the accounting-event and
   approval boundaries when implementing future posting.
 
-
 ## 2026-11-05 — Database-backed Inventory Products
 
 - Inventory now exposes only **Products**, with hidden creation/detail routes and
@@ -2598,11 +2610,11 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Browser-default fieldset borders were removed and description sizing restored
   using Tailwind. Cards use three desktop columns and stable product-code order.
 - Verification: `npm.cmd run test:unit -- tests/unit/inventory-products.test.ts
-  tests/unit/purchase-workflow.test.ts tests/unit/purchase-document-form.test.tsx
-  tests/unit/prototype-shell-navigation.test.tsx tests/unit/bank-payment-shell-navigation.test.tsx`
+tests/unit/purchase-workflow.test.ts tests/unit/purchase-document-form.test.tsx
+tests/unit/prototype-shell-navigation.test.tsx tests/unit/bank-payment-shell-navigation.test.tsx`
   passed **24/24**. `npm.cmd run test:integration --
-  tests/integration/inventory-products.test.ts tests/integration/procurement-workflow.test.ts
-  tests/integration/postgres-migrations.test.ts` passed **35/35** in disposable
+tests/integration/inventory-products.test.ts tests/integration/procurement-workflow.test.ts
+tests/integration/postgres-migrations.test.ts` passed **35/35** in disposable
   PostgreSQL databases. `npm.cmd run test:contract -- tests/contract/openapi.test.ts`
   passed **6/6**. Initial test expectations for OpenAPI path order and the shared
   audit trigger error code were corrected; no safeguards were removed.
@@ -2617,7 +2629,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   test listener. Final browser evidence: `tmp/inventory-products-evidence/`.
 - `npm.cmd run typecheck` passed; API/contracts/database compilation passed after
   the final changes. `NEXT_DIST_DIR=tmp/inventory-products-final-build npm.cmd run
-  build:web` passed including TypeScript. Focused ESLint and Prettier checks,
+build:web` passed including TypeScript. Focused ESLint and Prettier checks,
   `npm.cmd run api:check`, `npm.cmd run catalogue:check`, `git diff --check` and
   `node scripts/audit-ui-theme.mjs --write` / `--check` passed. The UI detector
   returned no findings. Theme audit: 0 direct feature font/colour exceptions over
@@ -2636,7 +2648,6 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   FBR submission are separate unfinished workflows. Do not infer stock from the
   product master or bypass the accounting event boundary. See
   `docs/architecture/inventory-products.md` for contracts and persistence rules.
-
 
 ## 2026-11-05 — Unified database-backed Purchases
 
@@ -2657,17 +2668,17 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Partial receipts copy their actual quantities into Bills. Approval serializes
   quantity and payment allocation consumption, including concurrent requests.
 - Verification: `npm.cmd run test:unit -- tests/unit/purchase-workflow.test.ts
-  tests/unit/purchase-document-form.test.tsx tests/unit/prototype-shell-navigation.test.tsx
-  tests/unit/bank-payment-shell-navigation.test.tsx` passed 20/20.
+tests/unit/purchase-document-form.test.tsx tests/unit/prototype-shell-navigation.test.tsx
+tests/unit/bank-payment-shell-navigation.test.tsx` passed 20/20.
   `npm.cmd run test:contract -- tests/contract/openapi.test.ts` passed 6/6.
   `npm.cmd run test:integration -- tests/integration/procurement-workflow.test.ts
-  tests/integration/postgres-migrations.test.ts` passed 26/26 in disposable
+tests/integration/postgres-migrations.test.ts` passed 26/26 in disposable
   PostgreSQL databases. Initial tests exposed stale source migration-head
   expectations and a browser test that switched sessions before approval
   navigation completed; these were corrected while retaining their coverage.
 - `NEXORA_PURCHASE_E2E=true`, an explicit local bootstrap test database,
   `PLAYWRIGHT_USE_EXISTING_WEB=true` and `npm.cmd run test:e2e --
-  tests/e2e/purchase-workflow.spec.ts --max-failures=1` passed 7/7 on the preview:
+tests/e2e/purchase-workflow.spec.ts --max-failures=1` passed 7/7 on the preview:
   the full real-API/PostgreSQL workflow plus light/dark at 1440/768/390px.
   The same suite was repeated against the updated local web on port 3000.
   Synthetic sessions are used only in the isolated test listener; the deployed
@@ -2715,11 +2726,11 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   unsaved-change handling and explicit no-posting safeguards are preserved.
   No backend, database, dependency or legacy stylesheet was changed or retired.
 - Verification: `npm.cmd run test:unit --
-  tests/unit/banking-payment-entry.test.tsx tests/unit/banking-receipt-entry.test.tsx
-  tests/unit/banking-transfer-entry.test.tsx` passed 43/43, covering existing workflows and the
+tests/unit/banking-payment-entry.test.tsx tests/unit/banking-receipt-entry.test.tsx
+tests/unit/banking-transfer-entry.test.tsx` passed 43/43, covering existing workflows and the
   persisted transfer reference. `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3207
-  PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
-  tests/e2e/bank-compact-forms.spec.ts --max-failures=2` passed 24/24: eight entry
+PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
+tests/e2e/bank-compact-forms.spec.ts --max-failures=2` passed 24/24: eight entry
   types, light/dark, 1440/768/390px, header density, aligned fields, adding/removing
   lines, totals, available footer actions and no document overflow. Browser API
   fixtures block every business write. The first tablet run exposed an absolute
@@ -2737,8 +2748,8 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   its existing API connection/environment were preserved. The API and database
   were not restarted or changed. Eight active-web smoke cases passed with
   `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_USE_EXISTING_WEB=true
-  npm.cmd run test:e2e -- tests/e2e/bank-compact-forms.spec.ts
-  --grep 'light, 1440px|dark, 390px' --max-failures=1`.
+npm.cmd run test:e2e -- tests/e2e/bank-compact-forms.spec.ts
+--grep 'light, 1440px|dark, 390px' --max-failures=1`.
 - Safe resume: this batch covers eight transaction-entry forms. Separate Bank
   setup/reconciliation/revaluation retain their existing governed layouts and
   behavior. Keep wide transaction grids locally scrollable at narrow widths.
@@ -2770,9 +2781,9 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Banking nominal bridge. Read-only/legacy records no longer display the false
   assertion that their user is not an authorized Super Admin.
 - Verification: `npm.cmd run test:unit --
-  tests/unit/finance-nominal-review.test.tsx tests/unit/finance-nominal-form.test.tsx
-  tests/unit/finance-hierarchy-workspaces.test.tsx
-  tests/unit/finance-nominal-directory.test.tsx` passed 38/38. Tests cover populated
+tests/unit/finance-nominal-review.test.tsx tests/unit/finance-nominal-form.test.tsx
+tests/unit/finance-hierarchy-workspaces.test.tsx
+tests/unit/finance-nominal-directory.test.tsx` passed 38/38. Tests cover populated
   pending fields, direct footer approval, permission/capability restrictions,
   classification/activation partial-failure retry, blocked module-controlled
   accounts, concurrent version changes and draft hierarchy submission/decision
@@ -2782,7 +2793,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   passed, including TypeScript. Focused ESLint and Prettier, UI theme audit
   write/check, the UI detector (no findings) and `git diff --check` passed.
   `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3205 PLAYWRIGHT_USE_EXISTING_WEB=true
-  npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed 6/6
+npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed 6/6
   in light/dark at 1440/768/390px. Includes the imported draft form, explicit
   account-use selection, disabled module-controlled approval, absence of the old
   panel, activation retry without repeating classification, Category/Section one-button
@@ -2798,8 +2809,8 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   `tmp/finance-creation-approval-3000.*.log`; helper PID guard refers to the
   consumed previous web process and must be revalidated before reuse.
 - Active-app smoke with `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000
-  PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
-  tests/e2e/finance-master-consistency.spec.ts --grep 'light, 1440px|dark, 390px'`
+PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
+tests/e2e/finance-master-consistency.spec.ts --grep 'light, 1440px|dark, 390px'`
   passed 2/2; API readiness remained 200 and the final diff check passed.
 
 ## 2026-11-05 — Category and Section approval workflow (confirmed)
@@ -2833,9 +2844,9 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   tenant/company authority, stale versions, concurrent replay, failed-evidence
   rollback, immutable history and codes, rejection and no journal posting.
 - `npm.cmd run test:unit -- tests/unit/finance-hierarchy-workspaces.test.tsx
-  tests/unit/finance-contracts.test.ts tests/unit/finance-nominal-review.test.tsx
-  tests/unit/finance-nominal-form.test.tsx tests/unit/finance-nominal-directory.test.tsx
-  tests/unit/prototype-shell-navigation.test.tsx` passed 64/64. Full
+tests/unit/finance-contracts.test.ts tests/unit/finance-nominal-review.test.tsx
+tests/unit/finance-nominal-form.test.tsx tests/unit/finance-nominal-directory.test.tsx
+tests/unit/prototype-shell-navigation.test.tsx` passed 64/64. Full
   `npm.cmd run typecheck`, scoped ESLint/Prettier, `npm.cmd run api:generate`,
   `npm.cmd run api:check`, `npm.cmd run test:contract -- tests/contract/openapi.test.ts`
   (6/6), theme audit write/check, the UI detector (no findings) and
@@ -2843,9 +2854,9 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   the full cross-module migration snapshot suite was not run (its pre-existing
   HR expectations remain separate).
 - Production build `NEXT_DIST_DIR=tmp/finance-hierarchy-approval-build
-  npm.cmd run build:web` passed. Browser suite with
+npm.cmd run build:web` passed. Browser suite with
   `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3202 PLAYWRIGHT_USE_EXISTING_WEB=true
-  npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed 6/6
+npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed 6/6
   in light/dark at 1440/768/390px, including Category/Section submission, review,
   Close without a decision, failed approval/retry, success navigation and existing
   Nominal/edit behavior. Synthetic routes intercept mutations. Initial failures
@@ -2854,7 +2865,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   was inspected under `tmp/finance-hierarchy-approval-evidence/`.
 - After correcting the Finance notification route classification, the final
   production build `NEXT_DIST_DIR=tmp/finance-hierarchy-approval-final-build
-  npm.cmd run build:web` passed including TypeScript. The same 6/6 browser cases
+npm.cmd run build:web` passed including TypeScript. The same 6/6 browser cases
   passed again with `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3203`, including the
   Finance success-title assertion. Final preview PID 55676 on 3203; all 22 assets
   returned 200. Final formatting, theme check and `git diff --check` passed.
@@ -2870,8 +2881,8 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Final read-only checks confirmed Finance 35 and unauthenticated hierarchy
   access returns 401. Active-app smoke command
   `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 PLAYWRIGHT_USE_EXISTING_WEB=true
-  npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts
-  --grep 'light, 1440px|dark, 390px'` passed 2/2. These desktop/light and
+npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts
+--grep 'light, 1440px|dark, 390px'` passed 2/2. These desktop/light and
   mobile/dark cases intercept mutations; no live business records were created
   or approved during deployment verification.
 - Safe resume: keep `tmp/finance-hierarchy-approval-final-build` while active.
@@ -2901,17 +2912,17 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   was requested from the user and remains pending; no cosmetic approval action
   was added to records that lack an approval lifecycle.
 - Verification: `npm.cmd run test:unit --
-  tests/unit/finance-nominal-review.test.tsx
-  tests/unit/finance-nominal-directory.test.tsx
-  tests/unit/finance-hierarchy-workspaces.test.tsx
-  tests/unit/finance-nominal-form.test.tsx` passed 28/28. Focused ESLint and
+tests/unit/finance-nominal-review.test.tsx
+tests/unit/finance-nominal-directory.test.tsx
+tests/unit/finance-hierarchy-workspaces.test.tsx
+tests/unit/finance-nominal-form.test.tsx` passed 28/28. Focused ESLint and
   Prettier checks, `git diff --check`, theme audit write/check and the Impeccable
   detector passed (no detector findings; no direct feature-view font/colour
   exceptions). `NEXT_DIST_DIR=tmp/finance-plain-build npm.cmd run build:web`
   passed including TypeScript.
 - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3201
-  PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
-  tests/e2e/finance-master-consistency.spec.ts` passed 6/6 at 1440/768/390px in
+PLAYWRIGHT_USE_EXISTING_WEB=true npm.cmd run test:e2e --
+tests/e2e/finance-master-consistency.spec.ts` passed 6/6 at 1440/768/390px in
   light/dark themes. Covers row surface/contrast/bounds, nested and main lists,
   keyboard expansion, existing edits, draft/pending review, Close without a
   decision, failed approval/retry and return to the list after approval.
@@ -2954,9 +2965,9 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   activation safeguards. Shared yellow primary buttons and pale compact list rows
   retain the requested theme. No dependency or stylesheet was added/retired.
 - Verification: 57/57 tests passed via `npm.cmd run test:unit --
-  tests/unit/finance-nominal-form.test.tsx tests/unit/finance-nominal-api.test.ts
-  tests/unit/finance-nominal-directory.test.tsx tests/unit/finance-hierarchy-workspaces.test.tsx
-  tests/unit/finance-posting-review.test.tsx tests/unit/finance-contracts.test.ts`.
+tests/unit/finance-nominal-form.test.tsx tests/unit/finance-nominal-api.test.ts
+tests/unit/finance-nominal-directory.test.tsx tests/unit/finance-hierarchy-workspaces.test.tsx
+tests/unit/finance-posting-review.test.tsx tests/unit/finance-contracts.test.ts`.
   `node tmp/verify-nominal-edit.mjs` passed 11/11 database integration tests in a
   newly created, identity-verified disposable local database, removed afterward.
   Tests cover guarded moves, actual journal usage, audit evidence, stable codes,
@@ -3000,8 +3011,8 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Expanded content keeps the theme surface for readable loading/error states.
   No API, database, dependency or posting behavior changed.
 - Verification: `npm.cmd run test:unit --
-  tests/unit/finance-hierarchy-workspaces.test.tsx
-  tests/unit/finance-nominal-directory.test.tsx` passed 14/14 tests.
+tests/unit/finance-hierarchy-workspaces.test.tsx
+tests/unit/finance-nominal-directory.test.tsx` passed 14/14 tests.
   `NEXT_DIST_DIR=tmp/finance-compact-build npm.cmd run build:web` passed,
   including TypeScript. Focused ESLint and Prettier checks passed for the shared
   row, both views and updated browser test. Theme audit write/check and
@@ -3009,9 +3020,9 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
 - `npm.cmd run test:e2e -- tests/e2e/finance-master-consistency.spec.ts` passed
   6/6 against the built preview: light/dark at 1440/768/390px, all three lists,
   compact header bounds, pale-background luminance, text/badge/action contrast
-  >=4.5:1, keyboard expansion and separate edit/detail navigation. Synthetic
-  read-only fixtures block mutations. Inspected desktop/mobile screenshots:
-  `tmp/finance-compact-evidence/`.
+  > =4.5:1, keyboard expansion and separate edit/detail navigation. Synthetic
+  > read-only fixtures block mutations. Inspected desktop/mobile screenshots:
+  > `tmp/finance-compact-evidence/`.
 - Activated the verified build on port 3000 (PID 69852), with all 22 static
   assets returning HTTP 200. API runtime retained. Helper/logs:
   `tmp/activate-finance-compact.py`, `tmp/finance-compact-3000.*.log`.
@@ -3038,8 +3049,8 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   cannot overwrite the current expansion. Company clearing resets visible rows.
   No API contract, database migration or live financial behavior changed.
 - `npm.cmd run test:unit -- tests/unit/finance-hierarchy-workspaces.test.tsx
-  tests/unit/finance-nominal-directory.test.tsx tests/unit/finance-nominal-form.test.tsx
-  tests/unit/finance-posting-review.test.tsx tests/unit/finance-contracts.test.ts`:
+tests/unit/finance-nominal-directory.test.tsx tests/unit/finance-nominal-form.test.tsx
+tests/unit/finance-posting-review.test.tsx tests/unit/finance-contracts.test.ts`:
   48/48 passed. Coverage includes standalone Section expansion, retry recovery,
   stale company responses, Nominal Open/Edit, denied edits and existing forms/
   approval behavior. Focused ESLint, Prettier, theme write/check and
@@ -3047,7 +3058,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   Finance surfaces. Theme audit: no direct feature-view font/colour exceptions.
 - `NEXT_DIST_DIR=tmp/finance-yellow-build npm.cmd run build:web` passed, including
   application TypeScript. `npm.cmd run test:e2e --
-  tests/e2e/finance-master-consistency.spec.ts` passed all six cases against both
+tests/e2e/finance-master-consistency.spec.ts` passed all six cases against both
   the preview and active web deployment: light/dark at 1440/768/390px, all three
   lists, mouse/keyboard expansion, lazy reads, real computed semantic-yellow
   backgrounds, text contrast >=4.5:1 and separate Open/Edit form navigation.
@@ -3078,11 +3089,11 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   toolbar label/note and print-selector rules. No stylesheet was retired; legacy
   responsive toolbar selectors remain harmless until that toolbar is migrated.
 - `npm.cmd run test:unit -- tests/unit/prototype-page-intro.test.tsx
-  tests/unit/prototype-shell-navigation.test.tsx tests/unit/banking-payments-list.test.tsx
-  tests/unit/banking-receipts-list.test.tsx tests/unit/finance-hierarchy-workspaces.test.tsx
-  tests/unit/reference-master-workspace.test.tsx tests/unit/identity-workspace-components.test.ts
-  tests/unit/bank-payment-shell-navigation.test.tsx tests/unit/bank-receipt-routing.test.ts
-  tests/unit/bank-reconciliation-shell-navigation.test.tsx`: 43/43 passed.
+tests/unit/prototype-shell-navigation.test.tsx tests/unit/banking-payments-list.test.tsx
+tests/unit/banking-receipts-list.test.tsx tests/unit/finance-hierarchy-workspaces.test.tsx
+tests/unit/reference-master-workspace.test.tsx tests/unit/identity-workspace-components.test.ts
+tests/unit/bank-payment-shell-navigation.test.tsx tests/unit/bank-receipt-routing.test.ts
+tests/unit/bank-reconciliation-shell-navigation.test.tsx`: 43/43 passed.
   Updated two older list-test label lookups to follow the existing `label.control`
   association instead of depending on the former nested span/input markup.
 - `NEXT_DIST_DIR=tmp/ui-copy-cleanup-build npm.cmd run build:web` passed, including
@@ -3150,7 +3161,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   `tmp/prepare-reference-api-runtime.mjs`, `tmp/activate-reference-dialog.py`
   and `tmp/reference-dialog-*.log`. Canary processes were stopped afterward.
 - Re-ran `PLAYWRIGHT_USE_EXISTING_WEB=true PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000
-  npm run test:e2e -- tests/e2e/reference-master-creation.spec.ts` against the
+npm run test:e2e -- tests/e2e/reference-master-creation.spec.ts` against the
   active web deployment: 12/12 browser scenarios passed. The interaction suite
   still uses API fixtures, so it creates no live business records. Evidence
   remains in `tmp/reference-creation-evidence/`; existing authorization and
@@ -3160,6 +3171,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   `server.ts` requires its stricter HR floor. The live Bank workflow browser suite
   was adapted to generated codes; that full financial journey was not run for
   this master-data-only change. Refresh existing browser tabs to load the dialog.
+
 ## 2026-11-11 — Employee Lifecycle improvements (policies, cases, changes, loans)
 
 - Lifecycle Policies: name + policy text only (effective date defaults to the
@@ -3224,7 +3236,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   shrinkable selects; Employment setup spans both columns.
 - Verified: `npx tsc --noEmit`, `npm.cmd run build:web` (pass), ESLint on
   touched files (only pre-existing findings remain), `node
-  scripts/audit-ui-theme.mjs --check` (0 exceptions), manifest tests pass.
+scripts/audit-ui-theme.mjs --check` (0 exceptions), manifest tests pass.
 - Remaining: browser screenshots of the redesigned pages were not captured;
   e2e mobile screenshot baselines for removed pages (`offboarding`,
   `hr-report-centre`) must be regenerated for `clearance` and
@@ -3348,6 +3360,7 @@ Functional/technical details: `docs/architecture/fixed-assets-workflow.md`.
   own widths. No stylesheets retired.
 - Safe resume: if a drawer form looks cramped, cap its grid at two columns rather
   than widening the shared sheet.
+
 ## 2026-11-11 — Thousands separators on money entry fields
 
 - Added shared `AmountInput` (`app/shared/ui/amount-input.tsx`) and helpers
@@ -7270,7 +7283,6 @@ Company Chart adoption/review checkpoint (2026-10-20):
   and 78 approved Sections for the UAT company. Safe resume point: authenticated
   desktop and narrow-width visual sampling of Category and Section expansion.
 
-
 ## 2026-11-11 - Shared work-page filters, columns, pagination and forms
 
 - Added shared `WorkTable`, `WorkPagination`, `WorkOffsetPagination`, `WorkForm`
@@ -7322,6 +7334,7 @@ Company Chart adoption/review checkpoint (2026-10-20):
   200, all 22 referenced Next.js assets HTTP 200, and API readiness on port 4000
   HTTP 200. Stopped the temporary port-3200 preview; retained evidence under
   `tmp/`. No business-data writes were performed during browser verification.
+
 ## 2026-11-04 - HR icon-only back, edit and delete actions
 
 - Added `app/features/hr/components/hr-icon-buttons.tsx` (`HrBackButton`,
@@ -7460,7 +7473,7 @@ Company Chart adoption/review checkpoint (2026-10-20):
 
 - New HR-scoped read `GET /api/v1/hr/job_grade_currencies?company_id=`
   (`listHrJobGradeCurrencies`) returns `{ items: [{ currency_code,
-  currency_name, is_base }] }`: the company's active currencies from Finance
+currency_name, is_base }] }`: the company's active currencies from Finance
   (`company_currency` + active `currency`, name from the selected
   country/currency mapping), base first then by code, bounded to 300. It needs
   `hr.master.read` plus company access (403 `PERMISSION_DENIED` /
@@ -7677,7 +7690,7 @@ Company Chart adoption/review checkpoint (2026-10-20):
   `tsc`, ESLint (no new findings), UI audit, production build,
   `git diff --check`.
 - Resume point: apply HR136 to the local/UAT database (`npm run db:migrate
-  --workspace @nexora/db`), configure Finance projects per company, then a
+--workspace @nexora/db`), configure Finance projects per company, then a
   signed-in check of create requisition -> approve -> opening -> offer.
 
 ## 2026-11-05 - HR landings: live card details, compact list view
@@ -7916,7 +7929,7 @@ Company Chart adoption/review checkpoint (2026-10-20):
   into the standard `HrMasterSheet` drawer (tiles, inline stage update,
   history); no card is auto-selected, so the drawer opens on click.
 - Local DEMO data (local DB only, not a migration): `tmp/recruitment-dummy/
-  seed.ts` (gitignored) creates records through the API repositories with
+seed.ts` (gitignored) creates records through the API repositories with
   audit and fixed idempotency keys (re-runs replay). Company "Nexora R06 UAT
   Company": 1 opening JOP-2026-584261 "Frontend Developer (DEMO)" (open, from
   approved requisition MRQ-2026-0F0133), 4 candidates "(Demo)" with
@@ -8089,7 +8102,7 @@ Company Chart adoption/review checkpoint (2026-10-20):
   throwaway clone (draft edit, state moves and refusals, delete rules, reopening
   the cancelled DEMO opening, candidate deactivate/reactivate/delete, employee
   status moves and soft delete), `api:check`, UI theme audit, `git diff
-  --check`, production build. Browser check pending.
+--check`, production build. Browser check pending.
 
 ## 2026-11-10 - HR detail rows borderless; form fields top-aligned
 
@@ -8868,6 +8881,7 @@ Company Chart adoption/review checkpoint (2026-10-20):
 - Pre-existing/unrelated failures left as found: recruitment fixtures lack an
   HR136 project/hiring basis; drafts-status and transfer-status filters from
   parallel uncommitted work; master-delete message/org-unit cases.
+
 ## Sales quotations approval pass (10 Nov 2026)
 
 - Changed: `app/features/sales` model (types, constants, fixtures, workflow,
@@ -9027,12 +9041,14 @@ Company Chart adoption/review checkpoint (2026-10-20):
 ## 2026-11-13 — HR & Payroll create-form standard and universal record codes (HR154)
 
 Standard for every Add / New / Create drawer (and the same form in edit mode):
+
 1. Auto-generated code, read-only (`HrRecordCodeField`, `app/features/hr/components/hr-create-form.tsx`).
 2. Name, or the record's primary identifying field (employee, contact name, title…).
 3. Remaining fields, **one field per full-width row** (`HrFormRows`); no `sm:/md:grid-cols-*`
    or side-by-side inputs. A single option list (weekly off days, panel members) may stay inline.
 
 Codes are real, saved and unique:
+
 - Migration `hr/0154_universal_record_codes`: nullable `code` + format CHECK + unique index for
   interviews, assessments, overtime rules, leave postings, the 5 movement requests, profile-draft
   assignments, lifecycle cases, contacts, emergency contacts, documents, employment history,
@@ -9069,6 +9085,7 @@ fixture failures (requisitions without project/hiring basis, branch directly und
 date/timezone attendance checks, draft-list status) that fail independently of codes.
 
 Remaining / resume point:
+
 - Apply migration 154 to the local DB (`db:migrate` with the migration role) before using the
   local app — create actions will fail on the missing `code` columns until then.
 - Browser pass (light/dark, desktop/tablet/mobile) of the converted drawers.
@@ -9117,6 +9134,7 @@ touched here: `hr-supplemental-settlement` (Finance exchange-rate snapshot), rec
 fixture failures listed above, OpenAPI path-list snapshot.
 
 Remaining / resume point:
+
 - Re-approval in the other HR & Payroll workflows (each needs its own guard migration): manager
   change, work location change, organisation placement change, hire approvals, offers, leave,
   overtime requests, attendance corrections, localization records, overtime pay setup, payroll
@@ -9144,6 +9162,7 @@ Remaining / resume point:
   assessment badge was removed (only "Required" shows).
 - Verification: web `tsc`, `git diff --check`, theme audit (0 exceptions), HR unit tests
   (39 files / 491 tests), `npm run build:web`. No browser pass yet.
+
 # 2026-11-18 — Local tax permission repair
 
 - Applied the explicitly owner-authorized, one-time repair to Shoaib's existing

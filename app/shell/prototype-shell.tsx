@@ -4,11 +4,7 @@ import { ModuleDesignSurface } from "@/shared/ui/module-design";
 import { purchaseSteps } from "@prototype/features/purchasing/model/purchase-workflow";
 import { PURCHASE_EXPORT_EVENT } from "@prototype/features/purchasing/model/purchase-export";
 import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
-import {
-  markSalesNotificationRead,
-  useSalesNavigationCounts,
-  useSalesNotifications,
-} from "@prototype/features/sales/model/sales-store";
+import { usePersistentSalesActivity } from "@prototype/features/sales/model/persistent-sales-activity";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -311,9 +307,13 @@ export function PrototypeShell({
   const currentModuleAllowed = isModuleVisible(current.module.id, permissionSet);
   const isCompactHrWorkspace = current.module.id === "hr" && Object.hasOwn(compactHrWorkspaces, current.group.id);
   const currentNavigationPageId = navigationPageId(current.module.id, current.page.id);
-  const salesNavigationCounts = useSalesNavigationCounts();
-  // Sales approval decisions notify the quotation creator (session-only prototype data).
-  const salesNotifications = useSalesNotifications();
+  const {
+    counts: salesNavigationCounts,
+    notifications: salesNotifications,
+    markRead: markSalesNotificationRead,
+    error: salesActivityError,
+    retry: retrySalesActivity,
+  } = usePersistentSalesActivity();
   const unreadSalesNotifications = salesNotifications.filter((item) => !item.read).length;
   const isCentralChartPage =
     current.module.id === "finance" && ["central-chart-template", "section-management"].includes(current.page.id);
@@ -1398,6 +1398,14 @@ export function PrototypeShell({
               </div>
               <div className="nx-modal__body">
                 <div className="nx-notification-list">
+                  {salesActivityError ? (
+                    <p role="alert" className="p-3 text-sm text-destructive">
+                      {salesActivityError}
+                      <Button type="button" variant="link" onClick={retrySalesActivity}>
+                        Retry Sales activity
+                      </Button>
+                    </p>
+                  ) : null}
                   {salesNotifications.map((notification) => (
                     <button
                       type="button"
@@ -1405,7 +1413,7 @@ export function PrototypeShell({
                       onClick={() => {
                         setDialog(null);
                         markSalesNotificationRead(notification.id);
-                        navigate("sales", "quotations", notification.code);
+                        navigate("sales", notification.page, notification.recordId);
                       }}
                     >
                       <i className={`nx-notification-dot nx-notification-dot--${notification.tone}`} />

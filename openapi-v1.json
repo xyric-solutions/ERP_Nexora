@@ -10462,6 +10462,22 @@
           },
           {
             "in": "query",
+            "name": "source_document_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sales_document_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -10841,6 +10857,22 @@
           {
             "in": "query",
             "name": "currency",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_document_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sales_document_id",
             "required": false,
             "schema": {
               "type": "string"
@@ -11511,6 +11543,11 @@
                                     "maxLength": 128
                                   },
                                   "source_document_id": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 128
+                                  },
+                                  "sales_document_id": {
                                     "type": "string",
                                     "minLength": 1,
                                     "maxLength": 128
@@ -13307,6 +13344,22 @@
           },
           {
             "in": "query",
+            "name": "source_document_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sales_document_id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": false,
             "schema": {
@@ -14580,6 +14633,11 @@
                         "minLength": 1,
                         "maxLength": 128
                       },
+                      "sales_document_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
                       "original_item_id": {
                         "type": "string",
                         "minLength": 1,
@@ -15116,6 +15174,11 @@
                               "maxLength": 128
                             },
                             "source_document_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "sales_document_id": {
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 128
@@ -16937,6 +17000,11 @@
                               "minLength": 1,
                               "maxLength": 128
                             },
+                            "sales_document_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
                             "original_item_id": {
                               "type": "string",
                               "minLength": 1,
@@ -18727,6 +18795,11 @@
                               "maxLength": 128
                             },
                             "source_document_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "sales_document_id": {
                               "type": "string",
                               "minLength": 1,
                               "maxLength": 128
@@ -63554,6 +63627,1511 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StockValuation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/overview": {
+      "get": {
+        "operationId": "getSalesOverview",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/products/{id}/units": {
+      "get": {
+        "operationId": "getSalesProductUnits",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductUnits"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/documents": {
+      "get": {
+        "operationId": "getSalesDocuments",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quotation",
+                "order",
+                "delivery",
+                "invoice",
+                "return",
+                "credit",
+                "recurring"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "submitted",
+                "approved",
+                "rejected",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "customer_id",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesDirectory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSalesDocument",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesDocumentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/lookups": {
+      "get": {
+        "operationId": "getSalesLookups",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "customer",
+                "product",
+                "warehouse",
+                "unit",
+                "project",
+                "location",
+                "approver",
+                "currency",
+                "tax",
+                "source"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_kind",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "quotation",
+                "order",
+                "delivery",
+                "invoice",
+                "return",
+                "credit",
+                "recurring"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "customer_id",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "in": "query",
+            "name": "warehouse_id",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "in": "query",
+            "name": "currency",
+            "schema": {
+              "type": "string",
+              "maxLength": 160
+            }
+          },
+          {
+            "in": "query",
+            "name": "as_of",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 25
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1000000,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesLookupDirectory"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/documents/{id}": {
+      "get": {
+        "operationId": "getSalesDocument",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSalesDocument",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesDocumentUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/documents/{id}/actions": {
+      "post": {
+        "operationId": "actOnSalesDocument",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesAction"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesDetail"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/documents/{id}/derive": {
+      "post": {
+        "operationId": "deriveSalesDocument",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesDerivedDraftInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SalesDocumentInput"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/documents/{id}/accounting": {
+      "post": {
+        "operationId": "prepareSalesAccounting",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesSourcePrepare"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubledgerOperation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Standard problem response",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sales/documents/{id}/stock": {
+      "post": {
+        "operationId": "prepareSalesStock",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 128
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SalesStockPrepare"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized persistent commercial and accounting evidence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockOperation"
                 }
               }
             }
@@ -119252,6 +120830,4287 @@
         ],
         "additionalProperties": false
       },
+      "SalesDocumentInput": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "quotation",
+              "order",
+              "delivery",
+              "invoice",
+              "return",
+              "credit",
+              "recurring"
+            ]
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "billing_period": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "document_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "due_date": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid_until": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "location_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "warehouse_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approver_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_term": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "immediate",
+                  "days_15",
+                  "days_21",
+                  "days_30",
+                  "days_45",
+                  "end_following_month",
+                  "days_10_after_end_next_month",
+                  "percent_30_now_balance_60_days"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reference": {
+            "default": "",
+            "type": "string",
+            "maxLength": 160
+          },
+          "notes": {
+            "default": "",
+            "type": "string",
+            "maxLength": 4000
+          },
+          "no_tax_reason": {
+            "default": "",
+            "type": "string",
+            "maxLength": 500
+          },
+          "discount_amount": {
+            "default": "0",
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+          },
+          "recurrence": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "frequency": {
+                    "type": "string",
+                    "enum": [
+                      "weekly",
+                      "monthly",
+                      "quarterly",
+                      "yearly"
+                    ]
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "end_date": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "customer_ids": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "frequency",
+                  "start_date",
+                  "end_date",
+                  "customer_ids"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "source_line_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "template_line_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "product_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "unit_price": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "discount_amount": {
+                  "default": "0",
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "tax_definition_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "dimensions": {
+                  "default": {},
+                  "type": "object",
+                  "properties": {
+                    "department": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "project": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "cost_centre": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "branch": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "source_line_id",
+                "template_line_id",
+                "product_id",
+                "description",
+                "quantity",
+                "unit_price",
+                "discount_amount",
+                "tax_definition_id",
+                "dimensions"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "company_id",
+          "kind",
+          "customer_id",
+          "source_id",
+          "template_id",
+          "billing_period",
+          "document_date",
+          "due_date",
+          "valid_until",
+          "currency",
+          "project_id",
+          "location_id",
+          "warehouse_id",
+          "approver_id",
+          "payment_term",
+          "reference",
+          "notes",
+          "no_tax_reason",
+          "discount_amount",
+          "recurrence",
+          "lines"
+        ],
+        "additionalProperties": false
+      },
+      "SalesDocumentUpdate": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "quotation",
+              "order",
+              "delivery",
+              "invoice",
+              "return",
+              "credit",
+              "recurring"
+            ]
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "billing_period": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "document_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "due_date": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid_until": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "location_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "warehouse_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approver_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_term": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "immediate",
+                  "days_15",
+                  "days_21",
+                  "days_30",
+                  "days_45",
+                  "end_following_month",
+                  "days_10_after_end_next_month",
+                  "percent_30_now_balance_60_days"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reference": {
+            "default": "",
+            "type": "string",
+            "maxLength": 160
+          },
+          "notes": {
+            "default": "",
+            "type": "string",
+            "maxLength": 4000
+          },
+          "no_tax_reason": {
+            "default": "",
+            "type": "string",
+            "maxLength": 500
+          },
+          "discount_amount": {
+            "default": "0",
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+          },
+          "recurrence": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "frequency": {
+                    "type": "string",
+                    "enum": [
+                      "weekly",
+                      "monthly",
+                      "quarterly",
+                      "yearly"
+                    ]
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "end_date": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "customer_ids": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "frequency",
+                  "start_date",
+                  "end_date",
+                  "customer_ids"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "source_line_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "template_line_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "product_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "unit_price": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "discount_amount": {
+                  "default": "0",
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "tax_definition_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "dimensions": {
+                  "default": {},
+                  "type": "object",
+                  "properties": {
+                    "department": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "project": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "cost_centre": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "branch": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "source_line_id",
+                "template_line_id",
+                "product_id",
+                "description",
+                "quantity",
+                "unit_price",
+                "discount_amount",
+                "tax_definition_id",
+                "dimensions"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "company_id",
+          "kind",
+          "customer_id",
+          "source_id",
+          "template_id",
+          "billing_period",
+          "document_date",
+          "due_date",
+          "valid_until",
+          "currency",
+          "project_id",
+          "location_id",
+          "warehouse_id",
+          "approver_id",
+          "payment_term",
+          "reference",
+          "notes",
+          "no_tax_reason",
+          "discount_amount",
+          "recurrence",
+          "lines",
+          "expected_version"
+        ],
+        "additionalProperties": false
+      },
+      "SalesDocument": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "quotation",
+              "order",
+              "delivery",
+              "invoice",
+              "return",
+              "credit",
+              "recurring"
+            ]
+          },
+          "customer_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "template_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "billing_period": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "document_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "due_date": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "valid_until": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "project_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "location_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "warehouse_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "approver_id": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payment_term": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "immediate",
+                  "days_15",
+                  "days_21",
+                  "days_30",
+                  "days_45",
+                  "end_following_month",
+                  "days_10_after_end_next_month",
+                  "percent_30_now_balance_60_days"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reference": {
+            "default": "",
+            "type": "string",
+            "maxLength": 160
+          },
+          "notes": {
+            "default": "",
+            "type": "string",
+            "maxLength": 4000
+          },
+          "no_tax_reason": {
+            "default": "",
+            "type": "string",
+            "maxLength": 500
+          },
+          "discount_amount": {
+            "default": "0",
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+          },
+          "recurrence": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "frequency": {
+                    "type": "string",
+                    "enum": [
+                      "weekly",
+                      "monthly",
+                      "quarterly",
+                      "yearly"
+                    ]
+                  },
+                  "start_date": {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  "end_date": {
+                    "default": null,
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "customer_ids": {
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "frequency",
+                  "start_date",
+                  "end_date",
+                  "customer_ids"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "code": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "submitted",
+              "approved",
+              "rejected",
+              "cancelled"
+            ]
+          },
+          "maker_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "lines": {
+            "minItems": 1,
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "source_line_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "template_line_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "product_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "description": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 500
+                },
+                "quantity": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                },
+                "unit_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "unit_price": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "discount_amount": {
+                  "default": "0",
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "tax_definition_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "dimensions": {
+                  "default": {},
+                  "type": "object",
+                  "properties": {
+                    "department": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "project": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "cost_centre": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "branch": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "product_code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "product_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "product_version": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "exclusiveMinimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "product_type": {
+                  "type": "string",
+                  "enum": [
+                    "goods",
+                    "service",
+                    "charge"
+                  ]
+                },
+                "track_inventory": {
+                  "type": "boolean"
+                },
+                "invoice_policy": {
+                  "type": "string",
+                  "enum": [
+                    "ordered",
+                    "delivered"
+                  ]
+                },
+                "unit": {
+                  "type": "string"
+                },
+                "unit_snapshot": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "unit_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "unit_name": {
+                          "type": "string"
+                        },
+                        "base_unit_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "base_unit_name": {
+                          "type": "string"
+                        },
+                        "entered_quantity": {
+                          "type": "string"
+                        },
+                        "base_quantity": {
+                          "type": "string"
+                        },
+                        "numerator": {
+                          "type": "string",
+                          "pattern": "^[1-9]\\d{0,35}$"
+                        },
+                        "denominator": {
+                          "type": "string",
+                          "pattern": "^[1-9]\\d{0,35}$"
+                        },
+                        "unit_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        },
+                        "base_precision": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4
+                        }
+                      },
+                      "required": [
+                        "unit_id",
+                        "unit_name",
+                        "base_unit_id",
+                        "base_unit_name",
+                        "entered_quantity",
+                        "base_quantity",
+                        "numerator",
+                        "denominator",
+                        "unit_precision",
+                        "base_precision"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "base_quantity": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                },
+                "fulfillment_source_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "fulfillment_source_line_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "net_amount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "tax_amount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "total_amount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "tax_snapshot": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "source_item_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "prior_basis": {
+                          "default": "0",
+                          "type": "string"
+                        },
+                        "prior_amount": {
+                          "default": "0",
+                          "type": "string"
+                        },
+                        "definition_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "revision": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "code": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "print_label": {
+                          "default": "",
+                          "type": "string"
+                        },
+                        "region_code": {
+                          "default": null,
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "module": {
+                          "type": "string",
+                          "enum": [
+                            "purchases",
+                            "sales",
+                            "payroll",
+                            "fixed_assets"
+                          ]
+                        },
+                        "treatment": {
+                          "type": "string",
+                          "enum": [
+                            "withholding",
+                            "output",
+                            "recoverable",
+                            "payroll_deduction"
+                          ]
+                        },
+                        "trigger": {
+                          "type": "string",
+                          "enum": [
+                            "recognition",
+                            "settlement",
+                            "calculation"
+                          ]
+                        },
+                        "account_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "rate": {
+                          "type": "string"
+                        },
+                        "basis": {
+                          "type": "string"
+                        },
+                        "amount": {
+                          "type": "string"
+                        },
+                        "currency": {
+                          "type": "string"
+                        },
+                        "decimal_places": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 8
+                        }
+                      },
+                      "required": [
+                        "prior_basis",
+                        "prior_amount",
+                        "definition_id",
+                        "revision",
+                        "code",
+                        "name",
+                        "print_label",
+                        "region_code",
+                        "module",
+                        "treatment",
+                        "trigger",
+                        "account_id",
+                        "rate",
+                        "basis",
+                        "amount",
+                        "currency",
+                        "decimal_places"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "allocated_discount_amount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                }
+              },
+              "required": [
+                "id",
+                "source_line_id",
+                "template_line_id",
+                "product_id",
+                "description",
+                "quantity",
+                "unit_price",
+                "discount_amount",
+                "tax_definition_id",
+                "dimensions",
+                "product_code",
+                "product_name",
+                "product_version",
+                "product_type",
+                "track_inventory",
+                "invoice_policy",
+                "unit",
+                "unit_snapshot",
+                "base_quantity",
+                "fulfillment_source_id",
+                "fulfillment_source_line_id",
+                "net_amount",
+                "tax_amount",
+                "total_amount",
+                "tax_snapshot",
+                "allocated_discount_amount"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "net_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+          },
+          "tax_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+          },
+          "total_amount": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+          },
+          "decimal_places": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 8
+          },
+          "base_currency": {
+            "type": "string"
+          },
+          "exchange_rate_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exchange_rate": {
+            "type": "string"
+          },
+          "exchange_rate_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "readiness": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "recurring_customers": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "code",
+                "name"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "customer_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "customer_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "project_name": {
+            "type": "string"
+          },
+          "location_name": {
+            "type": "string"
+          },
+          "warehouse_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "quotation",
+                  "order",
+                  "delivery",
+                  "invoice",
+                  "return",
+                  "credit",
+                  "recurring"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "maker_name": {
+            "type": "string"
+          },
+          "approver_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "posting_state": {
+            "type": "string",
+            "enum": [
+              "unprepared",
+              "draft",
+              "submitted",
+              "approved",
+              "rejected",
+              "posted",
+              "reversed"
+            ]
+          },
+          "stock_operation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "financial_operation_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "subledger_item_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outstanding": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^-?(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "company_id",
+          "kind",
+          "customer_id",
+          "source_id",
+          "template_id",
+          "billing_period",
+          "document_date",
+          "due_date",
+          "valid_until",
+          "currency",
+          "project_id",
+          "location_id",
+          "warehouse_id",
+          "approver_id",
+          "payment_term",
+          "reference",
+          "notes",
+          "no_tax_reason",
+          "discount_amount",
+          "recurrence",
+          "id",
+          "code",
+          "version",
+          "state",
+          "maker_id",
+          "lines",
+          "net_amount",
+          "tax_amount",
+          "total_amount",
+          "decimal_places",
+          "base_currency",
+          "exchange_rate_id",
+          "exchange_rate",
+          "exchange_rate_date",
+          "readiness",
+          "created_at",
+          "updated_at",
+          "recurring_customers",
+          "customer_code",
+          "customer_name",
+          "project_name",
+          "location_name",
+          "warehouse_name",
+          "source_code",
+          "source_kind",
+          "maker_name",
+          "approver_name",
+          "posting_state",
+          "stock_operation_id",
+          "financial_operation_id",
+          "subledger_item_id",
+          "outstanding"
+        ],
+        "additionalProperties": false
+      },
+      "SalesDirectory": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "company_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "quotation",
+                    "order",
+                    "delivery",
+                    "invoice",
+                    "return",
+                    "credit",
+                    "recurring"
+                  ]
+                },
+                "customer_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "source_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "template_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "billing_period": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "document_date": {
+                  "type": "string",
+                  "format": "date",
+                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                },
+                "due_date": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "valid_until": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "currency": {
+                  "type": "string",
+                  "pattern": "^[A-Z]{3}$"
+                },
+                "project_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "location_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "warehouse_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "approver_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "payment_term": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "immediate",
+                        "days_15",
+                        "days_21",
+                        "days_30",
+                        "days_45",
+                        "end_following_month",
+                        "days_10_after_end_next_month",
+                        "percent_30_now_balance_60_days"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "reference": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 160
+                },
+                "notes": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 4000
+                },
+                "no_tax_reason": {
+                  "default": "",
+                  "type": "string",
+                  "maxLength": 500
+                },
+                "discount_amount": {
+                  "default": "0",
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "recurrence": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "frequency": {
+                          "type": "string",
+                          "enum": [
+                            "weekly",
+                            "monthly",
+                            "quarterly",
+                            "yearly"
+                          ]
+                        },
+                        "start_date": {
+                          "type": "string",
+                          "format": "date",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                        },
+                        "end_date": {
+                          "default": null,
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "customer_ids": {
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "frequency",
+                        "start_date",
+                        "end_date",
+                        "customer_ids"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "rejected",
+                    "cancelled"
+                  ]
+                },
+                "maker_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "lines": {
+                  "minItems": 1,
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "source_line_id": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "template_line_id": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "product_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "description": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      "quantity": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                      },
+                      "unit_id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "unit_price": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                      },
+                      "discount_amount": {
+                        "default": "0",
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                      },
+                      "tax_definition_id": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "dimensions": {
+                        "default": {},
+                        "type": "object",
+                        "properties": {
+                          "department": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "project": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "cost_centre": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "branch": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "product_code": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "product_name": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "product_version": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "product_type": {
+                        "type": "string",
+                        "enum": [
+                          "goods",
+                          "service",
+                          "charge"
+                        ]
+                      },
+                      "track_inventory": {
+                        "type": "boolean"
+                      },
+                      "invoice_policy": {
+                        "type": "string",
+                        "enum": [
+                          "ordered",
+                          "delivered"
+                        ]
+                      },
+                      "unit": {
+                        "type": "string"
+                      },
+                      "unit_snapshot": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "unit_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "unit_name": {
+                                "type": "string"
+                              },
+                              "base_unit_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "base_unit_name": {
+                                "type": "string"
+                              },
+                              "entered_quantity": {
+                                "type": "string"
+                              },
+                              "base_quantity": {
+                                "type": "string"
+                              },
+                              "numerator": {
+                                "type": "string",
+                                "pattern": "^[1-9]\\d{0,35}$"
+                              },
+                              "denominator": {
+                                "type": "string",
+                                "pattern": "^[1-9]\\d{0,35}$"
+                              },
+                              "unit_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4
+                              },
+                              "base_precision": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 4
+                              }
+                            },
+                            "required": [
+                              "unit_id",
+                              "unit_name",
+                              "base_unit_id",
+                              "base_unit_name",
+                              "entered_quantity",
+                              "base_quantity",
+                              "numerator",
+                              "denominator",
+                              "unit_precision",
+                              "base_precision"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "base_quantity": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                      },
+                      "fulfillment_source_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "fulfillment_source_line_id": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "net_amount": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                      },
+                      "tax_amount": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                      },
+                      "total_amount": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                      },
+                      "tax_snapshot": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "source_item_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "prior_basis": {
+                                "default": "0",
+                                "type": "string"
+                              },
+                              "prior_amount": {
+                                "default": "0",
+                                "type": "string"
+                              },
+                              "definition_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "revision": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "code": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "print_label": {
+                                "default": "",
+                                "type": "string"
+                              },
+                              "region_code": {
+                                "default": null,
+                                "type": [
+                                  "string",
+                                  "null"
+                                ]
+                              },
+                              "module": {
+                                "type": "string",
+                                "enum": [
+                                  "purchases",
+                                  "sales",
+                                  "payroll",
+                                  "fixed_assets"
+                                ]
+                              },
+                              "treatment": {
+                                "type": "string",
+                                "enum": [
+                                  "withholding",
+                                  "output",
+                                  "recoverable",
+                                  "payroll_deduction"
+                                ]
+                              },
+                              "trigger": {
+                                "type": "string",
+                                "enum": [
+                                  "recognition",
+                                  "settlement",
+                                  "calculation"
+                                ]
+                              },
+                              "account_id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 128
+                              },
+                              "rate": {
+                                "type": "string"
+                              },
+                              "basis": {
+                                "type": "string"
+                              },
+                              "amount": {
+                                "type": "string"
+                              },
+                              "currency": {
+                                "type": "string"
+                              },
+                              "decimal_places": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 8
+                              }
+                            },
+                            "required": [
+                              "prior_basis",
+                              "prior_amount",
+                              "definition_id",
+                              "revision",
+                              "code",
+                              "name",
+                              "print_label",
+                              "region_code",
+                              "module",
+                              "treatment",
+                              "trigger",
+                              "account_id",
+                              "rate",
+                              "basis",
+                              "amount",
+                              "currency",
+                              "decimal_places"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "allocated_discount_amount": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "source_line_id",
+                      "template_line_id",
+                      "product_id",
+                      "description",
+                      "quantity",
+                      "unit_price",
+                      "discount_amount",
+                      "tax_definition_id",
+                      "dimensions",
+                      "product_code",
+                      "product_name",
+                      "product_version",
+                      "product_type",
+                      "track_inventory",
+                      "invoice_policy",
+                      "unit",
+                      "unit_snapshot",
+                      "base_quantity",
+                      "fulfillment_source_id",
+                      "fulfillment_source_line_id",
+                      "net_amount",
+                      "tax_amount",
+                      "total_amount",
+                      "tax_snapshot",
+                      "allocated_discount_amount"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "net_amount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "tax_amount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "total_amount": {
+                  "type": "string",
+                  "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                },
+                "decimal_places": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8
+                },
+                "base_currency": {
+                  "type": "string"
+                },
+                "exchange_rate_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "exchange_rate": {
+                  "type": "string"
+                },
+                "exchange_rate_date": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "readiness": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "created_at": {
+                  "type": "string"
+                },
+                "updated_at": {
+                  "type": "string"
+                },
+                "recurring_customers": {
+                  "maxItems": 100,
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 128
+                      },
+                      "code": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "code",
+                      "name"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "customer_code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "customer_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "project_name": {
+                  "type": "string"
+                },
+                "location_name": {
+                  "type": "string"
+                },
+                "warehouse_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_code": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "source_kind": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "enum": [
+                        "quotation",
+                        "order",
+                        "delivery",
+                        "invoice",
+                        "return",
+                        "credit",
+                        "recurring"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "maker_name": {
+                  "type": "string"
+                },
+                "approver_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "posting_state": {
+                  "type": "string",
+                  "enum": [
+                    "unprepared",
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "rejected",
+                    "posted",
+                    "reversed"
+                  ]
+                },
+                "stock_operation_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "financial_operation_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "subledger_item_id": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "outstanding": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^-?(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "company_id",
+                "kind",
+                "customer_id",
+                "source_id",
+                "template_id",
+                "billing_period",
+                "document_date",
+                "due_date",
+                "valid_until",
+                "currency",
+                "project_id",
+                "location_id",
+                "warehouse_id",
+                "approver_id",
+                "payment_term",
+                "reference",
+                "notes",
+                "no_tax_reason",
+                "discount_amount",
+                "recurrence",
+                "id",
+                "code",
+                "version",
+                "state",
+                "maker_id",
+                "lines",
+                "net_amount",
+                "tax_amount",
+                "total_amount",
+                "decimal_places",
+                "base_currency",
+                "exchange_rate_id",
+                "exchange_rate",
+                "exchange_rate_date",
+                "readiness",
+                "created_at",
+                "updated_at",
+                "recurring_customers",
+                "customer_code",
+                "customer_name",
+                "project_name",
+                "location_name",
+                "warehouse_name",
+                "source_code",
+                "source_kind",
+                "maker_name",
+                "approver_name",
+                "posting_state",
+                "stock_operation_id",
+                "financial_operation_id",
+                "subledger_item_id",
+                "outstanding"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "SalesDetail": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "record": {
+            "type": "object",
+            "properties": {
+              "company_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "quotation",
+                  "order",
+                  "delivery",
+                  "invoice",
+                  "return",
+                  "credit",
+                  "recurring"
+                ]
+              },
+              "customer_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source_id": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "template_id": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "billing_period": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "document_date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+              },
+              "due_date": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "valid_until": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "project_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "location_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "warehouse_id": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "approver_id": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "payment_term": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "immediate",
+                      "days_15",
+                      "days_21",
+                      "days_30",
+                      "days_45",
+                      "end_following_month",
+                      "days_10_after_end_next_month",
+                      "percent_30_now_balance_60_days"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reference": {
+                "default": "",
+                "type": "string",
+                "maxLength": 160
+              },
+              "notes": {
+                "default": "",
+                "type": "string",
+                "maxLength": 4000
+              },
+              "no_tax_reason": {
+                "default": "",
+                "type": "string",
+                "maxLength": 500
+              },
+              "discount_amount": {
+                "default": "0",
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+              },
+              "recurrence": {
+                "default": null,
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "frequency": {
+                        "type": "string",
+                        "enum": [
+                          "weekly",
+                          "monthly",
+                          "quarterly",
+                          "yearly"
+                        ]
+                      },
+                      "start_date": {
+                        "type": "string",
+                        "format": "date",
+                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                      },
+                      "end_date": {
+                        "default": null,
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "customer_ids": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        }
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "frequency",
+                      "start_date",
+                      "end_date",
+                      "customer_ids"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "code": {
+                "type": "string"
+              },
+              "version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              "state": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "submitted",
+                  "approved",
+                  "rejected",
+                  "cancelled"
+                ]
+              },
+              "maker_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "lines": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "source_line_id": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "template_line_id": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "product_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    },
+                    "quantity": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                    },
+                    "unit_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "unit_price": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                    },
+                    "discount_amount": {
+                      "default": "0",
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                    },
+                    "tax_definition_id": {
+                      "default": null,
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "dimensions": {
+                      "default": {},
+                      "type": "object",
+                      "properties": {
+                        "department": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "project": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "cost_centre": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "branch": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "product_code": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "product_name": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "product_version": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "product_type": {
+                      "type": "string",
+                      "enum": [
+                        "goods",
+                        "service",
+                        "charge"
+                      ]
+                    },
+                    "track_inventory": {
+                      "type": "boolean"
+                    },
+                    "invoice_policy": {
+                      "type": "string",
+                      "enum": [
+                        "ordered",
+                        "delivered"
+                      ]
+                    },
+                    "unit": {
+                      "type": "string"
+                    },
+                    "unit_snapshot": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "unit_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "unit_name": {
+                              "type": "string"
+                            },
+                            "base_unit_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "base_unit_name": {
+                              "type": "string"
+                            },
+                            "entered_quantity": {
+                              "type": "string"
+                            },
+                            "base_quantity": {
+                              "type": "string"
+                            },
+                            "numerator": {
+                              "type": "string",
+                              "pattern": "^[1-9]\\d{0,35}$"
+                            },
+                            "denominator": {
+                              "type": "string",
+                              "pattern": "^[1-9]\\d{0,35}$"
+                            },
+                            "unit_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4
+                            },
+                            "base_precision": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 4
+                            }
+                          },
+                          "required": [
+                            "unit_id",
+                            "unit_name",
+                            "base_unit_id",
+                            "base_unit_name",
+                            "entered_quantity",
+                            "base_quantity",
+                            "numerator",
+                            "denominator",
+                            "unit_precision",
+                            "base_precision"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "base_quantity": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,11})(\\.\\d{1,4})?$"
+                    },
+                    "fulfillment_source_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fulfillment_source_line_id": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "net_amount": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                    },
+                    "tax_amount": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                    },
+                    "total_amount": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                    },
+                    "tax_snapshot": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source_item_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "prior_basis": {
+                              "default": "0",
+                              "type": "string"
+                            },
+                            "prior_amount": {
+                              "default": "0",
+                              "type": "string"
+                            },
+                            "definition_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "revision": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "code": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "print_label": {
+                              "default": "",
+                              "type": "string"
+                            },
+                            "region_code": {
+                              "default": null,
+                              "type": [
+                                "string",
+                                "null"
+                              ]
+                            },
+                            "module": {
+                              "type": "string",
+                              "enum": [
+                                "purchases",
+                                "sales",
+                                "payroll",
+                                "fixed_assets"
+                              ]
+                            },
+                            "treatment": {
+                              "type": "string",
+                              "enum": [
+                                "withholding",
+                                "output",
+                                "recoverable",
+                                "payroll_deduction"
+                              ]
+                            },
+                            "trigger": {
+                              "type": "string",
+                              "enum": [
+                                "recognition",
+                                "settlement",
+                                "calculation"
+                              ]
+                            },
+                            "account_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "rate": {
+                              "type": "string"
+                            },
+                            "basis": {
+                              "type": "string"
+                            },
+                            "amount": {
+                              "type": "string"
+                            },
+                            "currency": {
+                              "type": "string"
+                            },
+                            "decimal_places": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 8
+                            }
+                          },
+                          "required": [
+                            "prior_basis",
+                            "prior_amount",
+                            "definition_id",
+                            "revision",
+                            "code",
+                            "name",
+                            "print_label",
+                            "region_code",
+                            "module",
+                            "treatment",
+                            "trigger",
+                            "account_id",
+                            "rate",
+                            "basis",
+                            "amount",
+                            "currency",
+                            "decimal_places"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "allocated_discount_amount": {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "source_line_id",
+                    "template_line_id",
+                    "product_id",
+                    "description",
+                    "quantity",
+                    "unit_price",
+                    "discount_amount",
+                    "tax_definition_id",
+                    "dimensions",
+                    "product_code",
+                    "product_name",
+                    "product_version",
+                    "product_type",
+                    "track_inventory",
+                    "invoice_policy",
+                    "unit",
+                    "unit_snapshot",
+                    "base_quantity",
+                    "fulfillment_source_id",
+                    "fulfillment_source_line_id",
+                    "net_amount",
+                    "tax_amount",
+                    "total_amount",
+                    "tax_snapshot",
+                    "allocated_discount_amount"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "net_amount": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+              },
+              "tax_amount": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+              },
+              "total_amount": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+              },
+              "decimal_places": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8
+              },
+              "base_currency": {
+                "type": "string"
+              },
+              "exchange_rate_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "exchange_rate": {
+                "type": "string"
+              },
+              "exchange_rate_date": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date",
+                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "readiness": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "created_at": {
+                "type": "string"
+              },
+              "updated_at": {
+                "type": "string"
+              },
+              "recurring_customers": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "code": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "code",
+                    "name"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "customer_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "customer_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "project_name": {
+                "type": "string"
+              },
+              "location_name": {
+                "type": "string"
+              },
+              "warehouse_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source_code": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "source_kind": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "quotation",
+                      "order",
+                      "delivery",
+                      "invoice",
+                      "return",
+                      "credit",
+                      "recurring"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "maker_name": {
+                "type": "string"
+              },
+              "approver_name": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "posting_state": {
+                "type": "string",
+                "enum": [
+                  "unprepared",
+                  "draft",
+                  "submitted",
+                  "approved",
+                  "rejected",
+                  "posted",
+                  "reversed"
+                ]
+              },
+              "stock_operation_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "financial_operation_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "subledger_item_id": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "outstanding": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^-?(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "company_id",
+              "kind",
+              "customer_id",
+              "source_id",
+              "template_id",
+              "billing_period",
+              "document_date",
+              "due_date",
+              "valid_until",
+              "currency",
+              "project_id",
+              "location_id",
+              "warehouse_id",
+              "approver_id",
+              "payment_term",
+              "reference",
+              "notes",
+              "no_tax_reason",
+              "discount_amount",
+              "recurrence",
+              "id",
+              "code",
+              "version",
+              "state",
+              "maker_id",
+              "lines",
+              "net_amount",
+              "tax_amount",
+              "total_amount",
+              "decimal_places",
+              "base_currency",
+              "exchange_rate_id",
+              "exchange_rate",
+              "exchange_rate_date",
+              "readiness",
+              "created_at",
+              "updated_at",
+              "recurring_customers",
+              "customer_code",
+              "customer_name",
+              "project_name",
+              "location_name",
+              "warehouse_name",
+              "source_code",
+              "source_kind",
+              "maker_name",
+              "approver_name",
+              "posting_state",
+              "stock_operation_id",
+              "financial_operation_id",
+              "subledger_item_id",
+              "outstanding"
+            ],
+            "additionalProperties": false
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "actor_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "actor_name": {
+                  "type": "string"
+                },
+                "action": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "occurred_at": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "actor_id",
+                "actor_name",
+                "action",
+                "reason",
+                "version",
+                "occurred_at"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "linked": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "quotation",
+                    "order",
+                    "delivery",
+                    "invoice",
+                    "return",
+                    "credit",
+                    "recurring"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "rejected",
+                    "cancelled"
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "code",
+                "kind",
+                "state"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "record",
+          "events",
+          "linked"
+        ],
+        "additionalProperties": false
+      },
+      "SalesLookupDirectory": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "currency": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "price": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^(0|[1-9]\\d{0,21})(\\.\\d{1,8})?$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "unit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "quantity": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "decimal_places": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "unit_id": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "tax_rate": {
+                  "default": null,
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "financial_configuration": {
+                  "default": null,
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "company_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "payment_term": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "enum": [
+                                "immediate",
+                                "days_15",
+                                "days_21",
+                                "days_30",
+                                "days_45",
+                                "end_following_month",
+                                "days_10_after_end_next_month",
+                                "percent_30_now_balance_60_days"
+                              ]
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "credit_limit": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^(0|[1-9]\\d{0,29})(\\.\\d{1,8})?$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "reason": {
+                          "type": "string",
+                          "minLength": 3,
+                          "maxLength": 500
+                        },
+                        "party_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "version": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "credit_currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        }
+                      },
+                      "required": [
+                        "company_id",
+                        "payment_term",
+                        "credit_limit",
+                        "reason",
+                        "party_id",
+                        "version",
+                        "credit_currency"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "id",
+                "code",
+                "name",
+                "type",
+                "currency",
+                "price",
+                "unit",
+                "quantity",
+                "decimal_places",
+                "unit_id",
+                "tax_rate",
+                "financial_configuration"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "SalesAction": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "submit",
+              "approve",
+              "reject",
+              "revise",
+              "cancel",
+              "pause",
+              "resume"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "company_id",
+          "expected_version",
+          "action",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "SalesDerivedDraftInput": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "quotation",
+              "order",
+              "delivery",
+              "invoice",
+              "return",
+              "credit",
+              "recurring"
+            ]
+          },
+          "customer_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "document_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "billing_period": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          },
+          "warehouse_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "company_id",
+          "expected_version",
+          "kind",
+          "document_date"
+        ],
+        "additionalProperties": false
+      },
+      "SalesSourcePrepare": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "company_id",
+          "expected_version",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "SalesStockPrepare": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "company_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "expected_version": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 500
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+          }
+        },
+        "required": [
+          "company_id",
+          "expected_version",
+          "reason",
+          "date"
+        ],
+        "additionalProperties": false
+      },
+      "SalesOverview": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "navigation_counts": {
+            "type": "object",
+            "properties": {
+              "quotations": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "pick-pack-delivery": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "receipts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "recurring-bills": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "quotations",
+              "pick-pack-delivery",
+              "receipts",
+              "recurring-bills"
+            ],
+            "additionalProperties": false
+          },
+          "counts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "quotation",
+                    "order",
+                    "delivery",
+                    "invoice",
+                    "return",
+                    "credit",
+                    "recurring"
+                  ]
+                },
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "draft",
+                    "submitted",
+                    "approved",
+                    "rejected",
+                    "cancelled"
+                  ]
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "kind",
+                "state",
+                "count"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "notices": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "document_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "code": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "quotation",
+                    "order",
+                    "delivery",
+                    "invoice",
+                    "return",
+                    "credit",
+                    "recurring"
+                  ]
+                },
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "submit",
+                    "approve",
+                    "reject"
+                  ]
+                },
+                "at": {
+                  "type": "string"
+                },
+                "actor_name": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "document_id",
+                "code",
+                "kind",
+                "action",
+                "at",
+                "actor_name"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "navigation_counts",
+          "counts",
+          "notices"
+        ],
+        "additionalProperties": false
+      },
       "StockPolicy": {
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
@@ -119821,6 +125680,11 @@
                 "minLength": 1,
                 "maxLength": 128
               },
+              "source_version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
               "warehouse_id": {
                 "type": "string",
                 "minLength": 1,
@@ -119835,6 +125699,7 @@
               "dimensions",
               "kind",
               "source_id",
+              "source_version",
               "warehouse_id"
             ],
             "additionalProperties": false
@@ -119885,6 +125750,11 @@
                 "minLength": 1,
                 "maxLength": 128
               },
+              "source_version": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
               "warehouse_id": {
                 "type": "string",
                 "minLength": 1,
@@ -119899,6 +125769,7 @@
               "dimensions",
               "kind",
               "source_id",
+              "source_version",
               "warehouse_id"
             ],
             "additionalProperties": false
@@ -120527,6 +126398,11 @@
                     "minLength": 1,
                     "maxLength": 128
                   },
+                  "source_version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
                   "warehouse_id": {
                     "type": "string",
                     "minLength": 1,
@@ -120541,6 +126417,7 @@
                   "dimensions",
                   "kind",
                   "source_id",
+                  "source_version",
                   "warehouse_id"
                 ],
                 "additionalProperties": false
@@ -120591,6 +126468,11 @@
                     "minLength": 1,
                     "maxLength": 128
                   },
+                  "source_version": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9007199254740991
+                  },
                   "warehouse_id": {
                     "type": "string",
                     "minLength": 1,
@@ -120605,6 +126487,7 @@
                   "dimensions",
                   "kind",
                   "source_id",
+                  "source_version",
                   "warehouse_id"
                 ],
                 "additionalProperties": false
@@ -121642,6 +127525,11 @@
                           "minLength": 1,
                           "maxLength": 128
                         },
+                        "source_version": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
                         "warehouse_id": {
                           "type": "string",
                           "minLength": 1,
@@ -121656,6 +127544,7 @@
                         "dimensions",
                         "kind",
                         "source_id",
+                        "source_version",
                         "warehouse_id"
                       ],
                       "additionalProperties": false
@@ -121706,6 +127595,11 @@
                           "minLength": 1,
                           "maxLength": 128
                         },
+                        "source_version": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
                         "warehouse_id": {
                           "type": "string",
                           "minLength": 1,
@@ -121720,6 +127614,7 @@
                         "dimensions",
                         "kind",
                         "source_id",
+                        "source_version",
                         "warehouse_id"
                       ],
                       "additionalProperties": false

@@ -33,7 +33,7 @@ export function subledgerPaths() {
   const query = [
     scope,
     { in: "query", name: "as_of", required: true, schema: { type: "string", format: "date" } },
-    ...["party_id", "side", "currency"].map((name) => ({
+    ...["party_id", "side", "currency", "source_document_id", "sales_document_id"].map((name) => ({
       in: "query",
       name,
       required: false,

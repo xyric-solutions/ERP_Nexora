@@ -60,8 +60,20 @@ export const stockMovementInputSchema = z.discriminatedUnion("kind", [
     lines: z.array(consumption).min(1).max(100),
   }),
   z.strictObject({ ...common, kind: z.literal("manufacturing_completion"), source_id: id, quantity, warehouse_id: id }),
-  z.strictObject({ ...common, kind: z.literal("delivery"), source_id: id, warehouse_id: id }),
-  z.strictObject({ ...common, kind: z.literal("return"), source_id: id, warehouse_id: id }),
+  z.strictObject({
+    ...common,
+    kind: z.literal("delivery"),
+    source_id: id,
+    source_version: version.positive(),
+    warehouse_id: id,
+  }),
+  z.strictObject({
+    ...common,
+    kind: z.literal("return"),
+    source_id: id,
+    source_version: version.positive(),
+    warehouse_id: id,
+  }),
   z.strictObject({ ...common, kind: z.literal("reversal"), operation_id: id }),
 ]);
 export const stockActionSchema = z.strictObject({

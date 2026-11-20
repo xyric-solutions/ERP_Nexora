@@ -3,10 +3,11 @@
 ## Current result
 
 The supplier accounting setup/access repair is verified and live. The approved
-stock foundation, receipt/AP accrual matching and actual manufacturing commands
-are now implemented as an **unreleased candidate**, verified with disposable
-PostgreSQL and real authenticated sessions. Commercial Sales persistence remains
-the next implementation increment in the
+stock foundation, receipt/AP accrual matching, actual manufacturing and persistent
+commercial Sales are implemented and the combined authenticated browser journey
+and restored-business-copy migration rehearsal have passed. Final release checks
+and matched-runtime activation are in progress. The
+work follows the
 [repair design](../superpowers/specs/2026-11-20-operational-integration-repair-design.md),
 committed as `109cac1`. Owner approval and sequencing are recorded in `8895455`;
 no further design approval is pending.
@@ -14,9 +15,10 @@ no further design approval is pending.
 The owner will create fresh records after the connections are ready. Existing
 records are preserved and are not automatically posted, deleted, reclassified
 or treated as approved opening stock. Business accounting acceptance remains
-**NO-GO** while the remaining integrations and actual configuration are pending.
+**NO-GO** while actual financial configuration, cutover decisions and owner cases
+are pending. Technical workflow verification does not approve business settings.
 
-## Stock and actual manufacturing candidate — not activated
+## Stock and actual manufacturing
 
 - Additive Inventory migrations 4/5 and Security migration 28 add immutable stock
   entries, explicit valuation/mapping history, reviewed operations, FIFO cost
@@ -40,8 +42,8 @@ or treated as approved opening stock. Business accounting acceptance remains
   draft creation, quantity/cost/accounting evidence, independent decisions and
   posted balances. Product on-hand quantities and manufacturing progress read
   posted evidence. Approved orders alone still create no stock.
-- Delivery/return source posting remains explicitly unavailable until persistent
-  commercial Sales is installed. No sample delivery is turned into a posting.
+- Persistent Sales now supplies approved delivery/return sources to this same
+  stock lifecycle. No sample delivery is turned into a posting.
 
 Verified checkpoints: 1,642 unit tests; 27 contract tests; 87 existing
 Inventory/Manufacturing/Procurement/AP-AR database regressions, 54 accounting-
@@ -63,10 +65,108 @@ Actual API screenshots for 1440/800/390 widths in light/dark themes are under
 were inspected. There was no page overflow or serious/critical Axe violation.
 Source theme checks report no direct feature-view font/colour exceptions.
 
-These checks do not establish owner accounting approval or live readiness. The
-business database and pinned ports 3000/4000 still run the previous release. All
-new migration applications and accounting postings so far used disposable test
-databases; release rehearsal and matched-runtime activation remain outstanding.
+These historical checkpoint checks do not establish owner accounting approval.
+The current combined verification and release evidence is recorded below.
+
+## Persistent Sales
+
+- Security migration 29 and Sales migrations 1–4 add scoped commercial documents,
+  retained source lines, versioned audit and request identities. Customers, products,
+  units, warehouses, projects, locations, users, currencies and taxes reuse actual
+  existing masters. No business documents, prices or configurations are seeded.
+- Optional named quotation/template review and explicit creator confirmation are
+  separate from independent Finance/Stock posting. Confirmed source quantities are
+  reserved transactionally; over-delivery/invoicing/credit/return and concurrent
+  duplicate fulfillment are rejected. Direct invoices retain their own fulfillment
+  identity; order-derived invoices and deliveries share the real order-line identity.
+- Actual delivery issues FIFO/weighted-average stock to each product's explicit
+  COGS account. Repeated physical product lines share one cost issue with exact
+  line allocation. Physical returns restore original delivery cost; financial
+  credits do not restock. Delivered-policy invoice posting requires posted delivery.
+- Source invoice/credit recognition uses the central AR/GL lifecycle and the
+  existing receipt/Banking service. Dedicated Sales FKs preserve Procurement's
+  source reference meaning. Source review retains actual revenue/tax mappings,
+  currency precision, credit controls, dimensions, due dates and audit.
+- Credits consume original posted line tax, including the final rounding residual
+  after rate changes. Reversals retain prior tax evidence and require dependent
+  credits/returns or delivered-policy accounting to be compensated first.
+- Weekly/monthly billing and retained quarterly/yearly schedules require explicit
+  customer/period generation. Approved invoices retain the approved template
+  revision through later template edits. No worker automatically bills live records.
+- Normal Sales routes now use generated APIs. The existing card/table/form/panel
+  primitives remain; editable prices and quantities are decimal strings. The fixed
+  catalogue, invented tax percentages and session store are restricted to explicit
+  `prototype:` routes. Shell Sales counts/decisions use actual database activity.
+  Receipt/accounting screens reuse the existing Finance workspace with source
+  filtering. Print/Save PDF uses actual company/source values and Unicode browser
+  printing; its monochrome export CSS is a deliberate print-only exception.
+
+The 21 real PostgreSQL Sales tests cover actual manufacturing → delivery → AR →
+receipt, separate return/credit effects, tax residuals/reversal, JPY/KWD, weekly
+template revision, source limits and non-superuser/NOBYPASSRLS isolation. The
+authenticated browser journey additionally confirms supplier payment −40 and
+customer receipt +60 produce bank balance 20 and zero reconciliation difference.
+Independent SQL verifies eight balanced journals, stock/WIP/GRNI/AP/AR zero,
+COGS 40, revenue 60 and sixteen Finance lifecycle audit rows.
+
+Initial browser runs found a missing source-read grant in the isolated poster
+fixture, a combobox selector, stale views after another actor's decision, and a
+nested table wrapper. The fixture/selector were corrected, existing Finance
+Refresh is used between actors, Sales record Refresh was added, and the table
+wrapper corrected. Final combined and existing browser journeys pass. Accounting
+controls were retained. The initial full unit run had 18 obsolete shell/activity
+and mock-Sales permission expectations; after updating those boundaries, all
+1,650 pass. Nine Sales paths are included in the OpenAPI contract allowlist.
+
+## Combined verification and release evidence
+
+| Check                                                                                                                                                                                              | Final result                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `npm.cmd run test:unit -- --maxWorkers=2`                                                                                                                                                          | 1,650 passed / 207 files; zero failures                                                                         |
+| `npm.cmd run test:contract -- --maxWorkers=2`                                                                                                                                                      | 29 passed / 7 files; zero failures                                                                              |
+| `node --import tsx tmp/run-accounting-regressions.mjs` with accounting-integrity, multi-currency-subledger, tax-management, budget-controls, budget-management integration files, `--maxWorkers=1` | 87 passed / 5 files                                                                                             |
+| Same isolated runner with inventory-products, manufacturing-workflow, procurement-workflow, ap-ar-readiness, posted-stock-ledger, sales-persistence integration files, `--maxWorkers=1`            | 99 passed / 6 files                                                                                             |
+| `TEST_SOURCE_BOOTSTRAP_DATABASE_URL` set to the dedicated test service; `npm.cmd run test:security -- --maxWorkers=1 --hookTimeout=120000 --testTimeout=60000`                                     | 63 passed / 13 files; zero skipped/failures in final database-enabled run                                       |
+| `npm.cmd run test:e2e:ap-ar`                                                                                                                                                                       | 2 authenticated cookie/API/PostgreSQL journeys passed                                                           |
+| `NEXORA_STOCK_E2E=true npx.cmd tsx scripts/run-bank-reconciliation-e2e.ts`                                                                                                                         | 1 authenticated stock/manufacturing journey passed                                                              |
+| `NEXORA_SALES_E2E=true npx.cmd tsx scripts/run-bank-reconciliation-e2e.ts`                                                                                                                         | 1 complete purchase/manufacturing/Sales/banking/reconciliation journey passed                                   |
+| `npm.cmd run api:check`; `npm.cmd run catalogue:check`; theme `--write` / `--check`; `git diff --check`                                                                                            | Passed; 137 view sources, zero direct font/colour exceptions                                                    |
+| Scoped ESLint on changed TypeScript                                                                                                                                                                | Zero errors; only ignored generated `next-env.d.ts` warning during harness run                                  |
+| `npm.cmd run typecheck`; changed-test `tsc` project                                                                                                                                                | Passed                                                                                                          |
+| `npm.cmd run build:web`                                                                                                                                                                            | Passed; build `mOyA0ifNkOi6Ryy3o6USQ`                                                                           |
+| Restored business-copy migration rehearsal and replay                                                                                                                                              | Passed; 364 original table projections and all native/base ledger balances unchanged; new business tables empty |
+
+Browser evidence is under `tmp/operational-sales-acceptance/` and
+`tmp/posted-stock-acceptance/`; logs are retained under
+`tmp/operational-integration-release/evidence/`. Six Sales viewport/theme images,
+independent SQL evidence, no page overflow, no nested tables, no serious/critical
+Axe findings. Desktop light and mobile dark were visually inspected.
+
+The database backup is
+`tmp/backups/operational-integration-1795171715707.dump`, SHA-256
+`90c40436bf1ae14d644a1dbd2a232596df6038ab78dcb33cf058d7e05e84a739`.
+The rehearsal verifies exact original-column projections rather than ignoring
+business fields when additive Sales FKs appear. Only seven permission definitions,
+their existing Super Admin grants/scopes, and the expected two Super Admin policy
+version increments are permitted changes to old tables. Replaying migrations
+reports no changes. Local migration/activation results are recorded at handoff.
+
+Migrations: Inventory `0004_posted_stock_ledger`,
+`0005_purchase_receipt_accrual`; Security `0028_operational_stock_permissions`,
+`0029_persistent_sales_permissions`; Sales `0001_commercial_documents`,
+`0002_source_integrity`, `0003_posting_references`,
+`0004_compensation_and_tax`. Finance remains 43, Procurement 8, Manufacturing 4.
+Key components: `server/api/src/modules/sales`, centralized Finance/stock source
+adapters, `packages/contracts/src/sales`, generated client/OpenAPI, persistent
+Sales views/components/models, shell activity, and authenticated tests. Stock
+foundation is committed as `6ee1930`.
+
+Remaining owner blockers: legal company/cutover, approved AP/AR and inventory
+account mappings, terms/finite credit, tax treatment/rates, FX, opening stock and
+balances, independent business operators and existing reconciliation difference
+−USD 110,000. No existing approved payment or manufacturing instruction was posted.
+Recurring billing remains explicit generation within approved schedule dates;
+this release adds no automatic background billing or historical backfill.
 
 ## Increment 1 — live supplier-path changes
 

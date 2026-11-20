@@ -83,6 +83,18 @@ import type {
   StockValuation,
   StockLookupDirectory,
 } from "@nexora/contracts";
+import type {
+  SalesDocumentInput,
+  SalesDocumentUpdate,
+  SalesDirectory,
+  SalesDetail,
+  SalesLookupDirectory,
+  SalesAction,
+  SalesDerivedDraftInput,
+  SalesSourcePrepare,
+  SalesStockPrepare,
+  SalesOverview,
+} from "@nexora/contracts";
 import type { HrLearningWorkspace, HrLearningAction, HrLearningCertificate } from "@nexora/contracts";
 import type {
   CreateHrPersonalCorrection,
@@ -1044,6 +1056,81 @@ export class NexoraApiClient {
   }
   getStockWorkspace(query: string): Promise<StockWorkspace> {
     return this.request("/api/v1/inventory/stock/workspace" + query);
+  }
+  getSalesDocuments(query: string): Promise<SalesDirectory> {
+    return this.request("/api/v1/sales/documents" + query);
+  }
+  getSalesOverview(company: string, asOf?: string): Promise<SalesOverview> {
+    return this.request(
+      "/api/v1/sales/overview?company_id=" +
+        encodeURIComponent(company) +
+        (asOf ? "&as_of=" + encodeURIComponent(asOf) : ""),
+    );
+  }
+  getSalesProductUnits(id: string, company: string): Promise<ProductUnits> {
+    return this.request(
+      "/api/v1/sales/products/" + encodeURIComponent(id) + "/units?company_id=" + encodeURIComponent(company),
+    );
+  }
+  getSalesLookups(query: string): Promise<SalesLookupDirectory> {
+    return this.request("/api/v1/sales/lookups" + query);
+  }
+  getSalesDocument(id: string, company: string): Promise<SalesDetail> {
+    return this.request(
+      "/api/v1/sales/documents/" + encodeURIComponent(id) + "?company_id=" + encodeURIComponent(company),
+    );
+  }
+  createSalesDocument(input: SalesDocumentInput, csrf: string, key: string): Promise<SalesDetail> {
+    return this.request("/api/v1/sales/documents", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(input),
+    });
+  }
+  updateSalesDocument(id: string, input: SalesDocumentUpdate, csrf: string, key: string): Promise<SalesDetail> {
+    return this.request("/api/v1/sales/documents/" + encodeURIComponent(id), {
+      method: "PUT",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
+  }
+  actOnSalesDocument(id: string, input: SalesAction, csrf: string, key: string): Promise<SalesDetail> {
+    return this.request("/api/v1/sales/documents/" + encodeURIComponent(id) + "/actions", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
+  }
+  deriveSalesDocument(
+    id: string,
+    input: SalesDerivedDraftInput,
+    csrf: string,
+    key: string,
+  ): Promise<SalesDocumentInput> {
+    return this.request("/api/v1/sales/documents/" + encodeURIComponent(id) + "/derive", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
+  }
+  prepareSalesAccounting(
+    id: string,
+    input: SalesSourcePrepare,
+    csrf: string,
+    key: string,
+  ): Promise<SubledgerOperation> {
+    return this.request("/api/v1/sales/documents/" + encodeURIComponent(id) + "/accounting", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
+  }
+  prepareSalesStock(id: string, input: SalesStockPrepare, csrf: string, key: string): Promise<StockOperation> {
+    return this.request("/api/v1/sales/documents/" + encodeURIComponent(id) + "/stock", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
   }
   getStockLookups(query: string): Promise<StockLookupDirectory> {
     return this.request("/api/v1/inventory/stock/lookups" + query);

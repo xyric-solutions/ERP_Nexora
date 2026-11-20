@@ -1,5 +1,10 @@
 // @vitest-environment jsdom
 
+// Navigation is isolated from live activity; authenticated acceptance covers the real adapter.
+vi.mock("../../app/features/sales/model/persistent-sales-activity.js", () => ({
+  usePersistentSalesActivity: () => ({ counts: {}, notifications: [], markRead: vi.fn(), retry: vi.fn(), error: "" }),
+}));
+
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

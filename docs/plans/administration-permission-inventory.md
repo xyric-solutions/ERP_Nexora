@@ -16,20 +16,26 @@ migration adds permission keys.
 
 ## Keys per server module
 
-| Server module | Keys |
-|---|---|
-| `banking` | 56 |
-| `budget` | 16 |
-| `finance` | 45 |
-| `fleet` | 10 |
-| `hr` | 129 |
-| `inventory` | 5 |
-| `manufacturing` | 10 |
-| `master_data` | 4 |
-| `platform` | 38 |
-| `procurement` | 13 |
-| `security` | 56 |
-| `workflow` | 2 |
+Sales integration update (2026-11-20): `security/0029_persistent_sales_permissions`
+adds three Sales permissions. Stock posting permissions are governed separately
+by `security/0028_operational_stock_permissions`; the original counts below are the
+Phase 0 snapshot rather than current migration totals.
+
+| Server module   | Keys |
+| --------------- | ---- |
+| `banking`       | 56   |
+| `budget`        | 16   |
+| `finance`       | 45   |
+| `fleet`         | 10   |
+| `hr`            | 129  |
+| `inventory`     | 5    |
+| `manufacturing` | 10   |
+| `master_data`   | 4    |
+| `platform`      | 38   |
+| `procurement`   | 13   |
+| `sales`         | 3    |
+| `security`      | 56   |
+| `workflow`      | 2    |
 
 ## Distinct actions
 
@@ -40,21 +46,21 @@ migration adds permission keys.
 Source of truth in code: `packages/contracts/src/administration/module-catalogue.ts`.
 A unit test fails if a module in `app/shell/config/prototype-data.ts` is missing here.
 
-| UI module id | Label | Permission prefixes | Server permissions today |
-|---|---|---|---|
-| `banking` | Banking & Treasury | `banking.` | Live (56 keys) |
-| `purchases` | Purchases | `procurement.` | Live (13 keys) |
-| `inventory` | Inventory | `inventory.` | Live (5 keys) |
-| `fleet` | Fleet Management | `fleet.` | Live (10 keys): Vehicles and their tools, Drivers, Fuel, Maintenance, Fuel Efficiency. Other Fleet pages remain mock. |
-| `manufacturing` | Production / Manufacturing | `manufacturing.` | Live (10 keys): Bill of Materials, Production Planning, Manufacturing Orders. Other Manufacturing pages remain mock. |
-| `budget` | Budget & Planning | `budget.` | Live (16 keys): planning, controls, approvals, data and reporting. |
-| `assets` | Fixed Assets | `assets.` | Live: registration, lifecycle, categories and reporting. |
-| `finance` | Accounting (label renamed per D10) | `finance.`, `master_data.` | Live (45 + 4 keys) |
-| `hr` | HR & Payroll | `hr.` + admin-level `workflow.approval.approve/reject` (payroll journal/payment approvals) | Live (129 + 2 keys) |
-| `sales` | Sales & Billing | — | **Mock** — no server permissions (client store) |
-| `costing`, `tax`, `operations`, `quality`, `crm`, `projects`, `resources`, `support`, `expenses`, `documents`, `reports`, `portals`, `configuration`, `approvals`, `notifications`, `integrations`, `ai`, `audit`, `migration`, `mobile` | — | — | **Mock** — access level controls navigation only |
-| `dashboard` | Dashboard | — | Not grantable: visible to every signed-in user |
-| `administration` | Administration | `security.`, `platform.`, `administration.` | Not grantable: Super Admin only |
+| UI module id                                                                                                                                                                                                                             | Label                              | Permission prefixes                                                                        | Server permissions today                                                                                                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `banking`                                                                                                                                                                                                                                | Banking & Treasury                 | `banking.`                                                                                 | Live (56 keys)                                                                                                                           |
+| `purchases`                                                                                                                                                                                                                              | Purchases                          | `procurement.`                                                                             | Live (13 keys)                                                                                                                           |
+| `inventory`                                                                                                                                                                                                                              | Inventory                          | `inventory.`                                                                               | Live (5 keys)                                                                                                                            |
+| `fleet`                                                                                                                                                                                                                                  | Fleet Management                   | `fleet.`                                                                                   | Live (10 keys): Vehicles and their tools, Drivers, Fuel, Maintenance, Fuel Efficiency. Other Fleet pages remain mock.                    |
+| `manufacturing`                                                                                                                                                                                                                          | Production / Manufacturing         | `manufacturing.`                                                                           | Live (10 keys): Bill of Materials, Production Planning, Manufacturing Orders. Other Manufacturing pages remain mock.                     |
+| `budget`                                                                                                                                                                                                                                 | Budget & Planning                  | `budget.`                                                                                  | Live (16 keys): planning, controls, approvals, data and reporting.                                                                       |
+| `assets`                                                                                                                                                                                                                                 | Fixed Assets                       | `assets.`                                                                                  | Live: registration, lifecycle, categories and reporting.                                                                                 |
+| `finance`                                                                                                                                                                                                                                | Accounting (label renamed per D10) | `finance.`, `master_data.`                                                                 | Live (45 + 4 keys)                                                                                                                       |
+| `hr`                                                                                                                                                                                                                                     | HR & Payroll                       | `hr.` + admin-level `workflow.approval.approve/reject` (payroll journal/payment approvals) | Live (129 + 2 keys)                                                                                                                      |
+| `sales`                                                                                                                                                                                                                                  | Sales & Billing                    | `sales.`                                                                                   | Live documents; existing `finance.subledger.read` also preserves AR navigation. Financial posting requires separate Finance permissions. |
+| `costing`, `tax`, `operations`, `quality`, `crm`, `projects`, `resources`, `support`, `expenses`, `documents`, `reports`, `portals`, `configuration`, `approvals`, `notifications`, `integrations`, `ai`, `audit`, `migration`, `mobile` | —                                  | —                                                                                          | **Mock** — access level controls navigation only                                                                                         |
+| `dashboard`                                                                                                                                                                                                                              | Dashboard                          | —                                                                                          | Not grantable: visible to every signed-in user                                                                                           |
+| `administration`                                                                                                                                                                                                                         | Administration                     | `security.`, `platform.`, `administration.`                                                | Not grantable: Super Admin only                                                                                                          |
 
 ### Rules encoded in the contracts
 
@@ -78,6 +84,9 @@ A unit test fails if a module in `app/shell/config/prototype-data.ts` is missing
 ## All keys
 
 ```text
+sales.document.read
+sales.document.create
+sales.document.approve
 budget.commitment.close
 budget.data.create
 budget.data.export

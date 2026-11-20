@@ -42,29 +42,29 @@ test service. Do not execute old business records or invent configuration.
 
 ## 3. Persistent commercial Sales
 
-- [ ] Add only necessary Sales document/source-line and recurring-template
+- [x] Add only necessary Sales document/source-line and recurring-template
       persistence, module migration order and scoped lifecycle permissions.
-- [ ] Implement canonical customer/product/UOM/warehouse/project/location/tax/
+- [x] Implement canonical customer/product/UOM/warehouse/project/location/tax/
       currency lookups and server-owned totals, codes, references and versions.
-- [ ] Implement quotation/order/delivery/invoice/return/recurring workflows;
+- [x] Implement quotation/order/delivery/invoice/return/recurring workflows;
       enforce source quantities and exact-once delivery and invoicing.
-- [ ] Connect posted delivery/return to stock/COGS; connect invoice/credit and
+- [x] Connect posted delivery/return to stock/COGS; connect invoice/credit and
       receipt to existing AR/Banking without a second stock issue or journal.
-- [ ] Replace normal-route sample data/session writes with persistent adapters.
+- [x] Replace normal-route sample data/session writes with persistent adapters.
       Preserve approved Sales layouts/actions; isolate any retained prototype.
-- [ ] Verify reload persistence, cross-company rejection, over-delivery/invoicing,
+- [x] Verify reload persistence, cross-company rejection, over-delivery/invoicing,
       mixed products/services, FX, taxes, partial receipts, credits and reversals.
 
 ## 4. Acceptance and safe local release
 
-- [ ] Extend shared contracts/OpenAPI/generated client together; check API drift,
+- [x] Extend shared contracts/OpenAPI/generated client together; check API drift,
       permission catalogue and source import boundaries.
-- [ ] Run authenticated API/browser journeys for purchased components -> actual
+- [x] Run authenticated API/browser journeys for purchased components -> actual
       production -> available stock -> Sales delivery/invoice -> customer receipt
       -> reconciliation, and purchase receipt -> AP -> payment -> reconciliation.
-- [ ] Assert independent SQL stock quantity/value, WIP, COGS, AP/AR controls, bank,
+- [x] Assert independent SQL stock quantity/value, WIP, COGS, AP/AR controls, bank,
       trial balance, GL, aging, audit and exact-once source effects.
-- [ ] Run relevant full regression/type/build/theme checks and inspect desktop,
+- [x] Run relevant full regression/type/build/theme checks and inspect desktop,
       tablet and mobile evidence. Record actual pass/fail counts.
 - [ ] Back up and rehearse additive migrations on a restored business copy;
       compare all historical table fingerprints and native/base balances; verify

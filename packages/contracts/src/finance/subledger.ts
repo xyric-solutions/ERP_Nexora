@@ -15,6 +15,7 @@ export const subledgerQuerySchema = z.strictObject({
   side: subledgerSideSchema.optional(),
   currency: currency.optional(),
   source_document_id: id.optional(),
+  sales_document_id: id.optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).max(1000000).default(0),
 });
@@ -94,6 +95,7 @@ export const subledgerRecognitionSchema = z.strictObject({
   monetary: z.boolean().default(true),
   bank_account_id: id.optional(),
   source_document_id: id.optional(),
+  sales_document_id: id.optional(),
   original_item_id: id.optional(),
   counter_account_id: id.optional(),
   tax_definition_id: id.optional(),
@@ -373,11 +375,13 @@ export const subledgerWorkspaceSchema = z.strictObject({
   banks: z.array(z.strictObject({ id, name: z.string(), currency })),
   currencies: z.array(z.strictObject({ code: currency, decimal_places: z.number().int() })),
 });
-export const subledgerReportQuerySchema = subledgerQuerySchema.omit({ source_document_id: true }).extend({
-  from: date.optional(),
-  report: z.enum(["statement", "fx", "trial_balance", "general_ledger", "profit_loss", "balance_sheet"]),
-  presentation_currency: currency.optional(),
-});
+export const subledgerReportQuerySchema = subledgerQuerySchema
+  .omit({ source_document_id: true, sales_document_id: true })
+  .extend({
+    from: date.optional(),
+    report: z.enum(["statement", "fx", "trial_balance", "general_ledger", "profit_loss", "balance_sheet"]),
+    presentation_currency: currency.optional(),
+  });
 export const subledgerReportSchema = z.strictObject({
   company_id: id,
   report: z.string(),

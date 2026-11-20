@@ -10,6 +10,7 @@ import {
   manufacturingOrderInputSchema,
   savePurchaseRequestSchema,
   supplierInputSchema,
+  salesLookupQuerySchema,
   type PurchaseDocument,
   type PurchaseKind,
   type SubledgerOperation,
@@ -21,6 +22,7 @@ import { SourceManufacturingRepository } from "../../server/api/src/modules/manu
 import { SourceStockRepository } from "../../server/api/src/modules/inventory/stock-repository.js";
 import { SourceProcurementRepository } from "../../server/api/src/modules/procurement/source-repository.js";
 import { SourceSubledgerRepository } from "../../server/api/src/modules/finance/subledger/source-repository.js";
+import { SourceSalesRepository } from "../../server/api/src/modules/sales/source-repository.js";
 import { FinancePostingService } from "../../server/api/src/modules/finance/posting/service.js";
 import { createFinanceTransactionClient } from "../../server/api/src/modules/finance/posting/types.js";
 import { setupSubledgerFixture, subledgerActor, subledgerPermissions } from "./subledger-fixture.js";
@@ -30,6 +32,7 @@ const suite = bootstrapUrl ? describe : describe.skip;
 const database = `posted_stock_${randomUUID().replaceAll("-", "")}`;
 const permissions = [
   ...subledgerPermissions,
+  "sales.document.read",
   "inventory.stock.read",
   "inventory.stock.manage",
   "inventory.stock.approve",
@@ -543,6 +546,19 @@ suite("Immutable posted stock and central accounting", () => {
         }),
       );
       expect(await balance(finished)).toMatchObject({ quantity: "4.0000", value: `${total}.00000000` });
+      const catalogue = await new SourceSalesRepository(pool).lookups(
+        maker,
+        salesLookupQuerySchema.parse({
+          company_id: company,
+          kind: "product",
+          search: finished,
+          warehouse_id: warehouseA,
+        }),
+      );
+      expect(catalogue.items).toEqual([
+        expect.objectContaining({ id: finished, type: "goods", quantity: "4.0000", currency: "USD", unit: "Each" }),
+      ]);
+      expect(catalogue.total).toBe(1);
       const excess = await create({
         kind: "manufacturing_completion",
         source_id: issue.id,
