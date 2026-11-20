@@ -14,10 +14,11 @@ The existing approved [AP/AR design](2026-11-19-ap-ar-readiness-design.md) and
 authorize repairing the existing source-linked Finance path and its explicit
 setup. Increment 1 below implements corrections to that path.
 
-The detailed implementation of increments 2 and 3 requires review of this
-written design before code changes. They introduce persistent commercial Sales
-and stock posting. Earlier financial tests did not cover these missing paths.
-This document does not approve financial settings or authorize live postings.
+The owner approved this written design and increments 2 and 3 on 20 November
+2026 after increment 1 was committed as `18b1b24`. These increments introduce
+persistent commercial Sales and stock posting. Earlier financial tests did not
+cover these missing paths. Design approval does not approve financial settings
+or authorize live postings.
 
 ## Confirmed evidence
 
