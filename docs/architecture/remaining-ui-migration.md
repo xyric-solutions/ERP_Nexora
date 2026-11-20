@@ -1,6 +1,6 @@
 # Remaining UI migration checklist
 
-## 2026-11-20 - Persistent Sales integration candidate
+## 2026-11-20 - Persistent Sales integration released locally
 
 - Normal quotation, order, delivery/return, invoice/credit, recurring, customer and
   receipt routes use generated APIs and canonical masters. Existing Sales cards,
@@ -22,7 +22,10 @@
 - Safe release and current verification are recorded in
   `operational-integration-repair.md`; owner financial configuration remains pending.
 
-## 2026-11-20 - Stock and actual manufacturing candidate (unreleased)
+## 2026-11-20 - Stock and actual manufacturing candidate checkpoint
+
+Historical checkpoint below; its activation is completed by the combined release
+recorded above and in `operational-integration-repair.md`.
 
 - Added the API-backed Stock Movements & Valuation view and feature-owned setup,
   bounded lookup and actual-movement forms. Product on-hand and transfer state

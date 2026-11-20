@@ -66,12 +66,12 @@ test service. Do not execute old business records or invent configuration.
       trial balance, GL, aging, audit and exact-once source effects.
 - [x] Run relevant full regression/type/build/theme checks and inspect desktop,
       tablet and mobile evidence. Record actual pass/fail counts.
-- [ ] Back up and rehearse additive migrations on a restored business copy;
+- [x] Back up and rehearse additive migrations on a restored business copy;
       compare all historical table fingerprints and native/base balances; verify
       replay before applying schema-only migrations to the local business DB.
-- [ ] Pin and activate matched API/web/schema only after checks pass; verify
+- [x] Pin and activate matched API/web/schema only after checks pass; verify
       served assets and read-only business preservation. Retain rollback runtime.
-- [ ] Update configuration readiness and acceptance handoff. Clearly distinguish
+- [x] Update configuration readiness and acceptance handoff. Clearly distinguish
       software verification from owner-approved financial values/live acceptance.
 
 Live account, tax, credit, valuation and cutover selections remain explicit

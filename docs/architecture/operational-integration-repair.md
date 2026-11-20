@@ -4,9 +4,9 @@
 
 The supplier accounting setup/access repair is verified and live. The approved
 stock foundation, receipt/AP accrual matching, actual manufacturing and persistent
-commercial Sales are implemented and the combined authenticated browser journey
-and restored-business-copy migration rehearsal have passed. Final release checks
-and matched-runtime activation are in progress. The
+commercial Sales are implemented, verified and active locally on ports 3000/4000
+at application commit `4a2de8a`. The combined authenticated browser journey and
+restored-business-copy migration rehearsal passed. The
 work follows the
 [repair design](../superpowers/specs/2026-11-20-operational-integration-repair-design.md),
 committed as `109cac1`. Owner approval and sequencing are recorded in `8895455`;
@@ -149,7 +149,30 @@ The rehearsal verifies exact original-column projections rather than ignoring
 business fields when additive Sales FKs appear. Only seven permission definitions,
 their existing Super Admin grants/scopes, and the expected two Super Admin policy
 version increments are permitted changes to old tables. Replaying migrations
-reports no changes. Local migration/activation results are recorded at handoff.
+reports no changes.
+
+Local release completed 20 November 2026, 11:00 UTC. Inventory 3 → 5,
+Security 27 → 29 and new Sales 1–4 were applied; Finance 43, Procurement 8 and
+Manufacturing 4 were retained. Both services now use
+`tmp/operational-integration-release/release/source`, application commit
+`4a2de8a12009e35fcd20a21b92f8468f1a702d82`, build
+`mOyA0ifNkOi6Ryy3o6USQ`. All 1,190 pinned source and 1,348 compiled file hashes
+match. Fourteen served frontend scripts match their pinned hashes. API readiness,
+including the new operational schema check, and login return 200; anonymous
+Finance, Stock and Sales requests return 401. The runtime PostgreSQL role remains
+non-superuser and NOBYPASSRLS.
+
+Post-activation verification again preserved all 364 original table projections,
+native/base balances and empty new business tables. Read-only business preflight
+across both companies reports zero structural blockers, warnings, duplicate posted
+sources, unbalanced journals or control differences. This does not certify missing
+business settings: the main company still has no subledger policy or financial
+customers. Its 338 accounts, two suppliers, four bank capabilities and three
+posted capital journals remain intact. No live posting was performed. Local
+startup now selects the same pinned release for both services; previous pinned
+runtimes and the verified backup are retained. Evidence: `migration.json`,
+`live-verification.json`, `post-release-preflight.json`, `runtime-check.json` and
+`release-manifest.json` under `tmp/operational-integration-release/`.
 
 Migrations: Inventory `0004_posted_stock_ledger`,
 `0005_purchase_receipt_accrual`; Security `0028_operational_stock_permissions`,
@@ -192,7 +215,7 @@ or dependency was added. Finance 43, Procurement 8, Inventory 3 and Manufacturin
 4 remain the database versions. The unrelated `.env.example` and lockfile edits
 were retained and excluded from this repair's commit.
 
-## Verification
+## Increment 1 verification (historical checkpoint)
 
 | Check                                                                                                                                                                                                                  | Result                                                                                                              |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
