@@ -2,18 +2,73 @@
 
 ## Current result
 
-The supplier accounting setup/access repair is implemented and verified. It does
-**not** complete commercial Sales persistence, stock valuation or manufacturing
-output posting. Those remaining implementations are specified in the
+The supplier accounting setup/access repair is verified and live. The approved
+stock foundation, receipt/AP accrual matching and actual manufacturing commands
+are now implemented as an **unreleased candidate**, verified with disposable
+PostgreSQL and real authenticated sessions. Commercial Sales persistence remains
+the next implementation increment in the
 [repair design](../superpowers/specs/2026-11-20-operational-integration-repair-design.md),
-committed as `109cac1`, and await review of the written design.
+committed as `109cac1`. Owner approval and sequencing are recorded in `8895455`;
+no further design approval is pending.
 
 The owner will create fresh records after the connections are ready. Existing
 records are preserved and are not automatically posted, deleted, reclassified
 or treated as approved opening stock. Business accounting acceptance remains
 **NO-GO** while the remaining integrations and actual configuration are pending.
 
-## Changes implemented
+## Stock and actual manufacturing candidate — not activated
+
+- Additive Inventory migrations 4/5 and Security migration 28 add immutable stock
+  entries, explicit valuation/mapping history, reviewed operations, FIFO cost
+  allocations, receipt/bill matching and narrowly scoped permissions. There is
+  no opening-plan backfill, old-document posting or business-data correction.
+- Openings, approved receipts, transfers, actual production consumption and
+  partial/final output post through the existing centralized Finance service in
+  one transaction. FIFO/weighted-average cost preserves exact residual value.
+  Maker/checker/poster permissions, current company authority, source versions,
+  period/currency/dimension checks, replay protection, forced RLS, shortage
+  prevention and compensating reversals remain enforced.
+- Tracked AP bills require posted receipts of the same supplier/order line.
+  Recognition clears historical GRNI; reviewed price/exchange variance is
+  separate. Append-only matching prevents over-recognition. AP reversal restores
+  matching; stock reversal waits for AP compensation and cannot predate it.
+- Budget commitments for newly configured tracked products use their actual
+  stock account and become actuals on receipt capitalization. AP clearing does
+  not release the same commitment twice. Services/assets retain their existing
+  paths, controls remain enforced, and reconciliation includes stock receipts.
+- `#/inventory/stock-movements` provides real bounded directories, reviewed setup,
+  draft creation, quantity/cost/accounting evidence, independent decisions and
+  posted balances. Product on-hand quantities and manufacturing progress read
+  posted evidence. Approved orders alone still create no stock.
+- Delivery/return source posting remains explicitly unavailable until persistent
+  commercial Sales is installed. No sample delivery is turned into a posting.
+
+Verified checkpoints: 1,642 unit tests; 27 contract tests; 87 existing
+Inventory/Manufacturing/Procurement/AP-AR database regressions, 54 accounting-
+integrity/Fixed Assets regressions, 14 stock tests and 26 Budget tests (181
+database integration tests across 11 files); one
+authenticated three-actor browser journey with independent SQL GL/WIP/quantity/
+audit assertions; two authenticated AP/AR invoice/payment-to-reconciliation
+browser regressions. The web production build passed (`NHnp19S1qEaEn9SDtpkJP`),
+as did root and changed-test type checks, targeted ESLint, contract/client drift,
+catalogue and theme checks. The shared table's existing keyboard-scroll option
+also works when evidence/list tools are disabled, with a regression test.
+The Budget suite required correcting its old generic-GL
+fixture to use a non-control offset; existing AP bypass prevention was retained.
+The first browser runs exposed a stale balance view and keyboard-inaccessible
+table scrolling; both were corrected and the final journey passed.
+
+Actual API screenshots for 1440/800/390 widths in light/dark themes are under
+`tmp/posted-stock-acceptance/*-{light,dark}.png`. Desktop dark and mobile light
+were inspected. There was no page overflow or serious/critical Axe violation.
+Source theme checks report no direct feature-view font/colour exceptions.
+
+These checks do not establish owner accounting approval or live readiness. The
+business database and pinned ports 3000/4000 still run the previous release. All
+new migration applications and accounting postings so far used disposable test
+databases; release rehearsal and matched-runtime activation remain outstanding.
+
+## Increment 1 — live supplier-path changes
 
 - `PurchaseAccounting` reads actual company policy and canonical supplier links
   before enabling preparation. All suppliers in a multi-vendor payment are
@@ -90,9 +145,9 @@ No authenticated owner posting was attempted on the business database.
 
 ## Remaining work and configuration
 
-1. Review the written stock/Sales design, then implement its stock foundation
-   before any claim of finished-goods availability. Manufacturing approval is
-   still authorization/planning, not actual production completion.
+1. Complete the remaining commercial Sales increment on the verified stock
+   foundation. Preserve the live release until the combined migrations and full
+   production-to-sale-to-bank journey pass release rehearsal.
 2. Implement persistent commercial Sales using canonical products/customers and
    the shared stock/Finance services. Its prototype catalogue and session store
    are unchanged by this supplier-path repair.

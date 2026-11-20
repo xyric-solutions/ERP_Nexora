@@ -99,6 +99,8 @@ const orderProjection = `jsonb_build_object('id',x.id,'company_id',x.company_id,
  'created_by',x.created_by,'created_by_name',coalesce(nullif(btrim(creator.display_name),''),creator.id),
  'approved_by_name',case when x.state='approved' then coalesce(nullif(btrim(approver.display_name),''),approver.id) end,
  'approved_at',case when x.state='approved' then x.updated_at::text end,
+ 'issued_quantity',(select coalesce(sum((s.payload->>'quantity')::numeric),0)::text from inventory_stock_operation s where(s.tenant_id,s.company_id,s.payload->>'source_id')=(x.tenant_id,x.company_id,x.id) and s.kind='manufacturing_issue' and s.state='posted'),
+ 'completed_quantity',(select coalesce(sum((c.payload->>'quantity')::numeric),0)::text from inventory_stock_operation c join inventory_stock_operation s on(s.tenant_id,s.company_id,s.id)=(c.tenant_id,c.company_id,c.payload->>'source_id') where(s.tenant_id,s.company_id,s.payload->>'source_id')=(x.tenant_id,x.company_id,x.id) and c.kind='manufacturing_completion' and c.state='posted'),
  'version',x.row_version,'created_at',x.created_at::text,'updated_at',x.updated_at::text) as record`;
 const orderJoins = `from manufacturing_order x
  join inventory_product fp on fp.tenant_id=x.tenant_id and fp.company_id=x.company_id and fp.id=x.product_id

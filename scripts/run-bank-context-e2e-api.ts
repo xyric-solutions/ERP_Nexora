@@ -437,6 +437,45 @@ try {
     );
     await configureCustomerCreditFixture(currencyFixture, browserCustomer.id);
   }
+  if (process.env.NEXORA_STOCK_E2E === "true") {
+    const company = "nexora-currency-browser";
+    const read = ["inventory.stock.read", "inventory.item.read", "inventory.bin.read", "manufacturing.order.read"];
+    for (const [policy, keys] of [
+      [
+        "r06-uat-policy-maker",
+        [
+          ...read,
+          "inventory.stock.manage",
+          "inventory.stock.configure",
+          "inventory.item.create",
+          "inventory.bin.create",
+          "manufacturing.order.create",
+        ],
+      ],
+      ["r06-uat-policy-checker", [...read, "inventory.stock.approve", "manufacturing.order.approve"]],
+      ["r06-uat-policy-payment-poster", [...read, "inventory.stock.post"]],
+    ] as const) {
+      await fixture.query(
+        "insert into security_role_permission_grant(tenant_id,role_policy_id,permission_key,field_allow_mode) select $1,$2,p,'all' from unnest($3::text[])p on conflict do nothing",
+        [sourceTestTenantId, policy, keys],
+      );
+      await fixture.query(
+        "insert into security_role_scope_grant(tenant_id,role_policy_id,permission_key,scope_kind,scope_value) select $1,$2,p,'company',$4 from unnest($3::text[])p on conflict do nothing",
+        [sourceTestTenantId, policy, keys, company],
+      );
+    }
+    for (const [name, type] of [
+      ["Stock", "asset"],
+      ["GRNI", "liability"],
+      ["Opening", "equity"],
+      ["WIP", "asset"],
+      ["Variance", "expense"],
+    ])
+      await fixture.query(
+        "insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,$4,$5,$6,false,'active',clock_timestamp())",
+        [`stock-browser-${name}`, sourceTestTenantId, company, `STOCK-${name}`, `Reviewed isolated ${name}`, type],
+      );
+  }
   if (process.env.NEXORA_AP_AR_E2E === "true") {
     const company = "nexora-currency-browser";
     const read = ["banking.bank_account.read", "banking.reconciliation.read"];

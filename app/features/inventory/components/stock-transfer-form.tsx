@@ -30,7 +30,7 @@ export function StockTransferForm({
     [warehouseNames, setWarehouseNames] = useState<Record<string, string | null>>({}),
     [productNames, setProductNames] = useState<Record<number, string | null>>({}),
     [units, setUnits] = useState<Record<number, string>>({});
-  const canWrite =
+  const permitted =
     !!session?.user.permissions.includes("inventory.item.create") &&
     !!session.user.permissions.includes("inventory.stock.read") &&
     !session.impersonation;
@@ -42,7 +42,11 @@ export function StockTransferForm({
         input: stockTransferInputSchema.strip().parse({
           ...record,
           expected_version: record.version,
-          lines: record.lines.map((l) => ({ product_id: l.product_id, quantity: l.unit_snapshot?.entered_quantity??l.quantity,...(l.unit_snapshot?{unit_id:l.unit_snapshot.unit_id}:{}) })),
+          lines: record.lines.map((l) => ({
+            product_id: l.product_id,
+            quantity: l.unit_snapshot?.entered_quantity ?? l.quantity,
+            ...(l.unit_snapshot ? { unit_id: l.unit_snapshot.unit_id } : {}),
+          })),
         }),
       };
     },
@@ -68,10 +72,11 @@ export function StockTransferForm({
     load,
     persist,
     schema: stockTransferInputSchema,
-    canWrite,
+    canWrite: permitted,
     onClose,
     onDirtyChange,
   });
+  const canWrite = permitted && (!form.record || ["draft", "rejected", "cancelled"].includes(form.record.state));
   const change = <K extends keyof StockTransferInput>(key: K, value: StockTransferInput[K]) =>
     form.change((current) => ({ ...current, [key]: value }));
   function remove(index: number) {
@@ -97,22 +102,29 @@ export function StockTransferForm({
       ),
     );
   }
-  if (form.loading) return <WorkFormLayout><p role="status">Loading stock transfer…</p></WorkFormLayout>;
+  if (form.loading)
+    return (
+      <WorkFormLayout>
+        <p role="status">Loading stock transfer…</p>
+      </WorkFormLayout>
+    );
   if (form.loadFailed)
     return (
-      <WorkFormLayout><Alert variant="destructive">
-        <AlertDescription>
-          {form.error}
-          <div className="mt-3 flex gap-2">
-            <Button type="button" variant="outline" onClick={form.reload}>
-              Retry
-            </Button>
-            <Button type="button" variant="outline" onClick={form.close}>
-              Close
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert></WorkFormLayout>
+      <WorkFormLayout>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {form.error}
+            <div className="mt-3 flex gap-2">
+              <Button type="button" variant="outline" onClick={form.reload}>
+                Retry
+              </Button>
+              <Button type="button" variant="outline" onClick={form.close}>
+                Close
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </WorkFormLayout>
     );
   return (
     <WorkForm
@@ -214,7 +226,9 @@ export function StockTransferForm({
                   onChange={(id, name, unit) => {
                     form.change((current) => ({
                       ...current,
-                      lines: current.lines.map((l, n) => (n === index ? { product_id: id ?? "",quantity:l.quantity } : l)),
+                      lines: current.lines.map((l, n) =>
+                        n === index ? { product_id: id ?? "", quantity: l.quantity } : l,
+                      ),
                     }));
                     setProductNames((n) => ({ ...n, [index]: name }));
                     setUnits((n) => ({ ...n, [index]: unit ?? "" }));
@@ -235,7 +249,26 @@ export function StockTransferForm({
                   />
                 </LabeledField>
                 <LabeledField label={`Line ${index + 1} unit`}>
-                  {line.product_id ? <ProductUnitSelect surface="transfers" company={company} product={line.product_id} quantity={line.quantity} value={line.unit_id} fallback={units[index]??form.record?.lines[index]?.unit??""} label={`Line ${index+1} unit`} disabled={!canWrite} onChange={(id)=>form.change(current=>({...current,lines:current.lines.map((l,n)=>n===index?{...l,unit_id:id}:l)}))}/> : <Input readOnly value="Select a product"/>}
+                  {line.product_id ? (
+                    <ProductUnitSelect
+                      surface="transfers"
+                      company={company}
+                      product={line.product_id}
+                      quantity={line.quantity}
+                      value={line.unit_id}
+                      fallback={units[index] ?? form.record?.lines[index]?.unit ?? ""}
+                      label={`Line ${index + 1} unit`}
+                      disabled={!canWrite}
+                      onChange={(id) =>
+                        form.change((current) => ({
+                          ...current,
+                          lines: current.lines.map((l, n) => (n === index ? { ...l, unit_id: id } : l)),
+                        }))
+                      }
+                    />
+                  ) : (
+                    <Input readOnly value="Select a product" />
+                  )}
                 </LabeledField>
                 {canWrite ? (
                   <Button
@@ -264,7 +297,9 @@ export function StockTransferForm({
       </fieldset>
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="m-0 max-w-xl text-sm text-muted-foreground">
-          Draft only. Stock balances remain unchanged until a controlled transfer is posted.
+          {form.record?.posted
+            ? "Posted stock transfer. Use a controlled reversal for corrections."
+            : "Stock balances change only after independent review and posting in Stock Movements."}
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" disabled={form.saving} onClick={form.close}>

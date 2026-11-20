@@ -47,7 +47,7 @@ beforeEach(() => {
   harness.api.getInventoryOptions.mockResolvedValue({
     currencies: [{ code: "USD", name: "US Dollar" }],
     units: ["Each"],
-    stock_mode: "opening_plan",
+    stock_mode: "posted_ledger",
   });
   harness.api.listProducts.mockResolvedValue({
     items: [
@@ -89,7 +89,7 @@ describe("Product workpage", () => {
     expect(container.textContent).toContain("USD 10.00");
   });
   it("explains missing currency setup and opens the real setup route without inventing a currency", async () => {
-    harness.api.getInventoryOptions.mockResolvedValue({ currencies: [], units: ["Each"], stock_mode: "opening_plan" });
+    harness.api.getInventoryOptions.mockResolvedValue({ currencies: [], units: ["Each"], stock_mode: "posted_ledger" });
     await render();
     expect(add().disabled).toBe(true);
     expect(container.textContent).toContain("No active two-decimal company currency");

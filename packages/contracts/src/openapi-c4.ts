@@ -48,7 +48,26 @@ import {
   manufacturingOrderActionSchema,
 } from "./manufacturing/index.js";
 import { inventoryPaths } from "./inventory/openapi.js";
-import { unitSchema,unitInputSchema,unitDirectorySchema,unitMutationSchema,unitConversionSchema,productUnitsSchema } from "./inventory/units.js";
+import { stockPaths } from "./inventory/stock-openapi.js";
+import {
+  stockPolicyInputSchema,
+  stockPolicySchema,
+  stockValuationInputSchema,
+  stockValuationSchema,
+  stockMovementInputSchema,
+  stockActionSchema,
+  stockOperationSchema,
+  stockWorkspaceSchema,
+  stockLookupDirectorySchema,
+} from "./inventory/stock.js";
+import {
+  unitSchema,
+  unitInputSchema,
+  unitDirectorySchema,
+  unitMutationSchema,
+  unitConversionSchema,
+  productUnitsSchema,
+} from "./inventory/units.js";
 import { fixedAssetPaths } from "./fixed-assets/openapi.js";
 import {
   warehouseInputSchema,
@@ -219,7 +238,7 @@ import { companyCurrencyPaths } from "./finance/company-currencies-openapi.js";
 import { financeCurrencyPaths } from "./finance/currencies-openapi.js";
 import { journalPaths } from "./finance/journals-openapi.js";
 import { taxPaths } from "./finance/taxes-openapi.js";
-import {budgetPaths} from "./budget/openapi.js";
+import { budgetPaths } from "./budget/openapi.js";
 import { subledgerPaths } from "./finance/subledger-openapi.js";
 import { bankWorkflowOptionsSchema, reassignBankApproverRequestSchema } from "./banking/workflow-context.js";
 import { bankGovernancePaths } from "./security/bank-self-approval-openapi.js";
@@ -1191,6 +1210,7 @@ export function buildOpenApiDocument() {
       ...referenceMasterPaths(),
       ...procurementPaths(),
       ...inventoryPaths(),
+      ...stockPaths(),
       ...manufacturingPaths(),
       ...fixedAssetPaths(),
       ...fleetPaths(),
@@ -4386,7 +4406,8 @@ export function buildOpenApiDocument() {
       },
       "/hr/payroll_records/{recordId}/revision": {
         post: {
-          description: "Revise the terms of a draft loan or salary advance. Only its preparer may revise it, the reference code and kind stay fixed, and the version advances once per revision.",
+          description:
+            "Revise the terms of a draft loan or salary advance. Only its preparer may revise it, the reference code and kind stay fixed, and the version advances once per revision.",
           operationId: "revisePayrollLoan",
           security: [{ cookieAuth: [] }],
           parameters: [
@@ -4637,7 +4658,8 @@ export function buildOpenApiDocument() {
       "/hr/self_service/attendance/day": {
         post: {
           operationId: "saveSelfAttendanceDay",
-          description: "Save the signed-in employee's check-in and check-out for today, replacing earlier self-recorded times",
+          description:
+            "Save the signed-in employee's check-in and check-out for today, replacing earlier self-recorded times",
           security: [{ cookieAuth: [] }],
           parameters: [csrfParameter, idempotencyParameter],
           requestBody: {
@@ -5752,7 +5774,11 @@ export function buildOpenApiDocument() {
               },
             },
             { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
-            { in: "query", name: "available_for_offer", schema: { type: "string", enum: ["true", "false"], default: "false" } },
+            {
+              in: "query",
+              name: "available_for_offer",
+              schema: { type: "string", enum: ["true", "false"], default: "false" },
+            },
             { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 100000 } },
           ],
           responses: {
@@ -6034,7 +6060,12 @@ export function buildOpenApiDocument() {
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
             { in: "query", name: "search", required: false, schema: { type: "string", maxLength: 160 } },
-            { in: "query", name: "status", required: false, schema: { type: "string", enum: ["all", "draft", "submitted"], default: "draft" } },
+            {
+              in: "query",
+              name: "status",
+              required: false,
+              schema: { type: "string", enum: ["all", "draft", "submitted"], default: "draft" },
+            },
             {
               in: "query",
               name: "limit",
@@ -6136,7 +6167,12 @@ export function buildOpenApiDocument() {
               required: true,
               schema: { type: "string", minLength: 1, maxLength: 128 },
             },
-            { in: "query", name: "state", required: false, schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" } },
+            {
+              in: "query",
+              name: "state",
+              required: false,
+              schema: { type: "string", enum: ["pending", "approved", "rejected", "all"], default: "pending" },
+            },
             {
               in: "query",
               name: "limit",
@@ -6364,12 +6400,46 @@ export function buildOpenApiDocument() {
         },
         post: {
           operationId: "uploadHrEmployeeDocument",
-          description: "Uploads an employee document file to private storage (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Drafts and active employees in the actor's company scope. Requires hr.employee_document.manage.",
+          description:
+            "Uploads an employee document file to private storage (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Drafts and active employees in the actor's company scope. Requires hr.employee_document.manage.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file", "document_type", "title"], properties: { file: { type: "string", format: "binary" }, document_type: { type: "string", maxLength: 80 }, title: { type: "string", maxLength: 200 }, reference: { type: "string", maxLength: 120 }, issued_on: { type: "string", format: "date" }, expires_on: { type: "string", format: "date" }, notes: { type: "string", maxLength: 1000 } } } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "multipart/form-data": {
+                schema: {
+                  type: "object",
+                  required: ["file", "document_type", "title"],
+                  properties: {
+                    file: { type: "string", format: "binary" },
+                    document_type: { type: "string", maxLength: 80 },
+                    title: { type: "string", maxLength: 200 },
+                    reference: { type: "string", maxLength: 120 },
+                    issued_on: { type: "string", format: "date" },
+                    expires_on: { type: "string", format: "date" },
+                    notes: { type: "string", maxLength: 1000 },
+                  },
+                },
+              },
+            },
+          },
           responses: {
-            "201": { description: "Document stored", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "201": {
+              description: "Document stored",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6380,10 +6450,22 @@ export function buildOpenApiDocument() {
           operationId: "updateHrManpowerRequisition",
           description: "Edits a draft manpower requisition. Requires hr.employee.create.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrManpowerRequisitionRequest" } } } },
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateHrManpowerRequisitionRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6392,12 +6474,25 @@ export function buildOpenApiDocument() {
       "/hr/manpower_requisitions/{recordId}/state": {
         post: {
           operationId: "changeHrManpowerRequisitionState",
-          description: "Moves a requisition outside the approval decision: Draft to Submitted, Submitted to Draft, Approved to Cancelled (no active openings), Rejected or Cancelled to Draft.",
+          description:
+            "Moves a requisition outside the approval decision: Draft to Submitted, Submitted to Draft, Approved to Cancelled (no active openings), Rejected or Cancelled to Draft.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrManpowerRequisitionStateRequest" } } } },
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/ChangeHrManpowerRequisitionStateRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6408,10 +6503,22 @@ export function buildOpenApiDocument() {
           operationId: "deleteHrManpowerRequisition",
           description: "Deletes a draft, rejected or cancelled requisition without job openings; audited.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6420,12 +6527,23 @@ export function buildOpenApiDocument() {
       "/hr/job_openings/{recordId}/update": {
         post: {
           operationId: "updateHrJobOpening",
-          description: "Edits a job opening, including its state (a cancelled opening can be reopened when headcount allows). Requires hr.employee.update.",
+          description:
+            "Edits a job opening, including its state (a cancelled opening can be reopened when headcount allows). Requires hr.employee.update.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrJobOpeningRequest" } } } },
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrJobOpeningRequest" } } },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6436,10 +6554,22 @@ export function buildOpenApiDocument() {
           operationId: "deleteHrJobOpening",
           description: "Deletes a job opening without applications; audited.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6450,10 +6580,20 @@ export function buildOpenApiDocument() {
           operationId: "updateHrCandidate",
           description: "Edits a candidate, including Active/Deactivated status. Requires hr.employee.update.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrCandidateRequest" } } } },
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/UpdateHrCandidateRequest" } } },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6464,10 +6604,22 @@ export function buildOpenApiDocument() {
           operationId: "deleteHrCandidate",
           description: "Deletes a candidate without applications; audited.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } } } },
+          parameters: [
+            { in: "path", name: "recordId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/DeleteHrRecruitmentRecordRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecruitmentMutationResult" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6476,12 +6628,30 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/status": {
         post: {
           operationId: "changeHrEmployeeStatus",
-          description: "Moves an approved employee between Active, Probation, Confirmed and Suspended, writing status history. Exits stay in the lifecycle workflow.",
+          description:
+            "Moves an approved employee between Active, Probation, Confirmed and Suspended, writing status history. Exits stay in the lifecycle workflow.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrEmployeeStatusRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/ChangeHrEmployeeStatusRequest" } } },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6490,12 +6660,30 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/remove": {
         post: {
           operationId: "removeHrEmployee",
-          description: "Soft-deletes an approved employee without payroll history (status inactive, history and audit kept).",
+          description:
+            "Soft-deletes an approved employee without payroll history (status inactive, history and audit kept).",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } },
+          },
           responses: {
-            "200": { description: "Change recorded", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Change recorded",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6504,14 +6692,23 @@ export function buildOpenApiDocument() {
       "/hr/record_code_preview": {
         get: {
           operationId: "getHrRecordCodePreview",
-          description: "Next automatic code for an HR & Payroll record kind, shown read-only at the top of Add / New / Create forms. The server reserves the final unique code inside the create transaction. Requires any hr.* permission and company access.",
+          description:
+            "Next automatic code for an HR & Payroll record kind, shown read-only at the top of Add / New / Create forms. The server reserves the final unique code inside the create transaction. Requires any hr.* permission and company access.",
           security: [{ cookieAuth: [] }],
           parameters: [
-            { in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
             { in: "query", name: "kind", required: true, schema: { $ref: "#/components/schemas/HrRecordCodeKind" } },
           ],
           responses: {
-            "200": { description: "Next record code", content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecordCodePreview" } } } },
+            "200": {
+              description: "Next record code",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRecordCodePreview" } } },
+            },
             ...securityErrors,
           },
         },
@@ -6519,11 +6716,22 @@ export function buildOpenApiDocument() {
       "/hr/employee_number_preview": {
         get: {
           operationId: "getHrEmployeeNumberPreview",
-          description: "Next automatic employee number for display before saving; the server reserves the final number on create. Requires hr.employee.create and company access.",
+          description:
+            "Next automatic employee number for display before saving; the server reserves the final number on create. Requires hr.employee.create and company access.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "query", name: "company_id", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
           responses: {
-            "200": { description: "Next employee number", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeNumberPreview" } } } },
+            "200": {
+              description: "Next employee number",
+              content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeNumberPreview" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6532,12 +6740,32 @@ export function buildOpenApiDocument() {
       "/hr/employee_drafts/{employeeId}/withdraw": {
         post: {
           operationId: "withdrawHrEmployeeDraft",
-          description: "Deletes an unsubmitted employee draft by withdrawing it (status inactive); the audit trail is kept. Requires hr.employee.update.",
+          description:
+            "Deletes an unsubmitted employee draft by withdrawing it (status inactive); the audit trail is kept. Requires hr.employee.update.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/WithdrawHrEmployeeDraftRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/WithdrawHrEmployeeDraftRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Draft withdrawn", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Draft withdrawn",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6546,12 +6774,33 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/contacts/{contactId}": {
         post: {
           operationId: "updateHrEmployeeContact",
-          description: "Edits a contact by closing the current version and starting its replacement today. Requires hr.employee_contact.manage.",
+          description:
+            "Edits a contact by closing the current version and starting its replacement today. Requires hr.employee_contact.manage.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeContactRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeContactRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Contact replaced", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Contact replaced",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6562,10 +6811,28 @@ export function buildOpenApiDocument() {
           operationId: "removeHrEmployeeContact",
           description: "Closes an active contact; history is retained. Requires hr.employee_contact.manage.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } },
+          },
           responses: {
-            "200": { description: "Contact closed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Contact closed",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6574,12 +6841,33 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/emergency_contacts/{contactId}": {
         post: {
           operationId: "updateHrEmployeeEmergencyContact",
-          description: "Edits an emergency contact by closing the current version and recording a superseding one. Requires hr.employee_emergency_contact.manage.",
+          description:
+            "Edits an emergency contact by closing the current version and recording a superseding one. Requires hr.employee_emergency_contact.manage.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeEmergencyContactRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/CreateHrEmployeeEmergencyContactRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Emergency contact replaced", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Emergency contact replaced",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6588,12 +6876,31 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/emergency_contacts/{contactId}/remove": {
         post: {
           operationId: "removeHrEmployeeEmergencyContact",
-          description: "Closes an active emergency contact; history is retained. Requires hr.employee_emergency_contact.manage.",
+          description:
+            "Closes an active emergency contact; history is retained. Requires hr.employee_emergency_contact.manage.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "contactId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } },
+          },
           responses: {
-            "200": { description: "Emergency contact closed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Emergency contact closed",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6602,12 +6909,52 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/documents/{documentId}/replace": {
         post: {
           operationId: "replaceHrEmployeeDocument",
-          description: "Uploads a new file that supersedes and removes an active document (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Requires hr.employee_document.manage.",
+          description:
+            "Uploads a new file that supersedes and removes an active document (PDF, HTML, JPEG, PNG, JSON, CSV or text; at most 10 MB). Requires hr.employee_document.manage.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file", "document_type", "title"], properties: { file: { type: "string", format: "binary" }, document_type: { type: "string", maxLength: 80 }, title: { type: "string", maxLength: 200 }, reference: { type: "string", maxLength: 120 }, issued_on: { type: "string", format: "date" }, expires_on: { type: "string", format: "date" }, notes: { type: "string", maxLength: 1000 } } } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "path",
+              name: "documentId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "multipart/form-data": {
+                schema: {
+                  type: "object",
+                  required: ["file", "document_type", "title"],
+                  properties: {
+                    file: { type: "string", format: "binary" },
+                    document_type: { type: "string", maxLength: 80 },
+                    title: { type: "string", maxLength: 200 },
+                    reference: { type: "string", maxLength: 120 },
+                    issued_on: { type: "string", format: "date" },
+                    expires_on: { type: "string", format: "date" },
+                    notes: { type: "string", maxLength: 1000 },
+                  },
+                },
+              },
+            },
+          },
           responses: {
-            "201": { description: "Replacement document stored", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "201": {
+              description: "Replacement document stored",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6616,12 +6963,36 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/documents/{documentId}/remove": {
         post: {
           operationId: "removeHrEmployeeDocument",
-          description: "Removes a document from the active record once; metadata and file are kept for audit. Requires hr.employee_document.manage.",
+          description:
+            "Removes a document from the active record once; metadata and file are kept for audit. Requires hr.employee_document.manage.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "path",
+              name: "documentId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } },
+          },
           responses: {
-            "200": { description: "Document removed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Document removed",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6630,11 +7001,34 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/documents/{documentId}/content": {
         get: {
           operationId: "downloadHrEmployeeDocument",
-          description: "Streams a stored document file. HTML is served with a sandboxing content security policy. Requires hr.employee_document.read.",
+          description:
+            "Streams a stored document file. HTML is served with a sandboxing content security policy. Requires hr.employee_document.read.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "documentId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "query", name: "disposition", required: false, schema: { type: "string", enum: ["inline", "attachment"] } }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "path",
+              name: "documentId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            {
+              in: "query",
+              name: "disposition",
+              required: false,
+              schema: { type: "string", enum: ["inline", "attachment"] },
+            },
+          ],
           responses: {
-            "200": { description: "Document file", content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } } },
+            "200": {
+              description: "Document file",
+              content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6645,9 +7039,21 @@ export function buildOpenApiDocument() {
           operationId: "listHrEmployeeEmploymentHistory",
           description: "Active previous-employment entries of an employee. Requires hr.employee.read.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }],
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
           responses: {
-            "200": { description: "Employment history", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryDirectory" } } } },
+            "200": {
+              description: "Employment history",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryDirectory" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6656,10 +7062,29 @@ export function buildOpenApiDocument() {
           operationId: "createHrEmployeeEmploymentHistory",
           description: "Adds a previous-employment entry. Requires hr.employee.update.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } },
+            },
+          },
           responses: {
-            "201": { description: "Employment history added", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "201": {
+              description: "Employment history added",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6670,10 +7095,30 @@ export function buildOpenApiDocument() {
           operationId: "updateHrEmployeeEmploymentHistory",
           description: "Edits a previous-employment entry. Requires hr.employee.update.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeEmploymentHistoryRequest" } },
+            },
+          },
           responses: {
-            "200": { description: "Employment history updated", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Employment history updated",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6682,12 +7127,31 @@ export function buildOpenApiDocument() {
       "/hr/employees/{employeeId}/employment_history/{historyId}/remove": {
         post: {
           operationId: "removeHrEmployeeEmploymentHistory",
-          description: "Removes a previous-employment entry (soft status change, audited). Requires hr.employee.update.",
+          description:
+            "Removes a previous-employment entry (soft status change, audited). Requires hr.employee.update.",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "employeeId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
-          requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } } },
+          parameters: [
+            {
+              in: "path",
+              name: "employeeId",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+            { in: "path", name: "historyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/RemoveHrEmployeeRecordRequest" } } },
+          },
           responses: {
-            "200": { description: "Employment history removed", content: { "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } } } },
+            "200": {
+              description: "Employment history removed",
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrEmployeeRecordMutationResult" } },
+              },
+            },
             "404": problemResponse,
             ...securityErrors,
           },
@@ -6991,7 +7455,9 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Active company work locations available for requisitions",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionWorkLocationDirectory" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionWorkLocationDirectory" } },
+              },
             },
             ...securityErrors,
           },
@@ -7014,7 +7480,9 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Finance nominals available as cost-centre default nominals",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrCostCentreNominalDirectory" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrCostCentreNominalDirectory" } },
+              },
             },
             ...securityErrors,
           },
@@ -7037,7 +7505,9 @@ export function buildOpenApiDocument() {
           responses: {
             "200": {
               description: "Active company projects available for requisitions",
-              content: { "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionProjectDirectory" } } },
+              content: {
+                "application/json": { schema: { $ref: "#/components/schemas/HrRequisitionProjectDirectory" } },
+              },
             },
             ...securityErrors,
           },
@@ -7896,7 +8366,11 @@ export function buildOpenApiDocument() {
         patch: {
           operationId: "updateHrEmploymentLifecyclePolicy",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          parameters: [
+            { in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
           requestBody: {
             required: true,
             content: {
@@ -7916,7 +8390,11 @@ export function buildOpenApiDocument() {
         delete: {
           operationId: "deleteHrEmploymentLifecyclePolicy",
           security: [{ cookieAuth: [] }],
-          parameters: [{ in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } }, csrfParameter, idempotencyParameter],
+          parameters: [
+            { in: "path", name: "policyId", required: true, schema: { type: "string", minLength: 1, maxLength: 128 } },
+            csrfParameter,
+            idempotencyParameter,
+          ],
           requestBody: {
             required: true,
             content: {
@@ -7925,9 +8403,12 @@ export function buildOpenApiDocument() {
           },
           responses: {
             "200": {
-              description: "Unreferenced draft lifecycle policy deleted with its draft definition; the code is not reissued",
+              description:
+                "Unreferenced draft lifecycle policy deleted with its draft definition; the code is not reissued",
               content: {
-                "application/json": { schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDeleteResult" } },
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/HrEmploymentLifecyclePolicyDeleteResult" },
+                },
               },
             },
             ...securityErrors,
@@ -8096,6 +8577,15 @@ export function buildOpenApiDocument() {
         cookieAuth: { type: "apiKey", in: "cookie", name: "__Host-nexora_session" },
       },
       schemas: {
+        StockPolicyInput: schema(stockPolicyInputSchema),
+        StockPolicy: schema(stockPolicySchema),
+        StockValuationInput: schema(stockValuationInputSchema),
+        StockValuation: schema(stockValuationSchema),
+        StockMovementInput: schema(stockMovementInputSchema),
+        StockAction: schema(stockActionSchema),
+        StockOperation: schema(stockOperationSchema),
+        StockWorkspace: schema(stockWorkspaceSchema),
+        StockLookupDirectory: schema(stockLookupDirectorySchema),
         BankWorkflowOptions: schema(bankWorkflowOptionsSchema),
         ReassignBankApproverRequest: schema(reassignBankApproverRequestSchema),
         BankSelfApprovalGrant: schema(bankSelfApprovalGrantSchema),
@@ -8121,7 +8611,7 @@ export function buildOpenApiDocument() {
         InventoryCompanies: schema(inventoryCompaniesSchema),
         MeasurementUnit: schema(unitSchema),
         UnitInput: schema(unitInputSchema),
-        UpdateUnitInput: schema(unitInputSchema.extend({expected_version:z.number().int().positive()})),
+        UpdateUnitInput: schema(unitInputSchema.extend({ expected_version: z.number().int().positive() })),
         UnitDirectory: schema(unitDirectorySchema),
         UnitMutation: schema(unitMutationSchema),
         UnitConversion: schema(unitConversionSchema),

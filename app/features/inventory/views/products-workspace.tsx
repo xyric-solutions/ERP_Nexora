@@ -405,7 +405,9 @@ export function ProductsWorkspace({
                     </div>
                     <div>
                       <dt className="text-xs text-muted-foreground">On hand</dt>
-                      <dd className="m-0 mt-0.5">{product.track_inventory ? "Not posted" : "Not tracked"}</dd>
+                      <dd className="m-0 mt-0.5">
+                        {product.track_inventory ? (product.on_hand_quantity ?? "Not posted") : "Not tracked"}
+                      </dd>
                     </div>
                   </dl>
                   <div className="flex flex-wrap justify-between gap-2 text-xs text-muted-foreground">
@@ -454,7 +456,9 @@ export function ProductsWorkspace({
                       <td className="whitespace-nowrap px-4 py-3 tabular-nums">
                         {p.currency} {Number(p.sale_price).toFixed(2)}
                       </td>
-                      <td className="px-4 py-3">{p.track_inventory ? "Not posted" : "Not tracked"}</td>
+                      <td className="px-4 py-3">
+                        {p.track_inventory ? (p.on_hand_quantity ?? "Not posted") : "Not tracked"}
+                      </td>
                       <td className="px-4 py-3">{p.status}</td>
                     </tr>
                   ))}

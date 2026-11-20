@@ -4,7 +4,11 @@ import { ModuleDesignSurface } from "@/shared/ui/module-design";
 import { purchaseSteps } from "@prototype/features/purchasing/model/purchase-workflow";
 import { PURCHASE_EXPORT_EVENT } from "@prototype/features/purchasing/model/purchase-export";
 import { compactHrWorkspaces } from "@prototype/features/hr/model/hr-section-navigation";
-import { markSalesNotificationRead, useSalesNavigationCounts, useSalesNotifications } from "@prototype/features/sales/model/sales-store";
+import {
+  markSalesNotificationRead,
+  useSalesNavigationCounts,
+  useSalesNotifications,
+} from "@prototype/features/sales/model/sales-store";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
@@ -65,19 +69,21 @@ const navigationPageId = (moduleId: string, pageId: string) =>
     ? "assets"
     : moduleId === "purchases" && ["purchase-bill-returns", "purchase-refunds"].includes(pageId)
       ? "purchase-returns"
-    : moduleId === "inventory"
-    ? pageId === "units-of-measure"
-      ? "units-of-measure"
-      : ["warehouses", "add-warehouse"].includes(pageId)
-      ? "warehouses"
-      : ["stock-transfers", "add-stock-transfer"].includes(pageId)
-        ? "stock-transfers"
-        : "products"
-    : moduleId === "purchases"
-      ? (purchaseSteps.find((step) => step.page === pageId || step.form === pageId)?.page ?? pageId)
-      : moduleId === "finance" && legacyJournalPageIds.has(pageId)
-        ? "journal-register"
-        : pageId;
+      : moduleId === "inventory"
+        ? pageId === "stock-movements"
+          ? "stock-movements"
+          : pageId === "units-of-measure"
+            ? "units-of-measure"
+            : ["warehouses", "add-warehouse"].includes(pageId)
+              ? "warehouses"
+              : ["stock-transfers", "add-stock-transfer"].includes(pageId)
+                ? "stock-transfers"
+                : "products"
+        : moduleId === "purchases"
+          ? (purchaseSteps.find((step) => step.page === pageId || step.form === pageId)?.page ?? pageId)
+          : moduleId === "finance" && legacyJournalPageIds.has(pageId)
+            ? "journal-register"
+            : pageId;
 const moduleParties: Record<string, readonly string[]> = {
   sales: ["Atlas Retail Group", "Crescent Finance", "Northstar Foods", "BluePeak Logistics"],
   revenue: ["Crescent Finance", "Orbit Telecom", "Atlas Retail Group", "Northstar Foods"],
@@ -331,7 +337,9 @@ export function PrototypeShell({
     current.module.id === "banking" &&
     ["bank-accounts", "add-bank-account", "bank-account-detail", "bank-account-approvals"].includes(current.page.id);
   const isLiveMasterDataPage =
-    isLiveFinanceChartPage || isLiveBankMasterDataPage || ["purchases", "inventory", "budget"].includes(current.module.id);
+    isLiveFinanceChartPage ||
+    isLiveBankMasterDataPage ||
+    ["purchases", "inventory", "budget"].includes(current.module.id);
   const currentRole = roleOptions.find((role) => role.id === roleId) ?? roleOptions[0];
   const currentCompany = companies.find((company) => company.mode === companyMode) ?? companies[0];
   const currentMode = companyModeOptions.find((mode) => mode.id === companyMode) ?? companyModeOptions[0];
@@ -412,7 +420,11 @@ export function PrototypeShell({
     ) => {
       if (!confirmPaymentEntryDiscard(options?.bypassUnsavedGuard)) return;
       const resolved = findPrototypePage(moduleId, pageId);
-      const next = { moduleId: resolved.module.id, pageId: resolved.page.id, recordRef: recordRef ?? resolved.redirectRecordRef };
+      const next = {
+        moduleId: resolved.module.id,
+        pageId: resolved.page.id,
+        recordRef: recordRef ?? resolved.redirectRecordRef,
+      };
       routeRef.current = next;
       paymentEntryDirtyRef.current = false;
       setPaymentEntryDirty(false);
@@ -571,7 +583,10 @@ export function PrototypeShell({
         return;
       }
       if (normalized === "export") {
-        if (current.module.id === "purchases" && purchaseSteps.some((step) => step.page === current.page.id || step.form === current.page.id)) {
+        if (
+          current.module.id === "purchases" &&
+          purchaseSteps.some((step) => step.page === current.page.id || step.form === current.page.id)
+        ) {
           window.dispatchEvent(new Event(PURCHASE_EXPORT_EVENT));
           return;
         }
@@ -705,837 +720,859 @@ export function PrototypeShell({
 
   return (
     <ModuleDesignSurface moduleId={current.module.id}>
-    <div className="nx-prototype" data-density={density} data-role-theme={roleId}>
-      <div
-        className="nx-shell"
-        data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}
-        data-mobile-nav={mobileOpen ? "open" : "closed"}
-      >
-        <button
-          className="nx-mobile-overlay"
-          data-open={mobileOpen ? "true" : "false"}
-          aria-label="Close navigation"
-          type="button"
-          onClick={() => setMobileOpen(false)}
-        />
-        <aside
-          className="nx-sidebar bg-none!"
-          id="nexora-navigation"
-          data-mobile-open={mobileOpen ? "true" : "false"}
-          aria-label="Nexora navigation"
+      <div className="nx-prototype" data-density={density} data-role-theme={roleId}>
+        <div
+          className="nx-shell"
+          data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}
+          data-mobile-nav={mobileOpen ? "open" : "closed"}
         >
-          <div className="nx-sidebar__header">
-            <button
-              className="nx-sidebar__brand"
-              type="button"
-              onClick={() => navigate("dashboard", currentRole.dashboardPageId)}
-              aria-label="Open dashboard"
-            >
-              <span className="nx-sidebar__logo bg-transparent! text-[var(--nx-sidebar-accent)]! shadow-none!">
-                <NexoraMark className="size-8" />
-              </span>
-              <span className="nx-sidebar__identity">
-                <strong>{application.name}</strong>
-              </span>
-            </button>
-            <button
-              className="nx-sidebar__close"
-              type="button"
-              aria-label="Close sidebar"
-              onClick={() => setMobileOpen(false)}
-            >
-              <X className="h-[1em] w-[1em]" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="nx-sidebar__scroll pb-12">
-            <nav className="nx-sidebar__nav" aria-label="All Nexora modules">
-              {["Command centre", "Finance & trade", "Operations & people", "Platform & governance"].map((category) => {
-                const modules = visibleModules.filter((module) => module.category === category);
-                if (!modules.length) return null;
-                return (
-                  <section className="nx-sidebar__section" key={category}>
-                    <h2 className="nx-sidebar__section-label">{category}</h2>
-                    <ul className="nx-module-list">
-                      {modules.map((module) => {
-                        const active = module.id === current.module.id;
-                        const hasInlineMenu = module.id !== "reports";
-                        const expanded = hasInlineMenu && expandedModule === module.id && !sidebarCollapsed;
-                        return (
-                          <li className="nx-module-item" key={module.id}>
-                            <button
-                              className={`nx-module-button${active ? " nx-module-button--active" : ""}`}
-                              aria-expanded={hasInlineMenu ? expanded : undefined}
-                              aria-current={active ? "page" : undefined}
-                              title={module.label}
-                              type="button"
-                              onClick={() => openModule(module)}
-                            >
-                              <span className="nx-module-button__icon size-6! rounded-none! bg-transparent! text-[13px]! shadow-none!">
-                                <ModuleIcon moduleId={module.id} />
-                              </span>
-                              <span className="nx-module-button__label text-[13px]!">{module.shortLabel}</span>
-                              <span className="nx-module-button__meta">
-                                <i className="nx-module-button__chevron" />
-                              </span>
-                            </button>
-                            {expanded ? (
-                              <ul className="nx-submenu">
-                                {module.groups
-                                  .filter((group) => !group.hiddenFromNavigation)
-                                  .map((group) => {
-                                    if (["purchases", "inventory"].includes(module.id) || (module.id === "finance" && group.id === "taxes"))
-                                      return group.pages
-                                        .filter((page) => !page.hiddenFromNavigation)
-                                        .map((page) => (
-                                          <li key={page.id}>
-                                            <button
-                                              type="button"
-                                              className={`nx-submenu-link${page.id === currentNavigationPageId ? " nx-submenu-link--active" : ""}`}
-                                              aria-current={page.id === currentNavigationPageId ? "page" : undefined}
-                                              onClick={() => navigate(module.id, page.id)}
-                                            >
-                                              <span>{page.label}</span>
-                                            </button>
-                                          </li>
-                                        ));
-                                    if (module.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id)) {
-                                      return (
-                                        <li key={group.id}>
-                                          <button
-                                            className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-[color-mix(in_srgb,var(--nx-sidebar-accent)_22%,var(--nx-sidebar-surface))]! font-semibold text-[var(--nx-sidebar-accent)]! shadow-[inset_2px_0_0_var(--nx-sidebar-accent)]" : ""}`}
-                                            type="button"
-                                            aria-current={
-                                              current.module.id === "hr" && current.group.id === group.id
-                                                ? "page"
-                                                : undefined
-                                            }
-                                            onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
-                                          >
-                                            <span>{group.label}</span>
-                                          </button>
-                                        </li>
-                                      );
-                                    }
-                                    const visiblePages = group.pages.filter((page) => !page.hiddenFromNavigation);
-                                    const pageLinks = visiblePages.map((page) => {
-                                      const isCurrent =
-                                        module.id === current.module.id && page.id === currentNavigationPageId;
-                                      const count = module.id === "sales" ? (salesNavigationCounts[page.id] ?? 0) : 0;
-                                      return (
-                                        <li key={page.id}>
-                                          <button
-                                            className={`nx-submenu-link${isCurrent ? " nx-submenu-link--active" : ""}`}
-                                            aria-current={isCurrent ? "page" : undefined}
-                                            type="button"
-                                            onClick={() => navigate(module.id, page.id)}
-                                          >
-                                            <span>{page.label}</span>
-                                            {count ? (
-                                              <small
-                                                className="ml-auto min-w-5 rounded-full bg-[var(--nx-sidebar-accent)] px-1.5 text-center font-bold text-[var(--nx-action-text)]"
-                                                aria-label={`${count} waiting`}
-                                              >
-                                                {count}
-                                              </small>
-                                            ) : page.status === "in-progress" ? (
-                                              <small>In progress</small>
-                                            ) : page.status === "live" ? (
-                                              <small>Live</small>
-                                            ) : page.status === "read-only" ? (
-                                              <small>Read only</small>
-                                            ) : page.status !== "prototype" ? (
-                                              <small>Soon</small>
-                                            ) : null}
-                                          </button>
-                                        </li>
-                                      );
-                                    });
-                                    // Inline groups list their pages directly under the module, with no group header.
-                                    if (group.inline) {
-                                      return (
-                                        <li key={group.id}>
-                                          <ul className="nx-submenu__list">{pageLinks}</ul>
-                                        </li>
-                                      );
-                                    }
-                                    const groupKey = `${module.id}:${group.id}`;
-                                    // Navigating into a group adds it to expandedGroups, so its chevron can still close it.
-                                    const groupOpen = expandedGroups.has(groupKey);
-                                    return (
-                                      <li key={group.id}>
-                                        <button
-                                          className="nx-submenu-button"
-                                          type="button"
-                                          aria-expanded={groupOpen}
-                                          onClick={() => toggleGroup(module.id, group.id)}
-                                        >
-                                          <span>{group.label}</span>
-                                          <i className="nx-submenu-button__chevron" />
-                                        </button>
-                                        {groupOpen ? <ul className="nx-submenu__list">{pageLinks}</ul> : null}
-                                      </li>
-                                    );
-                                  })}
-                              </ul>
-                            ) : null}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </section>
-                );
-              })}
-            </nav>
-          </div>
-        </aside>
-        <button
-          className="fixed bottom-4 z-[85] hidden size-8 items-center justify-center rounded-full border border-[var(--nx-sidebar-line)] bg-[var(--nx-sidebar-surface)] text-sm text-[var(--nx-sidebar-text)] shadow-sm transition-[left] duration-200 focus-visible:ring-2 focus-visible:ring-[var(--nx-sidebar-accent)] md:flex print:hidden!"
-          style={{
-            left: sidebarCollapsed
-              ? "calc(var(--nx-sidebar-rail-width) - 16px)"
-              : "calc(var(--nx-sidebar-width) - 16px)",
-          }}
-          type="button"
-          aria-label={sidebarCollapsed ? "Expand sidebar menu" : "Collapse sidebar"}
-          aria-expanded={!sidebarCollapsed}
-          aria-controls="nexora-navigation"
-          onClick={() => setSidebarCollapsed((value) => !value)}
-        >
-          {sidebarCollapsed ? (
-            <ChevronsRight className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
-          ) : (
-            <ChevronsLeft className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
-          )}
-        </button>
-        <main className="nx-main bg-[var(--nx-sidebar)]!">
-          <header className="nx-topbar">
-            <button
-              className="nx-mobile-menu-button"
-              type="button"
-              aria-label="Open navigation"
-              onClick={() => setMobileOpen(true)}
-            >
-              <Menu className="h-[1em] w-[1em]" aria-hidden="true" />
-            </button>
-            <span className="nx-topbar__brand max-sm:hidden!">{application.name}</span>
-            <button
-              className="nx-global-search w-auto! min-w-0! flex-1! max-xl:w-10! max-xl:min-w-10! max-xl:flex-none!"
-              type="button"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search transactions and pages"
-            >
-              <Search className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
-              <span className="nx-shell-search-copy max-xl:hidden!">Search transactions and pages</span>
-              <kbd className="max-xl:hidden!">Ctrl K</kbd>
-            </button>
-            <WorkspaceCompanySelect
-              beforeSwitch={() => !paymentEntryDirtyRef.current || window.confirm("You have unsaved form changes. Switch company and discard them?")}
-              onSwitched={() => {
-                reportEntryDirty(false);
-                window.location.hash = hashForRoute(initialRoute);
-              }}
-            />
-            <div className="nx-topbar__actions">
-              <button
-                className="nx-intelligence-trigger max-lg:hidden!"
-                type="button"
-                onClick={() => setIntelligenceSurface({ kind: "work" })}
-              >
-                <ListChecks className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
-                <span className="max-lg:hidden!">My Work</span>
-                <b>4</b>
-              </button>
-              <button
-                className="nx-intelligence-trigger nx-intelligence-trigger--ai max-lg:hidden!"
-                type="button"
-                aria-label="Nexora AI"
-                onClick={() => setIntelligenceSurface({ kind: "assistant" })}
-              >
-                <Sparkles className="h-[1em] w-[1em] shrink-0 text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
-                <span className="max-lg:hidden!">Nexora AI</span>
-              </button>
-              <button
-                className="nx-icon-button max-sm:hidden!"
-                type="button"
-                aria-label="Prototype help"
-                onClick={() => setDialog({ type: "help" })}
-              >
-                <CircleHelp className="h-[1em] w-[1em]" aria-hidden="true" />
-              </button>
-              <button
-                className="nx-icon-button"
-                type="button"
-                aria-label="Open notifications"
-                onClick={() => setDialog({ type: "notifications" })}
-              >
-                <Bell className="h-[1em] w-[1em]" aria-hidden="true" />
-                <span className="nx-icon-button__badge">{3 + unreadSalesNotifications}</span>
-              </button>
-              {headerControls}
-            </div>
-          </header>
-          {activeWorkspace === "prototype" && isLiveMasterDataPage ? (
-            <section
-              className="nx-prototype-toolbar"
-              aria-label={
-                current.module.id === "inventory"
-                  ? "Inventory display controls"
-                  : current.module.id === "purchases"
-                    ? "Purchase display controls"
-                    : isLiveMasterDataPage
-                      ? "Account master data controls"
-                      : "Prototype controls"
-              }
-            >
-              <div className="nx-prototype-toolbar__controls">
-                {!isLiveMasterDataPage && (
-                  <>
-                    <select
-                      className="nx-context-control"
-                      value={companyMode}
-                      onChange={(event) => changeCompanyMode(event.target.value as CompanyMode)}
-                      aria-label="Company navigation variant"
-                    >
-                      {companyModeOptions.map((mode) => (
-                        <option key={mode.id} value={mode.id}>
-                          Company: {mode.shortLabel}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="nx-context-control"
-                      value={roleId}
-                      onChange={(event) => changeRole(event.target.value)}
-                      aria-label="Role visibility prototype"
-                    >
-                      {roleOptions.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          Role: {role.shortLabel}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="nx-context-control"
-                      type="button"
-                      aria-pressed={modeScoped}
-                      onClick={toggleModeScope}
-                    >
-                      Company menus: {modeScoped ? "Scoped" : "All"}
-                    </button>
-                    <button
-                      className="nx-context-control"
-                      type="button"
-                      aria-pressed={roleScoped}
-                      onClick={toggleRoleScope}
-                    >
-                      Role menus: {roleScoped ? "Scoped" : "All"}
-                    </button>
-                  </>
-                )}
-                <button
-                  className="nx-context-control"
-                  type="button"
-                  aria-pressed={density === "compact"}
-                  onClick={() => setDensity((value) => (value === "comfortable" ? "compact" : "comfortable"))}
-                >
-                  Density: {density === "comfortable" ? "Comfortable" : "Compact"}
-                </button>
-                {!isLiveMasterDataPage && (
-                  <select
-                    className="nx-context-control"
-                    value={viewState}
-                    onChange={(event) => setViewState(event.target.value as PrototypeViewState)}
-                    aria-label="Preview page state"
-                  >
-                    <option value="data">State: Data</option>
-                    <option value="loading">State: Loading</option>
-                    <option value="empty">State: Empty</option>
-                    <option value="error">State: Error</option>
-                  </select>
-                )}
-              </div>
-            </section>
-          ) : null}
-
-          <div
-            data-bank-workspace={current.module.id === "banking" ? "" : undefined}
-            className={`nx-content mt-3 flex-1 rounded-tl-3xl bg-background${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}${current.module.id === "banking" ? ` ${bankWorkspaceLayout}` : ""}`}
+          <button
+            className="nx-mobile-overlay"
+            data-open={mobileOpen ? "true" : "false"}
+            aria-label="Close navigation"
+            type="button"
+            onClick={() => setMobileOpen(false)}
+          />
+          <aside
+            className="nx-sidebar bg-none!"
+            id="nexora-navigation"
+            data-mobile-open={mobileOpen ? "true" : "false"}
+            aria-label="Nexora navigation"
           >
-            {activeWorkspace === "identity" && identityContent ? (
-              identityContent
+            <div className="nx-sidebar__header">
+              <button
+                className="nx-sidebar__brand"
+                type="button"
+                onClick={() => navigate("dashboard", currentRole.dashboardPageId)}
+                aria-label="Open dashboard"
+              >
+                <span className="nx-sidebar__logo bg-transparent! text-[var(--nx-sidebar-accent)]! shadow-none!">
+                  <NexoraMark className="size-8" />
+                </span>
+                <span className="nx-sidebar__identity">
+                  <strong>{application.name}</strong>
+                </span>
+              </button>
+              <button
+                className="nx-sidebar__close"
+                type="button"
+                aria-label="Close sidebar"
+                onClick={() => setMobileOpen(false)}
+              >
+                <X className="h-[1em] w-[1em]" aria-hidden="true" />
+              </button>
+            </div>
+            <div className="nx-sidebar__scroll pb-12">
+              <nav className="nx-sidebar__nav" aria-label="All Nexora modules">
+                {["Command centre", "Finance & trade", "Operations & people", "Platform & governance"].map(
+                  (category) => {
+                    const modules = visibleModules.filter((module) => module.category === category);
+                    if (!modules.length) return null;
+                    return (
+                      <section className="nx-sidebar__section" key={category}>
+                        <h2 className="nx-sidebar__section-label">{category}</h2>
+                        <ul className="nx-module-list">
+                          {modules.map((module) => {
+                            const active = module.id === current.module.id;
+                            const hasInlineMenu = module.id !== "reports";
+                            const expanded = hasInlineMenu && expandedModule === module.id && !sidebarCollapsed;
+                            return (
+                              <li className="nx-module-item" key={module.id}>
+                                <button
+                                  className={`nx-module-button${active ? " nx-module-button--active" : ""}`}
+                                  aria-expanded={hasInlineMenu ? expanded : undefined}
+                                  aria-current={active ? "page" : undefined}
+                                  title={module.label}
+                                  type="button"
+                                  onClick={() => openModule(module)}
+                                >
+                                  <span className="nx-module-button__icon size-6! rounded-none! bg-transparent! text-[13px]! shadow-none!">
+                                    <ModuleIcon moduleId={module.id} />
+                                  </span>
+                                  <span className="nx-module-button__label text-[13px]!">{module.shortLabel}</span>
+                                  <span className="nx-module-button__meta">
+                                    <i className="nx-module-button__chevron" />
+                                  </span>
+                                </button>
+                                {expanded ? (
+                                  <ul className="nx-submenu">
+                                    {module.groups
+                                      .filter((group) => !group.hiddenFromNavigation)
+                                      .map((group) => {
+                                        if (
+                                          ["purchases", "inventory"].includes(module.id) ||
+                                          (module.id === "finance" && group.id === "taxes")
+                                        )
+                                          return group.pages
+                                            .filter((page) => !page.hiddenFromNavigation)
+                                            .map((page) => (
+                                              <li key={page.id}>
+                                                <button
+                                                  type="button"
+                                                  className={`nx-submenu-link${page.id === currentNavigationPageId ? " nx-submenu-link--active" : ""}`}
+                                                  aria-current={
+                                                    page.id === currentNavigationPageId ? "page" : undefined
+                                                  }
+                                                  onClick={() => navigate(module.id, page.id)}
+                                                >
+                                                  <span>{page.label}</span>
+                                                </button>
+                                              </li>
+                                            ));
+                                        if (module.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id)) {
+                                          return (
+                                            <li key={group.id}>
+                                              <button
+                                                className={`nx-submenu-button${current.module.id === "hr" && current.group.id === group.id ? " bg-[color-mix(in_srgb,var(--nx-sidebar-accent)_22%,var(--nx-sidebar-surface))]! font-semibold text-[var(--nx-sidebar-accent)]! shadow-[inset_2px_0_0_var(--nx-sidebar-accent)]" : ""}`}
+                                                type="button"
+                                                aria-current={
+                                                  current.module.id === "hr" && current.group.id === group.id
+                                                    ? "page"
+                                                    : undefined
+                                                }
+                                                onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
+                                              >
+                                                <span>{group.label}</span>
+                                              </button>
+                                            </li>
+                                          );
+                                        }
+                                        const visiblePages = group.pages.filter((page) => !page.hiddenFromNavigation);
+                                        const pageLinks = visiblePages.map((page) => {
+                                          const isCurrent =
+                                            module.id === current.module.id && page.id === currentNavigationPageId;
+                                          const count =
+                                            module.id === "sales" ? (salesNavigationCounts[page.id] ?? 0) : 0;
+                                          return (
+                                            <li key={page.id}>
+                                              <button
+                                                className={`nx-submenu-link${isCurrent ? " nx-submenu-link--active" : ""}`}
+                                                aria-current={isCurrent ? "page" : undefined}
+                                                type="button"
+                                                onClick={() => navigate(module.id, page.id)}
+                                              >
+                                                <span>{page.label}</span>
+                                                {count ? (
+                                                  <small
+                                                    className="ml-auto min-w-5 rounded-full bg-[var(--nx-sidebar-accent)] px-1.5 text-center font-bold text-[var(--nx-action-text)]"
+                                                    aria-label={`${count} waiting`}
+                                                  >
+                                                    {count}
+                                                  </small>
+                                                ) : page.status === "in-progress" ? (
+                                                  <small>In progress</small>
+                                                ) : page.status === "live" ? (
+                                                  <small>Live</small>
+                                                ) : page.status === "read-only" ? (
+                                                  <small>Read only</small>
+                                                ) : page.status !== "prototype" ? (
+                                                  <small>Soon</small>
+                                                ) : null}
+                                              </button>
+                                            </li>
+                                          );
+                                        });
+                                        // Inline groups list their pages directly under the module, with no group header.
+                                        if (group.inline) {
+                                          return (
+                                            <li key={group.id}>
+                                              <ul className="nx-submenu__list">{pageLinks}</ul>
+                                            </li>
+                                          );
+                                        }
+                                        const groupKey = `${module.id}:${group.id}`;
+                                        // Navigating into a group adds it to expandedGroups, so its chevron can still close it.
+                                        const groupOpen = expandedGroups.has(groupKey);
+                                        return (
+                                          <li key={group.id}>
+                                            <button
+                                              className="nx-submenu-button"
+                                              type="button"
+                                              aria-expanded={groupOpen}
+                                              onClick={() => toggleGroup(module.id, group.id)}
+                                            >
+                                              <span>{group.label}</span>
+                                              <i className="nx-submenu-button__chevron" />
+                                            </button>
+                                            {groupOpen ? <ul className="nx-submenu__list">{pageLinks}</ul> : null}
+                                          </li>
+                                        );
+                                      })}
+                                  </ul>
+                                ) : null}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </section>
+                    );
+                  },
+                )}
+              </nav>
+            </div>
+          </aside>
+          <button
+            className="fixed bottom-4 z-[85] hidden size-8 items-center justify-center rounded-full border border-[var(--nx-sidebar-line)] bg-[var(--nx-sidebar-surface)] text-sm text-[var(--nx-sidebar-text)] shadow-sm transition-[left] duration-200 focus-visible:ring-2 focus-visible:ring-[var(--nx-sidebar-accent)] md:flex print:hidden!"
+            style={{
+              left: sidebarCollapsed
+                ? "calc(var(--nx-sidebar-rail-width) - 16px)"
+                : "calc(var(--nx-sidebar-width) - 16px)",
+            }}
+            type="button"
+            aria-label={sidebarCollapsed ? "Expand sidebar menu" : "Collapse sidebar"}
+            aria-expanded={!sidebarCollapsed}
+            aria-controls="nexora-navigation"
+            onClick={() => setSidebarCollapsed((value) => !value)}
+          >
+            {sidebarCollapsed ? (
+              <ChevronsRight className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
             ) : (
-              <>
-                {!isCompactHrWorkspace ? (
-                  <>
-                    <ol className="nx-breadcrumbs" aria-label="Breadcrumb">
-                      <li>
-                        <button type="button" onClick={() => navigate("dashboard", currentRole.dashboardPageId)}>
-                          Workspace
-                        </button>
-                      </li>
-                      <li>
-                        <button
-                          type="button"
-                          onClick={() => navigate(current.module.id, current.module.groups[0].pages[0].id)}
-                        >
-                          {current.module.shortLabel}
-                        </button>
-                      </li>
-                      {current.module.id === "hr" &&
-                      current.group.id === "organisation" &&
-                      current.page.id !== "organisation-masters" ? (
+              <ChevronsLeft className="h-[1em] w-[1em] text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
+            )}
+          </button>
+          <main className="nx-main bg-[var(--nx-sidebar)]!">
+            <header className="nx-topbar">
+              <button
+                className="nx-mobile-menu-button"
+                type="button"
+                aria-label="Open navigation"
+                onClick={() => setMobileOpen(true)}
+              >
+                <Menu className="h-[1em] w-[1em]" aria-hidden="true" />
+              </button>
+              <span className="nx-topbar__brand max-sm:hidden!">{application.name}</span>
+              <button
+                className="nx-global-search w-auto! min-w-0! flex-1! max-xl:w-10! max-xl:min-w-10! max-xl:flex-none!"
+                type="button"
+                onClick={() => setSearchOpen(true)}
+                aria-label="Search transactions and pages"
+              >
+                <Search className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
+                <span className="nx-shell-search-copy max-xl:hidden!">Search transactions and pages</span>
+                <kbd className="max-xl:hidden!">Ctrl K</kbd>
+              </button>
+              <WorkspaceCompanySelect
+                beforeSwitch={() =>
+                  !paymentEntryDirtyRef.current ||
+                  window.confirm("You have unsaved form changes. Switch company and discard them?")
+                }
+                onSwitched={() => {
+                  reportEntryDirty(false);
+                  window.location.hash = hashForRoute(initialRoute);
+                }}
+              />
+              <div className="nx-topbar__actions">
+                <button
+                  className="nx-intelligence-trigger max-lg:hidden!"
+                  type="button"
+                  onClick={() => setIntelligenceSurface({ kind: "work" })}
+                >
+                  <ListChecks className="h-[1em] w-[1em] shrink-0" aria-hidden="true" />
+                  <span className="max-lg:hidden!">My Work</span>
+                  <b>4</b>
+                </button>
+                <button
+                  className="nx-intelligence-trigger nx-intelligence-trigger--ai max-lg:hidden!"
+                  type="button"
+                  aria-label="Nexora AI"
+                  onClick={() => setIntelligenceSurface({ kind: "assistant" })}
+                >
+                  <Sparkles className="h-[1em] w-[1em] shrink-0 text-[var(--nx-sidebar-text)]!" aria-hidden="true" />
+                  <span className="max-lg:hidden!">Nexora AI</span>
+                </button>
+                <button
+                  className="nx-icon-button max-sm:hidden!"
+                  type="button"
+                  aria-label="Prototype help"
+                  onClick={() => setDialog({ type: "help" })}
+                >
+                  <CircleHelp className="h-[1em] w-[1em]" aria-hidden="true" />
+                </button>
+                <button
+                  className="nx-icon-button"
+                  type="button"
+                  aria-label="Open notifications"
+                  onClick={() => setDialog({ type: "notifications" })}
+                >
+                  <Bell className="h-[1em] w-[1em]" aria-hidden="true" />
+                  <span className="nx-icon-button__badge">{3 + unreadSalesNotifications}</span>
+                </button>
+                {headerControls}
+              </div>
+            </header>
+            {activeWorkspace === "prototype" && isLiveMasterDataPage ? (
+              <section
+                className="nx-prototype-toolbar"
+                aria-label={
+                  current.module.id === "inventory"
+                    ? "Inventory display controls"
+                    : current.module.id === "purchases"
+                      ? "Purchase display controls"
+                      : isLiveMasterDataPage
+                        ? "Account master data controls"
+                        : "Prototype controls"
+                }
+              >
+                <div className="nx-prototype-toolbar__controls">
+                  {!isLiveMasterDataPage && (
+                    <>
+                      <select
+                        className="nx-context-control"
+                        value={companyMode}
+                        onChange={(event) => changeCompanyMode(event.target.value as CompanyMode)}
+                        aria-label="Company navigation variant"
+                      >
+                        {companyModeOptions.map((mode) => (
+                          <option key={mode.id} value={mode.id}>
+                            Company: {mode.shortLabel}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        className="nx-context-control"
+                        value={roleId}
+                        onChange={(event) => changeRole(event.target.value)}
+                        aria-label="Role visibility prototype"
+                      >
+                        {roleOptions.map((role) => (
+                          <option key={role.id} value={role.id}>
+                            Role: {role.shortLabel}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="nx-context-control"
+                        type="button"
+                        aria-pressed={modeScoped}
+                        onClick={toggleModeScope}
+                      >
+                        Company menus: {modeScoped ? "Scoped" : "All"}
+                      </button>
+                      <button
+                        className="nx-context-control"
+                        type="button"
+                        aria-pressed={roleScoped}
+                        onClick={toggleRoleScope}
+                      >
+                        Role menus: {roleScoped ? "Scoped" : "All"}
+                      </button>
+                    </>
+                  )}
+                  <button
+                    className="nx-context-control"
+                    type="button"
+                    aria-pressed={density === "compact"}
+                    onClick={() => setDensity((value) => (value === "comfortable" ? "compact" : "comfortable"))}
+                  >
+                    Density: {density === "comfortable" ? "Comfortable" : "Compact"}
+                  </button>
+                  {!isLiveMasterDataPage && (
+                    <select
+                      className="nx-context-control"
+                      value={viewState}
+                      onChange={(event) => setViewState(event.target.value as PrototypeViewState)}
+                      aria-label="Preview page state"
+                    >
+                      <option value="data">State: Data</option>
+                      <option value="loading">State: Loading</option>
+                      <option value="empty">State: Empty</option>
+                      <option value="error">State: Error</option>
+                    </select>
+                  )}
+                </div>
+              </section>
+            ) : null}
+
+            <div
+              data-bank-workspace={current.module.id === "banking" ? "" : undefined}
+              className={`nx-content mt-3 flex-1 rounded-tl-3xl bg-background${isCompactHrWorkspace ? " pt-3! sm:pt-4!" : ""}${current.module.id === "banking" ? ` ${bankWorkspaceLayout}` : ""}`}
+            >
+              {activeWorkspace === "identity" && identityContent ? (
+                identityContent
+              ) : (
+                <>
+                  {!isCompactHrWorkspace ? (
+                    <>
+                      <ol className="nx-breadcrumbs" aria-label="Breadcrumb">
                         <li>
-                          <button type="button" onClick={() => navigate("hr", "organisation-masters")}>
-                            {current.group.label}
+                          <button type="button" onClick={() => navigate("dashboard", currentRole.dashboardPageId)}>
+                            Workspace
                           </button>
                         </li>
-                      ) : !current.group.inline &&
-                        !["purchases", "inventory"].includes(current.module.id) &&
-                        current.group.label !== current.page.label &&
-                        current.group.label !== current.module.shortLabel &&
-                        current.group.label !== current.module.label ? (
-                        <li>{current.group.label}</li>
-                      ) : null}
-                      <li aria-current="page">{current.page.label}</li>
-                    </ol>
-                  </>
-                ) : null}
-                <ActionFeedbackProvider
-                  onSuccess={(message) =>
-                    pushToast(
-                      "success",
-                      current.module.id === "inventory"
-                        ? "Inventory updated successfully"
-                        : current.module.id === "purchases"
-                          ? "Purchases updated successfully"
-                          : isLiveFinanceChartPage
-                            ? "Finance updated successfully"
-                            : ["sales", "revenue", "customers", "administration", "manufacturing", "fleet"].includes(current.module.id)
-                              ? `${current.module.shortLabel} updated successfully`
-                              : "Bank updated successfully",
-                      message,
-                    )
-                  }
-                >
-                  {!currentModuleAllowed ? (
-                    <NoModuleAccess
-                      moduleLabel={current.module.label}
-                      onHome={() => navigate("dashboard", currentRole.dashboardPageId)}
-                    />
-                  ) : (
-                  <PrototypeContent
-                    context={{
-                      moduleId: current.module.id,
-                      moduleLabel: current.module.label,
-                      moduleCode: current.module.code,
-                      moduleDescription: current.module.description,
-                      pageLabel: current.page.label,
-                      pageId: current.page.id,
-                      archetype: current.page.archetype,
-                      status: current.page.status,
-                      mode: currentMode.label,
-                      role: currentRole.label,
-                      roleId: currentRole.id,
-                      companyMode,
-                      recordRef: route.recordRef,
-                    }}
-                    rows={rows}
-                    viewState={viewState}
-                    onAction={handleAction}
-                    onOpenPage={(pageId) => navigate(current.module.id, pageId)}
-                    onNavigate={(moduleId, pageId, recordRef, options) =>
-                      navigate(moduleId, pageId, recordRef, options)
+                        <li>
+                          <button
+                            type="button"
+                            onClick={() => navigate(current.module.id, current.module.groups[0].pages[0].id)}
+                          >
+                            {current.module.shortLabel}
+                          </button>
+                        </li>
+                        {current.module.id === "hr" &&
+                        current.group.id === "organisation" &&
+                        current.page.id !== "organisation-masters" ? (
+                          <li>
+                            <button type="button" onClick={() => navigate("hr", "organisation-masters")}>
+                              {current.group.label}
+                            </button>
+                          </li>
+                        ) : !current.group.inline &&
+                          !["purchases", "inventory"].includes(current.module.id) &&
+                          current.group.label !== current.page.label &&
+                          current.group.label !== current.module.shortLabel &&
+                          current.group.label !== current.module.label ? (
+                          <li>{current.group.label}</li>
+                        ) : null}
+                        <li aria-current="page">{current.page.label}</li>
+                      </ol>
+                    </>
+                  ) : null}
+                  <ActionFeedbackProvider
+                    onSuccess={(message) =>
+                      pushToast(
+                        "success",
+                        current.module.id === "inventory"
+                          ? "Inventory updated successfully"
+                          : current.module.id === "purchases"
+                            ? "Purchases updated successfully"
+                            : isLiveFinanceChartPage
+                              ? "Finance updated successfully"
+                              : ["sales", "revenue", "customers", "administration", "manufacturing", "fleet"].includes(
+                                    current.module.id,
+                                  )
+                                ? `${current.module.shortLabel} updated successfully`
+                                : "Bank updated successfully",
+                        message,
+                      )
                     }
-                    onPaymentEntryDirtyChange={reportEntryDirty}
-                    onReceiptEntryDirtyChange={setPaymentEntryDirty}
-                  />
-                  )}
-                </ActionFeedbackProvider>
-              </>
-            )}
-          </div>
-        </main>
-      </div>
-
-      {drawerModule ? (
-        <aside
-          className={`nx-submenu-drawer rounded-2xl! ${drawerModule.id === "hr" ? "md:w-60!" : ""} [--nx-surface:var(--nx-sidebar-surface)] [--nx-surface-raised:var(--nx-sidebar)] [--nx-text:var(--nx-sidebar-text)] [--nx-text-strong:var(--nx-sidebar-text)] [--nx-text-muted:var(--nx-sidebar-muted)] [--nx-text-subtle:var(--nx-sidebar-muted)] [--nx-border:var(--nx-sidebar-line)] [--nx-brand-soft:var(--nx-sidebar-hover)] [--nx-brand-strong:var(--nx-sidebar-accent)]`}
-          aria-label={`${drawerModule.label} pages`}
-        >
-          <div className="nx-submenu-drawer__header">
-            <div>
-              <h2>{drawerModule.label}</h2>
-              <p>Browse module pages</p>
-            </div>
-            <button
-              className="nx-icon-button"
-              type="button"
-              aria-label="Close module pages"
-              onClick={() => setDrawerModuleId(null)}
-            >
-              ×
-            </button>
-          </div>
-          <div className="nx-submenu-drawer__body">
-            {drawerModule.groups
-              .filter((group) => !group.hiddenFromNavigation)
-              .map((group) =>
-                drawerModule.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id) ? (
-                  <section className="nx-submenu-drawer__group" key={group.id}>
-                    <button
-                      className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
-                      type="button"
-                      onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
-                      aria-current={current.module.id === "hr" && current.group.id === group.id ? "page" : undefined}
-                    >
-                      <span>{group.label}</span>
-                    </button>
-                  </section>
-                ) : (
-                  <section className="nx-submenu-drawer__group" key={group.id}>
-                    {!group.inline && !["purchases", "inventory"].includes(drawerModule.id) ? (
-                      <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
-                    ) : null}
-                    {group.pages
-                      .filter((page) => !page.hiddenFromNavigation)
-                      .map((page) => (
-                        <button
-                          className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
-                          aria-current={page.id === currentNavigationPageId ? "page" : undefined}
-                          type="button"
-                          key={page.id}
-                          onClick={() => navigate(drawerModule.id, page.id)}
-                        >
-                          <span>{page.label}</span>
-                          {!["purchases", "inventory"].includes(drawerModule.id) ? (
-                            <small>{page.archetype}</small>
-                          ) : null}
-                        </button>
-                      ))}
-                  </section>
-                ),
+                  >
+                    {!currentModuleAllowed ? (
+                      <NoModuleAccess
+                        moduleLabel={current.module.label}
+                        onHome={() => navigate("dashboard", currentRole.dashboardPageId)}
+                      />
+                    ) : (
+                      <PrototypeContent
+                        context={{
+                          moduleId: current.module.id,
+                          moduleLabel: current.module.label,
+                          moduleCode: current.module.code,
+                          moduleDescription: current.module.description,
+                          pageLabel: current.page.label,
+                          pageId: current.page.id,
+                          archetype: current.page.archetype,
+                          status: current.page.status,
+                          mode: currentMode.label,
+                          role: currentRole.label,
+                          roleId: currentRole.id,
+                          companyMode,
+                          recordRef: route.recordRef,
+                        }}
+                        rows={rows}
+                        viewState={viewState}
+                        onAction={handleAction}
+                        onOpenPage={(pageId) => navigate(current.module.id, pageId)}
+                        onNavigate={(moduleId, pageId, recordRef, options) =>
+                          navigate(moduleId, pageId, recordRef, options)
+                        }
+                        onPaymentEntryDirtyChange={reportEntryDirty}
+                        onReceiptEntryDirtyChange={setPaymentEntryDirty}
+                      />
+                    )}
+                  </ActionFeedbackProvider>
+                </>
               )}
-          </div>
-        </aside>
-      ) : null}
+            </div>
+          </main>
+        </div>
 
-      <NexoraIntelligenceLayer
-        surface={intelligenceSurface}
-        roleId={currentRole.id}
-        roleLabel={currentRole.label}
-        companyName={currentCompany.name}
-        moduleLabel={current.module.label}
-        pageLabel={current.page.label}
-        onClose={() => setIntelligenceSurface(null)}
-        onNavigate={navigate}
-        onAction={handleAction}
-      />
-
-      {searchOpen ? (
-        <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
-          <DialogContent
-            className="nx-modal nx-modal--wide z-[161]! w-[calc(100%-2rem)]! max-w-3xl! max-h-[calc(100dvh-2rem)]! gap-0! p-0!"
-            overlayClassName="z-[160]"
-            showCloseButton={false}
-            initialFocus={() => document.getElementById("erp-command-search")}
-            aria-label="Global prototype search"
+        {drawerModule ? (
+          <aside
+            className={`nx-submenu-drawer rounded-2xl! ${drawerModule.id === "hr" ? "md:w-60!" : ""} [--nx-surface:var(--nx-sidebar-surface)] [--nx-surface-raised:var(--nx-sidebar)] [--nx-text:var(--nx-sidebar-text)] [--nx-text-strong:var(--nx-sidebar-text)] [--nx-text-muted:var(--nx-sidebar-muted)] [--nx-text-subtle:var(--nx-sidebar-muted)] [--nx-border:var(--nx-sidebar-line)] [--nx-brand-soft:var(--nx-sidebar-hover)] [--nx-brand-strong:var(--nx-sidebar-accent)]`}
+            aria-label={`${drawerModule.label} pages`}
           >
-            <div className="nx-modal__header">
+            <div className="nx-submenu-drawer__header">
               <div>
-                <DialogTitle>Search pages and transactions</DialogTitle>
-                <DialogDescription>Type any reference, party, amount, status, page or module</DialogDescription>
+                <h2>{drawerModule.label}</h2>
+                <p>Browse module pages</p>
               </div>
               <button
                 className="nx-icon-button"
                 type="button"
-                aria-label="Close search"
-                onClick={() => setSearchOpen(false)}
+                aria-label="Close module pages"
+                onClick={() => setDrawerModuleId(null)}
               >
                 ×
               </button>
             </div>
-            <div className="nx-modal__body">
-              <label className="nx-command-search" htmlFor="erp-command-search">
-                <span>⌕</span>
-                <Input
-                  id="erp-command-search"
-                  className="h-auto! min-w-0 rounded-none! border-0! bg-transparent! p-0! shadow-none! focus-visible:ring-0! focus-visible:outline-none!"
-                  autoComplete="off"
-                  spellCheck={false}
-                  aria-label="Search pages and transactions"
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Try ‘PAY-2026-0418’, ‘Atlas’, ‘approved’, ‘invoice’ or ‘nominals’"
-                />
-              </label>
-              <div className="nx-command-results">
-                {searchResults.map((result) => (
-                  <button
-                    type="button"
-                    key={result.key}
-                    onClick={() =>
-                      navigate(result.moduleId, result.pageId, result.kind === "record" ? result.recordRef : undefined)
-                    }
-                  >
-                    <b>{result.kind === "record" ? "TX" : result.moduleCode}</b>
+            <div className="nx-submenu-drawer__body">
+              {drawerModule.groups
+                .filter((group) => !group.hiddenFromNavigation)
+                .map((group) =>
+                  drawerModule.id === "hr" && Object.hasOwn(compactHrWorkspaces, group.id) ? (
+                    <section className="nx-submenu-drawer__group" key={group.id}>
+                      <button
+                        className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
+                        type="button"
+                        onClick={() => navigate("hr", compactHrWorkspaces[group.id])}
+                        aria-current={current.module.id === "hr" && current.group.id === group.id ? "page" : undefined}
+                      >
+                        <span>{group.label}</span>
+                      </button>
+                    </section>
+                  ) : (
+                    <section className="nx-submenu-drawer__group" key={group.id}>
+                      {!group.inline && !["purchases", "inventory"].includes(drawerModule.id) ? (
+                        <h3 className="nx-submenu-drawer__group-title">{group.label}</h3>
+                      ) : null}
+                      {group.pages
+                        .filter((page) => !page.hiddenFromNavigation)
+                        .map((page) => (
+                          <button
+                            className="nx-submenu-drawer__link w-full rounded-lg! border-0! bg-transparent! text-left hover:bg-[var(--nx-sidebar-hover)]! aria-[current=page]:bg-[var(--nx-sidebar-hover)]!"
+                            aria-current={page.id === currentNavigationPageId ? "page" : undefined}
+                            type="button"
+                            key={page.id}
+                            onClick={() => navigate(drawerModule.id, page.id)}
+                          >
+                            <span>{page.label}</span>
+                            {!["purchases", "inventory"].includes(drawerModule.id) ? (
+                              <small>{page.archetype}</small>
+                            ) : null}
+                          </button>
+                        ))}
+                    </section>
+                  ),
+                )}
+            </div>
+          </aside>
+        ) : null}
+
+        <NexoraIntelligenceLayer
+          surface={intelligenceSurface}
+          roleId={currentRole.id}
+          roleLabel={currentRole.label}
+          companyName={currentCompany.name}
+          moduleLabel={current.module.label}
+          pageLabel={current.page.label}
+          onClose={() => setIntelligenceSurface(null)}
+          onNavigate={navigate}
+          onAction={handleAction}
+        />
+
+        {searchOpen ? (
+          <Dialog open={searchOpen} onOpenChange={setSearchOpen}>
+            <DialogContent
+              className="nx-modal nx-modal--wide z-[161]! w-[calc(100%-2rem)]! max-w-3xl! max-h-[calc(100dvh-2rem)]! gap-0! p-0!"
+              overlayClassName="z-[160]"
+              showCloseButton={false}
+              initialFocus={() => document.getElementById("erp-command-search")}
+              aria-label="Global prototype search"
+            >
+              <div className="nx-modal__header">
+                <div>
+                  <DialogTitle>Search pages and transactions</DialogTitle>
+                  <DialogDescription>Type any reference, party, amount, status, page or module</DialogDescription>
+                </div>
+                <button
+                  className="nx-icon-button"
+                  type="button"
+                  aria-label="Close search"
+                  onClick={() => setSearchOpen(false)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="nx-modal__body">
+                <label className="nx-command-search" htmlFor="erp-command-search">
+                  <span>⌕</span>
+                  <Input
+                    id="erp-command-search"
+                    className="h-auto! min-w-0 rounded-none! border-0! bg-transparent! p-0! shadow-none! focus-visible:ring-0! focus-visible:outline-none!"
+                    autoComplete="off"
+                    spellCheck={false}
+                    aria-label="Search pages and transactions"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Try ‘PAY-2026-0418’, ‘Atlas’, ‘approved’, ‘invoice’ or ‘nominals’"
+                  />
+                </label>
+                <div className="nx-command-results">
+                  {searchResults.map((result) => (
+                    <button
+                      type="button"
+                      key={result.key}
+                      onClick={() =>
+                        navigate(
+                          result.moduleId,
+                          result.pageId,
+                          result.kind === "record" ? result.recordRef : undefined,
+                        )
+                      }
+                    >
+                      <b>{result.kind === "record" ? "TX" : result.moduleCode}</b>
+                      <span>
+                        <strong>{result.label}</strong>
+                        <small>
+                          {result.context}
+                          <br />
+                          {result.meta}
+                        </small>
+                      </span>
+                      <em>{result.kind === "record" ? "Transaction" : "Page"}</em>
+                    </button>
+                  ))}
+                </div>
+                {searchQuery.trim() && searchResults.length === 0 ? (
+                  <div className="nx-command-empty">
+                    <strong>No matching page or transaction</strong>
+                    <span>Try a shorter reference, party name, status or module name.</span>
+                  </div>
+                ) : null}
+              </div>
+              <div className="nx-modal__footer">
+                <span className="nx-modal-note">
+                  Ctrl/Cmd + K to open · type any word · select a result to drill down
+                </span>
+                <Button variant="outline" type="button" onClick={() => setSearchOpen(false)}>
+                  Close
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+
+        {dialog?.type === "confirm" ? (
+          <div className="nx-modal-layer">
+            <section
+              className="nx-modal nx-modal--confirm"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="confirm-title"
+            >
+              <div className="nx-modal__body nx-confirmation">
+                <span className="nx-confirmation__symbol">{dialog.action.slice(0, 2).toUpperCase()}</span>
+                <h2 id="confirm-title">Simulate “{dialog.action}”?</h2>
+                <p>
+                  This changes only the temporary visual state for {dialog.subject}. It will not call an API, post
+                  accounting, or modify Demo data.
+                </p>
+              </div>
+              <div className="nx-modal__footer">
+                <Button variant="outline" type="button" onClick={() => setDialog(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant={dialog.action === "Reject" || dialog.action === "Delete" ? "destructive" : "default"}
+                  type="button"
+                  onClick={confirmAction}
+                >
+                  Confirm mock action
+                </Button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {dialog?.type === "notifications" ? (
+          <div
+            className="nx-modal-layer"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) setDialog(null);
+            }}
+          >
+            <section className="nx-modal" role="dialog" aria-modal="true" aria-label="Prototype notifications">
+              <div className="nx-modal__header">
+                <div>
+                  <h2>Notification centre</h2>
+                  <p>Realistic local reminders and exceptions</p>
+                </div>
+                <button
+                  className="nx-icon-button"
+                  type="button"
+                  aria-label="Close notifications"
+                  onClick={() => setDialog(null)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="nx-modal__body">
+                <div className="nx-notification-list">
+                  {salesNotifications.map((notification) => (
+                    <button
+                      type="button"
+                      key={notification.id}
+                      onClick={() => {
+                        setDialog(null);
+                        markSalesNotificationRead(notification.id);
+                        navigate("sales", "quotations", notification.code);
+                      }}
+                    >
+                      <i className={`nx-notification-dot nx-notification-dot--${notification.tone}`} />
+                      <span>
+                        <strong>{notification.title}</strong>
+                        <small>{notification.message}</small>
+                        <em>
+                          For {notification.to} · {notification.at} · {notification.read ? "Read" : "New"}
+                        </em>
+                      </span>
+                    </button>
+                  ))}
+                  {notifications.map((notification) => (
+                    <button
+                      type="button"
+                      key={notification.id}
+                      onClick={() => {
+                        setDialog(null);
+                        pushToast("info", notification.title, notification.message);
+                      }}
+                    >
+                      <i className={`nx-notification-dot nx-notification-dot--${notification.tone}`} />
+                      <span>
+                        <strong>{notification.title}</strong>
+                        <small>{notification.message}</small>
+                        <em>
+                          {notification.type} · {notification.read ? "Read" : "New"}
+                        </em>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="nx-modal__footer">
+                <Button
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setDialog(null);
+                    navigate("notifications", "notification-centre");
+                  }}
+                >
+                  Open notification centre
+                </Button>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {dialog?.type === "help" ? (
+          <div
+            className="nx-modal-layer"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) setDialog(null);
+            }}
+          >
+            <section className="nx-modal" role="dialog" aria-modal="true" aria-label="Prototype guide">
+              <div className="nx-modal__header">
+                <div>
+                  <h2>How to review this prototype</h2>
+                  <p>A safe visual product tour — not an ERP transaction system</p>
+                </div>
+                <button
+                  className="nx-icon-button"
+                  type="button"
+                  aria-label="Close help"
+                  onClick={() => setDialog(null)}
+                >
+                  ×
+                </button>
+              </div>
+              <div className="nx-modal__body">
+                <ol className="nx-help-list">
+                  <li>
+                    <b>1</b>
                     <span>
-                      <strong>{result.label}</strong>
+                      <strong>Explore every module</strong>
+                      <small>Open sidebar groups and pages, or use Ctrl/Cmd + K.</small>
+                    </span>
+                  </li>
+                  <li>
+                    <b>2</b>
+                    <span>
+                      <strong>Compare navigation variants</strong>
+                      <small>Choose a company and role, then turn scoped menus on or off.</small>
+                    </span>
+                  </li>
+                  <li>
+                    <b>3</b>
+                    <span>
+                      <strong>Review interaction states</strong>
                       <small>
-                        {result.context}
-                        <br />
-                        {result.meta}
+                        Try forms, lists, approvals, exports, confirmation dialogs, loading, empty and error states.
                       </small>
                     </span>
-                    <em>{result.kind === "record" ? "Transaction" : "Page"}</em>
-                  </button>
-                ))}
-              </div>
-              {searchQuery.trim() && searchResults.length === 0 ? (
-                <div className="nx-command-empty">
-                  <strong>No matching page or transaction</strong>
-                  <span>Try a shorter reference, party name, status or module name.</span>
+                  </li>
+                  <li>
+                    <b>4</b>
+                    <span>
+                      <strong>Treat all data as invented</strong>
+                      <small>No screen is connected to production, the Demo Account, APIs or databases.</small>
+                    </span>
+                  </li>
+                </ol>
+                <div className="nx-help-keys">
+                  <span className="nx-help-keys__label">Keyboard</span>
+                  <dl>
+                    <div>
+                      <dt>
+                        <kbd>Ctrl</kbd>
+                        <kbd>K</kbd>
+                      </dt>
+                      <dd>Open global search</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        <kbd>/</kbd>
+                      </dt>
+                      <dd>Jump to search</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        <kbd>?</kbd>
+                      </dt>
+                      <dd>Open this guide</dd>
+                    </div>
+                    <div>
+                      <dt>
+                        <kbd>Esc</kbd>
+                      </dt>
+                      <dd>Close search, dialog or drawer</dd>
+                    </div>
+                  </dl>
                 </div>
-              ) : null}
-            </div>
-            <div className="nx-modal__footer">
-              <span className="nx-modal-note">
-                Ctrl/Cmd + K to open · type any word · select a result to drill down
-              </span>
-              <Button variant="outline" type="button" onClick={() => setSearchOpen(false)}>
-                Close
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      ) : null}
-
-      {dialog?.type === "confirm" ? (
-        <div className="nx-modal-layer">
-          <section
-            className="nx-modal nx-modal--confirm"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby="confirm-title"
-          >
-            <div className="nx-modal__body nx-confirmation">
-              <span className="nx-confirmation__symbol">{dialog.action.slice(0, 2).toUpperCase()}</span>
-              <h2 id="confirm-title">Simulate “{dialog.action}”?</h2>
-              <p>
-                This changes only the temporary visual state for {dialog.subject}. It will not call an API, post
-                accounting, or modify Demo data.
-              </p>
-            </div>
-            <div className="nx-modal__footer">
-              <Button variant="outline" type="button" onClick={() => setDialog(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant={dialog.action === "Reject" || dialog.action === "Delete" ? "destructive" : "default"}
-                type="button"
-                onClick={confirmAction}
-              >
-                Confirm mock action
-              </Button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {dialog?.type === "notifications" ? (
-        <div
-          className="nx-modal-layer"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setDialog(null);
-          }}
-        >
-          <section className="nx-modal" role="dialog" aria-modal="true" aria-label="Prototype notifications">
-            <div className="nx-modal__header">
-              <div>
-                <h2>Notification centre</h2>
-                <p>Realistic local reminders and exceptions</p>
               </div>
-              <button
-                className="nx-icon-button"
-                type="button"
-                aria-label="Close notifications"
-                onClick={() => setDialog(null)}
-              >
-                ×
-              </button>
-            </div>
-            <div className="nx-modal__body">
-              <div className="nx-notification-list">
-                {salesNotifications.map((notification) => (
-                  <button
-                    type="button"
-                    key={notification.id}
-                    onClick={() => {
-                      setDialog(null);
-                      markSalesNotificationRead(notification.id);
-                      navigate("sales", "quotations", notification.code);
-                    }}
-                  >
-                    <i className={`nx-notification-dot nx-notification-dot--${notification.tone}`} />
-                    <span>
-                      <strong>{notification.title}</strong>
-                      <small>{notification.message}</small>
-                      <em>
-                        For {notification.to} · {notification.at} · {notification.read ? "Read" : "New"}
-                      </em>
-                    </span>
-                  </button>
-                ))}
-                {notifications.map((notification) => (
-                  <button
-                    type="button"
-                    key={notification.id}
-                    onClick={() => {
-                      setDialog(null);
-                      pushToast("info", notification.title, notification.message);
-                    }}
-                  >
-                    <i className={`nx-notification-dot nx-notification-dot--${notification.tone}`} />
-                    <span>
-                      <strong>{notification.title}</strong>
-                      <small>{notification.message}</small>
-                      <em>
-                        {notification.type} · {notification.read ? "Read" : "New"}
-                      </em>
-                    </span>
-                  </button>
-                ))}
+              <div className="nx-modal__footer">
+                <Button type="button" onClick={() => setDialog(null)}>
+                  Start reviewing
+                </Button>
               </div>
-            </div>
-            <div className="nx-modal__footer">
-              <Button
-                variant="outline"
-                type="button"
-                onClick={() => {
-                  setDialog(null);
-                  navigate("notifications", "notification-centre");
-                }}
-              >
-                Open notification centre
-              </Button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      {dialog?.type === "help" ? (
-        <div
-          className="nx-modal-layer"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.currentTarget === event.target) setDialog(null);
-          }}
-        >
-          <section className="nx-modal" role="dialog" aria-modal="true" aria-label="Prototype guide">
-            <div className="nx-modal__header">
-              <div>
-                <h2>How to review this prototype</h2>
-                <p>A safe visual product tour — not an ERP transaction system</p>
-              </div>
-              <button className="nx-icon-button" type="button" aria-label="Close help" onClick={() => setDialog(null)}>
-                ×
-              </button>
-            </div>
-            <div className="nx-modal__body">
-              <ol className="nx-help-list">
-                <li>
-                  <b>1</b>
-                  <span>
-                    <strong>Explore every module</strong>
-                    <small>Open sidebar groups and pages, or use Ctrl/Cmd + K.</small>
-                  </span>
-                </li>
-                <li>
-                  <b>2</b>
-                  <span>
-                    <strong>Compare navigation variants</strong>
-                    <small>Choose a company and role, then turn scoped menus on or off.</small>
-                  </span>
-                </li>
-                <li>
-                  <b>3</b>
-                  <span>
-                    <strong>Review interaction states</strong>
-                    <small>
-                      Try forms, lists, approvals, exports, confirmation dialogs, loading, empty and error states.
-                    </small>
-                  </span>
-                </li>
-                <li>
-                  <b>4</b>
-                  <span>
-                    <strong>Treat all data as invented</strong>
-                    <small>No screen is connected to production, the Demo Account, APIs or databases.</small>
-                  </span>
-                </li>
-              </ol>
-              <div className="nx-help-keys">
-                <span className="nx-help-keys__label">Keyboard</span>
-                <dl>
-                  <div>
-                    <dt>
-                      <kbd>Ctrl</kbd>
-                      <kbd>K</kbd>
-                    </dt>
-                    <dd>Open global search</dd>
-                  </div>
-                  <div>
-                    <dt>
-                      <kbd>/</kbd>
-                    </dt>
-                    <dd>Jump to search</dd>
-                  </div>
-                  <div>
-                    <dt>
-                      <kbd>?</kbd>
-                    </dt>
-                    <dd>Open this guide</dd>
-                  </div>
-                  <div>
-                    <dt>
-                      <kbd>Esc</kbd>
-                    </dt>
-                    <dd>Close search, dialog or drawer</dd>
-                  </div>
-                </dl>
-              </div>
-            </div>
-            <div className="nx-modal__footer">
-              <Button type="button" onClick={() => setDialog(null)}>
-                Start reviewing
-              </Button>
-            </div>
-          </section>
-        </div>
-      ) : null}
-
-      <div className="nx-toast-stack" role="region" aria-label="Action notifications" aria-live="polite">
-        {toasts.map((toast) => (
-          <div className={`nx-toast nx-toast--${toast.tone}`} key={toast.id}>
-            <span className="nx-toast__symbol">
-              {toast.tone === "success" ? "OK" : toast.tone === "warning" ? "!" : "i"}
-            </span>
-            <span>
-              <strong>{toast.title}</strong>
-              <p>{toast.message}</p>
-            </span>
-            <button
-              className="nx-toast__close"
-              type="button"
-              aria-label="Dismiss message"
-              onClick={() => setToasts((previous) => previous.filter((item) => item.id !== toast.id))}
-            >
-              ×
-            </button>
+            </section>
           </div>
-        ))}
+        ) : null}
+
+        <div className="nx-toast-stack" role="region" aria-label="Action notifications" aria-live="polite">
+          {toasts.map((toast) => (
+            <div className={`nx-toast nx-toast--${toast.tone}`} key={toast.id}>
+              <span className="nx-toast__symbol">
+                {toast.tone === "success" ? "OK" : toast.tone === "warning" ? "!" : "i"}
+              </span>
+              <span>
+                <strong>{toast.title}</strong>
+                <p>{toast.message}</p>
+              </span>
+              <button
+                className="nx-toast__close"
+                type="button"
+                aria-label="Dismiss message"
+                onClick={() => setToasts((previous) => previous.filter((item) => item.id !== toast.id))}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
     </ModuleDesignSurface>
   );
 }

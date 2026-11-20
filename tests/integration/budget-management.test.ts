@@ -38,6 +38,12 @@ describe("Persistent company Budget management", () => {
       process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL ?? "postgresql://nexora@127.0.0.1:55433/nexora_source_test",
     );
     f = await setupSubledgerFixture(db.pool, undefined, "USD");
+    // Generic budget actuals use a non-control offset. Supplier liabilities must
+    // go through AP, as required by the existing accounting integrity guards.
+    await db.pool.query(
+      "insert into account(id,tenant_id,company_id,code,name,type,is_header,status,created_at) values($1,$2,$3,'BUDGET-OFFSET','Isolated budget actual offset','equity',false,'active',clock_timestamp())",
+      [`${f.company}-budget-offset`, f.tenant, f.company],
+    );
     repo = new SourceBudgetRepository(db.pool);
     permissions = (
       await db.pool.query<{ permission_key: string }>(
@@ -449,7 +455,7 @@ describe("Persistent company Budget management", () => {
             description: "Real budget actual",
           },
           {
-            accountId: f.policy.payable_account_id,
+            accountId: `${f.company}-budget-offset`,
             debit: "0",
             credit: "30.00",
             dimensions: {},

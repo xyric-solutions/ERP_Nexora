@@ -17,6 +17,7 @@ const client = await format(
 import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions,TaxConfiguration,TaxConfigurationInput} from "@nexora/contracts";
 import type {BudgetOptions,BudgetDirectory,BudgetDetail,BudgetReport,BudgetDrill,BudgetPlanInput,BudgetVersionInput,BudgetVersionUpdate,BudgetAction,BudgetGenerate,BudgetModelInput,BudgetModel,BudgetApplyModel,BudgetPolicyInput,BudgetPolicy,BudgetRequestInput,BudgetRequestAction,BudgetRequest,BudgetImport,BudgetCommentInput,BudgetSourceControl} from "@nexora/contracts";
 import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPartyConfiguration,SubledgerPartyConfigurationInput,SubledgerSupplierDirectory,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
+import type {StockWorkspace,StockOperation,StockMovementInput,StockAction,StockPolicyInput,StockPolicy,StockValuationInput,StockValuation,StockLookupDirectory} from "@nexora/contracts";
 import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
 import type {CreateHrPersonalCorrection,HrPersonalCorrectionAction,HrPersonalCorrectionWorkspace,HrReportGovernanceAction,HrReportGovernanceWorkspace,HrReportGovernanceResult} from '@nexora/contracts';
 import type {CreateHrSelfLeaveRequest,HrSelfLeaveAction} from '@nexora/contracts';
@@ -506,6 +507,13 @@ export class NexoraApiClient {
   getStockTransfer(id:string,company:string):Promise<StockTransfer>{return this.request(\`/api/v1/inventory/transfers/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
   saveStockTransfer(id:string|null,payload:StockTransferInput,csrf:string,key:string):Promise<StockTransferMutation>{return this.request(\`/api/v1/inventory/transfers\${id?"/"+encodeURIComponent(id):""}\`,{method:id?"PATCH":"POST",headers:{"x-csrf-token":csrf,"idempotency-key":key,...(id?{"if-match":\`"\${payload.expected_version}"\`}:{})},body:JSON.stringify(payload)});}
   getInventoryOptions(company:string):Promise<InventoryOptions> {return this.request(\`/api/v1/inventory/options?company_id=\${encodeURIComponent(company)}\`);}
+  getStockWorkspace(query:string):Promise<StockWorkspace>{return this.request('/api/v1/inventory/stock/workspace'+query);}
+  getStockLookups(query:string):Promise<StockLookupDirectory>{return this.request('/api/v1/inventory/stock/lookups'+query);}
+  getStockMovement(id:string,company:string):Promise<StockOperation>{return this.request('/api/v1/inventory/stock/operations/'+encodeURIComponent(id)+'?company_id='+encodeURIComponent(company));}
+  createStockMovement(input:StockMovementInput,csrf:string,key:string):Promise<StockOperation>{return this.request('/api/v1/inventory/stock/operations',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key},body:JSON.stringify(input)});}
+  actOnStockMovement(id:string,input:StockAction,csrf:string,key:string):Promise<StockOperation>{return this.request('/api/v1/inventory/stock/operations/'+encodeURIComponent(id)+'/actions',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':'"'+input.expected_version+'"'},body:JSON.stringify(input)});}
+  configureStockPolicy(input:StockPolicyInput,csrf:string,key:string):Promise<StockPolicy>{return this.request('/api/v1/inventory/stock/policy',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':'"'+input.expected_version+'"'},body:JSON.stringify(input)});}
+  configureStockValuation(input:StockValuationInput,csrf:string,key:string):Promise<StockValuation>{return this.request('/api/v1/inventory/stock/valuation',{method:'POST',headers:{'x-csrf-token':csrf,'idempotency-key':key,'if-match':'"'+input.expected_version+'"'},body:JSON.stringify(input)});}
   listProducts(query:string):Promise<ProductDirectory> {return this.request(\`/api/v1/inventory/products\${query}\`);}
   getProduct(id:string,company:string):Promise<Product> {return this.request(\`/api/v1/inventory/products/\${encodeURIComponent(id)}?company_id=\${encodeURIComponent(company)}\`);}
   listProductLookups(query:string):Promise<ProductLookupDirectory> {return this.request(\`/api/v1/inventory/lookups\${query}\`);}

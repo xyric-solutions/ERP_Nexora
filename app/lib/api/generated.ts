@@ -72,6 +72,17 @@ import type {
   PurchaseAccountingPrepare,
   ConnectedReport,
 } from "@nexora/contracts";
+import type {
+  StockWorkspace,
+  StockOperation,
+  StockMovementInput,
+  StockAction,
+  StockPolicyInput,
+  StockPolicy,
+  StockValuationInput,
+  StockValuation,
+  StockLookupDirectory,
+} from "@nexora/contracts";
 import type { HrLearningWorkspace, HrLearningAction, HrLearningCertificate } from "@nexora/contracts";
 import type {
   CreateHrPersonalCorrection,
@@ -1030,6 +1041,45 @@ export class NexoraApiClient {
   }
   getInventoryOptions(company: string): Promise<InventoryOptions> {
     return this.request(`/api/v1/inventory/options?company_id=${encodeURIComponent(company)}`);
+  }
+  getStockWorkspace(query: string): Promise<StockWorkspace> {
+    return this.request("/api/v1/inventory/stock/workspace" + query);
+  }
+  getStockLookups(query: string): Promise<StockLookupDirectory> {
+    return this.request("/api/v1/inventory/stock/lookups" + query);
+  }
+  getStockMovement(id: string, company: string): Promise<StockOperation> {
+    return this.request(
+      "/api/v1/inventory/stock/operations/" + encodeURIComponent(id) + "?company_id=" + encodeURIComponent(company),
+    );
+  }
+  createStockMovement(input: StockMovementInput, csrf: string, key: string): Promise<StockOperation> {
+    return this.request("/api/v1/inventory/stock/operations", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key },
+      body: JSON.stringify(input),
+    });
+  }
+  actOnStockMovement(id: string, input: StockAction, csrf: string, key: string): Promise<StockOperation> {
+    return this.request("/api/v1/inventory/stock/operations/" + encodeURIComponent(id) + "/actions", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
+  }
+  configureStockPolicy(input: StockPolicyInput, csrf: string, key: string): Promise<StockPolicy> {
+    return this.request("/api/v1/inventory/stock/policy", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
+  }
+  configureStockValuation(input: StockValuationInput, csrf: string, key: string): Promise<StockValuation> {
+    return this.request("/api/v1/inventory/stock/valuation", {
+      method: "POST",
+      headers: { "x-csrf-token": csrf, "idempotency-key": key, "if-match": '"' + input.expected_version + '"' },
+      body: JSON.stringify(input),
+    });
   }
   listProducts(query: string): Promise<ProductDirectory> {
     return this.request(`/api/v1/inventory/products${query}`);

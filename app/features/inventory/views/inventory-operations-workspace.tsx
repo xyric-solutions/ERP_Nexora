@@ -341,7 +341,10 @@ export function InventoryOperationsWorkspace({
                           <td className="px-3 py-1.5">{record.to_warehouse_name}</td>
                           <td className="px-3 py-1.5 tabular-nums">{record.lines.length}</td>
                           <td className="px-3 py-1.5">
-                            <Badge variant="outline">Draft · Not posted</Badge>
+                            <Badge variant="outline">
+                              {record.state.charAt(0).toUpperCase() + record.state.slice(1)}
+                              {record.posted ? "" : " · Not posted"}
+                            </Badge>
                           </td>
                         </>
                       ) : (

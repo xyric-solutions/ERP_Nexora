@@ -155,6 +155,7 @@ import { HrLoanBenefitsWorkspace } from "@prototype/features/hr/views/hr-benefit
 import { HrReportingWorkspace, isHrReportingPage } from "@prototype/features/hr/views/hr-reporting-workspace";
 import { InventoryOperationsWorkspace } from "@prototype/features/inventory/views/inventory-operations-workspace";
 import { ProductsWorkspace } from "@prototype/features/inventory/views/products-workspace";
+import { StockWorkspace } from "@prototype/features/inventory/views/stock-workspace";
 import { ManufacturingLiveWorkspace } from "@prototype/features/manufacturing/views/manufacturing-live-workspace";
 import { isManufacturingLivePage } from "@prototype/features/manufacturing/model/manufacturing";
 import { UnitsWorkspace } from "@prototype/features/inventory/views/units-workspace";
@@ -162,7 +163,10 @@ import { FixedAssetsWorkspace } from "@/features/fixed-assets/views/fixed-assets
 import { FleetLiveWorkspace } from "@prototype/features/fleet/views/fleet-live-workspace";
 import { isFleetLivePage } from "@prototype/features/fleet/model/fleet";
 import { PurchaseWorkspace } from "@prototype/features/purchasing/views/purchase-workspace";
-import { PurchaseAssetReturnsWorkspace, isPurchaseAssetReturnPage } from "@/features/purchasing/views/purchase-asset-returns";
+import {
+  PurchaseAssetReturnsWorkspace,
+  isPurchaseAssetReturnPage,
+} from "@/features/purchasing/views/purchase-asset-returns";
 import { CommercialWorkspace, isCommercialMaturityPage } from "@prototype/features/commerce/views/commercial-workspace";
 import { isSalesWorkspacePage, SalesWorkspace } from "@prototype/features/sales/views/sales-workspace";
 import { MultiCurrencyWorkspace } from "@prototype/features/finance/views/multi-currency-workspace";
@@ -302,7 +306,15 @@ function PageIntro({
 }) {
   const status = statusLabel ?? (context.status === "prototype" ? "Prototype only" : titleCase(context.status));
   const statusNotice = /read[- ]only/i.test(status) ? "Read only" : /connected|^live$/i.test(status) ? null : status;
-  if (context.moduleId === "manufacturing") return <WorkspaceHeader eyebrow={context.moduleLabel} title={context.pageLabel} status={statusNotice ? <StatusChip status={statusNotice} /> : undefined} actions={children} />;
+  if (context.moduleId === "manufacturing")
+    return (
+      <WorkspaceHeader
+        eyebrow={context.moduleLabel}
+        title={context.pageLabel}
+        status={statusNotice ? <StatusChip status={statusNotice} /> : undefined}
+        actions={children}
+      />
+    );
   return (
     <div className="nx-page-intro">
       <div>
@@ -845,20 +857,20 @@ function ListView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           </WorkTable>
         </div>
         {context.moduleId !== "manufacturing" ? (
-        <div className="nx-pagination">
-          <span>Showing 1–{filtered.length} of 128 records</span>
-          <div>
-            <button disabled type="button">
-              Previous
-            </button>
-            <button className="active" type="button">
-              1
-            </button>
-            <button type="button">2</button>
-            <button type="button">3</button>
-            <button type="button">Next</button>
+          <div className="nx-pagination">
+            <span>Showing 1–{filtered.length} of 128 records</span>
+            <div>
+              <button disabled type="button">
+                Previous
+              </button>
+              <button className="active" type="button">
+                1
+              </button>
+              <button type="button">2</button>
+              <button type="button">3</button>
+              <button type="button">Next</button>
+            </div>
           </div>
-        </div>
         ) : null}
       </section>
       <RecordPreviewDrawer
@@ -1148,14 +1160,16 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
     },
   ];
 
-  const transactionControl = (<EnterpriseTransactionControl
-        subject={blueprint.recordLabel}
-        reference={blueprint.numberPrefix}
-        roleId={context.roleId}
-        companyMode={context.companyMode}
-        family={blueprint.family}
-        onAction={onAction}
-      />);
+  const transactionControl = (
+    <EnterpriseTransactionControl
+      subject={blueprint.recordLabel}
+      reference={blueprint.numberPrefix}
+      roleId={context.roleId}
+      companyMode={context.companyMode}
+      family={blueprint.family}
+      onAction={onAction}
+    />
+  );
   return (
     <>
       <PageIntro context={context}>
@@ -1189,7 +1203,14 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
           <small>One review item remains</small>
         </div>
       </section>
-      {context.moduleId === "manufacturing" ? <details className="rounded-[10px] border border-border bg-card"><summary className="cursor-pointer px-5 py-4 text-sm font-semibold">Workflow & readiness controls</summary><div className="p-4">{transactionControl}</div></details> : transactionControl}
+      {context.moduleId === "manufacturing" ? (
+        <details className="rounded-[10px] border border-border bg-card">
+          <summary className="cursor-pointer px-5 py-4 text-sm font-semibold">Workflow & readiness controls</summary>
+          <div className="p-4">{transactionControl}</div>
+        </details>
+      ) : (
+        transactionControl
+      )}
       <WorkForm
         className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(16.875rem,19.375rem)] items-start gap-3.5 max-xl:grid-cols-1"
         onSubmit={(event) => {
@@ -1211,11 +1232,18 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
               <em>Required first</em>
             </div>
             <div className="grid grid-cols-12 gap-x-4 gap-y-3.5 p-4 max-sm:grid-cols-1">
-              {essentialFields.map((field) => (
+              {essentialFields.map((field) =>
                 context.moduleId === "projects" && field.label === blueprint.partyLabel ? (
-                  <ProjectServiceField key={field.label} label={field.label} required={field.required} className="col-span-8 grid min-w-0 gap-1.5 max-md:col-span-6 max-sm:col-span-1" />
-                ) : <BlueprintInput field={field} key={field.label} />
-              ))}
+                  <ProjectServiceField
+                    key={field.label}
+                    label={field.label}
+                    required={field.required}
+                    className="col-span-8 grid min-w-0 gap-1.5 max-md:col-span-6 max-sm:col-span-1"
+                  />
+                ) : (
+                  <BlueprintInput field={field} key={field.label} />
+                ),
+              )}
             </div>
           </section>
 
@@ -1410,14 +1438,19 @@ function FormView({ context, rows, onAction }: Omit<PrototypeContentProps, "view
                   </select>
                 </label>
                 {context.moduleId === "projects" ? (
-                  <ProjectServiceField label="Project / contract" className="col-span-4 grid min-w-0 gap-1.5 max-md:col-span-6 max-sm:col-span-1" />
-                ) : <label className="col-span-4 max-md:col-span-6 max-sm:col-span-1">
-                  <span>Project / contract</span>
-                  <select defaultValue="PRJ-1042 — Atlas rollout">
-                    <option>PRJ-1042 — Atlas rollout</option>
-                    <option>No project</option>
-                  </select>
-                </label>}
+                  <ProjectServiceField
+                    label="Project / contract"
+                    className="col-span-4 grid min-w-0 gap-1.5 max-md:col-span-6 max-sm:col-span-1"
+                  />
+                ) : (
+                  <label className="col-span-4 max-md:col-span-6 max-sm:col-span-1">
+                    <span>Project / contract</span>
+                    <select defaultValue="PRJ-1042 — Atlas rollout">
+                      <option>PRJ-1042 — Atlas rollout</option>
+                      <option>No project</option>
+                    </select>
+                  </label>
+                )}
                 <label htmlFor="transaction-source-document" className="col-span-4 max-md:col-span-6 max-sm:col-span-1">
                   <span>Source document</span>
                   <Input id="transaction-source-document" defaultValue="Linked automatically where applicable" />
@@ -2921,12 +2954,28 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       />
     );
   if (context.moduleId === "finance" && context.pageId === "taxes") return <TaxManagementConsole />;
-  if (context.moduleId === "finance" && context.pageId === "retired-module") return <section className="rounded-xl border border-border bg-card p-6"><h1 className="text-xl font-semibold">Module unavailable</h1><p className="mt-2 text-muted-foreground">The Costing module has been removed from this ERP workspace.</p></section>;
+  if (context.moduleId === "finance" && context.pageId === "retired-module")
+    return (
+      <section className="rounded-xl border border-border bg-card p-6">
+        <h1 className="text-xl font-semibold">Module unavailable</h1>
+        <p className="mt-2 text-muted-foreground">The Costing module has been removed from this ERP workspace.</p>
+      </section>
+    );
   if (context.moduleId === "finance" && context.pageId === "currencies-fx") {
-    return <FinanceCurrencyConsole section={context.recordRef} onSectionChange={(section) => props.onNavigate("finance", "currencies-fx", section)} />;
+    return (
+      <FinanceCurrencyConsole
+        section={context.recordRef}
+        onSectionChange={(section) => props.onNavigate("finance", "currencies-fx", section)}
+      />
+    );
   }
   if (context.moduleId === "configuration" && context.pageId === "company-fiscal-currency") {
-    return <CompanyFinancialSetup section={context.recordRef} onSectionChange={(section) => props.onNavigate("configuration", "company-fiscal-currency", section)} />;
+    return (
+      <CompanyFinancialSetup
+        section={context.recordRef}
+        onSectionChange={(section) => props.onNavigate("configuration", "company-fiscal-currency", section)}
+      />
+    );
   }
   if (isLiveJournalPage)
     return (
@@ -3166,36 +3215,94 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     return <HrReportingWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
 
-  const currencyReports: Record<string, "statement" | "general_ledger" | "trial_balance" | "profit_loss" | "balance_sheet"> = {
-    "customer-statement-report": "statement", "supplier-statement-report": "statement",
-    "general-ledger-detail-report": "general_ledger", "trial-balance-report": "trial_balance",
-    "profit-loss-report": "profit_loss", "balance-sheet-report": "balance_sheet",
-    "customer-ageing-report": "statement", "supplier-ageing-report": "statement",
+  const currencyReports: Record<
+    string,
+    "statement" | "general_ledger" | "trial_balance" | "profit_loss" | "balance_sheet"
+  > = {
+    "customer-statement-report": "statement",
+    "supplier-statement-report": "statement",
+    "general-ledger-detail-report": "general_ledger",
+    "trial-balance-report": "trial_balance",
+    "profit-loss-report": "profit_loss",
+    "balance-sheet-report": "balance_sheet",
+    "customer-ageing-report": "statement",
+    "supplier-ageing-report": "statement",
   };
   const currencyReport = currencyReports[context.pageId];
   if (context.moduleId === "reports" && currencyReport) {
-    return <MultiCurrencyWorkspace key={context.pageId} initialTab={context.pageId.includes("ageing") ? "balances" : "reports"} initialSide={context.pageId.startsWith("supplier") ? "payable" : "receivable"} initialReport={currencyReport} />;
+    return (
+      <MultiCurrencyWorkspace
+        key={context.pageId}
+        initialTab={context.pageId.includes("ageing") ? "balances" : "reports"}
+        initialSide={context.pageId.startsWith("supplier") ? "payable" : "receivable"}
+        initialReport={currencyReport}
+      />
+    );
   }
-  if ((["sales", "customers"].includes(context.moduleId) && context.pageId === "currency-balances") || (context.moduleId === "purchases" && context.pageId === "supplier-currency-accounts")) {
+  if (
+    (["sales", "customers"].includes(context.moduleId) && context.pageId === "currency-balances") ||
+    (context.moduleId === "purchases" && context.pageId === "supplier-currency-accounts")
+  ) {
     const accountingSetup = context.moduleId === "purchases" && context.recordRef === "accounting-setup";
-    return <MultiCurrencyWorkspace operational={!accountingSetup} key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={accountingSetup ? "setup" : context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" && !accountingSetup ? context.recordRef : undefined} />;
+    return (
+      <MultiCurrencyWorkspace
+        operational={!accountingSetup}
+        key={`${context.pageId}:${context.recordRef ?? ""}`}
+        initialSide={context.moduleId === "purchases" ? "payable" : "receivable"}
+        initialTab={accountingSetup ? "setup" : context.recordRef ? "documents" : "balances"}
+        sourceDocumentId={context.moduleId === "purchases" && !accountingSetup ? context.recordRef : undefined}
+      />
+    );
   }
 
   if (context.moduleId === "purchases" && isPurchaseAssetReturnPage(context.pageId)) {
-    return <PurchaseAssetReturnsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+    return (
+      <PurchaseAssetReturnsWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
   }
-  if (context.moduleId === "assets" || (context.moduleId === "reports" && ["asset-register-report","asset-depreciation-report"].includes(context.pageId))) {
-    return <FixedAssetsWorkspace page={context.pageId} recordRef={context.recordRef} onNavigate={props.onNavigate} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+  if (
+    context.moduleId === "assets" ||
+    (context.moduleId === "reports" && ["asset-register-report", "asset-depreciation-report"].includes(context.pageId))
+  ) {
+    return (
+      <FixedAssetsWorkspace
+        page={context.pageId}
+        recordRef={context.recordRef}
+        onNavigate={props.onNavigate}
+        onDirtyChange={props.onPaymentEntryDirtyChange}
+      />
+    );
   }
   if (context.moduleId === "reports" && isConnectedReport(context.pageId)) {
-    return <ConnectedReportView key={context.pageId} report={context.pageId} title={context.pageLabel} onNavigate={props.onNavigate}/>;
+    return (
+      <ConnectedReportView
+        key={context.pageId}
+        report={context.pageId}
+        title={context.pageLabel}
+        onNavigate={props.onNavigate}
+      />
+    );
   }
   if (context.moduleId === "reports" && isReportsWorkspacePage(context.pageId)) {
     return <ReportsWorkspace context={context} onAction={onAction} onNavigate={props.onNavigate} />;
   }
 
   if (context.moduleId === "inventory") {
-    if (context.pageId === "units-of-measure") return <UnitsWorkspace recordRef={context.recordRef} onDirtyChange={props.onPaymentEntryDirtyChange}/>;
+    if (context.pageId === "stock-movements")
+      return (
+        <StockWorkspace
+          recordRef={context.recordRef}
+          onNavigate={props.onNavigate}
+          onDirtyChange={props.onPaymentEntryDirtyChange}
+        />
+      );
+    if (context.pageId === "units-of-measure")
+      return <UnitsWorkspace recordRef={context.recordRef} onDirtyChange={props.onPaymentEntryDirtyChange} />;
     if (["warehouses", "add-warehouse", "stock-transfers", "add-stock-transfer"].includes(context.pageId))
       return (
         <InventoryOperationsWorkspace
@@ -3255,7 +3362,8 @@ function PrototypeContentBody(props: PrototypeContentProps) {
       );
     }
     if (context.pageId === "employee-movements") return <HrEmployeeChangesWorkspace key="transfer" kind="transfer" />;
-    if (context.pageId === "employee-promotions") return <HrEmployeeChangesWorkspace key="promotion" kind="promotion" />;
+    if (context.pageId === "employee-promotions")
+      return <HrEmployeeChangesWorkspace key="promotion" kind="promotion" />;
     if (isHrLifecyclePage(context.pageId)) {
       return (
         <>
@@ -3651,7 +3759,7 @@ function PrototypeContentBody(props: PrototypeContentProps) {
             paymentId={context.recordRef}
             onBack={() => props.onNavigate("banking", "bank-payments")}
             onEdit={(paymentId) => props.onNavigate("banking", "add-bank-payment", paymentId)}
-            onRegisterAssets={(paymentId)=>props.onNavigate("assets","add-asset",paymentId)}
+            onRegisterAssets={(paymentId) => props.onNavigate("assets", "add-asset", paymentId)}
           />
         );
       }

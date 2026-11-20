@@ -11,6 +11,7 @@ import {
   decimalText,
   convertMinor,
   divideRounded,
+  receiptBillMatchSchema,
   type BudgetDimensions,
 } from "@nexora/contracts";
 import { resolveCompanyCurrencyAuthority } from "../finance/currencies/company-authority.js";
@@ -121,7 +122,16 @@ async function exposures(c: BudgetClient, t: string, company: string, d: Source)
               )
             ).rows[0]?.asset_account_id
           : undefined;
-      const account = line.nominal_account_id ?? category ?? fallback;
+      const stock =
+        !charge && "product_id" in line && line.product_id && !category
+          ? (
+              await c.query<{ stock_account_id: string | null }>(
+                "select stock_account_id from inventory_product where tenant_id=$1 and company_id=$2 and id=$3 and type='goods' and details->>'track_inventory'='true'",
+                [t, company, line.product_id],
+              )
+            ).rows[0]?.stock_account_id
+          : undefined;
+      const account = line.nominal_account_id ?? category ?? stock ?? fallback;
       const posting = account
         ? (
             await c.query<{ type: string }>(
@@ -382,14 +392,35 @@ export async function applyBudgetPosting(c: BudgetClient, input: BudgetPosting, 
     return; // Reversals restore exposure and must not be blocked by an unrelated later policy.
   }
   let sourceId: string | undefined;
+  let matchedStockLines = new Set<string>();
+  let receiptEvidence: { line_id: string; value: string }[] | undefined;
   if (input.sourceType === "currency_subledger") {
     const operation = (
-      await c.query<{ payload: { source_document_id?: string }; type: string }>(
-        "select type,payload from finance_subledger_operation where tenant_id=$1 and company_id=$2 and id=$3",
+      await c.query<{ payload: { source_document_id?: string }; type: string; preview: unknown }>(
+        "select type,payload,preview from finance_subledger_operation where tenant_id=$1 and company_id=$2 and id=$3",
         [t, company, input.sourceId],
       )
     ).rows[0];
-    if (operation?.type === "recognition") sourceId = operation.payload.source_document_id;
+    if (operation?.type === "recognition") {
+      sourceId = operation.payload.source_document_id;
+      const evidence = z.object({ stock_matches: z.array(receiptBillMatchSchema).optional() }).parse(operation.preview);
+      matchedStockLines = new Set(evidence.stock_matches?.map((match) => match.bill_line_id));
+    }
+  } else if (input.sourceType === "inventory_stock") {
+    const operation = (
+      await c.query<{ kind: string; source_id: string; preview: unknown }>(
+        "select kind,payload->>'source_id' source_id,preview from inventory_stock_operation where tenant_id=$1 and company_id=$2 and id=$3",
+        [t, company, input.sourceId],
+      )
+    ).rows[0];
+    if (operation?.kind === "receipt") {
+      sourceId = operation.source_id;
+      receiptEvidence = z
+        .object({
+          evidence: z.object({ receipt_lines: z.array(z.object({ line_id: z.string(), value: z.string() })) }),
+        })
+        .parse(operation.preview).evidence.receipt_lines;
+    }
   }
   if (sourceId) {
     const d = await source(c, t, company, sourceId),
@@ -401,6 +432,11 @@ export async function applyBudgetPosting(c: BudgetClient, input: BudgetPosting, 
       for (const [index, line] of items.entries()) {
         if (!line.id)
           budgetReject("Purchase recognition requires stable line identities.", "BUDGET_MAPPING_REQUIRED", 409);
+        // Tracked goods become budget actuals with receipt capitalization. AP
+        // later clears GRNI; it must not release the purchase commitment twice.
+        if (!charge && matchedStockLines.has(line.id)) continue;
+        const received = receiptEvidence?.find((entry) => entry.line_id === line.id);
+        if (receiptEvidence && (charge || !received)) continue;
         const ancestry = await root(c, t, company, d, line.id, charge);
         // A standalone bill owns its reservation; order-linked bills consume their order.
         const rootDocument = ancestry.document.kind === "order" ? ancestry.document.id : d.id,
@@ -423,14 +459,25 @@ export async function applyBudgetPosting(c: BudgetClient, input: BudgetPosting, 
         ).rows[0];
         if (!commitment) continue;
         const journalLine = (
-          await c.query<{ native: string; dimensions: BudgetDimensions }>(
-            `select (debit-credit)::text as native,dimensions from journal_line where tenant_id=$1 and journal_id=$2 and dimensions->>$3=$4`,
-            [t, journal, charge ? "purchase_charge_id" : "purchase_line_id", line.id],
+          await c.query<{ native: string; base: string; dimensions: BudgetDimensions }>(
+            `select (debit-credit)::text as native,(base_debit-base_credit)::text as base,dimensions from journal_line where tenant_id=$1 and journal_id=$2 and dimensions->>$3=$4 and($5::text is null or account_id=$5)`,
+            [
+              t,
+              journal,
+              charge ? "purchase_charge_id" : "purchase_line_id",
+              line.id,
+              receiptEvidence ? commitment.account_id : null,
+            ],
           )
         ).rows;
         const native = decimal((charge ? totals.charges[index] : totals.lines[index])!.net, 8);
         if (!native) continue;
-        if (journalLine.length !== 1 || decimal(journalLine[0]!.native, 8, true) !== native)
+        if (
+          journalLine.length !== 1 ||
+          (received
+            ? decimal(journalLine[0]!.base, 8, true) !== decimal(received.value, 8)
+            : decimal(journalLine[0]!.native, 8, true) !== native)
+        )
           budgetReject(
             "The posted expense line no longer matches its reserved purchase nominal/amount.",
             "BUDGET_RECOGNITION_MISMATCH",
@@ -526,13 +573,23 @@ export async function reconcileBudgetPurchases(c: BudgetClient, t: string, compa
     );
   for (const d of docs) await reserveBudgetPurchase(c, t, company, d.id, actor, true);
   const postings = (
-    await c.query<{ id: string; journal_id: string; operation_date: string; original_journal_id: string | null }>(
-      `select o.id,j.id as journal_id,j.posting_date::text as operation_date,j.reverses_journal_id as original_journal_id
+    await c.query<{
+      id: string;
+      journal_id: string;
+      operation_date: string;
+      original_journal_id: string | null;
+      source_type: string;
+    }>(
+      `select * from(select o.id,j.id as journal_id,j.posting_date::text as operation_date,j.reverses_journal_id as original_journal_id,'currency_subledger'::text as source_type,j.posted_at,j.created_at
        from journal_entry j join finance_subledger_operation o on o.tenant_id=j.tenant_id and o.company_id=j.company_id
         and o.journal_id=coalesce(j.reverses_journal_id,j.id)
        where j.tenant_id=$1 and j.company_id=$2 and j.status in ('posted','reversed') and o.state='posted'
         and o.type='recognition' and o.payload->>'source_document_id' is not null
-       order by j.posted_at,j.created_at,case when j.reverses_journal_id is null then 0 else 1 end,j.id limit 2001`,
+       union all
+       select o.id,j.id,j.posting_date::text,j.reverses_journal_id,'inventory_stock'::text,j.posted_at,j.created_at
+       from journal_entry j join inventory_stock_operation o on(o.tenant_id,o.company_id,o.journal_id)=(j.tenant_id,j.company_id,coalesce(j.reverses_journal_id,j.id))
+       where j.tenant_id=$1 and j.company_id=$2 and j.status in('posted','reversed') and o.state in('posted','reversed') and o.kind='receipt')p
+       order by posted_at,created_at,case when original_journal_id is null then 0 else 1 end,journal_id limit 2001`,
       [t, company],
     )
   ).rows;
@@ -558,7 +615,7 @@ export async function reconcileBudgetPurchases(c: BudgetClient, t: string, compa
           actorId: actor,
           journalId: op.journal_id,
           postingDate: op.operation_date,
-          sourceType: "currency_subledger",
+          sourceType: op.source_type,
           sourceId: op.id,
           ...(op.original_journal_id ? { originalJournalId: op.original_journal_id } : {}),
         },

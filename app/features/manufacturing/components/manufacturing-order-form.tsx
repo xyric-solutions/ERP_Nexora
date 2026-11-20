@@ -182,7 +182,9 @@ export function ManufacturingOrderForm({
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">{record?.code ?? "New Manufacturing Order"}</h1>
+          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">
+            {record?.code ?? "New Manufacturing Order"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {record?.plan_code
               ? `Created from production plan ${record.plan_code}.`
@@ -198,7 +200,8 @@ export function ManufacturingOrderForm({
           <AlertDescription>
             Approved by {record?.approved_by_name ?? "the approver"}
             {record?.approved_at ? ` on ${new Date(record.approved_at).toLocaleString()}` : ""}. The order can no longer
-            be changed.
+            be changed. Actual batch quantity issued: {record?.issued_quantity ?? "0"} {record?.unit}. Finished output
+            posted: {record?.completed_quantity ?? "0"} {record?.unit}.
           </AlertDescription>
         </Alert>
       ) : null}

@@ -228,7 +228,20 @@ export const subledgerItemSchema = z.strictObject({
   rate: z.string(),
   rate_id: id.nullable(),
 });
+export const receiptBillMatchSchema = z.strictObject({
+  bill_id: id,
+  bill_line_id: id,
+  receipt_operation_id: id,
+  receipt_line_id: id,
+  product_id: id,
+  quantity: signedAmount,
+  value: signedAmount,
+  accrual_account_id: id,
+  original_match_id: id.nullable(),
+});
+export type ReceiptBillMatch = z.infer<typeof receiptBillMatchSchema>;
 export const subledgerPreviewSchema = z.strictObject({
+  stock_matches: z.array(receiptBillMatchSchema).max(1000).optional(),
   party_configuration: subledgerPartyConfigurationSchema.optional(),
   taxes: z.array(taxSnapshotSchema).max(100).default([]),
   base_currency: currency,

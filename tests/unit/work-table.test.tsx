@@ -72,6 +72,35 @@ async function input(label: string, value: string) {
   });
 }
 describe("Shared work lists", () => {
+  it("keeps evidence tables keyboard-scrollable when list tools are disabled", async () => {
+    await act(async () =>
+      root.render(
+        <WorkTable tableId="evidence" label="Accounting evidence" tools={false} keyboardScroll>
+          <thead>
+            <tr>
+              <th>Account</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Actual stock</td>
+              <td>100.00</td>
+            </tr>
+          </tbody>
+        </WorkTable>,
+      ),
+    );
+    const region = container.querySelector<HTMLElement>(
+      '[role="region"][aria-label="Accounting evidence scroll area"]',
+    );
+    expect(region).not.toBeNull();
+    expect(region?.tabIndex).toBe(0);
+    region?.focus();
+    expect(document.activeElement).toBe(region);
+    expect(region?.querySelector("table")?.textContent).toContain("Actual stock");
+    expect(container.querySelector('input[aria-label="Filter accounting evidence"]')).toBeNull();
+  });
   it("keeps account group headings with their matching rows and excludes headings from page counts", async () => {
     await act(async () =>
       root.render(

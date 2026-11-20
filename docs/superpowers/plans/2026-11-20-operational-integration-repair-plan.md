@@ -12,32 +12,32 @@ test service. Do not execute old business records or invent configuration.
 
 ## 1. Stock ledger and configuration
 
-- [ ] Add shared bounded contracts for reviewed stock policy/product valuation,
+- [x] Add shared bounded contracts for reviewed stock policy/product valuation,
       movement lifecycle, balances, costing evidence and source commands.
-- [ ] Add additive inventory migration(s): append-only stock/configuration/audit
+- [x] Add additive inventory migration(s): append-only stock/configuration/audit
       evidence, company/master FKs, unique source/replay identities, lifecycle
       checks, RLS, scoped permissions and matching runtime grants.
-- [ ] Implement exact FIFO and weighted-average costing using existing bigint
+- [x] Implement exact FIFO and weighted-average costing using existing bigint
       helpers; preserve residual value when the last quantity is issued.
-- [ ] Implement company-authorized transactions, explicit independent review,
+- [x] Implement company-authorized transactions, explicit independent review,
       source/version checks, stale preview protection, central Finance posting
       and exact controlled reversals. Prevent negative or retroactively recosted
       stock; serialize competing movements within the company.
-- [ ] Verify real PostgreSQL atomicity, constraints, concurrency, denial/isolation,
+- [x] Verify real PostgreSQL atomicity, constraints, concurrency, denial/isolation,
       journal/stock reconciliation, replay and reversal behavior before consumers.
 
 ## 2. Purchase stock and actual manufacturing
 
-- [ ] Link approved actual receipts to posted stock with real warehouses/UOM,
+- [x] Link approved actual receipts to posted stock with real warehouses/UOM,
       governed receipt accrual and exact source quantity consumption.
-- [ ] Integrate AP recognition with receipt accrual; preserve service/asset
+- [x] Integrate AP recognition with receipt accrual; preserve service/asset
       workflows and prevent duplicate inventory/expense recognition.
-- [ ] Expose actual manufacturing issue/completion commands against existing
+- [x] Expose actual manufacturing issue/completion commands against existing
       orders, explicit consumption/BOM snapshots and WIP/finished-goods costing.
       Support partial output and retain old approved orders without backfill.
-- [ ] Integrate reviewed openings and existing draft transfers with the stock
+- [x] Integrate reviewed openings and existing draft transfers with the stock
       lifecycle, preserving stock/value and exact source references.
-- [ ] Extend Inventory/Manufacturing UI and product on-hand projections through
+- [x] Extend Inventory/Manufacturing UI and product on-hand projections through
       generated APIs. Retain approved layouts, semantic theme and permissions.
 
 ## 3. Persistent commercial Sales

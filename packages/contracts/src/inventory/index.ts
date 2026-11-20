@@ -90,7 +90,10 @@ export const productSchema = productFieldsSchema.omit({ expected_version: true }
   location_name: z.string().nullable(),
   default_warehouse_name: z.string().nullable(),
   // Opening plans are not posted stock. Never infer an on-hand balance from master data.
-  on_hand_quantity: z.null(),
+  on_hand_quantity: z
+    .string()
+    .regex(/^-?\d+(\.\d{1,4})?$/)
+    .nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -114,7 +117,7 @@ export const inventoryOptionsSchema = z.strictObject({
   currencies: z.array(z.strictObject({ code: z.string(), name: z.string() })),
   units: z.array(z.string()),
   measurement_units: z.array(unitSchema).optional(),
-  stock_mode: z.literal("opening_plan"),
+  stock_mode: z.literal("posted_ledger"),
 });
 export const productMutationSchema = z.strictObject({ record: productSchema, audit_event_id: identity });
 export const inventorySurfaceSchema = z.enum(["products", "warehouses", "transfers"]);
@@ -218,14 +221,19 @@ export const stockTransferSchema = transferFields.omit({ expected_version: true,
   id: identity,
   code: identity,
   version: z.number().int().positive(),
-  state: z.literal("draft"),
-  posted: z.literal(false),
+  state: z.enum(["draft", "submitted", "approved", "rejected", "cancelled", "posted", "reversed"]),
+  posted: z.boolean(),
   from_warehouse_name: z.string(),
   to_warehouse_name: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
   lines: z.array(
-    transferLineInputSchema.extend({ product_code: z.string(), product_name: z.string(), unit: z.string(), unit_snapshot: unitSnapshotSchema.nullable().optional() }),
+    transferLineInputSchema.extend({
+      product_code: z.string(),
+      product_name: z.string(),
+      unit: z.string(),
+      unit_snapshot: unitSnapshotSchema.nullable().optional(),
+    }),
   ),
 });
 export const stockTransferDirectorySchema = z.strictObject({

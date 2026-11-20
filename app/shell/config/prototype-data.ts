@@ -244,6 +244,7 @@ export const prototypeModules = [
         p("products", "Products"),
         p("units-of-measure", "Unit of Measure"),
         p("stock-transfers", "Stock Transfer"),
+        p("stock-movements", "Stock Movements & Valuation"),
         p("warehouses", "Warehouse"),
       ]),
       {
@@ -279,7 +280,10 @@ export const prototypeModules = [
         p("add-nominal", "Add Nominal", "form", "prototype", true),
       ]),
       g("taxes", "Taxes", [p("taxes", "Taxes", "list", "live")]),
-      { ...g("retired", "Unavailable", [p("retired-module", "Module unavailable", "detail", "live", true)]), hiddenFromNavigation: true },
+      {
+        ...g("retired", "Unavailable", [p("retired-module", "Module unavailable", "detail", "live", true)]),
+        hiddenFromNavigation: true,
+      },
       g("reporting-master-data", "Reporting Master Data", [
         p("reporting-projects", "Projects"),
         p("reporting-locations", "Locations / Cities"),
@@ -293,7 +297,6 @@ export const prototypeModules = [
         p("journal-reversal", "Journal Reversal", "form", "prototype", true),
         p("recurring-journals", "Recurring Journals", "list", "prototype", true),
       ]),
-
     ],
   },
   {
@@ -350,58 +353,90 @@ export const prototypeModules = [
         false,
         true,
       ),
-      g("fleet-command", "Fleet Command Centre", [
-        p("fleet-overview", "Fleet Overview", "dashboard"),
-        p("fleet-calendar", "Fleet Calendar", "dashboard"),
-      ], true),
-      g("fleet-masters", "Vehicles & Drivers", [
-        p("vehicle-detail", "Vehicle 360°", "detail"),
-        p("vehicle-categories", "Vehicle Categories & Policies", "settings"),
-        p("driver-detail", "Driver 360°", "detail"),
-      ], true),
-      g("fleet-dispatch", "Assignments & Dispatch", [
-        p("vehicle-assignments", "Vehicle Assignments"),
-        p("add-assignment", "Add Vehicle Assignment", "form"),
-        p("dispatch-board", "Dispatch Board", "workflow"),
-        p("trips", "Trip Register"),
-        p("add-trip", "Add Trip", "form"),
-        p("trip-detail", "Trip Detail", "detail"),
-        p("route-planning", "Route Planning", "workflow"),
-      ], true),
-      g("fleet-fuel", "Fuel & Road Costs", [
-        p("fuel-card-management", "Fuel Cards"),
-        p("fuel-reconciliation", "Fuel Reconciliation", "workflow"),
-        p("tolls-fines", "Tolls, Fines & Other Costs"),
-        p("add-road-cost", "Add Road Cost", "form"),
-      ], true),
-      g("fleet-maintenance", "Maintenance & Components", [
-        p("maintenance-dashboard", "Maintenance Dashboard", "dashboard"),
-        p("maintenance-plans", "Maintenance Plans"),
-        p("add-maintenance-plan", "Add Maintenance Plan", "form"),
-        p("service-work-orders", "Service Work Orders"),
-        p("add-service-work-order", "Add Service Work Order", "form"),
-        p("service-work-order-detail", "Service Work Order Detail", "detail"),
-        p("tyres-batteries", "Tyres & Batteries"),
-        p("spare-parts-usage", "Spare Parts Usage"),
-        p("inspection-schedule", "Inspection Schedule", "workflow"),
-      ], true),
-      g("fleet-compliance", "Compliance & Incidents", [
-        p("registration-insurance", "Registration, Insurance & Permits"),
-        p("renewal-calendar", "Renewal Calendar", "workflow"),
-        p("driver-licence-compliance", "Driver Licence Compliance"),
-        p("accidents-incidents", "Accidents & Incidents"),
-        p("add-incident", "Add Incident", "form"),
-        p("incident-claim-detail", "Incident & Claim Detail", "detail"),
-        p("claims", "Insurance Claims"),
-      ], true),
-      g("fleet-analysis", "Cost, Controls & Reports", [
-        p("vehicle-costing", "Vehicle Whole-life Cost", "report"),
-        p("utilisation-downtime", "Utilisation & Downtime", "report"),
-        p("maintenance-cost-analysis", "Maintenance Cost Analysis", "report"),
-        p("fleet-reports", "Fleet Reports", "report"),
-        p("fleet-approvals", "Fleet Approvals", "approval"),
-        p("fleet-settings", "Fleet Settings", "settings"),
-      ], true),
+      g(
+        "fleet-command",
+        "Fleet Command Centre",
+        [p("fleet-overview", "Fleet Overview", "dashboard"), p("fleet-calendar", "Fleet Calendar", "dashboard")],
+        true,
+      ),
+      g(
+        "fleet-masters",
+        "Vehicles & Drivers",
+        [
+          p("vehicle-detail", "Vehicle 360°", "detail"),
+          p("vehicle-categories", "Vehicle Categories & Policies", "settings"),
+          p("driver-detail", "Driver 360°", "detail"),
+        ],
+        true,
+      ),
+      g(
+        "fleet-dispatch",
+        "Assignments & Dispatch",
+        [
+          p("vehicle-assignments", "Vehicle Assignments"),
+          p("add-assignment", "Add Vehicle Assignment", "form"),
+          p("dispatch-board", "Dispatch Board", "workflow"),
+          p("trips", "Trip Register"),
+          p("add-trip", "Add Trip", "form"),
+          p("trip-detail", "Trip Detail", "detail"),
+          p("route-planning", "Route Planning", "workflow"),
+        ],
+        true,
+      ),
+      g(
+        "fleet-fuel",
+        "Fuel & Road Costs",
+        [
+          p("fuel-card-management", "Fuel Cards"),
+          p("fuel-reconciliation", "Fuel Reconciliation", "workflow"),
+          p("tolls-fines", "Tolls, Fines & Other Costs"),
+          p("add-road-cost", "Add Road Cost", "form"),
+        ],
+        true,
+      ),
+      g(
+        "fleet-maintenance",
+        "Maintenance & Components",
+        [
+          p("maintenance-dashboard", "Maintenance Dashboard", "dashboard"),
+          p("maintenance-plans", "Maintenance Plans"),
+          p("add-maintenance-plan", "Add Maintenance Plan", "form"),
+          p("service-work-orders", "Service Work Orders"),
+          p("add-service-work-order", "Add Service Work Order", "form"),
+          p("service-work-order-detail", "Service Work Order Detail", "detail"),
+          p("tyres-batteries", "Tyres & Batteries"),
+          p("spare-parts-usage", "Spare Parts Usage"),
+          p("inspection-schedule", "Inspection Schedule", "workflow"),
+        ],
+        true,
+      ),
+      g(
+        "fleet-compliance",
+        "Compliance & Incidents",
+        [
+          p("registration-insurance", "Registration, Insurance & Permits"),
+          p("renewal-calendar", "Renewal Calendar", "workflow"),
+          p("driver-licence-compliance", "Driver Licence Compliance"),
+          p("accidents-incidents", "Accidents & Incidents"),
+          p("add-incident", "Add Incident", "form"),
+          p("incident-claim-detail", "Incident & Claim Detail", "detail"),
+          p("claims", "Insurance Claims"),
+        ],
+        true,
+      ),
+      g(
+        "fleet-analysis",
+        "Cost, Controls & Reports",
+        [
+          p("vehicle-costing", "Vehicle Whole-life Cost", "report"),
+          p("utilisation-downtime", "Utilisation & Downtime", "report"),
+          p("maintenance-cost-analysis", "Maintenance Cost Analysis", "report"),
+          p("fleet-reports", "Fleet Reports", "report"),
+          p("fleet-approvals", "Fleet Approvals", "approval"),
+          p("fleet-settings", "Fleet Settings", "settings"),
+        ],
+        true,
+      ),
     ],
   },
   {
@@ -431,30 +466,50 @@ export const prototypeModules = [
         false,
         true,
       ),
-      g("engineering", "Product Engineering", [
-        p("manufacturing-overview", "Production Overview", "dashboard"),
-        p("routings", "Routings"),
-        p("routing-editor", "Routing Editor", "form"),
-        p("work-centres", "Work Centres & Machines"),
-      ], true),
-      g("planning", "Planning", [
-        p("demand-plan", "Demand Plan"),
-        p("mrp-run", "MRP Run", "workflow"),
-        p("material-requirements", "Material Requirements"),
-        p("capacity-planner", "Capacity Planner", "dashboard"),
-      ], true),
-      g("production", "Production", [
-        p("release-production-order", "Release Production Order", "approval"),
-        p("material-issue", "Material Issue", "form"),
-        p("wip-tracking", "WIP Tracking", "workflow"),
-        p("production-completion", "Production Completion", "form"),
-      ], true),
-      g("exceptions", "Exceptions & Cost", [
-        p("scrap-rework", "Scrap, By-product & Rework", "form"),
-        p("subcontracting", "Subcontracting"),
-        p("production-variance", "Production Cost & Variance", "report"),
-        p("production-reports", "Production Reports", "report"),
-      ], true),
+      g(
+        "engineering",
+        "Product Engineering",
+        [
+          p("manufacturing-overview", "Production Overview", "dashboard"),
+          p("routings", "Routings"),
+          p("routing-editor", "Routing Editor", "form"),
+          p("work-centres", "Work Centres & Machines"),
+        ],
+        true,
+      ),
+      g(
+        "planning",
+        "Planning",
+        [
+          p("demand-plan", "Demand Plan"),
+          p("mrp-run", "MRP Run", "workflow"),
+          p("material-requirements", "Material Requirements"),
+          p("capacity-planner", "Capacity Planner", "dashboard"),
+        ],
+        true,
+      ),
+      g(
+        "production",
+        "Production",
+        [
+          p("release-production-order", "Release Production Order", "approval"),
+          p("material-issue", "Material Issue", "form"),
+          p("wip-tracking", "WIP Tracking", "workflow"),
+          p("production-completion", "Production Completion", "form"),
+        ],
+        true,
+      ),
+      g(
+        "exceptions",
+        "Exceptions & Cost",
+        [
+          p("scrap-rework", "Scrap, By-product & Rework", "form"),
+          p("subcontracting", "Subcontracting"),
+          p("production-variance", "Production Cost & Variance", "report"),
+          p("production-reports", "Production Reports", "report"),
+        ],
+        true,
+      ),
     ],
   },
   {
@@ -712,12 +767,17 @@ export const prototypeModules = [
         p("asset-verification", "Physical Verification", "form", "live"),
         p("asset-reports", "Asset Reports", "report", "live"),
       ]),
-      g("asset-records", "Asset Records", [
-        p("add-asset", "Add New Asset", "form", "live", true),
-        p("asset-detail", "Asset Details", "detail", "live", true),
-        p("asset-acquisition", "Register Posted Acquisitions", "form", "live", true),
-        p("capitalisation", "Asset Approval and Activation", "approval", "live", true),
-      ], true),
+      g(
+        "asset-records",
+        "Asset Records",
+        [
+          p("add-asset", "Add New Asset", "form", "live", true),
+          p("asset-detail", "Asset Details", "detail", "live", true),
+          p("asset-acquisition", "Register Posted Acquisitions", "form", "live", true),
+          p("capitalisation", "Asset Approval and Activation", "approval", "live", true),
+        ],
+        true,
+      ),
       g("asset-overview", "Overview", [p("assets-dashboard", "Assets Dashboard", "dashboard", "live")]),
       g("measurement", "Measurement", [
         p("depreciation-run", "Depreciation Run", "workflow", "live"),
@@ -1476,11 +1536,36 @@ export function findPrototypePage(
   moduleId: string,
   pageId?: string,
 ): { module: PrototypeModule; group: PrototypeMenuGroup; page: PrototypePage; redirectRecordRef?: string } {
-  if (moduleId === "tax" || (moduleId === "reports" && ["sales-tax-report","input-output-tax-report","sales-tax-return-report","withholding-tax-report","tax-liability-report","tax-exception-report","tax-summary-report","tax-payable-report"].includes(pageId ?? ""))) {
-    moduleId = "finance"; pageId = "taxes";
+  if (
+    moduleId === "tax" ||
+    (moduleId === "reports" &&
+      [
+        "sales-tax-report",
+        "input-output-tax-report",
+        "sales-tax-return-report",
+        "withholding-tax-report",
+        "tax-liability-report",
+        "tax-exception-report",
+        "tax-summary-report",
+        "tax-payable-report",
+      ].includes(pageId ?? ""))
+  ) {
+    moduleId = "finance";
+    pageId = "taxes";
   }
-  if (moduleId === "costing" || (moduleId === "reports" && ["cost-centre-report","job-cost-report","standard-actual-cost-report","overhead-absorption-report","cost-variance-report"].includes(pageId ?? ""))) {
-    moduleId = "finance"; pageId = "retired-module";
+  if (
+    moduleId === "costing" ||
+    (moduleId === "reports" &&
+      [
+        "cost-centre-report",
+        "job-cost-report",
+        "standard-actual-cost-report",
+        "overhead-absorption-report",
+        "cost-variance-report",
+      ].includes(pageId ?? ""))
+  ) {
+    moduleId = "finance";
+    pageId = "retired-module";
   }
   const redirect = pageId ? retiredPageRedirects[`${moduleId}:${pageId}`] : undefined;
   if (redirect) return { ...findPrototypePage(redirect[0], redirect[1]), redirectRecordRef: redirect[2] };

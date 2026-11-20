@@ -22,6 +22,26 @@ An em dash in Proposed value means **no value is proposed**. Existing values are
 observations, not recommendations. Dependencies identify acceptance prerequisites;
 they do not necessarily prevent drafting a master through the API.
 
+## Stock/manufacturing candidate — 20 November 2026
+
+The operational integration design was approved for software implementation.
+Its stock setup is verified in disposable databases and is **not activated** on
+the business database. This adds no approval to the historical observations
+below and selects no live account, value or valuation method.
+
+| Configuration item | Existing business value | Required owner decision | Proposed value | Approval status | Dependencies |
+| --- | --- | --- | --- | --- | --- |
+| Stock valuation | No posted stock ledger in the pinned Inventory 3 runtime | Choose FIFO or weighted average per tracked product using approved accounting evidence | — | PENDING | Company/cutover scope; actual product, base UOM and stock asset account |
+| Receipt accrual | No reviewed stock policy | Select the active goods-received-not-invoiced liability | — | PENDING | Eligible company accounts; actual receipts and AP source references |
+| Opening stock offset | Master opening plans are not posted quantities or accounting balances | Approve the equity offset, dated warehouse quantities and supported total values | — | PENDING | Historical cutover, independently reviewed opening evidence |
+| Manufacturing WIP | Approved orders currently represent authorization/planning | Select WIP asset account and authorize actual component consumption/output | — | PENDING | Posted components, actual warehouses, approved order and source dimensions |
+| Purchase price/exchange variance | No reviewed stock variance mapping | Select the separate expense mapping for receipt/bill differences | — | PENDING | Receipt historical cost, approved native bill and governed FX rates |
+| Sales COGS | Persistent commercial Sales integration remains the next increment | Review each tracked product's expense/COGS mapping and physical delivery/return rules | — | PENDING | Persistent Sales, posted stock, actual product and Finance controls |
+
+The new setup never posts existing BILL/PAY/MO records or derives openings from
+master plans. Maker/checker/poster authority and the existing financial policy,
+tax, currency and dimension decisions remain necessary for live acceptance.
+
 ## Register
 
 | ID / configuration item                         | Existing value or evidence                                                                                                                                                                                                                  | Required business decision                                                                                                                                                                                         | Proposed value supported by approved evidence                                                    | Approval status                                                          | Dependencies                                          |

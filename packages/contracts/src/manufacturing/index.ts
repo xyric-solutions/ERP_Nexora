@@ -207,6 +207,8 @@ export const manufacturingOrderSchema = z.strictObject({
   created_by_name: z.string(),
   approved_by_name: z.string().nullable(),
   approved_at: z.string().nullable(),
+  issued_quantity: z.string().optional(),
+  completed_quantity: z.string().optional(),
   events: z.array(manufacturingOrderEventSchema),
   version,
   created_at: z.string(),

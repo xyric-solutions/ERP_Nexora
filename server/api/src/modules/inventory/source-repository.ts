@@ -54,7 +54,7 @@ function surfacePermission(surface: InventorySurface) {
       ? "inventory.stock.read"
       : "inventory.item.read";
 }
-const projection = `p.details || jsonb_build_object('id',p.id,'company_id',p.company_id,'code',p.code,'name',p.name,'type',p.type,'status',p.status,'category',p.category,'reference',p.reference,'barcode',p.barcode,'currency',p.currency,'preferred_supplier_id',p.preferred_supplier_id,'stock_account_id',p.stock_account_id,'income_account_id',p.income_account_id,'expense_account_id',p.expense_account_id,'version',p.row_version,'created_at',p.created_at::text,'updated_at',p.updated_at::text,'on_hand_quantity',null,'preferred_supplier_name',s.name,'stock_account_name',stock.code||' · '||stock.name,'income_account_name',income.code||' · '||income.name,'expense_account_name',expense.code||' · '||expense.name,'location_id',p.location_id,'default_warehouse_id',p.default_warehouse_id,'location_name',location.name,'default_warehouse_name',warehouse.name) as record`;
+const projection = `p.details || jsonb_build_object('id',p.id,'company_id',p.company_id,'code',p.code,'name',p.name,'type',p.type,'status',p.status,'category',p.category,'reference',p.reference,'barcode',p.barcode,'currency',p.currency,'preferred_supplier_id',p.preferred_supplier_id,'stock_account_id',p.stock_account_id,'income_account_id',p.income_account_id,'expense_account_id',p.expense_account_id,'version',p.row_version,'created_at',p.created_at::text,'updated_at',p.updated_at::text,'on_hand_quantity',(select sum(e.quantity)::text from inventory_stock_entry e where(e.tenant_id,e.company_id,e.product_id)=(p.tenant_id,p.company_id,p.id)),'preferred_supplier_name',s.name,'stock_account_name',stock.code||' · '||stock.name,'income_account_name',income.code||' · '||income.name,'expense_account_name',expense.code||' · '||expense.name,'location_id',p.location_id,'default_warehouse_id',p.default_warehouse_id,'location_name',location.name,'default_warehouse_name',warehouse.name) as record`;
 const joins = `from inventory_product p
  left join procurement_supplier s on s.tenant_id=p.tenant_id and s.company_id=p.company_id and s.id=p.preferred_supplier_id
  left join erp_location location on location.tenant_id=p.tenant_id and location.company_id=p.company_id and location.id=p.location_id
@@ -75,8 +75,9 @@ export class SourceInventoryRepository {
   readonly units: SourceUnitRepository;
   constructor(private readonly pool: Pool) {
     this.units = new SourceUnitRepository(
-      (context,company,write,work,permission) => this.transaction(context,company,write,work,permission),
-      (client,context,id,company,before,after,action,correlation) => this.audit(client,context,"unit",id,company,before,after,action,correlation),
+      (context, company, write, work, permission) => this.transaction(context, company, write, work, permission),
+      (client, context, id, company, before, after, action, correlation) =>
+        this.audit(client, context, "unit", id, company, before, after, action, correlation),
     );
   }
   private async transaction<T>(
@@ -162,8 +163,13 @@ export class SourceInventoryRepository {
         "select c.code,c.name from company_currency cc join currency c on c.tenant_id=cc.tenant_id and c.code=cc.currency_code where cc.tenant_id=$1 and cc.company_id=$2 and cc.status='active' and c.status='active' and c.decimal_places=2 order by cc.is_base desc,c.code limit 100",
         [context.tenantId, company],
       );
-      const measurement_units = await companyUnits(client,context.tenantId,company);
-      return { currencies: result.rows, units: measurement_units.filter(u=>u.status==="active").map(u=>u.name), measurement_units, stock_mode: "opening_plan" as const };
+      const measurement_units = await companyUnits(client, context.tenantId, company);
+      return {
+        currencies: result.rows,
+        units: measurement_units.filter((u) => u.status === "active").map((u) => u.name),
+        measurement_units,
+        stock_mode: "posted_ledger" as const,
+      };
     });
   }
   private cursor(cursor: string | undefined, scope: unknown): string | null {
@@ -341,25 +347,46 @@ export class SourceInventoryRepository {
       }
       const before = id ? await this.load(client, context.tenantId, parsed.company_id, id) : null;
       const catalogue = await companyUnits(client, context.tenantId, parsed.company_id);
-      const selectedUnit = catalogue.find(u => u.name === parsed.unit);
-      if (!selectedUnit || (selectedUnit.status !== "active" && before?.unit !== parsed.unit) || (parsed.unit_id && parsed.unit_id !== selectedUnit.id))
+      const selectedUnit = catalogue.find((u) => u.name === parsed.unit);
+      if (
+        !selectedUnit ||
+        (selectedUnit.status !== "active" && before?.unit !== parsed.unit) ||
+        (parsed.unit_id && parsed.unit_id !== selectedUnit.id)
+      )
         fail("Choose an active unit from this company's Unit of Measure catalogue.");
       parsed.unit_id = selectedUnit.id;
-      if (!convertUnitQuantity(parsed.opening_quantity,{numerator:"1",denominator:"1"},selectedUnit.precision).exact)
+      if (
+        !convertUnitQuantity(parsed.opening_quantity, { numerator: "1", denominator: "1" }, selectedUnit.precision)
+          .exact
+      )
         fail("Opening quantity exceeds this unit's permitted decimal places.");
       const rules = parsed.packaging_rules ?? [];
-      if (new Set(rules.map(r=>r.unit_id)).size !== rules.length) fail("Use one content rule per packaging unit.");
+      if (new Set(rules.map((r) => r.unit_id)).size !== rules.length) fail("Use one content rule per packaging unit.");
       for (const rule of rules) {
-        const retained = before?.packaging_rules?.some(r=>r.unit_id===rule.unit_id && r.quantity===rule.quantity);
-        const packaging = catalogue.find(u=>u.id===rule.unit_id && (u.status==="active" || retained));
-        if (!packaging || (packaging.category!=="packaging" && !(selectedUnit.category==="legacy_day" && packaging.category==="time")) || packaging.id===selectedUnit.id)
+        const retained = before?.packaging_rules?.some(
+          (r) => r.unit_id === rule.unit_id && r.quantity === rule.quantity,
+        );
+        const packaging = catalogue.find((u) => u.id === rule.unit_id && (u.status === "active" || retained));
+        if (
+          !packaging ||
+          (packaging.category !== "packaging" &&
+            !(selectedUnit.category === "legacy_day" && packaging.category === "time")) ||
+          packaging.id === selectedUnit.id
+        )
           fail("Choose an active packaging unit, or an explicit time rule for a legacy service day.");
-        if (!convertUnitQuantity(rule.quantity,{numerator:"1",denominator:"1"},selectedUnit.precision).exact)
+        if (!convertUnitQuantity(rule.quantity, { numerator: "1", denominator: "1" }, selectedUnit.precision).exact)
           fail("Package contents exceed the product base unit's permitted decimal places.");
       }
-      if (before && (before.unit !== parsed.unit || JSON.stringify(before.packaging_rules??[]) !== JSON.stringify(rules))) {
-        const used = await client.query("select 1 where exists(select 1 from inventory_transfer_line where tenant_id=$1 and company_id=$2 and product_id=$3) or exists(select 1 from procurement_document d where d.tenant_id=$1 and d.company_id=$2 and d.lines @> jsonb_build_array(jsonb_build_object('product_id',$3::text)))",[context.tenantId,parsed.company_id,id]);
-        if (used.rowCount) fail("This product is referenced by documents. Its base unit and packaging rules must retain their meaning.");
+      if (
+        before &&
+        (before.unit !== parsed.unit || JSON.stringify(before.packaging_rules ?? []) !== JSON.stringify(rules))
+      ) {
+        const used = await client.query(
+          "select 1 where exists(select 1 from inventory_transfer_line where tenant_id=$1 and company_id=$2 and product_id=$3) or exists(select 1 from procurement_document d where d.tenant_id=$1 and d.company_id=$2 and d.lines @> jsonb_build_array(jsonb_build_object('product_id',$3::text)))",
+          [context.tenantId, parsed.company_id, id],
+        );
+        if (used.rowCount)
+          fail("This product is referenced by documents. Its base unit and packaging rules must retain their meaning.");
       }
       await this.validateReferences(client, context.tenantId, parsed);
       const {
@@ -832,20 +859,20 @@ export class SourceInventoryRepository {
         );
       }
       const units = new Map(products.rows.map((p) => [p.id, p.unit]));
-      const choices = await productUnitChoices(client,context.tenantId,parsed.company_id,products.rows.map(p=>p.id));
-      const converted = parsed.lines.map(line => {
-        const unit_snapshot = productUnitSnapshot(choices.get(line.product_id)!,line.quantity,line.unit_id);
-        return {...line,quantity:unit_snapshot.base_quantity,unit:units.get(line.product_id),unit_snapshot};
+      const choices = await productUnitChoices(
+        client,
+        context.tenantId,
+        parsed.company_id,
+        products.rows.map((p) => p.id),
+      );
+      const converted = parsed.lines.map((line) => {
+        const unit_snapshot = productUnitSnapshot(choices.get(line.product_id)!, line.quantity, line.unit_id);
+        return { ...line, quantity: unit_snapshot.base_quantity, unit: units.get(line.product_id), unit_snapshot };
       });
       // One bounded insert avoids a round trip per line; the server supplies each product's saved unit.
       await client.query(
         "insert into inventory_transfer_line(tenant_id,company_id,transfer_id,line_no,product_id,quantity,unit,unit_snapshot) select $1,$2,$3,x.ordinality::int,x.value->>'product_id',(x.value->>'quantity')::numeric,x.value->>'unit',x.value->'unit_snapshot' from jsonb_array_elements($4::jsonb) with ordinality as x(value,ordinality)",
-        [
-          context.tenantId,
-          parsed.company_id,
-          recordId,
-          JSON.stringify(converted),
-        ],
+        [context.tenantId, parsed.company_id, recordId, JSON.stringify(converted)],
       );
       const record = await this.loadTransfer(client, context.tenantId, parsed.company_id, recordId),
         auditId = await this.operationEvidence(
@@ -865,5 +892,5 @@ export class SourceInventoryRepository {
 
 const warehouseProjection =
   "w.id,w.company_id,w.code,w.name,w.location_id,l.name as location_name,w.address,w.contact_name,w.phone,w.email,w.notes,w.status,w.row_version as version,w.created_at::text,w.updated_at::text";
-const transferProjection = `t.id,t.company_id,t.code,t.from_warehouse_id,t.to_warehouse_id,to_char(t.transfer_date,'YYYY-MM-DD') as transfer_date,t.reference,t.notes,t.state,false as posted,t.row_version as version,f.name as from_warehouse_name,d.name as to_warehouse_name,t.created_at::text,t.updated_at::text,
+const transferProjection = `t.id,t.company_id,t.code,t.from_warehouse_id,t.to_warehouse_id,to_char(t.transfer_date,'YYYY-MM-DD') as transfer_date,t.reference,t.notes,coalesce((select state from inventory_stock_operation o where(o.tenant_id,o.company_id,o.payload->>'source_id')=(t.tenant_id,t.company_id,t.id) and o.kind='transfer' and o.state<>'cancelled' order by o.created_at desc limit 1),'draft') as state,exists(select 1 from inventory_stock_operation o where(o.tenant_id,o.company_id,o.payload->>'source_id')=(t.tenant_id,t.company_id,t.id) and o.kind='transfer' and o.state='posted') as posted,t.row_version as version,f.name as from_warehouse_name,d.name as to_warehouse_name,t.created_at::text,t.updated_at::text,
  coalesce((select jsonb_agg(jsonb_build_object('product_id',l.product_id,'quantity',l.quantity::text,'product_code',p.code,'product_name',p.name,'unit',l.unit,'unit_snapshot',l.unit_snapshot) order by l.line_no) from inventory_transfer_line l join inventory_product p on p.tenant_id=l.tenant_id and p.company_id=l.company_id and p.id=l.product_id where l.tenant_id=t.tenant_id and l.company_id=t.company_id and l.transfer_id=t.id),'[]'::jsonb) as lines`;

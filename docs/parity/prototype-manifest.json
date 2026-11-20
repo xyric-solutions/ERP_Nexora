@@ -4,7 +4,7 @@
   "counts": {
     "modules": 30,
     "groups": 122,
-    "pages": 678
+    "pages": 679
   },
   "modules": [
     {
@@ -632,6 +632,12 @@
             {
               "id": "stock-transfers",
               "label": "Stock Transfer",
+              "archetype": "list",
+              "status": "prototype"
+            },
+            {
+              "id": "stock-movements",
+              "label": "Stock Movements & Valuation",
               "archetype": "list",
               "status": "prototype"
             },

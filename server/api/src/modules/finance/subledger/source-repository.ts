@@ -58,6 +58,13 @@ import {
 } from "../currencies/company-authority.js";
 import { FinancePostingService } from "../posting/service.js";
 import {
+  matchPurchaseStock,
+  reversePurchaseStockMatches,
+  recordPurchaseStockMatches,
+  PurchaseAccrualError,
+} from "../../inventory/purchase-accrual.js";
+import { InventoryError } from "../../inventory/errors.js";
+import {
   createFinanceTransactionClient,
   FinancePostingError,
   type FinanceMultiCurrencyPostingLine,
@@ -132,16 +139,22 @@ export class SourceSubledgerRepository {
         reject("Financial access is not available for this company.", "COMPANY_ACCESS_DENIED", 403);
       // One company posting stream protects valuation cutoffs and multi-item allocations.
       // Reads do not take this lock; different companies progress independently.
-      if (write)
+      if (write) {
+        await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
+          `operational:${context.tenantId}:${company}`,
+        ]);
         await client.query("select pg_advisory_xact_lock(hashtextextended($1,0))", [
           `subledger:${context.tenantId}:${company}`,
         ]);
+      }
       const result = await work(client);
       await client.query("commit");
       return result;
     } catch (error) {
       await client.query("rollback");
       if (error instanceof SubledgerError) throw error;
+      if (error instanceof PurchaseAccrualError || error instanceof InventoryError)
+        throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof AssetError) throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof TaxError) throw new SubledgerError(error.status, error.code, error.message);
       if (error instanceof CompanyCurrencyAuthorityError || error instanceof FinancePostingError)
@@ -918,6 +931,13 @@ export class SourceSubledgerRepository {
       )
         reject("This operation was already reversed.");
       const postedPreview = previewSchema.parse(original.preview);
+      const reversedMatches = await reversePurchaseStockMatches(
+        client,
+        context.tenantId,
+        input.company_id,
+        original.id,
+      );
+      if (reversedMatches.length) result.stock_matches = reversedMatches;
       result.taxes = postedPreview.taxes.map((tax) => ({
         ...tax,
         basis: decimalText(-decimal(tax.basis, tax.decimal_places, true), tax.decimal_places),
@@ -1286,19 +1306,45 @@ export class SourceSubledgerRepository {
               a.sourceDecimalPlaces,
             );
           allocated += native;
-          add(
-            line.nominal_account_id ?? category?.asset_account_id ?? counter,
-            native,
-            input.currency,
-            a,
-            `${code} ${line.item_code || line.description} ${line.asset_category_id ? "asset acquisition" : "purchase expense"}`,
-          );
-          if (native > 0n && line.id)
-            result.lines[result.lines.length - 1]!.dimensions = Object.fromEntries(
-              Object.entries({ ...line.dimensions, purchase_line_id: line.id }).filter(
-                (entry): entry is [string, string] => typeof entry[1] === "string",
-              ),
+          const firstLine = result.lines.length;
+          const stock = await matchPurchaseStock(client, {
+            tenant: context.tenantId,
+            company: input.company_id,
+            bill: input.source_document_id!,
+            date: input.date,
+            line,
+            precision: base.decimalPlaces,
+          });
+          if (stock) {
+            if (input.counter_account_id)
+              reject("Tracked purchase recognition clears receipt accrual. Remove the manual accounting override.");
+            result.stock_matches = [...(result.stock_matches ?? []), ...stock.matches];
+            let received = 0n;
+            for (const match of stock.matches) {
+              const value = dbMinor(match.value, base.decimalPlaces);
+              received += value;
+              addBase(match.accrual_account_id, value, `${code} received goods accrual`);
+            }
+            addBase(
+              stock.varianceAccount,
+              convertMinor(native, a.sourceDecimalPlaces, a.rateValue, base.decimalPlaces) - received,
+              `${code} purchase price / exchange variance`,
             );
+          } else
+            add(
+              line.nominal_account_id ?? category?.asset_account_id ?? counter,
+              native,
+              input.currency,
+              a,
+              `${code} ${line.item_code || line.description} ${line.asset_category_id ? "asset acquisition" : "purchase expense"}`,
+            );
+          if (native > 0n && line.id)
+            for (const postedLine of result.lines.slice(firstLine))
+              postedLine.dimensions = Object.fromEntries(
+                Object.entries({ ...line.dimensions, purchase_line_id: line.id }).filter(
+                  (entry): entry is [string, string] => typeof entry[1] === "string",
+                ),
+              );
         }
         for (const charge of sourceCharges) {
           if (
@@ -1356,9 +1402,10 @@ export class SourceSubledgerRepository {
           (sum, line) =>
             sum +
             convertMinor(
-              decimal(line.debit, a.sourceDecimalPlaces) - decimal(line.credit, a.sourceDecimalPlaces),
-              a.sourceDecimalPlaces,
-              a.rateValue,
+              decimal(line.debit, line.currency === base.code ? base.decimalPlaces : a.sourceDecimalPlaces) -
+                decimal(line.credit, line.currency === base.code ? base.decimalPlaces : a.sourceDecimalPlaces),
+              line.currency === base.code ? base.decimalPlaces : a.sourceDecimalPlaces,
+              line.exchangeRateValue,
               base.decimalPlaces,
             ),
           0n,
@@ -2254,6 +2301,14 @@ export class SourceSubledgerRepository {
                 payload.source_document_id,
                 journal!,
               );
+            await recordPurchaseStockMatches(
+              client,
+              context.tenantId,
+              input.company_id,
+              id,
+              journal!,
+              recalculated.stock_matches ?? [],
+            );
             state = "posted";
           }
           await client.query(

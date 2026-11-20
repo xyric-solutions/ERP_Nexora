@@ -1,5 +1,26 @@
 # Remaining UI migration checklist
 
+## 2026-11-20 - Stock and actual manufacturing candidate (unreleased)
+
+- Added the API-backed Stock Movements & Valuation view and feature-owned setup,
+  bounded lookup and actual-movement forms. Product on-hand and transfer state
+  now display ledger results; approved manufacturing orders show actual issued
+  batch/output progress. Existing layouts, links, permissions and master forms
+  are retained. The shared table's keyboard-scroll option now also covers plain
+  evidence tables with tools disabled. No stylesheet, font or palette was replaced.
+- Real three-actor cookie-authenticated PostgreSQL/browser acceptance passes;
+  the test asserts GL balance, WIP clearance, posted product quantities, reload
+  persistence, six viewport/theme screenshots and no serious/critical Axe issue.
+  Desktop/dark and mobile/light evidence was inspected at
+  `tmp/posted-stock-acceptance/`. Table overflow stays within a keyboard-accessible
+  region. The balance tab refreshes actual data after external workflow updates.
+- Theme write/check reports zero direct feature-view font/colour exceptions
+  across 135 view sources. The existing global artwork exception remains;
+  source percentages do not prove coverage of every menu route.
+- This candidate is not served on ports 3000/4000. Persistent Sales, the combined
+  acceptance journey, business-copy migration rehearsal and owner configuration
+  remain in the approved implementation plan. Retain the previous pinned runtime.
+
 ## 2026-11-20 - Purchase accounting setup access and readiness
 
 - `purchase-accounting.tsx` now shows the actual missing company policy and all

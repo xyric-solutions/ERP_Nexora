@@ -1,4 +1,5 @@
 import { createInventoryRouter, type InventoryRepository } from "./modules/inventory/router.js";
+import { createStockRouter, type StockRepository } from "./modules/inventory/stock-router.js";
 import { createManufacturingRouter, type ManufacturingRepository } from "./modules/manufacturing/router.js";
 import { createFleetRouter, type FleetRepository } from "./modules/fleet/router.js";
 import { createHash, timingSafeEqual } from "node:crypto";
@@ -114,6 +115,7 @@ export interface AppDependencies {
   procurementRepository?: ProcurementRepository;
   fixedAssetsService?: FixedAssetsService;
   inventoryRepository?: InventoryRepository;
+  stockRepository?: StockRepository;
   manufacturingRepository?: ManufacturingRepository;
   fleetRepository?: FleetRepository;
   fiscalCalendarRepository?: FiscalCalendarApiRepository;
@@ -512,6 +514,18 @@ export function createApp(dependencies: AppDependencies): Express {
       "/api/v1/procurement",
       createProcurementRouter({
         repository: dependencies.procurementRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
+  if (dependencies.stockRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/inventory/stock",
+      createStockRouter({
+        repository: dependencies.stockRepository,
         authentication: dependencies.authService,
         sessions: dependencies.sessionService,
         secureCookies: dependencies.config.nodeEnv === "production",

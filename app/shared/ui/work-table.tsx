@@ -385,12 +385,25 @@ export function WorkTable({
       style: { ...row.props.style, ...(!matching ? { display: "none" } : {}) },
     });
   }
-  if (!supported)
-    return (
+  if (!supported) {
+    const plain = (
       <table {...props} className={className}>
         {children}
       </table>
     );
+    return keyboardScroll ? (
+      <div
+        tabIndex={keyboardScroll ? 0 : undefined}
+        role={keyboardScroll ? "region" : undefined}
+        aria-label={`${label} scroll area`}
+        className="min-w-0 overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      >
+        {plain}
+      </div>
+    ) : (
+      plain
+    );
+  }
   const hasLocalNext = (bounds.index + 1) * size < filtered.length;
   const total = pagination ? pagination.total : continuation?.hasMore ? undefined : filtered.length;
   const start = pagination ? (filtered.length ? pagination.offset + 1 : 0) : bounds.start;
@@ -398,22 +411,25 @@ export function WorkTable({
   return (
     <div data-work-table={tableId} className="min-w-0 w-full text-foreground">
       <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border bg-card p-3 print:hidden">
-        {toolbar ?? <><span className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium">
-          <List className="size-4" aria-hidden="true" />
-          List
-        </span>
-        <Input
-          aria-label={`Filter ${label.toLowerCase()}`}
-          value={search}
-          maxLength={160}
-          placeholder={continuation || pagination || !paging ? "Filter loaded rows…" : "Search rows…"}
-          className="h-9 min-w-32 flex-1 sm:max-w-80"
-          onChange={(event) => {
-            setSearch(event.target.value);
-            setPage(0);
-          }}
-        />
-        </>}
+        {toolbar ?? (
+          <>
+            <span className="mr-1 inline-flex items-center gap-1.5 text-sm font-medium">
+              <List className="size-4" aria-hidden="true" />
+              List
+            </span>
+            <Input
+              aria-label={`Filter ${label.toLowerCase()}`}
+              value={search}
+              maxLength={160}
+              placeholder={continuation || pagination || !paging ? "Filter loaded rows…" : "Search rows…"}
+              className="h-9 min-w-32 flex-1 sm:max-w-80"
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPage(0);
+              }}
+            />
+          </>
+        )}
         <Button
           type="button"
           variant={filterOpen ? "secondary" : "outline"}
