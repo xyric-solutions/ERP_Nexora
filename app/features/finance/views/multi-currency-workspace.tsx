@@ -368,19 +368,11 @@ function CompanyCurrencyWorkspace({
       if (bill.kind !== "bill" || bill.state !== "approved" || !bill.supplier_id || !bill.supplier_name)
         throw new Error("Select an approved bill with an active supplier.");
       const existing = current.parties.find((party) => party.source_supplier_id === bill.supplier_id);
-      const party =
-        existing ??
-        (await api.createSubledgerParty(
-          {
-            company_id: company,
-            kind: "supplier",
-            name: bill.supplier_name,
-            default_currency: bill.currency,
-            source_supplier_id: bill.supplier_id,
-          },
-          csrfToken(),
-          `adopt-supplier:${company}:${bill.supplier_id}`,
-        ));
+      if (!existing)
+        throw new Error(
+          "Link this existing supplier in Accounting setup before preparing the bill. Opening a bill does not create a financial account.",
+        );
+      const party = existing;
       const scale = current.currencies.find((item) => item.code === bill.currency)?.decimal_places;
       if (scale === undefined) throw new Error("Activate the bill's currency for this company first.");
       // Purchase totals round each line's net to its two-decimal source precision.
@@ -422,7 +414,7 @@ function CompanyCurrencyWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [api, company, sourceDocumentId, canManage, csrfToken]);
+  }, [api, company, sourceDocumentId, canManage]);
 
   async function perform(work: () => Promise<unknown>, success: string) {
     if (busy) return;

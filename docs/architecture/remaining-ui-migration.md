@@ -1,5 +1,30 @@
 # Remaining UI migration checklist
 
+## 2026-11-20 - Purchase accounting setup access and readiness
+
+- `purchase-accounting.tsx` now shows the actual missing company policy and all
+  unlinked payment suppliers, disables preparation while prerequisites cannot be
+  verified, and provides retry and a contextual link to existing full Accounting
+  setup. `purchase-document-form.tsx` and the shell retain all existing routes
+  and add the setup destination. Existing linked accounting remains reviewable.
+- `multi-currency-workspace.tsx` no longer creates a financial supplier as a side
+  effect of opening a bill. Explicit authorized adoption, Finance permissions,
+  independent approval, posting, existing records and UI layout are retained.
+  No stylesheet or shared control was retired; no palette or font was added.
+- Theme write/check, production build, type checks, 1,637 unit tests, 43 database
+  integration tests, 4 contract tests and 2 authenticated AP/AR browser journeys
+  passed. Default-concurrency unit timeouts were resolved by a clean full rerun
+  with two workers, without altering tests or timeouts.
+- Actual-API screenshots at 1440, 820 and 390 pixels in light/dark themes are in
+  `tmp/operational-integration-repair/evidence/`; desktop/light and mobile/dark
+  were inspected. Source audits report zero direct feature-view font/colour
+  exceptions; the existing global artwork exception remains. These source
+  percentages do not establish coverage of every route.
+- Port 3000 serves the verified pinned frontend. Remaining live configuration,
+  commercial Sales and manufacturing/stock work is documented in
+  [the repair handoff](operational-integration-repair.md). This batch does not
+  establish complete ERP integration or owner accounting acceptance.
+
 ## 2026-11-19 - AP/AR financial readiness
 
 - Extended the persistent financial workspace with reviewed payment terms,

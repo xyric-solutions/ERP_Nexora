@@ -6,7 +6,7 @@ import type { SubledgerWorkspace } from "../../packages/contracts/src/index.js";
 import { MultiCurrencyWorkspace } from "../../app/features/finance/views/multi-currency-workspace.js";
 
 const harness = vi.hoisted(() => ({
-  api: { getSubledgerWorkspace: vi.fn(), getSubledgerSupplierMasters: vi.fn(), createSubledgerOperation: vi.fn(), createSubledgerParty: vi.fn() },
+  api: { getSubledgerWorkspace: vi.fn(), getSubledgerSupplierMasters: vi.fn(), createSubledgerOperation: vi.fn(), createSubledgerParty: vi.fn(), getPurchaseDocument: vi.fn() },
   company: "company-one",
 }));
 vi.mock("@/lib/session/session-provider", () => ({
@@ -91,6 +91,17 @@ afterEach(async () => {
 });
 
 describe("bank-derived operational settlement", () => {
+  it("opening a source bill requires explicit financial supplier adoption and performs no hidden master write", async () => {
+    harness.api.getPurchaseDocument.mockResolvedValue({
+      id: "approved-bill", kind: "bill", state: "approved", supplier_id: "unlinked-vendor",
+      supplier_name: "Existing supplier", currency: "USD", document_date: "2026-11-20",
+    });
+    await act(async () => root.render(<MultiCurrencyWorkspace initialSide="payable" sourceDocumentId="approved-bill" />));
+    await settle();
+    expect(container.textContent).toContain("Link this existing supplier in Accounting setup");
+    expect(harness.api.createSubledgerParty).not.toHaveBeenCalled();
+    expect(harness.api.createSubledgerOperation).not.toHaveBeenCalled();
+  });
   it.each(currencies)("derives read-only %s from its bank and submits no editable currency", async (currency) => {
     await act(async () => root.render(<MultiCurrencyWorkspace operational initialTab="settlement" />));
     await settle();

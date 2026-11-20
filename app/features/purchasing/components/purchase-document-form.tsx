@@ -2214,6 +2214,7 @@ export function PurchaseDocumentForm({
           record={record}
           disabled={busy || dirty}
           onReview={() => onNavigate("supplier-currency-accounts", record.id)}
+          onSetup={() => onNavigate("supplier-currency-accounts", "accounting-setup")}
         />
       ) : null}
       {payment ? (

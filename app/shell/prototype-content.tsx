@@ -3177,7 +3177,8 @@ function PrototypeContentBody(props: PrototypeContentProps) {
     return <MultiCurrencyWorkspace key={context.pageId} initialTab={context.pageId.includes("ageing") ? "balances" : "reports"} initialSide={context.pageId.startsWith("supplier") ? "payable" : "receivable"} initialReport={currencyReport} />;
   }
   if ((["sales", "customers"].includes(context.moduleId) && context.pageId === "currency-balances") || (context.moduleId === "purchases" && context.pageId === "supplier-currency-accounts")) {
-    return <MultiCurrencyWorkspace operational key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" ? context.recordRef : undefined} />;
+    const accountingSetup = context.moduleId === "purchases" && context.recordRef === "accounting-setup";
+    return <MultiCurrencyWorkspace operational={!accountingSetup} key={`${context.pageId}:${context.recordRef ?? ""}`} initialSide={context.moduleId === "purchases" ? "payable" : "receivable"} initialTab={accountingSetup ? "setup" : context.recordRef ? "documents" : "balances"} sourceDocumentId={context.moduleId === "purchases" && !accountingSetup ? context.recordRef : undefined} />;
   }
 
   if (context.moduleId === "purchases" && isPurchaseAssetReturnPage(context.pageId)) {

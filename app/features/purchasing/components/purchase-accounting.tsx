@@ -10,10 +10,12 @@ import { purchaseSelectClass } from "../model/purchase-workflow";
 export function PurchaseAccounting({
   record,
   onReview,
+  onSetup,
   disabled,
 }: {
   record: PurchaseDocument;
   onReview: () => void;
+  onSetup: () => void;
   disabled: boolean;
 }) {
   const { api, session, csrfToken } = useSession();
@@ -26,7 +28,9 @@ export function PurchaseAccounting({
   const [prepared, setPrepared] = useState(record.finance_state ?? "");
   const [operationVersion, setOperationVersion] = useState<number>();
   const [canRevise, setCanRevise] = useState(false);
+  const [retry, setRetry] = useState(0);
   const canManage = session?.user.permissions.includes("finance.subledger.manage") ?? false;
+  const canReadTaxes = session?.user.permissions.includes("finance.tax.read") ?? false;
   useEffect(() => {
     if (!canManage) return;
     let active = true;
@@ -64,7 +68,7 @@ export function PurchaseAccounting({
       .catch((caught) => {
         if (active) setError(purchaseError(caught));
       });
-    if (session?.user.permissions.includes("finance.tax.read"))
+    if (canReadTaxes)
       void api
         .getTaxes(
           `?${new URLSearchParams({ company_id: record.company_id, module: "purchases", party: "supplier", as_of: asOf, status: "active", limit: "100" })}`,
@@ -87,8 +91,20 @@ export function PurchaseAccounting({
     record.company_id,
     record.document_date,
     record.bill_date,
-    session,
+    session?.user.id,
+    canReadTaxes,
+    retry,
   ]);
+  const supplierIds = new Set(
+    record.payment_details?.entries.map((entry) => entry.supplier_id) ??
+      (record.supplier_id ? [record.supplier_id] : []),
+  );
+  const missingSuppliers = workspace
+    ? [...supplierIds].filter(
+        (id) => !workspace.parties.some((party) => party.kind === "supplier" && party.source_supplier_id === id),
+      )
+    : [];
+  const setupBlocked = !workspace || !workspace.policy || missingSuppliers.length > 0;
   async function prepare() {
     setBusy(true);
     setError("");
@@ -129,7 +145,7 @@ export function PurchaseAccounting({
             type="button"
             size="sm"
             variant="outline"
-            disabled={disabled || busy}
+            disabled={disabled || busy || (!prepared && setupBlocked)}
             onClick={prepared ? onReview : prepare}
           >
             {prepared ? "Review accounting" : busy ? "Preparing…" : "Prepare accounting"}
@@ -140,6 +156,23 @@ export function PurchaseAccounting({
         Purchase approval reserves allocations. Bank cash and supplier outstanding change only after independent Finance
         approval and posting.
       </p>
+      {canManage && workspace && (!workspace.policy || missingSuppliers.length > 0) ? (
+        <div role="status" className="space-y-2 text-sm">
+          <p className="m-0">Accounting cannot be prepared until the following setup is reviewed:</p>
+          <ul className="list-disc pl-5">
+            {!workspace.policy ? <li>Company control and exchange account mappings.</li> : null}
+            {missingSuppliers.length > 0 ? (
+              <li>
+                Link {missingSuppliers.length} existing supplier account(s) to Finance; retain their shared identities.
+              </li>
+            ) : null}
+          </ul>
+          <Button type="button" size="sm" variant="outline" disabled={disabled || busy} onClick={onSetup}>
+            Open accounting setup
+          </Button>
+        </div>
+      ) : null}
+      {canManage && !workspace && !error ? <p role="status">Checking accounting setup…</p> : null}
       {!canManage ? (
         <p className="m-0 text-xs">
           A company administrator must assign Finance subledger read/manage access and an independent approver with
@@ -147,9 +180,25 @@ export function PurchaseAccounting({
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="m-0 text-destructive">
-          {error}
-        </p>
+        <div className="space-y-2">
+          <p role="alert" className="m-0 text-destructive">
+            {error}
+          </p>
+          {!workspace ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={disabled || busy}
+              onClick={() => {
+                setError("");
+                setRetry((value) => value + 1);
+              }}
+            >
+              Retry accounting setup check
+            </Button>
+          ) : null}
+        </div>
       ) : null}
       {canManage && (!prepared || (["draft", "rejected"].includes(prepared) && canRevise)) && workspace ? (
         <details>
@@ -230,7 +279,7 @@ export function PurchaseAccounting({
               size="sm"
               variant="outline"
               className="mt-2"
-              disabled={disabled || busy}
+              disabled={disabled || busy || setupBlocked}
               onClick={prepare}
             >
               Update accounting draft

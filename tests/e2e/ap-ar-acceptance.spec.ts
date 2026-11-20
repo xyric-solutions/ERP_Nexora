@@ -404,6 +404,9 @@ test.describe.serial("authenticated AP/AR posting to bank reconciliation", () =>
   test("supplier creation, approved purchase bill, AP posting, approved payment and reconciliation", async () => {
     test.setTimeout(180000);
     const maker = actors[0]!;
+    await maker.page.goto("/#/purchases/supplier-currency-accounts/accounting-setup");
+    await expect(maker.page.getByRole("button", { name: "Save accounting policy", exact: true })).toBeVisible();
+    await expect(maker.page.getByRole("heading", { name: /Control and exchange accounts/ })).toBeVisible();
     const vendor = (
       await mutate(
         maker,
@@ -476,16 +479,15 @@ test.describe.serial("authenticated AP/AR posting to bank reconciliation", () =>
     const bill = previous!;
     expect(bill.payment_term).toBe("days_15");
     expect(bill.due_date).toBe("2026-12-04");
-    const invoice = await finish(
-      actors,
-      await mutate(
-        maker,
-        `/finance/subledger/purchase/${bill.id}/prepare`,
-        { company_id: company, expected_version: bill.version },
-        subledgerOperationSchema,
-        bill.version,
-      ),
+    await maker.page.goto(`/#/purchases/purchase-bills/${bill.id}`);
+    await expect(maker.page.getByRole("button", { name: "Prepare accounting", exact: true })).toBeEnabled();
+    await maker.page.getByRole("button", { name: "Prepare accounting", exact: true }).click();
+    await expect(maker.page.getByRole("button", { name: "Review accounting", exact: true })).toBeVisible();
+    const preparedBill = (await workspace(maker)).operations.find(
+      (op) => op.input.type === "recognition" && op.input.source_document_id === bill.id,
     );
+    expect(preparedBill?.state).toBe("draft");
+    const invoice = await finish(actors, preparedBill!);
     const bank = (await workspace(maker)).banks.find((b) => b.currency === "USD")!.id;
     let instruction = (
       await mutate(
@@ -518,16 +520,29 @@ test.describe.serial("authenticated AP/AR posting to bank reconciliation", () =>
       )
     ).record;
     instruction = await approvePurchase(actors, instruction);
-    const payment = await finish(
-      actors,
-      await mutate(
-        maker,
-        `/finance/subledger/purchase/${instruction.id}/prepare`,
-        { company_id: company, expected_version: instruction.version },
-        subledgerOperationSchema,
-        instruction.version,
-      ),
+    await maker.page.goto(`/#/purchases/payments/${instruction.id}`);
+    await expect(maker.page.getByRole("button", { name: "Prepare accounting", exact: true })).toBeEnabled();
+    await mkdir("tmp/operational-integration-repair/evidence", { recursive: true });
+    for (const width of [1440, 820, 390]) {
+      await maker.page.setViewportSize({ width, height: 1000 });
+      for (const theme of ["light", "dark"]) {
+        await maker.page.evaluate((value) => {
+          document.documentElement.dataset.theme = value;
+        }, theme);
+        await maker.page.screenshot({
+          path: `tmp/operational-integration-repair/evidence/purchase-accounting-${width}-${theme}.png`,
+          fullPage: true,
+        });
+      }
+    }
+    await maker.page.setViewportSize({ width: 1440, height: 1000 });
+    await maker.page.getByRole("button", { name: "Prepare accounting", exact: true }).click();
+    await expect(maker.page.getByRole("button", { name: "Review accounting", exact: true })).toBeVisible();
+    const preparedPayment = (await workspace(maker)).operations.find(
+      (op) => op.input.type === "purchase_payment" && op.input.source_document_id === instruction.id,
     );
+    expect(preparedPayment?.state).toBe("draft");
+    const payment = await finish(actors, preparedPayment!);
     const reconciliation = await reconcile(actors, payment, bank, "2026-11-19", "0");
     await verifyEvidence(maker, supplier.id, [invoice, payment], reconciliation, "payables");
   });
