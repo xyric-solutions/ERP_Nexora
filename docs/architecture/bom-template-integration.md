@@ -87,7 +87,21 @@ malformed extra utility candidates. Existing theme rules remain unchanged; build
 source scanning/cache cleanup remains a separate follow-up. These are warnings,
 not hidden test failures or evidence of full ERP UI acceptance.
 
-Local activation is pending the final source commit and served-asset verification.
+Local activation completed on 21 November 2026. Implementation: `0d827c5`;
+compatibility regression update / released application: `6cfa123`.
+Web 3000 and API 4000 both use `tmp/bom-template-release/release/source`, build
+`1pTm3wjsHV4z3QQU1nPcV`. The latest-local-runtime helper points to both services.
+Fourteen served login scripts matched the pinned build hashes; readiness, login
+and unauthenticated business-route rejection passed. Runtime PostgreSQL role
+`nexora_app` is neither superuser nor BYPASSRLS.
+
+Live migration status: Inventory **7**, Manufacturing **5**, Security **30**;
+Finance **43**, Procurement **8**, Sales **4** retained. Post-migration original-
+column checksums and exact ledger balances matched the verified backup across
+all 376 original tables. New business tables remained empty. Deployment made
+zero business postings or financial configuration changes. The approved Sales UI
+was merged before switching services; its source hashes are in the release manifest.
+
 The backup/restore rehearsal preserved original-column data across **376 existing
 tables**, exact ledger balances and all existing records. New business tables
 were empty. Replaying migrations produced no changes. The only authorized

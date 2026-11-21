@@ -20,7 +20,10 @@ use the repository's existing checked implementation-plan convention.
       include exact actual charges in partial/final completion; source reversal guards.
 - [x] Generate contracts/client/OpenAPI; run affected PostgreSQL, unit, contract,
       authorization and authenticated browser regressions, types/lint/build/theme.
-- [ ] Backup/rehearse schema upgrade with original-column/balance preservation;
+- [x] Backup/rehearse schema upgrade with original-column/balance preservation;
       replay; pin/activate matched local services; verify served assets and readiness.
-- [ ] Document changed files, migrations, exact results, release references and
+- [x] Document changed files, migrations, exact results, release references and
       remaining owner configuration/acceptance decisions. Stop after this scope.
+
+Release completed: application `6cfa123`, build `1pTm3wjsHV4z3QQU1nPcV`.
+Evidence and outstanding owner decisions: `docs/architecture/bom-template-integration.md`.
