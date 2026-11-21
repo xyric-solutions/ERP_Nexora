@@ -52,7 +52,8 @@ Technical checks passed on the isolated release candidate:
 
 | Check | Result |
 | --- | --- |
-| Unit suite (`npm.cmd run test:unit -- --maxWorkers=2`) | 1,654 passed / 208 files |
+| Feature-isolated unit suite (`npm.cmd run test:unit -- --maxWorkers=2`) | 1,654 passed / 208 files |
+| Merged approved-UI unit run | 1,653 passed plus one outdated label selector; corrected file rerun: 10/10 passed, preserving all assertions (1,654 distinct cases verified) |
 | API contracts (`npm.cmd run test:contract -- --maxWorkers=1`) | 29 passed / 7 files |
 | Real PostgreSQL integrations | 193 distinct cases passed / 12 files, in the final relevant runs |
 | Database-enabled security suite | 63 passed / 13 files; no skipped tests |
@@ -78,7 +79,8 @@ and rerun. Fixture role isolation and test-date/text assertions were corrected;
 accounting guards were retained. Loaded parallel runs initially hit test/startup
 timeouts; final runs passed with bounded fixture allowances. A working-tree unit
 run also exposed a receivable-form test failure in unrelated unfinished UI work;
-that work was preserved and excluded. All 1,654 candidate unit tests passed.
+the existing selector was aligned with the approved customer-name and Default currency labels.
+The final focused rerun retains every payload and policy assertion.
 
 The final build succeeds with eight generated-CSS optimization warnings containing
 malformed extra utility candidates. Existing theme rules remain unchanged; build
@@ -94,8 +96,10 @@ security change was the category permission and existing Super Admin catalog syn
 Backup: `tmp/backups/bom-template-1795272521107.dump`.
 SHA-256: `037842e9c1ad0a246c0f6e6464cece0265519f6becf3c124edfa33237a1ae1b0`.
 Release evidence and protected runtime helpers stay under `tmp/bom-template-release`.
-Unrelated unfinished finance/sales/profile UI edits and environment/lockfile edits
-are excluded from this candidate.
+The newer approved Sales/Customer UI from `tmp/sales-form-live/source` is retained
+in the merged runtime through a hashed UI overlay (`ui-overlay.json`); its original
+source build is `8tf4kQEw5S29RIeFyRCSL`. Those existing UI source edits remain under
+their original ownership. Environment and lockfile edits are not included.
 
 ## Owner acceptance boundary
 

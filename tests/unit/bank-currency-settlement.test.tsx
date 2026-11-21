@@ -150,12 +150,13 @@ describe("bank-derived operational settlement", () => {
     await settle();
     const button = [...container.querySelectorAll("button")].find((item) => item.textContent === label)!;
     await act(async () => button.click());
-    await select("Original currency", "USD");
+    await select(side === "receivable" ? "Default currency *" : "Original currency", "USD");
     expect(container.textContent).not.toContain("Control and exchange accounts");
     expect(container.textContent).not.toContain("Save accounting policy");
-    enter("Name", "New financial party");
+    const nameLabel = side === "receivable" ? "Customer name *" : "Name";
+    enter(nameLabel, "New financial party");
     await act(async () =>
-      field("Name")
+      field(nameLabel)
         .closest("form")!
         .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
     );
