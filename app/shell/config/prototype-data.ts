@@ -242,6 +242,7 @@ export const prototypeModules = [
     groups: [
       g("products", "Products", [
         p("products", "Products"),
+        p("product-configuration", "Configuration", "list", "live", true),
         p("units-of-measure", "Unit of Measure"),
         p("stock-transfers", "Stock Transfer"),
         p("stock-movements", "Stock Movements & Valuation"),

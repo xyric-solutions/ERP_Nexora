@@ -191,7 +191,7 @@ const app = createApp({
     },
     multi_currency_accounting: async () => {
       const result = await pool.query<{ available: boolean }>(
-        `select to_regclass('public.finance_subledger_item_event') is not null and to_regclass('public.finance_subledger_operation') is not null and exists(select 1 from nexora_schema_migration where module_name='finance' and version=37) and exists(select 1 from nexora_schema_migration where module_name='security' and version=21) as available`,
+        `select to_regclass('public.finance_subledger_item_event') is not null and to_regclass('public.finance_subledger_operation') is not null and exists(select 1 from nexora_schema_migration where module_name='finance' and version=43) and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=7) and exists(select 1 from nexora_schema_migration where module_name='security' and version=21) as available`,
       );
       if (!result.rows[0]?.available) throw new Error("Multi-currency subledger migrations are required");
       const taxes = await pool.query<{ available: boolean }>(
@@ -201,13 +201,13 @@ const app = createApp({
     },
     inventory_foundation: async () => {
       const result = await pool.query<{ available: boolean }>(
-        "select to_regclass('public.inventory_product') is not null and to_regclass('public.inventory_warehouse') is not null and to_regclass('public.inventory_transfer') is not null and to_regclass('public.inventory_transfer_line') is not null and to_regclass('public.inventory_operation_change') is not null and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=2) as available",
+        "select to_regclass('public.inventory_product') is not null and to_regclass('public.inventory_warehouse') is not null and to_regclass('public.inventory_transfer') is not null and to_regclass('public.inventory_transfer_line') is not null and to_regclass('public.inventory_operation_change') is not null and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=7) as available",
       );
       if (!result.rows[0]?.available) throw new Error("Inventory product migrations are required");
     },
     posted_stock_ledger: async () => {
       const result = await pool.query<{ available: boolean }>(
-        "select to_regclass('public.inventory_stock_entry') is not null and to_regclass('public.inventory_stock_operation') is not null and to_regprocedure('public.check_stock_posting()') is not null and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=5) and exists(select 1 from nexora_schema_migration where module_name='security' and version=28) as available",
+        "select to_regclass('public.inventory_stock_entry') is not null and to_regclass('public.inventory_stock_operation') is not null and to_regprocedure('public.check_stock_posting()') is not null and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=7) and exists(select 1 from nexora_schema_migration where module_name='security' and version=30) as available",
       );
       if (!result.rows[0]?.available) throw new Error("Posted stock ledger migrations are required");
     },
@@ -217,7 +217,7 @@ const app = createApp({
             and to_regclass('public.manufacturing_plan') is not null
             and to_regclass('public.manufacturing_order') is not null
             and to_regclass('public.manufacturing_change') is not null
-            and exists(select 1 from nexora_schema_migration where module_name='manufacturing' and version=4)
+            and exists(select 1 from nexora_schema_migration where module_name='manufacturing' and version=5)
             and exists(select 1 from nexora_schema_migration where module_name='security' and version=27 and name='manufacturing_permissions')
             as available`,
       );

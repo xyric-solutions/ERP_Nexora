@@ -108,6 +108,7 @@ test.describe("Persisted Inventory product catalog", () => {
         context,
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + company,
           company_id: company,
           name: `Catalog item ${String(n).padStart(2, "0")}`,
           currency: "USD",

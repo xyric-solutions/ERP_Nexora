@@ -1,7 +1,7 @@
 # BOM templates, material planning and product categories
 
-Date: 20 November 2026. Status: proposed design for owner review; implementation
-has not started. Application baseline: `4a2de8a`, documentation baseline `6e3554d`.
+Date: 20 November 2026. Status: approved by the owner in chat; implementation
+authorized. Application baseline: `4a2de8a`, documentation baseline `6e3554d`.
 
 ## Requested outcome
 
@@ -217,6 +217,6 @@ compensation guards; shared contracts/generated API; shell navigation and tests.
 
 Repository context and existing integration architecture reviewed. The actual-cost
 choice is confirmed by the owner. The proposal uses existing records/lifecycles,
-preserves history and defines the additional cost controls. Design approval is
-required before implementation; no application code, schema or business data has
-been changed for this request.
+preserves history and defines the additional cost controls. Owner approval was
+received after review of committed proposal `8e5aa14`; no further design approval
+is required for this scope.

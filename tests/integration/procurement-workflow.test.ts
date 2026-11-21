@@ -1051,6 +1051,7 @@ suite("Database-backed Purchase and Supplier workflow", () => {
     const inventory = new SourceInventoryRepository(pool);
     const actor = { ...maker, actor: { ...maker.actor, permissions: [...permissions, permission] } };
     const productInput = productInputSchema.parse({
+      category_id: "category-fixture-" + company,
       company_id: company,
       name: "Synthetic named valve",
       currency: "USD",
@@ -1111,6 +1112,7 @@ suite("Database-backed Purchase and Supplier workflow", () => {
         inventoryActor,
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + company,
           company_id: company,
           name: "Conversion purchase material",
           currency: "USD",

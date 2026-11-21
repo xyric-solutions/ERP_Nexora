@@ -13,6 +13,7 @@ import {
   stockPreviewSchema,
   stockPolicySchema,
   unitSnapshotSchema,
+  manufacturingRecipeSchema,
   type StockEntryPreview,
   type StockOperation,
   type StockPreview,
@@ -25,6 +26,13 @@ import {
 } from "../finance/currencies/company-authority.js";
 import { productUnitChoices, productUnitSnapshot } from "./units-repository.js";
 import { issueStockCost } from "./stock-costing.js";
+import {
+  appendProductionCharge,
+  batchCharges,
+  assertProductionReversal,
+  attestActualMaterials,
+  requireProductionFinanceRead,
+} from "./production-costs.js";
 import { appendSalesStock } from "../sales/stock-source.js";
 
 const productRecord = z.object({
@@ -34,6 +42,7 @@ const productRecord = z.object({
   stock_account_id: z.string().nullable(),
   version: z.number(),
   unit: z.string(),
+  unit_id: z.string().nullable().optional(),
   track_inventory: z.boolean(),
   manufacture_enabled: z.boolean(),
   valuation_version: z.number().nullable(),
@@ -464,6 +473,7 @@ export async function buildStockPreview(
     }
   } else if (input.kind === "manufacturing_issue") {
     const order = await manufacturingOrder(client, tenant, company, input.source_id);
+    if (order.recipe) await assertOutputUnit(client, tenant, company, order);
     if (op.date < order.order_date) fail("Material issue cannot precede its manufacturing order.");
     const issued = (
       await client.query<{ quantity: string }>(
@@ -473,7 +483,8 @@ export async function buildStockPreview(
     ).rows[0]!.quantity;
     if (parseQuantity(issued) + parseQuantity(input.quantity) > parseQuantity(order.quantity))
       fail("Issued production batches exceed the approved order quantity.", "STOCK_PRODUCTION_QUANTITY_EXCEEDED");
-    result.evidence.order = order;
+    result.evidence.order = jsonEvidence(order);
+    result.evidence.approved_materials = await attestActualMaterials(order, issued, input);
     result.evidence.issued_quantity = issued;
     result.evidence.wip_account_id = policy.wip_account_id;
     const bom = (
@@ -482,15 +493,34 @@ export async function buildStockPreview(
         [tenant, company, order.product_id],
       )
     ).rows[0];
-    result.evidence.bom = bom?.snapshot ? z.json().parse(bom.snapshot) : null;
+    result.evidence.bom = order.recipe
+      ? z.json().parse(order.recipe)
+      : bom?.snapshot
+        ? z.json().parse(bom.snapshot)
+        : null;
     for (const line of input.lines) {
       if (line.product_id === order.product_id) fail("The finished product cannot consume itself.");
+      const frozen = order.recipe?.lines.find((material) => material.product_id === line.product_id);
+      if (frozen) {
+        const current = await product(line.product_id);
+        const changed =
+          frozen.unit_snapshot?.base_unit_id && current.unit_id
+            ? frozen.unit_snapshot.base_unit_id !== current.unit_id
+            : frozen.unit !== current.unit;
+        if (changed)
+          fail(
+            "A material base unit changed after this recipe was approved. Refresh and approve a corrected order before issuing it.",
+            "PRODUCTION_RECIPE_UNIT_CHANGED",
+          );
+      }
       accounting(
         await entry(line.product_id, line.warehouse_id, -parseQuantity(line.quantity)),
         policy.wip_account_id,
         orderDimensions(order, input.dimensions),
       );
     }
+  } else if (input.kind === "manufacturing_charge") {
+    await appendProductionCharge(client, context, op, result, leg);
   } else if (input.kind === "manufacturing_completion") {
     const row = (
       await client.query(
@@ -508,6 +538,7 @@ export async function buildStockPreview(
     )
       fail("Completion requires a posted, unreversed actual material issue.", "STOCK_PRODUCTION_ISSUE_REQUIRED");
     const order = await manufacturingOrder(client, tenant, company, issue.input.source_id);
+    await assertOutputUnit(client, tenant, company, order);
     const used = (
       await client.query<{ quantity: string; value: string }>(
         `select coalesce(sum((o.payload->>'quantity')::numeric),0)::text as quantity,
@@ -523,7 +554,18 @@ export async function buildStockPreview(
         "Actual output exceeds this material issue's remaining production quantity.",
         "STOCK_PRODUCTION_QUANTITY_EXCEEDED",
       );
-    const total = -issue.preview.entries.reduce((sum, e) => sum + stockMinor(e.value, base.decimalPlaces), 0n);
+    const charges = await batchCharges(client, tenant, company, issue.id);
+    if (charges.latest && op.date < charges.latest)
+      fail("Completion cannot precede actual production charge history.", "STOCK_DATE_CUTOFF");
+    if (order.recipe?.charges.length && !input.charges_review_reason)
+      fail(
+        "Review actual charges or explain any waived estimates before completing the batch.",
+        "PRODUCTION_CHARGE_REVIEW_REQUIRED",
+      );
+    result.evidence.production_charges = charges;
+    const total =
+      -issue.preview.entries.reduce((sum, e) => sum + stockMinor(e.value, base.decimalPlaces), 0n) +
+      stockMinor(charges.value, base.decimalPlaces);
     const carrying = total - stockMinor(used.value, base.decimalPlaces);
     const value = quantity === remaining ? carrying : divideRounded(carrying * quantity, remaining);
     if (value <= 0n || (quantity < remaining && value >= carrying))
@@ -538,7 +580,7 @@ export async function buildStockPreview(
       remaining_quantity: formatQuantity(remaining),
       remaining_value: decimalText(carrying, base.decimalPlaces),
     };
-    result.evidence.order = order;
+    result.evidence.order = jsonEvidence(order);
     result.evidence.wip_account_id = wip;
     if (Object.entries(input.dimensions).some(([key, value]) => issue.input.dimensions[key] !== value))
       fail(
@@ -564,10 +606,25 @@ export async function buildStockPreview(
   return stockPreviewSchema.parse(result);
 }
 
+async function assertOutputUnit(
+  client: PoolClient,
+  tenant: string,
+  company: string,
+  order: { product_id: string; unit: string },
+) {
+  const row = (
+    await client.query(
+      "select details->>'unit' unit from inventory_product where tenant_id=$1 and company_id=$2 and id=$3 and status='active' and details->>'manufacture_enabled'='true'",
+      [tenant, company, order.product_id],
+    )
+  ).rows[0];
+  if (!row || row.unit !== order.unit)
+    fail("The finished product's active base unit must match its approved order.", "PRODUCTION_OUTPUT_UNIT_CHANGED");
+}
 async function manufacturingOrder(client: PoolClient, tenant: string, company: string, id: string) {
   const order = (
     await client.query(
-      "select id,code,product_id,quantity::text,unit,state,row_version as version,order_date::text,project_id,location_id from manufacturing_order where tenant_id=$1 and company_id=$2 and id=$3 for share",
+      "select id,code,product_id,quantity::text,unit,state,row_version as version,order_date::text,project_id,location_id,recipe from manufacturing_order where tenant_id=$1 and company_id=$2 and id=$3 for share",
       [tenant, company, id],
     )
   ).rows[0];
@@ -577,6 +634,7 @@ async function manufacturingOrder(client: PoolClient, tenant: string, company: s
     product_id: z.string(),
     quantity: z.string(),
     unit: z.string(),
+    recipe: manufacturingRecipeSchema.nullable().default(null),
     state: z.literal("approved"),
     version: z.number(),
     order_date: z.string(),
@@ -621,6 +679,22 @@ async function reversalPreview(
   ).rows[0];
   if (!row) fail("The original stock operation was not found in this company.", "STOCK_NOT_FOUND", 404);
   const original = stockOperationSchema.parse(row);
+  if (original.kind === "manufacturing_charge") {
+    await requireProductionFinanceRead(client, context, company, true);
+    if (
+      !context.actor.permissions.includes("manufacturing.order.read") ||
+      !(
+        await client.query("select 1 where bank_has_live_permission($1,$2,$3,$4)", [
+          tenant,
+          company,
+          context.actor.userId,
+          "manufacturing.order.read",
+        ])
+      ).rowCount
+    )
+      fail("Current manufacturing source read access is required.", "PRODUCTION_SOURCE_PERMISSION_REQUIRED", 403);
+  }
+  await assertProductionReversal(client, tenant, company, original, op.date);
   if (original.kind === "reversal" || original.state !== "posted" || !original.preview || op.date < original.date)
     fail("Choose an unreversed posted original and a valid reversal date.", "STOCK_REVERSAL_SOURCE_INVALID");
   if (
@@ -719,6 +793,7 @@ async function reversalPreview(
     lines: original.preview.lines.map((line) => ({ ...line, debit: line.credit, credit: line.debit })),
     evidence: {
       accounts: original.preview.evidence.accounts ?? [],
+      original_kind: original.kind,
       original_operation_id: original.id,
       original_version: original.version,
       original_preview_hash: operationalDigest(original.preview),

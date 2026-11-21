@@ -439,7 +439,15 @@ try {
   }
   if (process.env.NEXORA_STOCK_E2E === "true") {
     const company = "nexora-currency-browser";
-    const read = ["inventory.stock.read", "inventory.item.read", "inventory.bin.read", "manufacturing.order.read"];
+    const read = [
+      "inventory.stock.read",
+      "inventory.item.read",
+      "inventory.bin.read",
+      "manufacturing.order.read",
+      "manufacturing.bom.read",
+      "manufacturing.plan.read",
+      "finance.journal.read",
+    ];
     for (const [policy, keys] of [
       [
         "r06-uat-policy-maker",
@@ -450,6 +458,10 @@ try {
           "inventory.item.create",
           "inventory.bin.create",
           "manufacturing.order.create",
+          "manufacturing.bom.create",
+          "manufacturing.plan.create",
+          "manufacturing.plan.convert",
+          "inventory.category.manage",
         ],
       ],
       ["r06-uat-policy-checker", [...read, "inventory.stock.approve", "manufacturing.order.approve"]],

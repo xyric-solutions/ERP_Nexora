@@ -17,6 +17,7 @@ import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { manufacturingError, orderStateLabels, today } from "../model/manufacturing";
 import { ManufacturingLookup } from "./manufacturing-lookup";
 import { useManufacturingForm } from "./use-manufacturing-form";
+import { TemplateRequirements } from "./recipe-sections";
 
 type Labels = { product: string; project: string; location: string };
 const eventLabels: Record<string, string> = {
@@ -28,6 +29,9 @@ const eventLabels: Record<string, string> = {
 };
 function inputFrom(record: ManufacturingOrder): ManufacturingOrderInput {
   return {
+    bom_version: record.recipe?.bom_version,
+    warehouse_id: record.recipe?.warehouse_id,
+    lines: record.recipe?.lines.map(({ product_id, quantity, remark }) => ({ product_id, quantity, remark })),
     company_id: record.company_id,
     product_id: record.product_id,
     quantity: record.quantity,
@@ -230,7 +234,12 @@ export function ManufacturingOrderForm({
               selectedLabel={labels.product}
               onChange={(choice) => {
                 setLabels((current) => ({ ...current, product: choice?.label ?? "" }));
-                form.change((current) => ({ ...current, product_id: choice?.id ?? "" }));
+                form.change((current) => ({
+                  ...current,
+                  product_id: choice?.id ?? "",
+                  bom_version: undefined,
+                  lines: undefined,
+                }));
               }}
             />
           </LabeledField>
@@ -238,7 +247,7 @@ export function ManufacturingOrderForm({
             <Input
               inputMode="decimal"
               value={form.input.quantity}
-              onChange={(e) => form.change((current) => ({ ...current, quantity: e.target.value }))}
+              onChange={(e) => form.change((current) => ({ ...current, quantity: e.target.value, lines: undefined }))}
             />
           </LabeledField>
           <LabeledField label="Order date *">
@@ -304,6 +313,38 @@ export function ManufacturingOrderForm({
           />
         </LabeledField>
       </fieldset>
+      <LabeledField label="Material warehouse">
+        <ManufacturingLookup
+          company={company}
+          surface="orders"
+          kind="warehouse"
+          label="Material warehouse"
+          value={form.input.warehouse_id ?? ""}
+          disabled={!writable || busy}
+          onChange={(choice) => form.change((c) => ({ ...c, warehouse_id: choice?.id ?? null }))}
+        />
+      </LabeledField>
+      <TemplateRequirements
+        company={company}
+        surface="orders"
+        product={form.input.product_id}
+        quantity={form.input.quantity}
+        bomVersion={form.input.bom_version}
+        warehouse={form.input.warehouse_id}
+        snapshot={record?.recipe}
+        frozen={!writable}
+        legacy={Boolean(record && !record.recipe)}
+        actualLines={form.input.lines}
+        onMaterialChange={writable ? (lines) => form.change((c) => ({ ...c, lines })) : undefined}
+        onPreview={(recipe) => {
+          if (form.input.bom_version !== recipe.bom_version || !form.input.lines)
+            form.change((c) => ({
+              ...c,
+              bom_version: recipe.bom_version,
+              lines: recipe.lines.map(({ product_id, quantity, remark }) => ({ product_id, quantity, remark })),
+            }));
+        }}
+      />
       {record?.events.length ? (
         <section className="space-y-2 rounded-xl border border-border bg-card p-4 sm:p-5" aria-label="History">
           <h3 className="text-sm font-semibold">History</h3>
@@ -321,7 +362,8 @@ export function ManufacturingOrderForm({
       ) : null}
       <footer className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-4 shadow-sm">
         <p className="max-w-xl text-sm text-muted-foreground">
-          Confirming approves the order. Material issue, production and costing are not part of this module yet.
+          Confirming freezes this order&apos;s recipe. Record actual material issues, approved charges and finished output in
+          Stock Movements.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" disabled={busy} onClick={form.close}>

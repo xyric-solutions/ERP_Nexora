@@ -23,17 +23,29 @@ import {
   type ManufacturingSurface,
   type ProductionPlan,
   type ProductionPlanInput,
+  type RequirementsQuery,
+  type ManufacturingRecipe,
+  type MaterialBalanceQuery,
+  materialBalanceSchema,
 } from "@nexora/contracts";
 import type { Pool, PoolClient } from "pg";
 import type { ReferenceMasterContext } from "../master-data/source-repository.js";
 import { companyAuthoritySql as companyAuthority } from "../security/company-authority.js";
+import {
+  normalizeBom,
+  recipeFromBom,
+  persistRecipeLines,
+  previewAvailability,
+  orderRecipe,
+} from "./template-requirements.js";
+import { productUnitChoices } from "../inventory/units-repository.js";
+import { OperationalError } from "../shared/operational-transaction.js";
+import { InventoryError } from "../inventory/errors.js";
 
 /*
  * Manufacturing: Bill of Materials, Production Planning and Manufacturing Orders.
- * Simplified flow (13 Nov 2026): plan (finished product + quantity) -> convert -> draft
- * Manufacturing Order -> Confirm & Approve in one step. BOM/ingredient integration with
- * plans and orders is a later phase. Nothing here issues material, moves stock, costs
- * production or posts to the ledger.
+ * Versioned BOM -> calculated plan -> snapshotted order -> Confirm & Approve.
+ * Actual issue, approved cost allocation and output posting remain in the stock service.
  */
 export type ManufacturingContext = ReferenceMasterContext;
 export class ManufacturingError extends Error {
@@ -73,18 +85,18 @@ const APPROVE = "manufacturing.order.approve";
 const unitSql = "coalesce(nullif(btrim(p.details->>'unit'),''),'Each')";
 const like = (search: string) => `%${search.replace(/[\\%_]/g, "\\$&")}%`;
 
-const bomProjection = `jsonb_build_object('id',b.id,'company_id',b.company_id,'code',b.code,'product_id',b.product_id,
+const bomProjection = `b.template_details||jsonb_build_object('id',b.id,'company_id',b.company_id,'code',b.code,'product_id',b.product_id,
  'product_code',fp.code,'product_name',fp.name,'output_quantity',trim_scale(b.output_quantity)::text,'unit',b.unit,'notes',b.notes,
- 'version',b.row_version,'created_at',b.created_at::text,'updated_at',b.updated_at::text,
+ 'template_name',coalesce(b.template_details->>'template_name',fp.name),'version',b.row_version,'created_at',b.created_at::text,'updated_at',b.updated_at::text,
  'lines',coalesce((select jsonb_agg(jsonb_build_object('product_id',l.product_id,'product_code',c.code,'product_name',c.name,
-   'quantity',trim_scale(l.quantity)::text,'unit',l.unit) order by l.line_no)
-  from manufacturing_bom_line l join inventory_product c on c.tenant_id=l.tenant_id and c.company_id=l.company_id and c.id=l.product_id
+   'quantity',trim_scale(l.quantity)::text,'unit',l.unit,'unit_snapshot',l.unit_snapshot,'warehouse_id',l.warehouse_id,'description',l.description,'category',coalesce(category.name,c.category)) order by l.line_no)
+  from manufacturing_bom_line l join inventory_product c on c.tenant_id=l.tenant_id and c.company_id=l.company_id and c.id=l.product_id left join inventory_product_category category on(category.tenant_id,category.company_id,category.id)=(c.tenant_id,c.company_id,c.category_id)
   where l.tenant_id=b.tenant_id and l.company_id=b.company_id and l.bom_id=b.id),'[]'::jsonb)) as record`;
 const bomJoins = `from manufacturing_bom b join inventory_product fp on fp.tenant_id=b.tenant_id and fp.company_id=b.company_id and fp.id=b.product_id`;
 
 const planProjection = `jsonb_build_object('id',x.id,'company_id',x.company_id,'code',x.code,'product_id',x.product_id,
  'product_code',fp.code,'product_name',fp.name,'planned_quantity',trim_scale(x.planned_quantity)::text,'unit',x.unit,
- 'notes',x.notes,'state',x.state,'manufacturing_order_id',x.manufacturing_order_id,'manufacturing_order_code',mo.code,
+ 'recipe',x.recipe,'notes',x.notes,'state',x.state,'manufacturing_order_id',x.manufacturing_order_id,'manufacturing_order_code',mo.code,
  'version',x.row_version,'created_at',x.created_at::text,'updated_at',x.updated_at::text) as record`;
 const planJoins = `from manufacturing_plan x
  join inventory_product fp on fp.tenant_id=x.tenant_id and fp.company_id=x.company_id and fp.id=x.product_id
@@ -95,7 +107,7 @@ const orderProjection = `jsonb_build_object('id',x.id,'company_id',x.company_id,
  'quantity',trim_scale(x.quantity)::text,'unit',x.unit,'order_date',to_char(x.order_date,'YYYY-MM-DD'),
  'project_id',x.project_id,'project_name',project.code||' · '||project.name,
  'location_id',x.location_id,'location_name',location.code||' · '||location.name,
- 'state',x.state,'notes',x.notes,
+ 'recipe',x.recipe,'state',x.state,'notes',x.notes,
  'created_by',x.created_by,'created_by_name',coalesce(nullif(btrim(creator.display_name),''),creator.id),
  'approved_by_name',case when x.state='approved' then coalesce(nullif(btrim(approver.display_name),''),approver.id) end,
  'approved_at',case when x.state='approved' then x.updated_at::text end,
@@ -151,6 +163,8 @@ export class SourceManufacturingRepository {
       return result;
     } catch (error) {
       await client.query("rollback");
+      if (error instanceof OperationalError || error instanceof InventoryError)
+        fail(error.message, error.code, error.status);
       if (error && typeof error === "object" && "code" in error) {
         if (["42P01", "42703", "42883"].includes(String(error.code)))
           fail(
@@ -163,7 +177,7 @@ export class SourceManufacturingRepository {
             "This record already exists or the request key was reused. Refresh and check the existing record.",
             "MANUFACTURING_DUPLICATE",
           );
-        if (["23503", "23514", "40001", "40P01"].includes(String(error.code)))
+        if (["23503", "23514", "40001", "40P01", "P0001"].includes(String(error.code)))
           fail(
             "Manufacturing data changed or its audit evidence is incomplete. Refresh and retry.",
             "MANUFACTURING_INTEGRITY_CONFLICT",
@@ -314,7 +328,9 @@ export class SourceManufacturingRepository {
 
   lookups(context: ManufacturingContext, query: ManufacturingLookupQuery) {
     const allowed =
-      query.surface === "boms" ? ["finished_product", "component"] : ["finished_product", "project", "location"];
+      query.surface === "boms"
+        ? ["finished_product", "component", "non_stock", "warehouse", "expense", "currency"]
+        : ["finished_product", "warehouse", "project", "location"];
     if (!allowed.includes(query.kind))
       fail("This lookup is not available on this Manufacturing page.", "LOOKUP_PERMISSION_DENIED", 403);
     return this.transaction(context, query.company_id, readPermission[query.surface], false, async (client) => {
@@ -331,6 +347,10 @@ export class SourceManufacturingRepository {
       const sql = {
         finished_product: product("and p.details->>'manufacture_enabled'='true'"),
         component: product(""),
+        non_stock: `select id,code,name,details->>'unit' unit from inventory_product where tenant_id=$1 and company_id=$2 and status='active' and(type='service' or details->>'track_inventory'='false') and(name ilike $3 escape '\\' or code ilike $3 escape '\\') and($4::text is null or id>$4) order by id limit $5`,
+        warehouse: master("inventory_warehouse"),
+        currency: `select cc.currency_code id,cc.currency_code code,c.name,null::text unit from company_currency cc join currency c on(c.tenant_id,c.code)=(cc.tenant_id,cc.currency_code) where cc.tenant_id=$1 and cc.company_id=$2 and cc.status='active' and c.status='active' and(c.name ilike $3 escape '\\' or c.code ilike $3 escape '\\') and($4::text is null or cc.currency_code>$4) order by cc.currency_code limit $5`,
+        expense: `select id,code,name,null::text unit from account where tenant_id=$1 and company_id=$2 and status='active' and type='expense' and not is_header and not is_system_account and not managed_bank_nominal and not reconciliation_required and(name ilike $3 escape '\\' or code ilike $3 escape '\\') and($4::text is null or id>$4) order by id limit $5`,
         project: master("erp_project"),
         location: master("erp_location"),
       }[query.kind];
@@ -340,6 +360,81 @@ export class SourceManufacturingRepository {
     });
   }
   /** Project and site location are optional on a Manufacturing Order; when given they must be active in the company. */
+  productUnits(context: ManufacturingContext, company: string, product: string, surface: ManufacturingSurface) {
+    return this.transaction(context, company, readPermission[surface], false, async (c) =>
+      (await productUnitChoices(c, context.tenantId, company, [product], false, false)).get(product)!,
+    );
+  }
+  materialBalance(context: ManufacturingContext, query: MaterialBalanceQuery) {
+    return this.transaction(context, query.company_id, readPermission[query.surface], false, async (c) => {
+      const product = (
+        await c.query(
+          "select p.id,coalesce(category.name,p.category) category,p.details->>'unit' unit from inventory_product p left join inventory_product_category category on(category.tenant_id,category.company_id,category.id)=(p.tenant_id,p.company_id,p.category_id) where p.tenant_id=$1 and p.company_id=$2 and p.id=$3 and p.status='active' and p.type='goods' and p.details->>'track_inventory'='true'",
+          [context.tenantId, query.company_id, query.product_id],
+        )
+      ).rows[0];
+      if (!product) fail("Select an active inventory material in this company.", "BOM_COMPONENT_INELIGIBLE");
+      if (
+        query.warehouse_id &&
+        !(
+          await c.query(
+            "select 1 from inventory_warehouse where tenant_id=$1 and company_id=$2 and id=$3 and status='active'",
+            [context.tenantId, query.company_id, query.warehouse_id],
+          )
+        ).rowCount
+      )
+        fail("Choose an active warehouse in this company.", "BOM_WAREHOUSE_INVALID");
+      const date = query.as_of ?? (await c.query("select current_date::text as_of")).rows[0].as_of;
+      const onHand = query.warehouse_id
+        ? (
+            await c.query(
+              "select coalesce(sum(quantity),0)::text quantity from inventory_stock_entry where tenant_id=$1 and company_id=$2 and product_id=$3 and warehouse_id=$4 and movement_date<=$5::date",
+              [context.tenantId, query.company_id, query.product_id, query.warehouse_id, date],
+            )
+          ).rows[0].quantity
+        : null;
+      return materialBalanceSchema.parse({
+        product_id: product.id,
+        category: product.category,
+        unit: product.unit,
+        warehouse_id: query.warehouse_id ?? null,
+        on_hand: onHand,
+        as_of: date,
+      });
+    });
+  }
+  requirements(context: ManufacturingContext, query: RequirementsQuery) {
+    return this.transaction(context, query.company_id, readPermission[query.surface], false, async (c) => {
+      const bom = await this.productBom(c, context.tenantId, query.company_id, query.product_id);
+      if (query.bom_version !== undefined && bom.version !== query.bom_version)
+        fail("The BOM changed. Refresh from BOM before saving.", "BOM_VERSION_CONFLICT");
+      return previewAvailability(
+        c,
+        context.tenantId,
+        query.company_id,
+        await recipeFromBom(c, context.tenantId, query.company_id, bom, query.quantity, query.warehouse_id),
+        query.as_of,
+      );
+    });
+  }
+  private async recipe(
+    c: PoolClient,
+    t: string,
+    company: string,
+    product: string,
+    quantity: string,
+    version?: number,
+    warehouse?: string | null,
+    previous?: ManufacturingRecipe | null,
+  ) {
+    const bom = await this.productBom(c, t, company, product);
+    if ((version ?? previous?.bom_version) !== undefined && (version ?? previous?.bom_version) !== bom.version)
+      fail(
+        "The selected BOM changed. Explicitly refresh its requirements before saving or converting.",
+        "BOM_VERSION_CONFLICT",
+      );
+    return recipeFromBom(c, t, company, bom, quantity, warehouse);
+  }
   private async optionalReferences(
     client: PoolClient,
     tenant: string,
@@ -449,19 +544,20 @@ export class SourceManufacturingRepository {
       );
       if (components.rowCount !== parsed.lines.length)
         fail("Every component must be a different active goods product from this company.", "BOM_COMPONENT_INELIGIBLE");
-      const units = new Map(components.rows.map((row) => [row.id, row.unit]));
+      const normalized = await normalizeBom(client, tenant, company, parsed);
       const recordId = id ?? `bom-${randomUUID()}`;
       if (before) {
         await client.query(
-          "update manufacturing_bom set output_quantity=$4,unit=$5,notes=$6,row_version=row_version+1,updated_by=$7,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3",
+          "update manufacturing_bom set output_quantity=$4,unit=$5,notes=$6,template_details=$8::jsonb,row_version=row_version+1,updated_by=$7,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3",
           [
             tenant,
             company,
             recordId,
-            parsed.output_quantity,
-            finished.rows[0].unit,
+            normalized.output.base_quantity,
+            normalized.output.base_unit_name,
             parsed.notes,
             context.actor.userId,
+            JSON.stringify(normalized.details),
           ],
         );
         await client.query("delete from manufacturing_bom_line where tenant_id=$1 and company_id=$2 and bom_id=$3", [
@@ -472,30 +568,26 @@ export class SourceManufacturingRepository {
       } else {
         const code = await this.nextCode(client, "manufacturing_bom", "BOM", tenant, company);
         await client.query(
-          "insert into manufacturing_bom(tenant_id,company_id,id,code,product_id,output_quantity,unit,notes,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)",
+          "insert into manufacturing_bom(tenant_id,company_id,id,code,product_id,output_quantity,unit,notes,created_by,updated_by,template_details) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10::jsonb)",
           [
             tenant,
             company,
             recordId,
             code,
             parsed.product_id,
-            parsed.output_quantity,
-            finished.rows[0].unit,
+            normalized.output.base_quantity,
+            normalized.output.base_unit_name,
             parsed.notes,
             context.actor.userId,
+            JSON.stringify(normalized.details),
           ],
         );
       }
       await client.query(
-        `insert into manufacturing_bom_line(tenant_id,company_id,bom_id,line_no,product_id,quantity,unit)
-         select $1,$2,$3,x.ordinality::int,x.value->>'product_id',(x.value->>'quantity')::numeric,x.value->>'unit'
+        `insert into manufacturing_bom_line(tenant_id,company_id,bom_id,line_no,product_id,quantity,unit,unit_snapshot,warehouse_id,description)
+         select $1,$2,$3,x.ordinality::int,x.value->>'product_id',(x.value->>'quantity')::numeric,x.value->>'unit',x.value->'unit_snapshot',x.value->>'warehouse_id',x.value->>'description'
          from jsonb_array_elements($4::jsonb) with ordinality as x(value,ordinality)`,
-        [
-          tenant,
-          company,
-          recordId,
-          JSON.stringify(parsed.lines.map((line) => ({ ...line, unit: units.get(line.product_id) }))),
-        ],
+        [tenant, company, recordId, JSON.stringify(normalized.lines)],
       );
       const record = await this.loadBom(client, tenant, company, recordId);
       const audit = await this.evidence(
@@ -579,10 +671,27 @@ export class SourceManufacturingRepository {
       if (before && before.state !== "draft")
         fail("A converted production plan cannot be edited.", "PLAN_NOT_EDITABLE");
       const unit = await this.finishedProduct(client, tenant, company, parsed.product_id);
+      const recipe =
+        before &&
+        !before.recipe &&
+        before.product_id === parsed.product_id &&
+        before.planned_quantity === parsed.planned_quantity &&
+        parsed.bom_version === undefined
+          ? null
+          : await this.recipe(
+              client,
+              tenant,
+              company,
+              parsed.product_id,
+              parsed.planned_quantity,
+              parsed.bom_version,
+              parsed.warehouse_id,
+              before?.recipe,
+            );
       const recordId = id ?? `plan-${randomUUID()}`;
       if (before)
         await client.query(
-          "update manufacturing_plan set product_id=$4,planned_quantity=$5,unit=$6,notes=$7,row_version=row_version+1,updated_by=$8,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3",
+          "update manufacturing_plan set product_id=$4,planned_quantity=$5,unit=$6,notes=$7,recipe=$9::jsonb,bom_id=$10,row_version=row_version+1,updated_by=$8,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3",
           [
             tenant,
             company,
@@ -592,12 +701,14 @@ export class SourceManufacturingRepository {
             unit,
             parsed.notes,
             context.actor.userId,
+            recipe ? JSON.stringify(recipe) : null,
+            recipe?.bom_id ?? null,
           ],
         );
       else {
         const code = await this.nextCode(client, "manufacturing_plan", "PP", tenant, company);
         await client.query(
-          "insert into manufacturing_plan(tenant_id,company_id,id,code,product_id,planned_quantity,unit,notes,created_by,updated_by) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9)",
+          "insert into manufacturing_plan(tenant_id,company_id,id,code,product_id,planned_quantity,unit,notes,created_by,updated_by,recipe,bom_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$9,$10::jsonb,$11)",
           [
             tenant,
             company,
@@ -608,9 +719,12 @@ export class SourceManufacturingRepository {
             unit,
             parsed.notes,
             context.actor.userId,
+            recipe ? JSON.stringify(recipe) : null,
+            recipe?.bom_id ?? null,
           ],
         );
       }
+      if (recipe) await persistRecipeLines(client, tenant, company, "plan", recordId, recipe);
       const record = await this.loadPlan(client, tenant, company, recordId);
       const audit = await this.evidence(
         client,
@@ -659,11 +773,16 @@ export class SourceManufacturingRepository {
           "PLAN_ALREADY_CONVERTED",
         );
       const unit = await this.finishedProduct(client, tenant, company, plan.product_id);
+      if (plan.recipe) {
+        const bom = await this.productBom(client, tenant, company, plan.product_id);
+        if (bom.version !== plan.recipe.bom_version)
+          fail("The plan BOM changed. Refresh and save before conversion.", "BOM_VERSION_CONFLICT");
+      }
       const orderId = `mo-${randomUUID()}`;
       const code = await this.nextCode(client, "manufacturing_order", "MO", tenant, company);
       await client.query(
-        `insert into manufacturing_order(tenant_id,company_id,id,code,product_id,plan_id,quantity,unit,order_date,notes,created_by,updated_by)
-         values($1,$2,$3,$4,$5,$6,$7,$8,coalesce($9::date,current_date),$10,$11,$11)`,
+        `insert into manufacturing_order(tenant_id,company_id,id,code,product_id,plan_id,quantity,unit,order_date,notes,created_by,updated_by,recipe,bom_id,bom_code)
+         values($1,$2,$3,$4,$5,$6,$7,$8,coalesce($9::date,current_date),$10,$11,$11,$12::jsonb,$13,$14)`,
         [
           tenant,
           company,
@@ -676,8 +795,12 @@ export class SourceManufacturingRepository {
           parsed.order_date ?? null,
           plan.notes,
           context.actor.userId,
+          plan.recipe ? JSON.stringify(plan.recipe) : null,
+          plan.recipe?.bom_id ?? null,
+          plan.recipe?.bom_code ?? null,
         ],
       );
+      if (plan.recipe) await persistRecipeLines(client, tenant, company, "order", orderId, plan.recipe);
       const order = await this.loadOrder(client, tenant, company, orderId);
       await this.evidence(
         client,
@@ -797,6 +920,32 @@ export class SourceManufacturingRepository {
         fail("An order created from a production plan keeps its product.");
       const unit = await this.finishedProduct(client, tenant, company, parsed.product_id);
       await this.optionalReferences(client, tenant, company, parsed.project_id, parsed.location_id);
+      let recipe =
+        before &&
+        !before.recipe &&
+        before.product_id === parsed.product_id &&
+        before.quantity === parsed.quantity &&
+        parsed.bom_version === undefined
+          ? null
+          : await this.recipe(
+              client,
+              tenant,
+              company,
+              parsed.product_id,
+              parsed.quantity,
+              parsed.bom_version,
+              parsed.warehouse_id,
+              before?.recipe,
+            );
+      if (recipe)
+        recipe = orderRecipe(recipe, {
+          ...parsed,
+          lines:
+            parsed.lines ??
+            (before?.recipe && before.recipe.bom_version === recipe.bom_version && before.quantity === parsed.quantity
+              ? before.recipe.lines
+              : undefined),
+        });
       const recordId = id ?? `mo-${randomUUID()}`;
       const values = [
         tenant,
@@ -810,21 +959,25 @@ export class SourceManufacturingRepository {
         parsed.location_id,
         parsed.notes,
         context.actor.userId,
+        recipe ? JSON.stringify(recipe) : null,
+        recipe?.bom_id ?? null,
+        recipe?.bom_code ?? null,
       ];
       if (before)
         await client.query(
           `update manufacturing_order set product_id=$4,quantity=$5,unit=$6,order_date=$7,project_id=$8,location_id=$9,notes=$10,
-           row_version=row_version+1,updated_by=$11,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3`,
+           recipe=$12::jsonb,bom_id=$13,bom_code=$14,row_version=row_version+1,updated_by=$11,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3`,
           values,
         );
       else {
         const code = await this.nextCode(client, "manufacturing_order", "MO", tenant, company);
         await client.query(
-          `insert into manufacturing_order(tenant_id,company_id,id,product_id,quantity,unit,order_date,project_id,location_id,notes,created_by,updated_by,code)
-           values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,$12)`,
+          `insert into manufacturing_order(tenant_id,company_id,id,product_id,quantity,unit,order_date,project_id,location_id,notes,created_by,updated_by,recipe,bom_id,bom_code,code)
+           values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$11,$12::jsonb,$13,$14,$15)`,
           [...values, code],
         );
       }
+      if (recipe) await persistRecipeLines(client, tenant, company, "order", recordId, recipe);
       const saved = await this.loadOrder(client, tenant, company, recordId);
       const audit = await this.evidence(
         client,

@@ -14,8 +14,33 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LabeledField } from "@/shared/ui/labeled-field";
 import { ProductForm } from "../components/product-form";
 import { productError, productSelectClass } from "../model/products";
+import { ProductCategoriesWorkspace } from "./product-categories-workspace";
+import { ProductWorkspaceTabs } from "../components/product-workspace-tabs";
+import { ProductLookup } from "../components/product-lookup";
 
 export function ProductsWorkspace({
+  page,
+  recordRef,
+  onNavigate,
+  onDirtyChange,
+}: {
+  page: string;
+  recordRef?: string;
+  onNavigate: (module: string, page: string, reference?: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
+}) {
+  if (page === "product-configuration")
+    return <ProductCategoriesWorkspace onNavigate={onNavigate} onDirtyChange={onDirtyChange} />;
+  return (
+    <ProductDirectoryWorkspace
+      page={page}
+      recordRef={recordRef}
+      onNavigate={onNavigate}
+      onDirtyChange={onDirtyChange}
+    />
+  );
+}
+function ProductDirectoryWorkspace({
   page,
   recordRef,
   onNavigate,
@@ -38,6 +63,7 @@ export function ProductsWorkspace({
     [type, setType] = useState(""),
     [status, setStatus] = useState("active"),
     [category, setCategory] = useState(""),
+    [categoryName, setCategoryName] = useState<string | null>(null),
     [view, setView] = useState<"grid" | "list">("grid"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
@@ -97,7 +123,7 @@ export function ProductsWorkspace({
   }, [api, company, refresh]);
   const query = useCallback(
     (after?: string) =>
-      `?${new URLSearchParams({ company_id: company, search, limit: "30", ...(type ? { type } : {}), ...(status ? { status } : {}), ...(category ? { category } : {}), ...(after ? { cursor: after } : {}) })}`,
+      `?${new URLSearchParams({ company_id: company, search, limit: "30", ...(type ? { type } : {}), ...(status ? { status } : {}), ...(category ? (category === "legacy" ? { legacy_unmapped: "true" } : { category_id: category }) : {}), ...(after ? { cursor: after } : {}) })}`,
     [company, search, type, status, category],
   );
   useEffect(() => {
@@ -162,6 +188,7 @@ export function ProductsWorkspace({
     );
   return (
     <div className="min-w-0 space-y-3">
+      <ProductWorkspaceTabs onNavigate={onNavigate} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         {!editing ? (
           <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -310,15 +337,30 @@ export function ProductsWorkspace({
                 <option value="inactive">Inactive</option>
               </select>
             </LabeledField>
-            <LabeledField label="Category">
-              <Input
-                className="h-9"
-                maxLength={120}
-                placeholder="Exact category"
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
+            <div className="grid gap-1">
+              <ProductLookup
+                company={company}
+                kind="category"
+                label="Category"
+                value={category || null}
+                name={categoryName}
+                onChange={(id, name) => {
+                  setCategory(id ?? "");
+                  setCategoryName(name);
+                }}
               />
-            </LabeledField>
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                onClick={() => {
+                  setCategory("legacy");
+                  setCategoryName("Legacy / unmapped");
+                }}
+              >
+                Legacy / unmapped
+              </Button>
+            </div>
             <div role="group" aria-label="Product view" className="flex items-end gap-1">
               <Button
                 type="button"

@@ -40,15 +40,56 @@ export function inventoryPaths() {
     responses: { [create ? "201" : "200"]: response(output), ...errors },
   });
   return {
-    "/inventory/units": {
-      get: read("listMeasurementUnits","UnitDirectory",[company,filter("search"),filter("category",32),filter("status",8),filter("after",128),limit]),
-      post: write("createMeasurementUnit","UnitInput",true,"UnitMutation"),
+    "/inventory/categories": {
+      get: read("listProductCategories", "ProductCategoryDirectory", [
+        company,
+        filter("search"),
+        filter("status", 8),
+        filter("after", 128),
+        limit,
+      ]),
+      post: write("createProductCategory", "ProductCategoryInput", true, "ProductCategoryMutation"),
     },
-    "/inventory/units/product-choices": {get:read("getProductUnits","ProductUnits",[company,{in:"query",name:"product_id",required:true,schema:{type:"string",maxLength:128}},{in:"query",name:"surface",schema:{type:"string",enum:["products","purchases","transfers"],default:"products"}}])},
-    "/inventory/units/conversion": {get:read("convertMeasurementUnits","UnitConversion",[company,...["from_id","to_id","quantity"].map(name=>({in:"query",name,required:true,schema:{type:"string",maxLength:128}})),filter("product_id",128)])},
+    "/inventory/categories/{id}": {
+      patch: write("updateProductCategory", "UpdateProductCategoryInput", false, "ProductCategoryMutation"),
+    },
+    "/inventory/units": {
+      get: read("listMeasurementUnits", "UnitDirectory", [
+        company,
+        filter("search"),
+        filter("category", 32),
+        filter("status", 8),
+        filter("after", 128),
+        limit,
+      ]),
+      post: write("createMeasurementUnit", "UnitInput", true, "UnitMutation"),
+    },
+    "/inventory/units/product-choices": {
+      get: read("getProductUnits", "ProductUnits", [
+        company,
+        { in: "query", name: "product_id", required: true, schema: { type: "string", maxLength: 128 } },
+        {
+          in: "query",
+          name: "surface",
+          schema: { type: "string", enum: ["products", "purchases", "transfers"], default: "products" },
+        },
+      ]),
+    },
+    "/inventory/units/conversion": {
+      get: read("convertMeasurementUnits", "UnitConversion", [
+        company,
+        ...["from_id", "to_id", "quantity"].map((name) => ({
+          in: "query",
+          name,
+          required: true,
+          schema: { type: "string", maxLength: 128 },
+        })),
+        filter("product_id", 128),
+      ]),
+    },
     "/inventory/units/{id}": {
-      get:read("getMeasurementUnit","MeasurementUnit",[company,id]),
-      patch:write("updateMeasurementUnit","UpdateUnitInput",false,"UnitMutation"),
+      get: read("getMeasurementUnit", "MeasurementUnit", [company, id]),
+      patch: write("updateMeasurementUnit", "UpdateUnitInput", false, "UnitMutation"),
     },
     "/inventory/companies": {
       get: read("listInventoryCompanies", "InventoryCompanies", [
@@ -70,6 +111,7 @@ export function inventoryPaths() {
           schema: {
             type: "string",
             enum: [
+              "category",
               "supplier",
               "stock_account",
               "income_account",
@@ -97,6 +139,8 @@ export function inventoryPaths() {
         { in: "query", name: "type", schema: { type: "string", enum: ["goods", "service"] } },
         { in: "query", name: "status", schema: { type: "string", enum: ["active", "inactive"] } },
         filter("category", 120),
+        filter("category_id", 128),
+        { in: "query", name: "legacy_unmapped", schema: { type: "boolean" } },
         filter("cursor", 1024),
         limit,
       ]),

@@ -14,6 +14,13 @@ import {
   stockOperationSchema,
   stockWorkspaceSchema,
   manufacturingOrderMutationSchema,
+  bomMutationSchema,
+  productionPlanMutationSchema,
+  convertProductionPlanResultSchema,
+  productCategoryMutationSchema,
+  subledgerPartySchema,
+  subledgerOperationSchema,
+  stockLookupDirectorySchema,
   type StockOperation,
   type StockMovementInput,
 } from "../../packages/contracts/src/index.js";
@@ -30,7 +37,7 @@ async function signIn(browser: Browser, username: string): Promise<Actor> {
   await page.getByRole("textbox", { name: "Password", exact: true }).fill(process.env.NEXORA_E2E_PASSWORD!);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await page.getByRole("button", { name: `Open ${company}`, exact: true }).click();
-  await expect(page).not.toHaveURL(/\/login$/);
+  await expect(page).not.toHaveURL(/\/login$/, { timeout: 30000 });
   return { context, page };
 }
 async function read<T>(actor: Actor, path: string, schema: z.ZodType<T>) {
@@ -74,7 +81,7 @@ test.describe("Authenticated actual stock and manufacturing", () => {
   test("reviewed opening, independent approval, actual consumption and finished output reach the catalog and GL", async ({
     browser,
   }) => {
-    test.setTimeout(180000);
+    test.setTimeout(240000);
     const actors = [
       await signIn(browser, "r06.maker"),
       await signIn(browser, "r06.checker"),
@@ -91,6 +98,17 @@ test.describe("Authenticated actual stock and manufacturing", () => {
           warehouseMutationSchema,
         )
       ).record;
+      await page.goto("/#/inventory/products");
+      await page.getByRole("tab", { name: "Configuration", exact: true }).click();
+      await page.getByRole("button", { name: "Add category", exact: true }).click();
+      await page.getByLabel("Category name", { exact: true }).fill("Finished Goods");
+      await page.getByLabel("Reason", { exact: true }).fill("Authenticated category configuration acceptance");
+      const categorySaved = page.waitForResponse(
+        (response) => response.url() === `${api}/inventory/categories` && response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Save category", exact: true }).click();
+      const category = productCategoryMutationSchema.parse(await (await categorySaved).json()).record;
+      await expect(page.getByRole("row").filter({ hasText: category.code })).toContainText("Finished Goods");
       const products = [];
       for (const name of ["Actual component", "Actual manufactured product"])
         products.push(
@@ -99,6 +117,7 @@ test.describe("Authenticated actual stock and manufacturing", () => {
               maker!,
               "/inventory/products",
               {
+                category_id: category.id,
                 company_id: company,
                 name,
                 currency: "PKR",
@@ -195,14 +214,62 @@ test.describe("Authenticated actual stock and manufacturing", () => {
         (await read(maker!, `/inventory/products/${component!.id}?company_id=${company}`, productSchema))
           .on_hand_quantity,
       ).toBe("10.0000");
-      let order = (
-        await write(
-          maker!,
-          "/manufacturing/orders",
-          { company_id: company, product_id: finished!.id, quantity: "2", order_date: date },
-          manufacturingOrderMutationSchema,
-        )
-      ).record;
+      async function choose(label: string, search: string, option: RegExp) {
+        await page.getByLabel(label, { exact: true }).click();
+        await page.getByLabel(`Search ${label.toLowerCase()}`, { exact: true }).fill(search);
+        await page.getByRole("option", { name: option }).click();
+      }
+      await page.goto("/#/manufacturing/boms");
+      await page.getByRole("button", { name: "Add Bill of Materials", exact: true }).first().click();
+      await page.getByLabel("Template name", { exact: true }).fill("Authenticated actual product recipe");
+      await choose("Finished product", "Actual manufactured", /Actual manufactured product/);
+      await page.getByLabel("BOM output quantity", { exact: true }).fill("2");
+      await choose("Material 1", "Actual component", /Actual component/);
+      await page.getByLabel("Component quantity 1", { exact: true }).fill("4");
+      await choose("Default material warehouse", "Actual acceptance", /Actual acceptance warehouse/);
+      await expect(page.getByText(/10.0000 Each on hand/)).toBeVisible();
+      const bomSaved = page.waitForResponse(
+        (response) => response.url() === `${api}/manufacturing/boms` && response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Save", exact: true }).click();
+      const bom = bomMutationSchema.parse(await (await bomSaved).json()).record;
+      await expect(page.getByRole("heading", { name: bom.code, exact: true })).toBeVisible();
+      for (const name of ["Finished Goods", "Raw Material", "Non Stock", "Expenses"])
+        await expect(page.getByText(name, { exact: true }).first()).toBeVisible();
+      await mkdir("tmp/bom-template-e2e", { recursive: true });
+      await page.screenshot({ path: "tmp/bom-template-e2e/bom-desktop.png", fullPage: true });
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.screenshot({ path: "tmp/bom-template-e2e/bom-mobile.png", fullPage: true });
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto("/#/manufacturing/production-plans");
+      await page.getByRole("button", { name: "Add Production Planning", exact: true }).first().click();
+      await choose("Finished product", "Actual manufactured", /Actual manufactured product/);
+      await page.getByLabel("Production quantity *", { exact: true }).fill("2");
+      await expect(
+        page.getByText(new RegExp(`${bom.code}.*Authenticated actual product recipe.*revision 1`)),
+      ).toBeVisible();
+      const planSaved = page.waitForResponse(
+        (response) => response.url() === `${api}/manufacturing/plans` && response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Save Production Planning", exact: true }).click();
+      const plan = productionPlanMutationSchema.parse(await (await planSaved).json()).record;
+      await expect(page.getByRole("heading", { name: plan.code, exact: true })).toBeVisible();
+      const converted = page.waitForResponse(
+        (response) => response.url() === `${api}/manufacturing/plans/${plan.id}/convert`,
+      );
+      await page.getByRole("button", { name: "Convert to Manufacturing Order", exact: true }).click();
+      let order = convertProductionPlanResultSchema.parse(await (await converted).json()).order;
+      expect(order.recipe).toEqual(plan.recipe);
+      expect(order.recipe?.lines[0]?.quantity).toBe("4");
+      await expect(page.getByRole("heading", { name: order.code, exact: true })).toBeVisible();
+      await page.getByLabel("Order date *", { exact: true }).fill(date);
+      const orderSaved = page.waitForResponse(
+        (response) =>
+          response.url() === `${api}/manufacturing/orders/${order.id}` && response.request().method() === "PATCH",
+      );
+      await page.getByRole("button", { name: "Save Draft", exact: true }).click();
+      order = manufacturingOrderMutationSchema.parse(await (await orderSaved).json()).record;
+
       order = (
         await write(
           checker!,
@@ -214,17 +281,89 @@ test.describe("Authenticated actual stock and manufacturing", () => {
       ).record;
       const move = async (input: StockMovementInput) =>
         finish(actors, await write(maker!, "/inventory/stock/operations", input, stockOperationSchema));
-      const issue = await move({
-        company_id: company,
-        kind: "manufacturing_issue",
-        source_id: order.id,
-        quantity: "2",
-        date,
-        reason: "Actual material consumed for isolated approved production",
-        reference: "",
-        dimensions: {},
-        lines: [{ product_id: component!.id, warehouse_id: warehouse.id, quantity: "6" }],
-      });
+      await page.goto("/#/inventory/stock-movements");
+      await page.getByRole("button", { name: "New movement", exact: true }).click();
+      await page.getByLabel("Movement type", { exact: true }).selectOption("manufacturing_issue");
+      await expect(page.getByLabel("Approved source", { exact: true })).toBeEnabled();
+      await page.getByLabel("Approved source", { exact: true }).selectOption(order.id);
+      await page.getByLabel("Output quantity planned for this actual batch", { exact: true }).fill("2");
+      await expect(page.getByLabel("Line 1 base quantity", { exact: true })).toHaveValue("4");
+      await expect(page.getByLabel("Line 1 warehouse", { exact: true })).toHaveValue(warehouse.id);
+      await page.getByLabel("Line 1 base quantity", { exact: true }).fill("6");
+      await page
+        .getByLabel("Material variance reason 1", { exact: true })
+        .fill("Reviewed additional actual consumption");
+      await page.getByLabel("Posting date", { exact: true }).fill(date);
+      await page.getByLabel("Business reason", { exact: true }).fill("Actual approved recipe material consumption");
+      const issueSaved = page.waitForResponse(
+        (response) => response.url() === `${api}/inventory/stock/operations` && response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Create draft for review", exact: true }).click();
+      const issue = await finish(actors, stockOperationSchema.parse(await (await issueSaved).json()));
+      const supplier = await write(
+        maker!,
+        "/finance/subledger/parties",
+        {
+          company_id: company,
+          name: "Authenticated production expense supplier",
+          kind: "supplier",
+          default_currency: "PKR",
+        },
+        subledgerPartySchema,
+      );
+      let expenseBill = await write(
+        maker!,
+        "/finance/subledger/operations",
+        {
+          company_id: company,
+          type: "recognition",
+          party_id: supplier.id,
+          side: "payable",
+          kind: "invoice",
+          currency: "PKR",
+          amount: "10",
+          date,
+          due_date: date,
+          monetary: true,
+          reference: "Production charge evidence",
+          reason: "Actual posted production service",
+        },
+        subledgerOperationSchema,
+      );
+      for (const [index, action] of ["submit", "approve", "post"].entries())
+        expenseBill = await write(
+          actors[index]!,
+          `/finance/subledger/operations/${expenseBill.id}/actions`,
+          {
+            company_id: company,
+            expected_version: expenseBill.version,
+            action,
+            reason: "Independent authenticated expense approval",
+          },
+          subledgerOperationSchema,
+          expenseBill.version,
+        );
+      const expenses = await read(
+        maker!,
+        `/inventory/stock/lookups?company_id=${company}&kind=production_expense&limit=20&offset=0`,
+        stockLookupDirectorySchema,
+      );
+      expect(expenses.items).toHaveLength(1);
+      await page.goto("/#/inventory/stock-movements");
+      await page.getByRole("button", { name: "New movement", exact: true }).click();
+      await page.getByLabel("Movement type", { exact: true }).selectOption("manufacturing_charge");
+      await expect(page.getByLabel("Approved source", { exact: true })).toBeEnabled();
+      await page.getByLabel("Approved source", { exact: true }).selectOption(issue.id);
+      await expect(page.getByLabel("Posted expense source 1", { exact: true })).toBeEnabled();
+      await page.getByLabel("Posted expense source 1", { exact: true }).selectOption(expenses.items[0]!.id);
+      await page.getByLabel("Actual base amount 1", { exact: true }).fill("10");
+      await page.getByLabel("Posting date", { exact: true }).fill(date);
+      await page.getByLabel("Business reason", { exact: true }).fill("Allocate evidenced actual production expense");
+      const chargeSaved = page.waitForResponse(
+        (response) => response.url() === `${api}/inventory/stock/operations` && response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Create draft for review", exact: true }).click();
+      const charge = await finish(actors, stockOperationSchema.parse(await (await chargeSaved).json()));
       const completion = await move({
         company_id: company,
         kind: "manufacturing_completion",
@@ -243,7 +382,7 @@ test.describe("Authenticated actual stock and manufacturing", () => {
       );
       expect(state.balances.find((row) => row.product_id === finished!.id)).toMatchObject({
         quantity: "2.0000",
-        value: "60.00000000",
+        value: "70.00000000",
       });
       expect(
         (await read(maker!, `/inventory/products/${finished!.id}?company_id=${company}`, productSchema))
@@ -256,10 +395,10 @@ test.describe("Authenticated actual stock and manufacturing", () => {
         const journal = (
           await pool.query(
             "select count(distinct journal_id)::int journals,sum(base_debit)::text debit,sum(base_credit)::text credit from journal_line where journal_id=any($1::text[])",
-            [[opening.journal_id, issue.journal_id, completion.journal_id]],
+            [[opening.journal_id, issue.journal_id, charge.journal_id, completion.journal_id]],
           )
         ).rows[0];
-        expect(journal).toEqual({ journals: 3, debit: "220.00000000", credit: "220.00000000" });
+        expect(journal).toEqual({ journals: 4, debit: "240.00000000", credit: "240.00000000" });
         expect(
           (
             await pool.query(
@@ -271,10 +410,10 @@ test.describe("Authenticated actual stock and manufacturing", () => {
           (
             await pool.query(
               "select count(*)::int n from inventory_stock_audit where entity_type='operation' and entity_id=any($1::text[])",
-              [[opening.id, issue.id, completion.id]],
+              [[opening.id, issue.id, charge.id, completion.id]],
             )
           ).rows[0].n,
-        ).toBe(12);
+        ).toBe(16);
       } finally {
         await pool.end();
       }

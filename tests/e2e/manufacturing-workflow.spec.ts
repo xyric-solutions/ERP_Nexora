@@ -92,7 +92,13 @@ test.describe("Persisted Manufacturing workflow", () => {
       await inventory.save(
         seed,
         null,
-        productInputSchema.parse({ company_id: company, name, currency: "USD", manufacture_enabled: manufacture }),
+        productInputSchema.parse({
+          category_id: "category-fixture-" + company,
+          company_id: company,
+          name,
+          currency: "USD",
+          manufacture_enabled: manufacture,
+        }),
         randomUUID(),
         randomUUID(),
       );
@@ -179,14 +185,14 @@ test.describe("Persisted Manufacturing workflow", () => {
 
   test("runs Production Planning -> Convert -> Confirm & Approve, with the BOM screen alongside", async ({ page }) => {
     test.setTimeout(180_000);
-    // Bill of Materials stays its own screen (plan/order integration is a later phase).
+    // Save a real BOM and verify its calculated recipe through approval.
     await page.goto("/#/manufacturing/boms");
     await expect(page.getByRole("heading", { name: "Bill of Materials", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Add Bill of Materials", exact: true }).first().click();
     await choose(page, "Finished product", "motorcycle", /Synthetic motorcycle/);
-    await page.getByLabel("Output quantity *", { exact: true }).fill("1");
-    await choose(page, "Component 1", "tyre", /Synthetic tyre/);
-    await page.getByLabel("Component 1 quantity *", { exact: true }).fill("2");
+    await page.getByLabel("BOM output quantity", { exact: true }).fill("1");
+    await choose(page, "Material 1", "tyre", /Synthetic tyre/);
+    await page.getByLabel("Component quantity 1", { exact: true }).fill("2");
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("heading", { name: "BOM-001", exact: true })).toBeVisible();
 

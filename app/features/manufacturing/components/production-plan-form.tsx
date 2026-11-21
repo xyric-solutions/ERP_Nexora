@@ -13,6 +13,7 @@ import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { manufacturingError, planStateLabels } from "../model/manufacturing";
 import { ManufacturingLookup } from "./manufacturing-lookup";
 import { useManufacturingForm } from "./use-manufacturing-form";
+import { TemplateRequirements } from "./recipe-sections";
 
 /**
  * Production Planning (simplified flow, 13 Nov 2026): finished product + production quantity,
@@ -48,6 +49,8 @@ export function ProductionPlanForm({
           company_id: record.company_id,
           product_id: record.product_id,
           planned_quantity: record.planned_quantity,
+          bom_version: record.recipe?.bom_version,
+          warehouse_id: record.recipe?.warehouse_id,
           notes: record.notes,
           expected_version: record.version,
         } satisfies ProductionPlanInput,
@@ -138,7 +141,9 @@ export function ProductionPlanForm({
     >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">{form.record?.code ?? "New Production Planning"}</h1>
+          <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">
+            {form.record?.code ?? "New Production Planning"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Choose the finished product and how many units to produce.
           </p>
@@ -185,7 +190,7 @@ export function ProductionPlanForm({
               selectedLabel={productLabel}
               onChange={(choice) => {
                 setProductLabel(choice?.label ?? "");
-                form.change((current) => ({ ...current, product_id: choice?.id ?? "" }));
+                form.change((current) => ({ ...current, product_id: choice?.id ?? "", bom_version: undefined }));
               }}
             />
           </LabeledField>
@@ -209,6 +214,37 @@ export function ProductionPlanForm({
           />
         </LabeledField>
       </fieldset>
+      <LabeledField label="Material warehouse">
+        <ManufacturingLookup
+          company={company}
+          surface="plans"
+          kind="warehouse"
+          label="Material warehouse"
+          value={form.input.warehouse_id ?? ""}
+          disabled={!writable || busy}
+          selectedLabel={
+            form.record?.recipe?.warehouse_id === form.input.warehouse_id
+              ? form.record?.recipe?.lines[0]?.warehouse_name
+              : undefined
+          }
+          onChange={(choice) => form.change((c) => ({ ...c, warehouse_id: choice?.id ?? null }))}
+        />
+      </LabeledField>
+      <TemplateRequirements
+        company={company}
+        surface="plans"
+        product={form.input.product_id}
+        quantity={form.input.planned_quantity}
+        bomVersion={form.input.bom_version}
+        warehouse={form.input.warehouse_id}
+        snapshot={form.record?.recipe}
+        frozen={!writable}
+        legacy={Boolean(form.record && !form.record.recipe)}
+        onPreview={(recipe) => {
+          if (form.input.bom_version !== recipe.bom_version)
+            form.change((c) => ({ ...c, bom_version: recipe.bom_version }));
+        }}
+      />
       <footer className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-4 shadow-sm">
         <p className="max-w-xl text-sm text-muted-foreground">
           {form.record

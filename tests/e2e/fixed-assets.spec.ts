@@ -355,6 +355,7 @@ test.describe("PostgreSQL Fixed Assets browser acceptance", () => {
         creator,
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + f.company,
           company_id: f.company,
           name: "Browser maintenance service",
           type: "service",

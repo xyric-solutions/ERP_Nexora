@@ -94,6 +94,7 @@ suite("Database-backed Manufacturing workflow", () => {
           maker,
           null,
           productInputSchema.parse({
+            category_id: "category-fixture-" + company,
             company_id: company,
             name,
             currency: "USD",
@@ -173,7 +174,7 @@ suite("Database-backed Manufacturing workflow", () => {
     expect((await repo.bomByProduct(maker, company, motorcycle, "orders")).id).toBe(created.record.id);
   });
 
-  it("saves a plan for a finished product without a BOM and converts it exactly once", async () => {
+  it("requires a BOM before planning and converts its saved recipe exactly once", async () => {
     await expect(
       repo.savePlan(
         maker,
@@ -183,7 +184,27 @@ suite("Database-backed Manufacturing workflow", () => {
         key(),
       ),
     ).rejects.toMatchObject({ code: "PRODUCT_INELIGIBLE" });
-    // The scooter has no Bill of Materials: planning no longer needs one.
+    await expect(
+      repo.savePlan(
+        maker,
+        null,
+        productionPlanInputSchema.parse({ company_id: company, product_id: scooter, planned_quantity: "10" }),
+        key(),
+        key(),
+      ),
+    ).rejects.toMatchObject({ code: "BOM_REQUIRED" });
+    await repo.saveBom(
+      maker,
+      null,
+      bomInputSchema.parse({
+        company_id: company,
+        product_id: scooter,
+        output_quantity: "1",
+        lines: [{ product_id: tyre, quantity: "2" }],
+      }),
+      key(),
+      key(),
+    );
     const plan = await repo.savePlan(
       maker,
       null,

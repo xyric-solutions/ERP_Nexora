@@ -21,6 +21,7 @@ import {
   salesLookupQuerySchema,
   subledgerQuerySchema,
   productInputSchema,
+  bomInputSchema,
   warehouseInputSchema,
   stockMovementInputSchema,
   stockQuerySchema,
@@ -49,6 +50,8 @@ const key = () => randomUUID(),
     "inventory.stock.approve",
     "inventory.stock.post",
     "inventory.stock.configure",
+    "manufacturing.bom.read",
+    "manufacturing.bom.create",
     "manufacturing.order.read",
     "manufacturing.order.create",
     "manufacturing.order.approve",
@@ -114,6 +117,7 @@ describe("Canonical persistent commercial Sales", () => {
         actor(),
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + fixture.company,
           company_id: fixture.company,
           name: "Actual canonical sale product",
           currency: "USD",
@@ -471,6 +475,7 @@ describe("Canonical persistent commercial Sales", () => {
         actor(),
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + fixture.company,
           company_id: fixture.company,
           name: "Actual recurring service",
           currency: "USD",
@@ -645,6 +650,7 @@ describe("Canonical persistent commercial Sales", () => {
           actor(),
           null,
           productInputSchema.parse({
+            category_id: "category-fixture-" + fixture.company,
             company_id: fixture.company,
             name: "Actual delivered-policy goods",
             currency: "USD",
@@ -777,6 +783,7 @@ describe("Canonical persistent commercial Sales", () => {
           actor(),
           null,
           productInputSchema.parse({
+            category_id: "category-fixture-" + fixture.company,
             company_id: fixture.company,
             name: `Actual ${manufacture_enabled ? "finished output" : "component"} ${key()}`,
             currency: "USD",
@@ -844,6 +851,19 @@ describe("Canonical persistent commercial Sales", () => {
         kind: "opening",
         lines: [{ product_id: component, warehouse_id: warehouse, quantity: "4", value: "40" }],
       }),
+    );
+    await manufacturing.saveBom(
+      actor(),
+      null,
+      bomInputSchema.parse({
+        company_id: fixture.company,
+        product_id: finished,
+        output_quantity: "2",
+        warehouse_id: warehouse,
+        lines: [{ product_id: component, quantity: "4" }],
+      }),
+      key(),
+      key(),
     );
     let production = (
       await manufacturing.saveOrder(
@@ -1137,6 +1157,7 @@ describe("Canonical persistent commercial Sales", () => {
         actor(),
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + fixture.company,
           company_id: fixture.company,
           name: "Actual fractional tax service",
           currency: "USD",
@@ -1307,6 +1328,7 @@ describe("Canonical persistent commercial Sales", () => {
         actor(),
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + fixture.company,
           company_id: fixture.company,
           name: "Actual weekly contractual service",
           currency: "USD",
@@ -1402,6 +1424,7 @@ describe("Canonical persistent commercial Sales", () => {
           actor(),
           null,
           productInputSchema.parse({
+            category_id: "category-fixture-" + fixture.company,
             company_id: fixture.company,
             name: `Actual ${currency} priced service`,
             currency: "USD",

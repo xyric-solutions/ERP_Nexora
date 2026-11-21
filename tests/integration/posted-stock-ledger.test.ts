@@ -3,6 +3,8 @@ import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
 import {
   productInputSchema,
+  bomInputSchema,
+  type SubledgerRequest,
   warehouseInputSchema,
   stockTransferInputSchema,
   stockMovementInputSchema,
@@ -33,6 +35,9 @@ const database = `posted_stock_${randomUUID().replaceAll("-", "")}`;
 const permissions = [
   ...subledgerPermissions,
   "sales.document.read",
+  "finance.journal.read",
+  "manufacturing.bom.read",
+  "manufacturing.bom.create",
   "inventory.stock.read",
   "inventory.stock.manage",
   "inventory.stock.approve",
@@ -67,6 +72,7 @@ suite("Immutable posted stock and central accounting", () => {
     stock: SourceStockRepository,
     inventory: SourceInventoryRepository,
     manufacturing: SourceManufacturingRepository;
+  let financial: SourceSubledgerRepository;
   let company: string, tenant: string, warehouseA: string, warehouseB: string, stockAccount: string;
   let policy: {
     receipt_accrual_account_id: string;
@@ -83,6 +89,7 @@ suite("Immutable posted stock and central accounting", () => {
     url.pathname = `/${database}`;
     pool = createDatabasePool(url.href);
     const fixture = await setupSubledgerFixture(pool, `stock-${key()}`, "USD");
+    financial = fixture.repository;
     company = fixture.company;
     tenant = fixture.tenant;
     for (const role of ["r06-uat-policy-maker", "r06-uat-policy-checker", "r06-uat-policy-payment-poster"]) {
@@ -158,6 +165,7 @@ suite("Immutable posted stock and central accounting", () => {
         maker,
         null,
         productInputSchema.parse({
+          category_id: "category-fixture-" + company,
           company_id: company,
           name: `Actual test ${key()}`,
           currency: "USD",
@@ -212,7 +220,35 @@ suite("Immutable posted stock and central accounting", () => {
   }
   const opening = (id: string, warehouse: string, quantity: string, value: string) =>
     create({ kind: "opening", lines: [{ product_id: id, warehouse_id: warehouse, quantity, value }] }).then(finish);
-  async function order(productId: string, quantity = "4") {
+  async function order(
+    productId: string,
+    component: string,
+    materialQuantity = "4",
+    quantity = "4",
+    charges: unknown[] = [],
+  ) {
+    const existing = (
+      await pool.query("select id from manufacturing_bom where tenant_id=$1 and company_id=$2 and product_id=$3", [
+        tenant,
+        company,
+        productId,
+      ])
+    ).rowCount;
+    if (!existing)
+      await manufacturing.saveBom(
+        maker,
+        null,
+        bomInputSchema.parse({
+          company_id: company,
+          product_id: productId,
+          output_quantity: quantity,
+          warehouse_id: warehouseA,
+          lines: [{ product_id: component, quantity: materialQuantity }],
+          charges,
+        }),
+        key(),
+        key(),
+      );
     const record = (
       await manufacturing.saveOrder(
         maker,
@@ -518,7 +554,7 @@ suite("Immutable posted stock and central accounting", () => {
         )
       ).record;
       await finish(await create({ kind: "transfer", source_id: source.id }));
-      const approved = await order(finished);
+      const approved = await order(finished, component, "12");
       const issue = await finish(
         await create({
           kind: "manufacturing_issue",
@@ -584,6 +620,307 @@ suite("Immutable posted stock and central accounting", () => {
       expect(await balance(component)).toMatchObject({ quantity: "15.0000", value: "200.00000000" });
     },
   );
+  it.each(["USD", "EUR"])(
+    "capitalizes evidenced %s production expenses once, completes partial output and compensates in dependency order",
+    async (currency) => {
+      const component = await product(),
+        finished = await product("fifo", true),
+        expense = `${company}-expense`;
+      await opening(component, warehouseA, "3", "30");
+      const approved = await order(finished, component, "3", "3", [
+        {
+          kind: "expense",
+          expense_account_id: expense,
+          description: "Reviewed production service estimate",
+          quantity: "1",
+          rate: "10",
+        },
+      ]);
+      const issue = await finish(
+        await create({
+          kind: "manufacturing_issue",
+          source_id: approved.id,
+          quantity: "3",
+          lines: [{ product_id: component, warehouse_id: warehouseA, quantity: "3" }],
+        }),
+      );
+      const supplier = await financial.createParty(
+        maker,
+        { company_id: company, name: `Actual charge source ${key()}`, kind: "supplier", default_currency: currency },
+        key(),
+      );
+      async function financePost(input: SubledgerRequest) {
+        let op = await financial.create(maker, input, key());
+        for (const [user, action] of [
+          [maker, "submit"],
+          [checker, "approve"],
+          [poster, "post"],
+        ] as const)
+          op = await financial.action(
+            user,
+            op.id,
+            {
+              company_id: company,
+              expected_version: op.version,
+              action,
+              reason: "Independent actual expense acceptance",
+            },
+            key(),
+          );
+        return op;
+      }
+      const bill = await financePost({
+        company_id: company,
+        type: "recognition",
+        party_id: supplier.id,
+        side: "payable",
+        kind: "invoice",
+        currency,
+        amount: "10",
+        date: "2026-11-20",
+        due_date: "2026-11-20",
+        monetary: true,
+        reference: "",
+        reason: "Evidenced actual production expense",
+      });
+      const source = (
+        await pool.query(
+          "select id,base_debit::text amount,currency,fx_rate::text from journal_line where tenant_id=$1 and journal_id=$2 and account_id=$3 and base_debit>0",
+          [tenant, bill.journal_id, expense],
+        )
+      ).rows[0];
+      expect(source).toMatchObject({ currency, amount: currency === "USD" ? "10.00000000" : "11.00000000" });
+      const input = stockMovementInputSchema.parse({
+          company_id: company,
+          kind: "manufacturing_charge",
+          source_id: issue.id,
+          date: "2026-11-20",
+          allocations: [{ journal_line_id: source.id, amount: currency === "USD" ? "10" : "11" }],
+          reason: "Capitalize independently approved production cost",
+        }),
+        request = key();
+      let charge = await stock.create(maker, input, request, key());
+      expect((await stock.create(maker, input, request, key())).id).toBe(charge.id);
+      const noFinance = {
+        ...maker,
+        actor: { ...maker.actor, permissions: permissions.filter((p) => p !== "finance.journal.read") },
+      };
+      await expect(
+        stock.action(
+          noFinance,
+          charge.id,
+          {
+            company_id: company,
+            expected_version: charge.version,
+            action: "submit",
+            reason: "Permission guard acceptance",
+          },
+          key(),
+          key(),
+        ),
+      ).rejects.toMatchObject({ code: "PRODUCTION_SOURCE_PERMISSION_REQUIRED" });
+      const competing = [charge, await stock.create(maker, input, key(), key())];
+      for (let index = 0; index < competing.length; index++)
+        for (const [user, action] of [
+          [maker, "submit"],
+          [checker, "approve"],
+        ] as const) {
+          const current = competing[index]!;
+          competing[index] = await stock.action(
+            user,
+            current.id,
+            {
+              company_id: company,
+              expected_version: current.version,
+              action,
+              reason: "Review competing actual cost allocations",
+            },
+            key(),
+            key(),
+          );
+        }
+      const decisions = await Promise.allSettled(
+        competing.map((op) =>
+          stock.action(
+            poster,
+            op.id,
+            {
+              company_id: company,
+              expected_version: op.version,
+              action: "post",
+              reason: "Post independently reviewed actual expense",
+            },
+            key(),
+            key(),
+          ),
+        ),
+      );
+      expect(decisions.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      const posted = decisions.find((result) => result.status === "fulfilled");
+      if (!posted || posted.status !== "fulfilled") throw Error("Actual charge posting did not succeed");
+      charge = posted.value;
+      expect(charge.preview?.entries).toEqual([]);
+      expect(charge.preview?.evidence.production_sources).toEqual([
+        expect.objectContaining({ currency, fx_rate: source.fx_rate }),
+      ]);
+      expect(
+        (await pool.query("select count(*)::int n from inventory_stock_entry where operation_id=$1", [charge.id]))
+          .rows[0].n,
+      ).toBe(0);
+      await expect(finish(await stock.create(maker, input, key(), key()))).rejects.toMatchObject({
+        code: "PRODUCTION_EXPENSE_OVERALLOCATED",
+      });
+      const item = (
+        await pool.query("select id,original_amount::text from finance_subledger_item where operation_id=$1", [bill.id])
+      ).rows[0];
+      expect(item.original_amount).toBe("10.00000000");
+      const reversalInput: SubledgerRequest = {
+        company_id: company,
+        type: "reversal",
+        operation_id: bill.id,
+        date: "2026-11-20",
+        reason: "Verify capitalized source dependency",
+      };
+      await expect(financial.create(maker, reversalInput, key())).rejects.toMatchObject({
+        code: "PRODUCTION_COST_SOURCE_ALLOCATED",
+      });
+      await expect(
+        financial.create(
+          maker,
+          {
+            company_id: company,
+            type: "recognition",
+            party_id: supplier.id,
+            side: "payable",
+            kind: "credit_note",
+            original_item_id: item.id,
+            currency,
+            amount: "1",
+            date: "2026-11-20",
+            due_date: "2026-11-20",
+            monetary: true,
+            reference: "",
+            reason: "Allocated source credit protection",
+          },
+          key(),
+        ),
+      ).rejects.toMatchObject({ code: "PRODUCTION_COST_SOURCE_ALLOCATED" });
+      await expect(
+        finish(
+          await create({
+            kind: "manufacturing_completion",
+            source_id: issue.id,
+            quantity: "1",
+            warehouse_id: warehouseA,
+          }),
+        ),
+      ).rejects.toMatchObject({ code: "PRODUCTION_CHARGE_REVIEW_REQUIRED" });
+      const first = await finish(
+        await create({
+          kind: "manufacturing_completion",
+          source_id: issue.id,
+          quantity: "1",
+          warehouse_id: warehouseA,
+          charges_review_reason: "All applicable actual expenses allocated and approved",
+        }),
+      );
+      const last = await finish(
+        await create({
+          kind: "manufacturing_completion",
+          source_id: issue.id,
+          quantity: "2",
+          warehouse_id: warehouseA,
+          charges_review_reason: "All applicable actual expenses allocated and approved",
+        }),
+      );
+      expect(await balance(finished)).toMatchObject({
+        quantity: "3.0000",
+        value: currency === "USD" ? "40.00000000" : "41.00000000",
+      });
+      const sums = async () =>
+        (
+          await pool.query(
+            "select l.account_id,sum(l.base_debit-l.base_credit)::text value from journal_line l where l.tenant_id=$1 and l.journal_id=any($2::text[]) group by l.account_id",
+            [tenant, [bill.journal_id, issue.journal_id, charge.journal_id, first.journal_id, last.journal_id]],
+          )
+        ).rows;
+      expect(await sums()).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ account_id: expense, value: "0.00000000" }),
+          expect.objectContaining({ account_id: policy.wip_account_id, value: "0.00000000" }),
+        ]),
+      );
+      await expect(finish(await create({ kind: "reversal", operation_id: charge.id }))).rejects.toMatchObject({
+        code: "PRODUCTION_CHARGE_OUTPUT_DEPENDENCY",
+      });
+      await finish(await create({ kind: "reversal", operation_id: last.id }));
+      await finish(await create({ kind: "reversal", operation_id: first.id }));
+      await expect(finish(await create({ kind: "reversal", operation_id: issue.id }))).rejects.toMatchObject({
+        code: "PRODUCTION_CHARGE_DEPENDENCY",
+      });
+      await finish(await create({ kind: "reversal", operation_id: charge.id }));
+      expect(
+        (
+          await pool.query(
+            "select sum(value)::text value from inventory_production_cost_allocation where batch_id=$1",
+            [issue.id],
+          )
+        ).rows[0].value,
+      ).toBe("0.00000000");
+      await finish(await create({ kind: "reversal", operation_id: issue.id }));
+      expect(await balance(finished)).toMatchObject({ quantity: "0.0000", value: "0.00000000" });
+      let compensated = await financial.create(maker, reversalInput, key());
+      for (const [user, action] of [
+        [maker, "submit"],
+        [checker, "approve"],
+        [poster, "post"],
+      ] as const)
+        compensated = await financial.action(
+          user,
+          compensated.id,
+          {
+            company_id: company,
+            expected_version: compensated.version,
+            action,
+            reason: "Compensated source reversal acceptance",
+          },
+          key(),
+        );
+    },
+  );
+  it("rejects a changed material base unit after recipe approval before its first actual issue", async () => {
+    const component = await product(),
+      finished = await product("fifo", true),
+      approved = await order(finished, component, "1", "1");
+    const current = await inventory.get(maker, company, component);
+    await inventory.save(
+      maker,
+      component,
+      productInputSchema.parse({
+        company_id: company,
+        category_id: `category-fixture-${company}`,
+        name: current.name,
+        currency: "USD",
+        unit: "Kg",
+        stock_account_id: stockAccount,
+        expected_version: current.version,
+      }),
+      key(),
+      key(),
+    );
+    await opening(component, warehouseA, "2", "20");
+    await expect(
+      finish(
+        await create({
+          kind: "manufacturing_issue",
+          source_id: approved.id,
+          quantity: "1",
+          lines: [{ product_id: component, warehouse_id: warehouseA, quantity: "1" }],
+        }),
+      ),
+    ).rejects.toMatchObject({ code: "PRODUCTION_RECIPE_UNIT_CHANGED" });
+    expect(await balance(component)).toMatchObject({ quantity: "2.0000", value: "20.00000000" });
+  });
   it("retains replay identity and rejects altered requests without duplicate operations", async () => {
     const id = await product(),
       input: StockMovementInput = stockMovementInputSchema.parse({
@@ -604,8 +941,8 @@ suite("Immutable posted stock and central accounting", () => {
     const component = await product(),
       finished = await product("fifo", true);
     await opening(component, warehouseA, "5", "50");
-    const batchA = await order(finished),
-      batchB = await order(finished);
+    const batchA = await order(finished, component),
+      batchB = await order(finished, component);
     async function reviewed(source_id: string) {
       let op = await create({
         kind: "manufacturing_issue",

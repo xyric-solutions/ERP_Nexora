@@ -8,6 +8,7 @@ const quantity = z
   .regex(/^(0|[1-9]\d{0,11})(\.\d{1,4})?$/)
   .refine((v) => parseQuantity(v) > 0n);
 const value = z.string().regex(/^(0|[1-9]\d{0,21})(\.\d{1,8})?$/);
+const decimalPositive = (value: string) => /[1-9]/.test(value);
 const signed = z.string().regex(/^-?(0|[1-9]\d{0,29})(\.\d{1,8})?$/);
 const version = z.number().int().nonnegative();
 const reason = z.string().trim().min(3).max(500);
@@ -43,7 +44,12 @@ const common = {
   reason,
   dimensions: subledgerDimensionsSchema.default({}),
 };
-const consumption = z.strictObject({ product_id: id, warehouse_id: id, quantity });
+const consumption = z.strictObject({
+  product_id: id,
+  warehouse_id: id,
+  quantity,
+  variance_reason: z.string().trim().max(500).optional(),
+});
 export const stockMovementInputSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     ...common,
@@ -57,9 +63,25 @@ export const stockMovementInputSchema = z.discriminatedUnion("kind", [
     kind: z.literal("manufacturing_issue"),
     source_id: id,
     quantity,
-    lines: z.array(consumption).min(1).max(100),
+    lines: z.array(consumption).min(1).max(200),
   }),
-  z.strictObject({ ...common, kind: z.literal("manufacturing_completion"), source_id: id, quantity, warehouse_id: id }),
+  z.strictObject({
+    ...common,
+    kind: z.literal("manufacturing_completion"),
+    source_id: id,
+    quantity,
+    warehouse_id: id,
+    charges_review_reason: reason.optional(),
+  }),
+  z.strictObject({
+    ...common,
+    kind: z.literal("manufacturing_charge"),
+    source_id: id,
+    allocations: z
+      .array(z.strictObject({ journal_line_id: id, amount: value.refine((v) => decimalPositive(v)) }))
+      .min(1)
+      .max(100),
+  }),
   z.strictObject({
     ...common,
     kind: z.literal("delivery"),
@@ -101,6 +123,7 @@ export const stockLookupQuerySchema = z.strictObject({
     "transfer",
     "manufacturing_order",
     "manufacturing_issue",
+    "production_expense",
     "reversal",
   ]),
   account_type: z.enum(["asset", "liability", "equity", "expense"]).optional(),
@@ -136,25 +159,34 @@ export const stockEntryPreviewSchema = z.strictObject({
   allocations: z.array(z.strictObject({ entry_id: id, quantity: signed, value: signed })).max(1000),
   original_entry_id: id.nullable(),
 });
-export const stockPreviewSchema = z.strictObject({
-  base_currency: z.string().regex(/^[A-Z]{3}$/),
-  decimal_places: z.number().int().min(0).max(8),
-  policy_version: version.positive(),
-  entries: z.array(stockEntryPreviewSchema).min(1).max(200),
-  lines: z
-    .array(
-      z.strictObject({
-        accountId: id,
-        debit: value,
-        credit: value,
-        dimensions: subledgerDimensionsSchema,
-        description: z.string(),
-      }),
+export const stockPreviewSchema = z
+  .strictObject({
+    base_currency: z.string().regex(/^[A-Z]{3}$/),
+    decimal_places: z.number().int().min(0).max(8),
+    policy_version: version.positive(),
+    entries: z.array(stockEntryPreviewSchema).max(200),
+    lines: z
+      .array(
+        z.strictObject({
+          accountId: id,
+          debit: value,
+          credit: value,
+          dimensions: subledgerDimensionsSchema,
+          description: z.string(),
+        }),
+      )
+      .min(2)
+      .max(1000),
+    evidence: z.record(z.string(), z.json()),
+  })
+  .superRefine((preview, ctx) => {
+    if (
+      !preview.entries.length &&
+      preview.evidence.production_charge !== true &&
+      preview.evidence.original_kind !== "manufacturing_charge"
     )
-    .min(2)
-    .max(1000),
-  evidence: z.record(z.string(), z.json()),
-});
+      ctx.addIssue({ code: "custom", path: ["entries"], message: "Physical stock requires quantity entries." });
+  });
 export const stockOperationSchema = z.strictObject({
   id,
   company_id: id,
@@ -165,6 +197,7 @@ export const stockOperationSchema = z.strictObject({
     "transfer",
     "manufacturing_issue",
     "manufacturing_completion",
+    "manufacturing_charge",
     "delivery",
     "return",
     "reversal",

@@ -1,15 +1,18 @@
 import { z } from "zod";
 import { parseQuantity } from "./quantities.js";
+import { unitSnapshotSchema } from "../inventory/units.js";
+import {
+  bomChargeInputSchema,
+  bomChargeSchema,
+  manufacturingRecipeSchema,
+  manufacturingOrderLineInputSchema,
+} from "./templates.js";
+export * from "./templates.js";
 
 export * from "./quantities.js";
 
-/*
- * Manufacturing: Bill of Materials, Production Planning and Manufacturing Orders.
- * Simplified flow (13 Nov 2026): a plan names a finished product and quantity, converts
- * into a draft Manufacturing Order, and the order is confirmed and approved in one step.
- * BOM/ingredient integration with plans and orders is a later phase. No routing, material
- * issue, production execution, costing or stock movement exists in this module.
- */
+/** Versioned BOM templates feed plans and approved order recipes.
+ * Physical issue, actual charge capitalization and completion use the stock service. */
 const identity = z.string().trim().min(1).max(128);
 const text = (max: number) => z.string().trim().max(max).default("");
 const date = z.iso.date();
@@ -34,7 +37,16 @@ export type ManufacturingCompanies = z.infer<typeof manufacturingCompaniesSchema
  * Lookup kinds. `finished_product`: active goods marked for manufacture (all pages).
  * `component`: active goods (BOM lines). `project`/`location`: active company masters.
  */
-export const manufacturingLookupKindSchema = z.enum(["finished_product", "component", "project", "location"]);
+export const manufacturingLookupKindSchema = z.enum([
+  "finished_product",
+  "component",
+  "non_stock",
+  "warehouse",
+  "expense",
+  "currency",
+  "project",
+  "location",
+]);
 export type ManufacturingLookupKind = z.infer<typeof manufacturingLookupKindSchema>;
 export const manufacturingLookupQuerySchema = z.strictObject({
   company_id: identity,
@@ -61,11 +73,25 @@ export type ManufacturingDirectoryQuery = z.infer<typeof manufacturingDirectoryQ
 
 /* ---------------------------------------------------------------- Bill of Materials */
 
-export const bomLineInputSchema = z.strictObject({ product_id: identity, quantity: positiveQuantity });
+export const bomLineInputSchema = z.strictObject({
+  product_id: identity,
+  quantity: positiveQuantity,
+  unit_id: identity.optional(),
+  warehouse_id: identity.nullable().optional(),
+  description: text(500).optional(),
+});
 const bomFields = z.strictObject({
   company_id: identity,
   product_id: identity,
   output_quantity: positiveQuantity,
+  template_name: text(120).optional(),
+  warehouse_id: identity.nullable().optional(),
+  output_unit_id: identity.optional(),
+  currency: z
+    .string()
+    .regex(/^[A-Z]{3}$/)
+    .optional(),
+  charges: z.array(bomChargeInputSchema).max(100).optional(),
   notes: text(4000),
   lines: z.array(bomLineInputSchema).min(1, "Add at least one component.").max(200),
   expected_version: version.optional(),
@@ -91,6 +117,10 @@ export const bomLineSchema = z.strictObject({
   product_name: z.string(),
   quantity: z.string(),
   unit: z.string(),
+  unit_snapshot: unitSnapshotSchema.nullable().optional(),
+  warehouse_id: identity.nullable().optional(),
+  description: z.string().optional(),
+  category: z.string().optional(),
 });
 export const bomSchema = z.strictObject({
   id: identity,
@@ -103,6 +133,12 @@ export const bomSchema = z.strictObject({
   unit: z.string(),
   notes: z.string(),
   component_count: z.number().int().nonnegative(),
+  template_name: z.string().optional(),
+  warehouse_id: identity.nullable().optional(),
+  currency: z.string().optional(),
+  decimal_places: z.number().int().min(0).max(8).optional(),
+  charges: z.array(bomChargeSchema).optional(),
+  output_snapshot: unitSnapshotSchema.nullable().optional(),
   lines: z.array(bomLineSchema),
   version,
   created_at: z.string(),
@@ -121,6 +157,8 @@ export type BomMutation = z.infer<typeof bomMutationSchema>;
 /* ---------------------------------------------------------------- Production plans */
 
 const planFields = z.strictObject({
+  bom_version: version.optional(),
+  warehouse_id: identity.nullable().optional(),
   company_id: identity,
   product_id: identity,
   planned_quantity: positiveQuantity,
@@ -130,6 +168,7 @@ const planFields = z.strictObject({
 export const productionPlanInputSchema = planFields;
 export const updateProductionPlanInputSchema = planFields.extend({ expected_version: version });
 export const productionPlanSchema = z.strictObject({
+  recipe: manufacturingRecipeSchema.nullable().optional(),
   id: identity,
   company_id: identity,
   code: z.string(),
@@ -166,6 +205,9 @@ export type ConvertProductionPlanInput = z.infer<typeof convertProductionPlanInp
 export const manufacturingOrderStateSchema = z.enum(["draft", "submitted", "returned", "approved"]);
 export type ManufacturingOrderState = z.infer<typeof manufacturingOrderStateSchema>;
 const orderFields = z.strictObject({
+  bom_version: version.optional(),
+  warehouse_id: identity.nullable().optional(),
+  lines: z.array(manufacturingOrderLineInputSchema).min(1).max(200).optional(),
   company_id: identity,
   product_id: identity,
   quantity: positiveQuantity,
@@ -186,6 +228,7 @@ export const manufacturingOrderEventSchema = z.strictObject({
   occurred_at: z.string(),
 });
 export const manufacturingOrderSchema = z.strictObject({
+  recipe: manufacturingRecipeSchema.nullable().optional(),
   id: identity,
   company_id: identity,
   code: z.string(),

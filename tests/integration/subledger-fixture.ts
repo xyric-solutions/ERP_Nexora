@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { ensureProductCategoryFixture } from "./product-category-fixture.js";
 import type { DatabasePool } from "../../packages/db/src/index.js";
 import { migrateSourceSchema } from "../../packages/db/src/source-migrations.js";
 import type { BankingActorContext } from "../../server/api/src/modules/banking/source-repository.js";
@@ -65,6 +66,7 @@ export async function setupSubledgerFixture(pool: DatabasePool, company = `mc-${
     [company, tenant],
   );
   await ensureCompanyCurrencyFixture(pool, company, base, ["PKR", "USD", "AED", "EUR", "JPY", "KWD"]);
+  await ensureProductCategoryFixture(pool, tenant, company);
   for (const [policy, user] of [
     ["r06-uat-policy-maker", "r06.maker"],
     ["r06-uat-policy-checker", "r06.checker"],

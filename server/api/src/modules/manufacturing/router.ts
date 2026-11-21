@@ -13,6 +13,8 @@ import {
   updateBomInputSchema,
   updateManufacturingOrderInputSchema,
   updateProductionPlanInputSchema,
+  requirementsQuerySchema,
+  materialBalanceQuerySchema,
 } from "@nexora/contracts";
 import { HttpError } from "../../http/errors.js";
 import { currentRequestContext } from "../../http/request-context.js";
@@ -35,6 +37,9 @@ export type ManufacturingRepository = Pick<
   | "getOrder"
   | "saveOrder"
   | "action"
+  | "requirements"
+  | "productUnits"
+  | "materialBalance"
 >;
 const identity = z.string().trim().min(1).max(128),
   companyQuery = z.strictObject({ company_id: identity });
@@ -59,6 +64,23 @@ export function createManufacturingRouter(
       throw error;
     }
   };
+  router.get("/requirements", async (req, res) => {
+    const query = requirementsQuerySchema.parse(req.query),
+      ctx = await loadBankingSessionContext(req, dependencies);
+    res.json(await handle(() => repository.requirements(ctx, query)));
+  });
+  router.get("/products/:id/units", async (req, res) => {
+    const query = companyQuery.extend({ surface: manufacturingSurfaceSchema }).parse(req.query),
+      ctx = await loadBankingSessionContext(req, dependencies);
+    res.json(
+      await handle(() => repository.productUnits(ctx, query.company_id, identity.parse(req.params.id), query.surface)),
+    );
+  });
+  router.get("/material-balance", async (req, res) => {
+    const query = materialBalanceQuerySchema.parse(req.query),
+      ctx = await loadBankingSessionContext(req, dependencies);
+    res.json(await handle(() => repository.materialBalance(ctx, query)));
+  });
   function mutation(req: Request, version?: number) {
     const origin = req.get("origin"),
       key = req.get("idempotency-key");

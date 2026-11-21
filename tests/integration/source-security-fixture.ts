@@ -1,4 +1,5 @@
 import type { DatabasePool } from "../../packages/db/src/index.js";
+import { ensureProductCategoryFixture } from "./product-category-fixture.js";
 import { migrateSourceSchema } from "../../packages/db/src/source-migrations.js";
 
 export const sourceTestTenantId = "nexora-r06-uat";
@@ -560,6 +561,8 @@ export async function ensureSourceAuthorizationFixture(pool: DatabasePool): Prom
   } finally {
     client.release();
   }
+  for (const company of [sourceTestCompanyId, "nexora-r06-uat-company-two"])
+    await ensureProductCategoryFixture(pool, sourceTestTenantId, company);
 }
 
 export async function ensureSourceSuperAdministratorFixture(pool: DatabasePool): Promise<void> {

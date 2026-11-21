@@ -58,6 +58,7 @@ const ctx: InventoryContext = {
 const key = () => randomUUID(),
   input = (name = "Synthetic valve") =>
     productInputSchema.parse({
+      category_id: "category-fixture-" + company,
       company_id: company,
       name,
       currency: "USD",

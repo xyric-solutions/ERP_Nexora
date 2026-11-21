@@ -13,6 +13,7 @@ import {
   stockOperationSchema,
   stockWorkspaceSchema,
   manufacturingOrderMutationSchema,
+  bomMutationSchema,
   referenceMasterMutationSchema,
   subledgerPartySchema,
   subledgerPartyConfigurationSchema,
@@ -262,6 +263,7 @@ test.describe("Authenticated complete operational Sales integration", () => {
             maker,
             "/inventory/products",
             {
+              category_id: "category-fixture-" + company,
               company_id: company,
               name: manufacture_enabled ? "Actual integrated manufactured product" : "Actual integrated component",
               currency: "PKR",
@@ -436,6 +438,18 @@ test.describe("Authenticated complete operational Sales integration", () => {
       expect(
         decimal((await get(maker, `/banking/accounts/${bank.id}`, bankAccountDetailSchema)).ledger_balance, 8, true),
       ).toBe(-decimal("40", 8));
+      await post(
+        maker,
+        "/manufacturing/boms",
+        {
+          company_id: company,
+          product_id: finished.id,
+          output_quantity: "2",
+          warehouse_id: warehouse.id,
+          lines: [{ product_id: component.id, quantity: "4" }],
+        },
+        bomMutationSchema,
+      );
       let production = (
         await post(
           maker,

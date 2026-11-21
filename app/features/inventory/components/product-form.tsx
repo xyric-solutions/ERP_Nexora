@@ -128,6 +128,11 @@ export function ProductForm({
   }
   async function save(closeAfter: boolean) {
     if (lock.current || loading || loadFailed || !canSave) return;
+    if (!record && !input.category_id) {
+      setError("Select a category. Create categories under Products → Configuration.");
+      setTab("General");
+      return;
+    }
     const parsed = productInputSchema.safeParse(input);
     if (!parsed.success) {
       const errors = Object.fromEntries(parsed.error.issues.map((issue) => [String(issue.path[0]), issue.message]));
@@ -191,32 +196,36 @@ export function ProductForm({
   }
   if (loading)
     return (
-      <WorkFormLayout><p role="status" className="p-4">
-        Loading product…
-      </p></WorkFormLayout>
+      <WorkFormLayout>
+        <p role="status" className="p-4">
+          Loading product…
+        </p>
+      </WorkFormLayout>
     );
   if (loadFailed)
     return (
-      <WorkFormLayout><Alert variant="destructive">
-        <AlertDescription>
-          {error}
-          <div className="mt-3 flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setLoading(true);
-                setRefresh((n) => n + 1);
-              }}
-            >
-              Retry
-            </Button>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert></WorkFormLayout>
+      <WorkFormLayout>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error}
+            <div className="mt-3 flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setLoading(true);
+                  setRefresh((n) => n + 1);
+                }}
+              >
+                Retry
+              </Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Close
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </WorkFormLayout>
     );
   return (
     <WorkForm
@@ -323,16 +332,25 @@ export function ProductForm({
                     <option value="service">Service</option>
                   </select>,
                 )}
-                {field(
-                  "category",
-                  "Category",
-                  <Input
-                    maxLength={120}
-                    value={input.category}
-                    placeholder="e.g. Spare parts"
-                    onChange={(e) => change("category", e.target.value)}
-                  />,
-                )}
+                <div className="grid gap-1.5">
+                  <ProductLookup
+                    company={company}
+                    kind="category"
+                    label="Category *"
+                    value={input.category_id ?? null}
+                    name={input.category || null}
+                    onChange={(id, name) => {
+                      change("category_id", id);
+                      change("category", name ?? "");
+                    }}
+                  />
+                  {record && !record.category_id ? (
+                    <p className="m-0 text-xs text-muted-foreground">
+                      Legacy category: {record.category || "Unmapped"}. Select a managed category when ready.
+                    </p>
+                  ) : null}
+                  <p className="m-0 text-xs text-muted-foreground">Manage categories under Products → Configuration.</p>
+                </div>
                 {field(
                   "unit",
                   "Unit",
@@ -341,10 +359,18 @@ export function ProductForm({
                     value={input.unit}
                     onChange={(e) => {
                       const unit = options.units.find((u) => u === e.target.value);
-                      if (unit) {setInput(current=>({...current,unit,unit_id:options.measurement_units?.find(u=>u.name===unit)?.id,packaging_rules:[]}));setDirty(true);}
+                      if (unit) {
+                        setInput((current) => ({
+                          ...current,
+                          unit,
+                          unit_id: options.measurement_units?.find((u) => u.name === unit)?.id,
+                          packaging_rules: [],
+                        }));
+                        setDirty(true);
+                      }
                     }}
                   >
-                    {[...new Set([input.unit,...options.units])].map((u) => (
+                    {[...new Set([input.unit, ...options.units])].map((u) => (
                       <option key={u}>{u}</option>
                     ))}
                   </select>,
@@ -522,13 +548,84 @@ export function ProductForm({
           <TabsContent value="Inventory" className="mt-4 space-y-6">
             <section className="space-y-3 border-b border-border pb-4">
               <h3 className="text-sm font-semibold">Packaging and explicit conversion rules</h3>
-              <p className="text-sm text-muted-foreground">Define package contents for this product in {input.unit}. For example, one Box contains 12 Each. Referenced definitions remain fixed.</p>
-              {(input.packaging_rules??[]).map((rule,index)=><div key={index} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-                <LabeledField label={`Packaging unit ${index+1}`}><select className={productSelectClass} value={rule.unit_id} disabled={saving||!canSave} onChange={e=>change("packaging_rules",(input.packaging_rules??[]).map((r,n)=>n===index?{...r,unit_id:e.target.value}:r))}><option value="">Choose unit</option>{options.measurement_units?.filter(u=>u.id!==input.unit_id&&(u.category==="packaging"||(input.unit==="Day"&&u.category==="time"))).map(u=><option key={u.id} value={u.id}>{u.name}{u.status==="inactive"?" (inactive)":""}</option>)}</select></LabeledField>
-                <LabeledField label={`Contents in ${input.unit} ${index+1}`}><Input inputMode="decimal" value={rule.quantity} disabled={saving||!canSave} onChange={e=>change("packaging_rules",(input.packaging_rules??[]).map((r,n)=>n===index?{...r,quantity:e.target.value}:r))}/></LabeledField>
-                <Button type="button" variant="outline" className="sm:self-end" disabled={saving||!canSave} onClick={()=>change("packaging_rules",(input.packaging_rules??[]).filter((_,n)=>n!==index))}>Remove rule</Button>
-              </div>)}
-              <Button type="button" variant="outline" disabled={saving||!canSave||(input.packaging_rules?.length??0)>=30||!options.measurement_units} onClick={()=>change("packaging_rules",[...(input.packaging_rules??[]),{unit_id:"",quantity:"1"}])}>Add Packaging Rule</Button>
+              <p className="text-sm text-muted-foreground">
+                Define package contents for this product in {input.unit}. For example, one Box contains 12 Each.
+                Referenced definitions remain fixed.
+              </p>
+              {(input.packaging_rules ?? []).map((rule, index) => (
+                <div key={index} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+                  <LabeledField label={`Packaging unit ${index + 1}`}>
+                    <select
+                      className={productSelectClass}
+                      value={rule.unit_id}
+                      disabled={saving || !canSave}
+                      onChange={(e) =>
+                        change(
+                          "packaging_rules",
+                          (input.packaging_rules ?? []).map((r, n) =>
+                            n === index ? { ...r, unit_id: e.target.value } : r,
+                          ),
+                        )
+                      }
+                    >
+                      <option value="">Choose unit</option>
+                      {options.measurement_units
+                        ?.filter(
+                          (u) =>
+                            u.id !== input.unit_id &&
+                            (u.category === "packaging" || (input.unit === "Day" && u.category === "time")),
+                        )
+                        .map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.name}
+                            {u.status === "inactive" ? " (inactive)" : ""}
+                          </option>
+                        ))}
+                    </select>
+                  </LabeledField>
+                  <LabeledField label={`Contents in ${input.unit} ${index + 1}`}>
+                    <Input
+                      inputMode="decimal"
+                      value={rule.quantity}
+                      disabled={saving || !canSave}
+                      onChange={(e) =>
+                        change(
+                          "packaging_rules",
+                          (input.packaging_rules ?? []).map((r, n) =>
+                            n === index ? { ...r, quantity: e.target.value } : r,
+                          ),
+                        )
+                      }
+                    />
+                  </LabeledField>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="sm:self-end"
+                    disabled={saving || !canSave}
+                    onClick={() =>
+                      change(
+                        "packaging_rules",
+                        (input.packaging_rules ?? []).filter((_, n) => n !== index),
+                      )
+                    }
+                  >
+                    Remove rule
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                disabled={
+                  saving || !canSave || (input.packaging_rules?.length ?? 0) >= 30 || !options.measurement_units
+                }
+                onClick={() =>
+                  change("packaging_rules", [...(input.packaging_rules ?? []), { unit_id: "", quantity: "1" }])
+                }
+              >
+                Add Packaging Rule
+              </Button>
             </section>
             <fieldset disabled={saving || !canSave} className="m-0 min-w-0 space-y-6 border-0 p-0">
               <div className="flex flex-wrap items-center justify-between gap-3">

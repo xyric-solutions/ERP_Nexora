@@ -1,3 +1,4 @@
+import { productionExpenseLookup, postProductionAllocations } from "./production-costs.js";
 import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import {
@@ -279,6 +280,7 @@ export class SourceStockRepository {
   }
   lookups(context: InventoryContext, query: StockLookupQuery) {
     return this.transaction(context, query.company_id, "inventory.stock.read", false, async (client) => {
+      if (query.kind === "production_expense") return productionExpenseLookup(client, context, query);
       const sourcePermission =
         query.kind === "receipt"
           ? "procurement.document.read"
@@ -631,6 +633,7 @@ export class SourceStockRepository {
           [context.tenantId, op.company_id, entryId, allocation.entry_id, allocation.quantity, allocation.value],
         );
     }
+    await postProductionAllocations(client, context, { ...op, preview });
     const before = await this.snapshot(client, context.tenantId, op.company_id, "operation", op.id, op.version);
     await client.query(
       "update inventory_stock_operation set state='posted',version=version+1,poster_id=$4,journal_id=$5,accounting_event_id=$6,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3",

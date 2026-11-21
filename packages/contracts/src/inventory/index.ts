@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { unitSchema, packagingRuleSchema, unitSnapshotSchema } from "./units.js";
 export * from "./units.js";
+export * from "./categories.js";
 
 const identity = z.string().trim().min(1).max(128);
 const text = (max: number) => z.string().trim().max(max).default("");
@@ -18,6 +19,7 @@ const productFieldsSchema = z.strictObject({
   type: z.enum(["goods", "service"]).default("goods"),
   status: z.enum(["active", "inactive"]).default("active"),
   category: text(120),
+  category_id: identity.nullable().optional(),
   reference: text(120),
   barcode: text(120),
   unit: z.string().trim().min(1).max(32).default("Each"),
@@ -103,6 +105,11 @@ export const productQuerySchema = z.strictObject({
   type: z.enum(["goods", "service"]).optional(),
   status: z.enum(["active", "inactive"]).optional(),
   category: z.string().trim().max(120).optional(),
+  category_id: identity.optional(),
+  legacy_unmapped: z.preprocess(
+    (value) => (value === "true" ? true : value === "false" ? false : value),
+    z.boolean().optional(),
+  ),
   cursor: z.string().max(1024).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
 });
@@ -123,6 +130,7 @@ export const productMutationSchema = z.strictObject({ record: productSchema, aud
 export const inventorySurfaceSchema = z.enum(["products", "warehouses", "transfers"]);
 export type InventorySurface = z.infer<typeof inventorySurfaceSchema>;
 export const productLookupKindSchema = z.enum([
+  "category",
   "supplier",
   "stock_account",
   "income_account",

@@ -834,6 +834,38 @@ export class SourceSubledgerRepository {
     code: string,
     deferBankCash = false,
   ): Promise<Preview> {
+    if (
+      input.type === "reversal" ||
+      (input.type === "recognition" && input.kind === "credit_note" && input.original_item_id)
+    ) {
+      const source =
+        input.type === "reversal"
+          ? (
+              await client.query(
+                "select journal_id from finance_subledger_operation where tenant_id=$1 and company_id=$2 and id=$3",
+                [context.tenantId, input.company_id, input.operation_id],
+              )
+            ).rows[0]?.journal_id
+          : (
+              await client.query(
+                "select journal_id from finance_subledger_item where tenant_id=$1 and company_id=$2 and id=$3",
+                [context.tenantId, input.company_id, input.original_item_id],
+              )
+            ).rows[0]?.journal_id;
+      if (
+        source &&
+        (
+          await client.query(
+            "select 1 from inventory_production_cost_allocation a join journal_line l on(l.tenant_id,l.id)=(a.tenant_id,a.source_line_id) where a.tenant_id=$1 and a.company_id=$2 and l.journal_id=$3 group by a.source_line_id having sum(a.value)>0 limit 1",
+            [context.tenantId, input.company_id, source],
+          )
+        ).rowCount
+      )
+        reject(
+          "Compensate the source expense's production cost allocations before reversing or crediting it.",
+          "PRODUCTION_COST_SOURCE_ALLOCATED",
+        );
+    }
     if (input.type !== "reversal" && input.dimensions) {
       if (Object.keys(input.dimensions).some((key) => /^(purchase_|asset_|sales_)/.test(key)))
         reject("Source accounting references are assigned by their owning workflow.");

@@ -453,6 +453,22 @@ function CompanyStockWorkspace({
                   ))}
                 </tbody>
               </WorkTable>
+              {selected.input.kind === "manufacturing_charge" ? (
+                <div className="grid gap-2">
+                  <h3 className="m-0 text-base font-medium">Approved actual expense allocations</h3>
+                  <p className="m-0 text-sm text-muted-foreground">
+                    Production batch: {selected.input.source_id}. These amounts increase WIP value without changing
+                    physical quantities.
+                  </p>
+                  <ul className="m-0 grid gap-1 pl-5 text-sm">
+                    {selected.input.allocations.map((line) => (
+                      <li key={line.journal_line_id}>
+                        Expense journal line {line.journal_line_id}: {line.amount} {selected.preview!.base_currency}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <h3 className="m-0 text-base font-medium">Accounting preview</h3>
               <WorkTable
                 tableId="stock-journal-evidence"

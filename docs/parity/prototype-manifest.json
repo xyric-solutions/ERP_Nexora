@@ -4,7 +4,7 @@
   "counts": {
     "modules": 30,
     "groups": 122,
-    "pages": 679
+    "pages": 680
   },
   "modules": [
     {
@@ -622,6 +622,13 @@
               "label": "Products",
               "archetype": "list",
               "status": "prototype"
+            },
+            {
+              "id": "product-configuration",
+              "label": "Configuration",
+              "archetype": "list",
+              "status": "live",
+              "hiddenFromNavigation": true
             },
             {
               "id": "units-of-measure",

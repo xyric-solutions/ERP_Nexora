@@ -53,6 +53,33 @@ export function manufacturingPaths() {
   });
   const directory = [company, filter("search"), state, filter("cursor", 1024), limit];
   return {
+    "/manufacturing/material-balance": {
+      get: read("getManufacturingMaterialBalance", "MaterialBalance", [
+        company,
+        surface(),
+        { in: "query", name: "product_id", required: true, schema: { type: "string", maxLength: 128 } },
+        { in: "query", name: "warehouse_id", schema: { type: "string", maxLength: 128 } },
+        { in: "query", name: "as_of", schema: { type: "string", format: "date" } },
+      ]),
+    },
+    "/manufacturing/requirements": {
+      get: read("getManufacturingRequirements", "RequirementsPreview", [
+        company,
+        surface(),
+        ...["product_id", "quantity"].map((name) => ({
+          in: "query",
+          name,
+          required: true,
+          schema: { type: "string", maxLength: 128 },
+        })),
+        { in: "query", name: "bom_version", schema: { type: "integer", minimum: 1 } },
+        { in: "query", name: "warehouse_id", schema: { type: "string", maxLength: 128 } },
+        { in: "query", name: "as_of", schema: { type: "string", format: "date" } },
+      ]),
+    },
+    "/manufacturing/products/{id}/units": {
+      get: read("getManufacturingProductUnits", "ProductUnits", [company, id, surface()]),
+    },
     "/manufacturing/companies": { get: read("listManufacturingCompanies", "ManufacturingCompanies", [surface()]) },
     "/manufacturing/lookups": {
       get: read("listManufacturingLookups", "ManufacturingLookupDirectory", [
@@ -62,7 +89,19 @@ export function manufacturingPaths() {
           in: "query",
           name: "kind",
           required: true,
-          schema: { type: "string", enum: ["finished_product", "component", "project", "location"] },
+          schema: {
+            type: "string",
+            enum: [
+              "finished_product",
+              "component",
+              "non_stock",
+              "warehouse",
+              "expense",
+              "currency",
+              "project",
+              "location",
+            ],
+          },
         },
         filter("search"),
         filter("cursor", 1024),

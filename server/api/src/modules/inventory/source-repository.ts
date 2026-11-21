@@ -27,6 +27,7 @@ import { companyAuthoritySql } from "../security/company-authority.js";
 import { InventoryError } from "./errors.js";
 export { InventoryError } from "./errors.js";
 import { SourceUnitRepository, companyUnits, productUnitChoices, productUnitSnapshot } from "./units-repository.js";
+import { SourceCategoryRepository } from "./categories-repository.js";
 
 export type InventoryContext = ReferenceMasterContext;
 function fail(message: string, code = "PRODUCT_VALIDATION_FAILED", status = 409): never {
@@ -54,7 +55,7 @@ function surfacePermission(surface: InventorySurface) {
       ? "inventory.stock.read"
       : "inventory.item.read";
 }
-const projection = `p.details || jsonb_build_object('id',p.id,'company_id',p.company_id,'code',p.code,'name',p.name,'type',p.type,'status',p.status,'category',p.category,'reference',p.reference,'barcode',p.barcode,'currency',p.currency,'preferred_supplier_id',p.preferred_supplier_id,'stock_account_id',p.stock_account_id,'income_account_id',p.income_account_id,'expense_account_id',p.expense_account_id,'version',p.row_version,'created_at',p.created_at::text,'updated_at',p.updated_at::text,'on_hand_quantity',(select sum(e.quantity)::text from inventory_stock_entry e where(e.tenant_id,e.company_id,e.product_id)=(p.tenant_id,p.company_id,p.id)),'preferred_supplier_name',s.name,'stock_account_name',stock.code||' · '||stock.name,'income_account_name',income.code||' · '||income.name,'expense_account_name',expense.code||' · '||expense.name,'location_id',p.location_id,'default_warehouse_id',p.default_warehouse_id,'location_name',location.name,'default_warehouse_name',warehouse.name) as record`;
+const projection = `p.details || jsonb_build_object('id',p.id,'company_id',p.company_id,'code',p.code,'name',p.name,'type',p.type,'status',p.status,'category',p.category,'reference',p.reference,'barcode',p.barcode,'currency',p.currency,'preferred_supplier_id',p.preferred_supplier_id,'stock_account_id',p.stock_account_id,'income_account_id',p.income_account_id,'expense_account_id',p.expense_account_id,'version',p.row_version,'created_at',p.created_at::text,'updated_at',p.updated_at::text,'on_hand_quantity',(select sum(e.quantity)::text from inventory_stock_entry e where(e.tenant_id,e.company_id,e.product_id)=(p.tenant_id,p.company_id,p.id)),'preferred_supplier_name',s.name,'stock_account_name',stock.code||' · '||stock.name,'income_account_name',income.code||' · '||income.name,'expense_account_name',expense.code||' · '||expense.name,'location_id',p.location_id,'default_warehouse_id',p.default_warehouse_id,'location_name',location.name,'default_warehouse_name',warehouse.name,'category_id',p.category_id,'category',coalesce((select c.name from inventory_product_category c where(c.tenant_id,c.company_id,c.id)=(p.tenant_id,p.company_id,p.category_id)),p.category)) as record`;
 const joins = `from inventory_product p
  left join procurement_supplier s on s.tenant_id=p.tenant_id and s.company_id=p.company_id and s.id=p.preferred_supplier_id
  left join erp_location location on location.tenant_id=p.tenant_id and location.company_id=p.company_id and location.id=p.location_id
@@ -72,8 +73,14 @@ const accountTypes: Record<"stock_account" | "income_account" | "expense_account
 };
 
 export class SourceInventoryRepository {
+  readonly categories: SourceCategoryRepository;
   readonly units: SourceUnitRepository;
   constructor(private readonly pool: Pool) {
+    this.categories = new SourceCategoryRepository(
+      (context, company, write, work, permission) => this.transaction(context, company, write, work, permission),
+      (client, context, id, company, before, after, correlation) =>
+        this.audit(client, context, "category", id, company, before, after, "save", correlation),
+    );
     this.units = new SourceUnitRepository(
       (context, company, write, work, permission) => this.transaction(context, company, write, work, permission),
       (client, context, id, company, before, after, action, correlation) =>
@@ -202,6 +209,7 @@ export class SourceInventoryRepository {
         `select ${projection} ${joins} where p.tenant_id=$1 and p.company_id=$2
        and ($3::text is null or p.type=$3) and ($4::text is null or p.status=$4) and ($5::text is null or p.category=$5)
        and (p.name ilike $6 escape '\\' or p.code ilike $6 escape '\\' or p.barcode ilike $6 escape '\\' or p.reference ilike $6 escape '\\')
+       and ($9::text is null or p.category_id=$9) and(not $10::boolean or p.category_id is null)
        and ($7::text is null or p.code>(select anchor.code from inventory_product anchor where anchor.tenant_id=$1 and anchor.company_id=$2 and anchor.id=$7)) order by p.code limit $8`,
         [
           context.tenantId,
@@ -212,6 +220,8 @@ export class SourceInventoryRepository {
           `%${query.search.replace(/[\\%_]/g, "\\$&")}%`,
           after,
           query.limit + 1,
+          query.category_id ?? null,
+          query.legacy_unmapped ?? false,
         ],
       );
       const items = result.rows.slice(0, query.limit).map((r) => productSchema.parse(r.record));
@@ -240,7 +250,7 @@ export class SourceInventoryRepository {
         ? ["location"]
         : surface === "transfers"
           ? ["warehouse", "product"]
-          : ["supplier", "stock_account", "income_account", "expense_account", "location", "warehouse"];
+          : ["category", "supplier", "stock_account", "income_account", "expense_account", "location", "warehouse"];
     if (!allowed.includes(query.kind))
       fail("This lookup is not available for this Inventory page.", "LOOKUP_PERMISSION_DENIED", 403);
     return this.transaction(
@@ -253,7 +263,14 @@ export class SourceInventoryRepository {
           pattern = `%${query.search.replace(/[\\%_]/g, "\\$&")}%`;
         let rows: { id: string; code: string; name: string; unit?: string }[];
         const args = [context.tenantId, query.company_id, pattern, after, query.limit + 1];
-        if (query.kind === "supplier")
+        if (query.kind === "category")
+          rows = (
+            await client.query(
+              "select id,code,name from inventory_product_category where tenant_id=$1 and company_id=$2 and status='active' and(name ilike $3 escape '\\' or code ilike $3 escape '\\') and($4::text is null or id>$4) order by id limit $5",
+              args,
+            )
+          ).rows;
+        else if (query.kind === "supplier")
           rows = (
             await client.query(
               `select s.id,s.code,s.name from procurement_supplier s join party v on v.tenant_id=s.tenant_id and v.id=s.id and v.type='vendor' and v.status='active' and v.risk_status<>'blocked' where s.tenant_id=$1 and s.company_id=$2 and s.status='active' and s.risk_status<>'blocked' and (s.name ilike $3 escape '\\' or s.code ilike $3 escape '\\') and ($4::text is null or s.id>$4) order by s.id limit $5`,
@@ -346,6 +363,24 @@ export class SourceInventoryRepository {
         return productMutationSchema.parse(replay.rows[0]!.result);
       }
       const before = id ? await this.load(client, context.tenantId, parsed.company_id, id) : null;
+      parsed.category_id = parsed.category_id === undefined ? (before?.category_id ?? null) : parsed.category_id;
+      if (!before && !parsed.category_id)
+        fail(
+          "Create or select a product category in Inventory → Products → Configuration.",
+          "PRODUCT_CATEGORY_REQUIRED",
+        );
+      if (parsed.category_id) {
+        const category = (
+          await client.query(
+            "select name,status from inventory_product_category where tenant_id=$1 and company_id=$2 and id=$3 for share",
+            [context.tenantId, parsed.company_id, parsed.category_id],
+          )
+        ).rows[0];
+        if (!category || (category.status !== "active" && before?.category_id !== parsed.category_id))
+          fail("Choose an active product category from this company.", "PRODUCT_CATEGORY_INVALID");
+        parsed.category = category.name;
+      } else if (before && parsed.category !== before.category)
+        fail("Link a managed category before changing legacy category text.", "PRODUCT_CATEGORY_REQUIRED");
       const catalogue = await companyUnits(client, context.tenantId, parsed.company_id);
       const selectedUnit = catalogue.find((u) => u.name === parsed.unit);
       if (
@@ -395,6 +430,7 @@ export class SourceInventoryRepository {
         type,
         status,
         category,
+        category_id,
         reference,
         barcode,
         currency,
@@ -412,7 +448,7 @@ export class SourceInventoryRepository {
       const productId = id ?? `product-${randomUUID()}`;
       if (before) {
         await client.query(
-          `update inventory_product set name=$4,type=$5,status=$6,category=$7,reference=$8,barcode=$9,currency=$10,preferred_supplier_id=$11,stock_account_id=$12,income_account_id=$13,expense_account_id=$14,details=$15,row_version=row_version+1,updated_by=$16,location_id=$17,default_warehouse_id=$18,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3`,
+          `update inventory_product set name=$4,type=$5,status=$6,category=$7,reference=$8,barcode=$9,currency=$10,preferred_supplier_id=$11,stock_account_id=$12,income_account_id=$13,expense_account_id=$14,details=$15,row_version=row_version+1,updated_by=$16,location_id=$17,default_warehouse_id=$18,category_id=$19,updated_at=clock_timestamp() where tenant_id=$1 and company_id=$2 and id=$3`,
           [
             context.tenantId,
             company_id,
@@ -432,6 +468,7 @@ export class SourceInventoryRepository {
             context.actor.userId,
             location_id,
             default_warehouse_id,
+            category_id,
           ],
         );
       } else {
@@ -441,7 +478,7 @@ export class SourceInventoryRepository {
         );
         const code = `PRD-${next.rows[0]!.value.padStart(3, "0")}`;
         await client.query(
-          `insert into inventory_product(tenant_id,company_id,id,code,name,type,status,category,reference,barcode,currency,preferred_supplier_id,stock_account_id,income_account_id,expense_account_id,details,created_by,updated_by,location_id,default_warehouse_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17,$18,$19)`,
+          `insert into inventory_product(tenant_id,company_id,id,code,name,type,status,category,reference,barcode,currency,preferred_supplier_id,stock_account_id,income_account_id,expense_account_id,details,created_by,updated_by,location_id,default_warehouse_id,category_id) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17,$18,$19,$20)`,
           [
             context.tenantId,
             company_id,
@@ -462,6 +499,7 @@ export class SourceInventoryRepository {
             context.actor.userId,
             location_id,
             default_warehouse_id,
+            category_id,
           ],
         );
       }
@@ -510,7 +548,7 @@ export class SourceInventoryRepository {
   private async audit(
     client: PoolClient,
     context: InventoryContext,
-    entity: "product" | "warehouse" | "transfer" | "unit",
+    entity: "product" | "warehouse" | "transfer" | "unit" | "category",
     id: string,
     company: string,
     before: unknown,

@@ -161,7 +161,7 @@ try {
     sharedEnv,
     "api.log",
   );
-  await waitFor(`${apiOrigin}/api/v1/health/ready`, 120_000);
+  await waitFor(`${apiOrigin}/api/v1/health/ready`, 240_000);
   if (api.exitCode !== null) throw new Error("The isolated reconciliation API exited before browser acceptance.");
 
   const web = child(

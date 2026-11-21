@@ -73,6 +73,7 @@ export function stockPaths() {
               "transfer",
               "manufacturing_order",
               "manufacturing_issue",
+              "production_expense",
               "reversal",
             ],
           },

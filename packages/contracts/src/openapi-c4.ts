@@ -85,6 +85,10 @@ import {
 import { fixedAssetPaths } from "./fixed-assets/openapi.js";
 import {
   warehouseInputSchema,
+  productCategoryInputSchema,
+  productCategorySchema,
+  productCategoryDirectorySchema,
+  productCategoryMutationSchema,
   updateWarehouseInputSchema,
   warehouseSchema,
   warehouseDirectorySchema,
@@ -103,6 +107,7 @@ import {
   productMutationSchema,
   productLookupDirectorySchema,
 } from "./inventory/index.js";
+import { requirementsPreviewSchema, materialBalanceSchema } from "./manufacturing/templates.js";
 import {
   hrLearningQuerySchema,
   hrLearningActionSchema,
@@ -8621,6 +8626,13 @@ export function buildOpenApiDocument() {
         ChangeBankSelfApprovalRequest: schema(changeBankSelfApprovalRequestSchema),
         ReferenceMaster: schema(referenceMasterSchema),
         ProductInput: schema(productInputSchema),
+        ProductCategoryInput: schema(productCategoryInputSchema),
+        UpdateProductCategoryInput: schema(
+          productCategoryInputSchema.extend({ expected_version: z.number().int().positive() }),
+        ),
+        ProductCategory: schema(productCategorySchema),
+        ProductCategoryDirectory: schema(productCategoryDirectorySchema),
+        ProductCategoryMutation: schema(productCategoryMutationSchema),
         UpdateProductInput: schema(updateProductInputSchema),
         Product: schema(productSchema),
         ProductDirectory: schema(productDirectorySchema),
@@ -8648,6 +8660,8 @@ export function buildOpenApiDocument() {
         ManufacturingCompanies: schema(manufacturingCompaniesSchema),
         ManufacturingLookupDirectory: schema(manufacturingLookupDirectorySchema),
         BomInput: schema(bomInputSchema),
+        RequirementsPreview: schema(requirementsPreviewSchema),
+        MaterialBalance: schema(materialBalanceSchema),
         UpdateBomInput: schema(updateBomInputSchema),
         Bom: schema(bomSchema),
         BomDirectory: schema(bomDirectorySchema),

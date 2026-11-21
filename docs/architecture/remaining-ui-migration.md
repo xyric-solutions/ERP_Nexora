@@ -9181,3 +9181,13 @@ Remaining / resume point:
   refreshes permissions on its next request; refresh the Tax page.
 - This maintenance change grants access in the running release; deployment of
   the new tax configuration screen and finance migration 0041 remains separate.
+
+# 2026-11-21 - BOM templates and category configuration
+
+- Added category Configuration under Products, managed category selection/filtering,
+  sectioned BOM templates and versioned requirements in planning/orders. Reused
+  semantic Tailwind/shadcn controls, dense tables and company-scoped lookups.
+- Actual material issue fills approved recipes; actual cost allocation retains
+  review/posting controls. Existing records and legacy unmapped labels remain.
+- Theme audit reports zero feature font/colour exceptions. Browser acceptance and
+  production release evidence are recorded in [BOM integration](bom-template-integration.md).

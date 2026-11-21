@@ -115,7 +115,7 @@ describe("Manufacturing contract validation", () => {
     expect(manufacturingOrderInputSchema.parse(order)).toMatchObject({ project_id: null, location_id: null });
     expect(manufacturingOrderInputSchema.safeParse({ ...order, quantity: "0" }).success).toBe(false);
     expect(manufacturingOrderInputSchema.safeParse({ ...order, project_id: "" }).success).toBe(false);
-    // Component lines arrive with the later BOM integration phase.
+    // The server fetches default materials; explicit deviations cannot erase the recipe.
     expect(manufacturingOrderInputSchema.safeParse({ ...order, lines: [] }).success).toBe(false);
   });
 

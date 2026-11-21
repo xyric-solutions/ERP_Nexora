@@ -373,7 +373,12 @@ test.describe("Persisted unified Purchase workflow", () => {
             },
           },
           null,
-          productInputSchema.parse({ company_id: company, name: "Guided purchase valve", currency: "USD" }),
+          productInputSchema.parse({
+            category_id: "category-fixture-" + company,
+            company_id: company,
+            name: "Guided purchase valve",
+            currency: "USD",
+          }),
           randomUUID(),
           randomUUID(),
         )
