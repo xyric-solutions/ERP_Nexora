@@ -16,6 +16,7 @@ import { WorkTable } from "@/shared/ui/work-table";
 import { ManufacturingLookup } from "./manufacturing-lookup";
 import { ManufacturingUnitSelect } from "./manufacturing-unit-select";
 import { MaterialBalanceCell } from "./material-balance";
+import { Trash2 } from "lucide-react";
 const table =
   "w-full border-collapse text-left text-sm [&_th]:whitespace-nowrap [&_th]:bg-muted [&_th]:p-2 [&_td]:border-b [&_td]:border-border [&_td]:p-2 [&_td]:align-top";
 type Known = Record<string, { label: string; unit: string }>;
@@ -257,10 +258,13 @@ export function BomTemplateSections({
                     <Button
                       type="button"
                       variant="outline"
+                      size="icon"
+                      aria-label={`Delete material ${index + 1}`}
+                      title={`Delete material ${index + 1}`}
                       disabled={input.lines.length === 1}
                       onClick={() => change((c) => ({ ...c, lines: c.lines.filter((_, i) => i !== index) }))}
                     >
-                      Remove material {index + 1}
+                      <Trash2 aria-hidden="true" className="size-4" />
                     </Button>
                   </td>
                 </tr>
@@ -348,9 +352,12 @@ export function BomTemplateSections({
                         <Button
                           type="button"
                           variant="outline"
+                          size="icon"
+                          aria-label={`Delete charge ${index + 1}`}
+                          title={`Delete charge ${index + 1}`}
                           onClick={() => change((c) => ({ ...c, charges: c.charges?.filter((_, i) => i !== index) }))}
                         >
-                          Remove charge {index + 1}
+                          <Trash2 aria-hidden="true" className="size-4" />
                         </Button>
                       </td>
                     </tr>

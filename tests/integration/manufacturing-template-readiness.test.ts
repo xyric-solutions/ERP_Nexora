@@ -1,9 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { Pool } from "pg";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDisposableSourceDatabase } from "../security/disposable-source-database.js";
 import { setupSubledgerFixture, subledgerActor, subledgerPermissions } from "./subledger-fixture.js";
 import { SourceInventoryRepository } from "../../server/api/src/modules/inventory/source-repository.js";
-import { SourceManufacturingRepository } from "../../server/api/src/modules/manufacturing/source-repository.js";
+import {
+  ManufacturingError,
+  SourceManufacturingRepository,
+} from "../../server/api/src/modules/manufacturing/source-repository.js";
 import {
   productInputSchema,
   warehouseInputSchema,
@@ -231,6 +235,85 @@ run("Managed categories and frozen BOM material requirements", () => {
       await db.pool.query(
         `revoke select on inventory_product_category,security_user_company_access from ${runtimeRole}`,
       );
+      await db.pool.query(`drop role ${runtimeRole}`);
+    }
+  });
+  it("saves and scales a BOM under a non-bypass runtime role using the authenticated user's currency scope", async () => {
+    const product = (
+      await inventory.save(
+        actor(),
+        null,
+        productInputSchema.parse({
+          company_id: fixture.company,
+          category_id: `category-fixture-${fixture.company}`,
+          name: "Runtime currency scope output",
+          currency: "USD",
+          manufacture_enabled: true,
+        }),
+        key(),
+        key(),
+      )
+    ).record;
+    const runtimeRole = `bom_runtime_${key().replaceAll("-", "")}`;
+    const database = (await db.pool.query<{ name: string }>("select current_database() name")).rows[0]!.name;
+    const url = new URL(process.env.TEST_SOURCE_BOOTSTRAP_DATABASE_URL!);
+    url.pathname = `/${database}`;
+    await db.pool.query(`create role ${runtimeRole} nologin nosuperuser nobypassrls`);
+    await db.pool.query(`grant usage on schema public to ${runtimeRole}`);
+    await db.pool.query(`grant select,insert,update,delete on all tables in schema public to ${runtimeRole}`);
+    const runtime = new Pool({ connectionString: url.href, options: `-c role=${runtimeRole}`, max: 1 });
+    try {
+      const repository = new SourceManufacturingRepository(runtime);
+      const input = bomInputSchema.parse({
+        company_id: fixture.company,
+        product_id: product.id,
+        template_name: "Runtime authenticated recipe",
+        warehouse_id: warehouse,
+        output_quantity: "40",
+        lines: [{ product_id: raw, quantity: "10", warehouse_id: warehouse }],
+      });
+      const request = key();
+      const saved = await repository.saveBom(actor(), null, input, request, key());
+      expect(saved.record.currency).toBe("USD");
+      expect((await repository.saveBom(actor(), null, input, request, key())).record.id).toBe(saved.record.id);
+      expect(
+        (
+          await repository.requirements(actor(), {
+            company_id: fixture.company,
+            surface: "plans",
+            product_id: product.id,
+            quantity: "80",
+          })
+        ).recipe.lines[0]?.quantity,
+      ).toBe("20");
+      const options = await repository.lookups(actor(), {
+        company_id: fixture.company,
+        surface: "boms",
+        kind: "currency",
+        search: "",
+        limit: 30,
+      });
+      expect(options.items.map((item) => item.code)).toContain("USD");
+      const failed = repository.saveBom(
+        actor(),
+        saved.record.id,
+        { ...input, currency: "ZZZ", expected_version: saved.record.version },
+        key(),
+        key(),
+      );
+      await expect(failed).rejects.toBeInstanceOf(ManufacturingError);
+      await expect(failed).rejects.toMatchObject({ status: 409, code: "BOM_CURRENCY_INVALID" });
+      expect((await repository.getBom(actor(), fixture.company, saved.record.id)).version).toBe(saved.record.version);
+      await expect(
+        repository.getBom(
+          { ...actor(), actor: { ...actor().actor, userId: "r06.target" } },
+          fixture.company,
+          saved.record.id,
+        ),
+      ).rejects.toMatchObject({ status: 403 });
+    } finally {
+      await runtime.end();
+      await db.pool.query(`drop owned by ${runtimeRole}`);
       await db.pool.query(`drop role ${runtimeRole}`);
     }
   });

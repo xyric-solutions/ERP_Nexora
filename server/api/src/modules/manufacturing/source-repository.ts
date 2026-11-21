@@ -41,6 +41,7 @@ import {
 import { productUnitChoices } from "../inventory/units-repository.js";
 import { OperationalError } from "../shared/operational-transaction.js";
 import { InventoryError } from "../inventory/errors.js";
+import { CompanyCurrencyAuthorityError } from "../finance/currencies/company-authority.js";
 
 /*
  * Manufacturing: Bill of Materials, Production Planning and Manufacturing Orders.
@@ -141,7 +142,10 @@ export class SourceManufacturingRepository {
     const client = await this.pool.connect();
     try {
       await client.query("begin");
-      await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select set_config('nexora.tenant_id',$1,true),set_config('nexora.user_id',$2,true)", [
+        context.tenantId,
+        context.actor.userId,
+      ]);
       await client.query("select pg_advisory_xact_lock_shared(hashtextextended($1,0))", [
         `nexora:security:admin:${context.tenantId}`,
       ]);
@@ -163,7 +167,11 @@ export class SourceManufacturingRepository {
       return result;
     } catch (error) {
       await client.query("rollback");
-      if (error instanceof OperationalError || error instanceof InventoryError)
+      if (
+        error instanceof OperationalError ||
+        error instanceof InventoryError ||
+        error instanceof CompanyCurrencyAuthorityError
+      )
         fail(error.message, error.code, error.status);
       if (error && typeof error === "object" && "code" in error) {
         if (["42P01", "42703", "42883"].includes(String(error.code)))

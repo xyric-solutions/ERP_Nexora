@@ -3,10 +3,9 @@ import { useEffect, useId, useState } from "react";
 import type { ProductLookupDirectory, ProductLookupKind, InventorySurface } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/shared/ui/searchable-select";
 import { LabeledField } from "@/shared/ui/labeled-field";
 import { productError } from "../model/products";
-import { ChevronDown } from "lucide-react";
 
 export function ProductLookup({
   company,
@@ -73,88 +72,50 @@ export function ProductLookup({
       setBusy(false);
     }
   }
+  const options = [
+    { value: "", label: "None" },
+    ...result.items.map((item) => ({ value: item.id, label: `${item.code} \u00b7 ${item.name}` })),
+  ];
+  if (value && !options.some((item) => item.value === value)) options.push({ value, label: name ?? value });
   return (
     <div className="min-w-0">
       <LabeledField label={label}>
-        <Button
+        <SearchableSelect
           id={id}
-          type="button"
-          variant="outline"
-          className="w-full justify-between whitespace-normal text-left font-normal"
+          label={label}
+          value={value ?? ""}
+          options={options}
+          placeholder="Select..."
           disabled={disabled}
-          aria-expanded={open}
-          aria-controls={`${id}-options`}
-          onClick={() => setOpen(!open)}
-        >
-          <span className="truncate">{value ? (name ?? value) : "Select…"}</span>
-          <ChevronDown aria-hidden="true" className="size-4" />
-        </Button>
+          loading={busy}
+          search={search}
+          onSearchChange={setSearch}
+          onOpenChange={setOpen}
+          onValueChange={(selected) => {
+            const item = result.items.find((item) => item.id === selected);
+            if (item) onChange(item.id, `${item.code} \u00b7 ${item.name}`, item.unit);
+            else if (!selected) onChange(null, null);
+            setSearch("");
+          }}
+          footer={
+            <>
+              {error ? (
+                <p role="alert" className="px-3 py-2 text-sm text-destructive">
+                  {error}{" "}
+                  <Button type="button" variant="link" onClick={() => setRetry((n) => n + 1)}>
+                    Retry
+                  </Button>
+                </p>
+              ) : null}
+              {result.next_cursor ? (
+                <Button type="button" variant="outline" disabled={busy} onClick={() => void more()}>
+                  Load more
+                </Button>
+              ) : null}
+            </>
+          }
+        />
       </LabeledField>
-      {open ? (
-        <section
-          id={`${id}-options`}
-          aria-label={`Choose ${label.toLowerCase()}`}
-          className="mt-2 space-y-2 rounded-lg border border-border bg-background p-3"
-        >
-          <Input
-            aria-label={`Search ${label.toLowerCase()}`}
-            placeholder="Search by code or name"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <div className="max-h-52 overflow-y-auto">
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full justify-start"
-              onClick={() => {
-                onChange(null, null);
-                setOpen(false);
-              }}
-            >
-              None
-            </Button>
-            {result.items.map((item) => (
-              <Button
-                type="button"
-                key={item.id}
-                variant="ghost"
-                className="h-auto min-h-10 w-full justify-start whitespace-normal text-left"
-                onClick={() => {
-                  onChange(item.id, `${item.code} · ${item.name}`, item.unit);
-                  setOpen(false);
-                }}
-              >
-                {item.code} · {item.name}
-              </Button>
-            ))}
-            {!busy && !result.items.length ? (
-              <p className="py-2 text-sm text-muted-foreground">No eligible records. Try another search.</p>
-            ) : null}
-          </div>
-          {error ? (
-            <p role="alert" className="text-sm text-destructive">
-              {error}{" "}
-              <Button type="button" variant="link" onClick={() => setRetry((n) => n + 1)}>
-                Retry
-              </Button>
-            </p>
-          ) : null}
-          {busy ? (
-            <p role="status" className="text-sm text-muted-foreground">
-              Loading choices…
-            </p>
-          ) : null}
-          {result.next_cursor ? (
-            <Button type="button" variant="outline" disabled={busy} onClick={() => void more()}>
-              Load more
-            </Button>
-          ) : null}
-          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-            Close choices
-          </Button>
-        </section>
-      ) : null}
     </div>
   );
 }

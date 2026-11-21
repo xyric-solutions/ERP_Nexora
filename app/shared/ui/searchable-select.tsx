@@ -17,6 +17,7 @@ export interface SearchableSelectProps {
   value: string;
   options: SearchableSelectOption[];
   onValueChange: (value: string) => void;
+  onOpenChange?: (open: boolean) => void;
   placeholder: string;
   disabled?: boolean;
   loading?: boolean;
@@ -49,6 +50,7 @@ export function SearchableSelect({
   value,
   options,
   onValueChange,
+  onOpenChange,
   placeholder,
   disabled = false,
   loading = false,
@@ -87,15 +89,12 @@ export function SearchableSelect({
       filter={null}
       value={selected}
       inputValue={inlineSearch && !open ? (selected?.label ?? "") : query}
-      {...(inlineSearch
-        ? {
-            open,
-            onOpenChange: (next: boolean) => {
-              setOpen(next);
-              if (!next && query) changeSearch("");
-            },
-          }
-        : {})}
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        onOpenChange?.(next);
+        if (inlineSearch && !next && query) changeSearch("");
+      }}
       isItemEqualToValue={(a, b) => a.value === b.value}
       itemToStringLabel={(item) => item.label}
       itemToStringValue={(item) => item.value}

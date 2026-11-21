@@ -130,6 +130,30 @@ test.describe("Authenticated actual stock and manufacturing", () => {
           ).record,
         );
       const [component, finished] = products;
+      await page.goto(`/#/inventory/add-product/${finished!.id}`);
+      await expect(page.getByLabel("Product type", { exact: true })).toHaveValue("goods");
+      for (const width of [1440, 800, 390]) {
+        await page.setViewportSize({ width, height: 900 });
+        const categoryField = page.getByLabel("Category *", { exact: true });
+        await categoryField.scrollIntoViewIfNeeded();
+        const controls = [
+          categoryField,
+          page.getByLabel("Product type", { exact: true }),
+          page.getByLabel("Unit", { exact: true }),
+        ];
+        const before = await Promise.all(controls.map((control) => control.boundingBox()));
+        await categoryField.click();
+        await expect(page.getByRole("option", { name: new RegExp(`${category.code}.*Finished Goods`) })).toBeVisible();
+        const after = await Promise.all(controls.map((control) => control.boundingBox()));
+        expect(after).toEqual(before);
+        const popup = await page.getByRole("listbox").boundingBox();
+        expect(popup).not.toBeNull();
+        expect(popup!.x).toBeGreaterThanOrEqual(0);
+        expect(popup!.x + popup!.width).toBeLessThanOrEqual(width);
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("listbox")).toBeHidden();
+      }
+      await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto("/#/inventory/stock-movements");
       await expect(page.getByRole("heading", { name: "Stock movements & valuation", exact: true })).toBeVisible();
       await page.getByRole("button", { name: "Configuration", exact: true }).click();
@@ -226,6 +250,13 @@ test.describe("Authenticated actual stock and manufacturing", () => {
       await page.getByLabel("BOM output quantity", { exact: true }).fill("2");
       await choose("Material 1", "Actual component", /Actual component/);
       await page.getByLabel("Component quantity 1", { exact: true }).fill("4");
+      await expect(page.getByRole("button", { name: "Delete material 1", exact: true })).toBeDisabled();
+      await page.getByRole("button", { name: "Add material", exact: true }).click();
+      const deleteMaterial = page.getByRole("button", { name: "Delete material 2", exact: true });
+      await expect(deleteMaterial.locator("svg")).toBeVisible();
+      await expect(deleteMaterial).toHaveText("");
+      await deleteMaterial.click();
+      await expect(page.getByLabel("Component quantity 2", { exact: true })).toHaveCount(0);
       await choose("Default material warehouse", "Actual acceptance", /Actual acceptance warehouse/);
       await expect(page.getByText(/10.0000 Each on hand/)).toBeVisible();
       const bomSaved = page.waitForResponse(
