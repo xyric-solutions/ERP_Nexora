@@ -9191,3 +9191,16 @@ Remaining / resume point:
   review/posting controls. Existing records and legacy unmapped labels remain.
 - Theme audit reports zero feature font/colour exceptions. Browser acceptance and
   production release evidence are recorded in [BOM integration](bom-template-integration.md).
+
+## 2026-11-21 — BOM save and dropdown repair
+
+- Replaced material/charge Remove text with labelled trash-icon buttons, preserving
+  the final-material safeguard. Inventory product lookups now use the shared
+  portalled search menu without changing surrounding field geometry.
+- Authenticated browser checks passed at 1440/800/390 widths, including Escape,
+  viewport bounds and row deletion; existing stock/GL acceptance also passed.
+- Fixed Manufacturing's missing database user context without changing RLS or
+  accounting controls. Preserved the deployed Sales UI and all 122 checked
+  business tables. Build, theme audit, lint, formatting and regressions passed.
+- Evidence and commands: [BOM save/dropdown repair](bom-save-dropdown-fix.md).
+  No feature stylesheet was changed or retired.
