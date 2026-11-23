@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { PassThrough } from "node:stream";
 
 import request from "supertest";
@@ -45,7 +45,10 @@ run("security user administration API", () => {
   beforeAll(async () => {
     pool = createDatabasePool(databaseUrl!);
     await ensureSourceAuthorizationFixture(pool);
-    const repository = new SourceSecurityAdministrationRepository(pool, "d".repeat(32));
+    const repository = new SourceSecurityAdministrationRepository(pool, "d".repeat(32), {
+      key: randomBytes(32),
+      loginUrl: "https://nexora.example.test/login",
+    });
     app = createApp({
       config: { allowedOrigins: new Set(["http://localhost:3000"]), nodeEnv: "test" },
       logger: createLogger(new PassThrough()),
@@ -147,6 +150,14 @@ run("security user administration API", () => {
       credential_delivery_available: true,
     });
     const userId = approved.body.entity_id as string;
+    const {
+      rows: [queued],
+    } = await pool.query<{ template: string; status: string; payload: Buffer }>(
+      "select template,status,payload from credential_email_outbox where tenant_id=$1 and user_id=$2",
+      [sourceTestTenantId, userId],
+    );
+    expect(queued).toMatchObject({ template: "account_created", status: "pending", payload: expect.any(Buffer) });
+    expect(queued?.payload.includes(Buffer.from(approved.body.credential_delivery.one_time_password))).toBe(false);
     const relatedApprovals = await request(app)
       .get(`/api/v1/security/approvals?resource_type=user&user_id=${encodeURIComponent(userId)}`)
       .set("cookie", checker.cookie);
