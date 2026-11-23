@@ -73,6 +73,13 @@ import type {
   ConnectedReport,
 } from "@nexora/contracts";
 import type {
+  CustomerMaster,
+  CustomerMasterDirectory,
+  CustomerMasterInput,
+  CustomerMasterMutation,
+  CustomerMasterUpdate,
+} from "@nexora/contracts";
+import type {
   StockWorkspace,
   StockOperation,
   StockMovementInput,
@@ -5220,6 +5227,44 @@ export class NexoraApiClient {
     return this.request("/api/v1/finance/subledger/parties", {
       method: "POST",
       headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  listCustomerMasters(query: string): Promise<CustomerMasterDirectory> {
+    return this.request("/api/v1/finance/subledger/customers" + query);
+  }
+  getCustomerMaster(id: string, company: string): Promise<CustomerMaster> {
+    return this.request(
+      "/api/v1/finance/subledger/customers/" +
+        encodeURIComponent(id) +
+        "?" +
+        new URLSearchParams({ company_id: company }),
+    );
+  }
+  createCustomerMaster(
+    payload: CustomerMasterInput,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<CustomerMasterMutation> {
+    return this.request("/api/v1/finance/subledger/customers", {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
+  }
+  updateCustomerMaster(
+    id: string,
+    payload: CustomerMasterUpdate,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<CustomerMasterMutation> {
+    return this.request("/api/v1/finance/subledger/customers/" + encodeURIComponent(id), {
+      method: "PUT",
+      headers: {
+        "x-csrf-token": csrfToken,
+        "idempotency-key": idempotencyKey,
+        "if-match": '"' + payload.expected_version + '"',
+      },
       body: JSON.stringify(payload),
     });
   }

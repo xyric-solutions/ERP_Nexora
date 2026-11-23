@@ -5,6 +5,7 @@ import { billPaymentTerms, type SubledgerParty, type SubledgerPartyConfiguration
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { workSelectClass } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
 
 export function PartyFinancialSetup({
   company,
@@ -26,8 +27,9 @@ export function PartyFinancialSetup({
   const [reason, setReason] = useState("");
   const party = parties.find((p) => p.id === partyId);
   return (
-    <form
-      className="grid content-start gap-3 rounded-lg border border-border bg-card p-4"
+    <WorkForm
+      aria-label="Financial terms and credit"
+      className="grid content-start gap-3 rounded-xl border border-border bg-card p-4 sm:p-5"
       onSubmit={(event) => {
         event.preventDefault();
         if (party)
@@ -138,6 +140,6 @@ export function PartyFinancialSetup({
           </Button>
         </>
       )}
-    </form>
+    </WorkForm>
   );
 }

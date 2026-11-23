@@ -153,7 +153,7 @@ export class SourceSalesRepository {
   lookups(context: ReferenceMasterContext, raw: SalesLookupQuery) {
     const query = salesLookupQuerySchema.parse(raw);
     return operationalTransaction(this.pool, context, query.company_id, "sales.document.read", false, (client) =>
-      lookupSales(client, context.tenantId, query),
+      lookupSales(client, context.tenantId, query, context.actor.userId),
     );
   }
   overview(context: ReferenceMasterContext, company: string, asOf?: string) {

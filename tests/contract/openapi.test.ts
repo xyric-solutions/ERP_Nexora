@@ -55,6 +55,8 @@ describe("OpenAPI contract", () => {
       "/finance/recurring-journals/{templateId}",
       "/finance/recurring-journals/{templateId}/status",
       "/finance/recurring-journals/{templateId}/occurrences",
+      "/finance/subledger/customers",
+      "/finance/subledger/customers/{customerId}",
       "/finance/subledger/supplier-masters",
       "/finance/subledger/connected-reports",
       "/finance/subledger/workspace",

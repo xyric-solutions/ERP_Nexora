@@ -1,19 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import type { SalesDirectory, SalesDocument, SalesKind, SalesOverview } from "@nexora/contracts";
+import type { SalesDirectory, SalesDocument, SalesKind } from "@nexora/contracts";
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  EmptyState,
-  FilterSelect,
-  ListToolbar,
-  MetricTiles,
-  PageHead,
-  SearchBox,
-  StatusPill,
-} from "../components/sales-ui";
-import { ListPager, ListTable, ListViewMenu, useListView, type ListColumn } from "../components/list-view-options";
+import { Card, EmptyState, FilterSelect, ListToolbar, PageHead, SearchBox, StatusPill } from "../components/sales-ui";
+import type { ListColumn } from "../components/list-view-options";
+import { WorkTable } from "@/shared/ui/work-table";
 import {
   salesLabels,
   salesPages,
@@ -40,20 +32,27 @@ export function PersistentSalesList({
   const { api, session } = useSession(),
     [search, setSearch] = useState(""),
     [state, setState] = useState(""),
+    [offset, setOffset] = useState(0),
+    [limit, setLimit] = useState(25),
     [refresh, setRefresh] = useState(0);
   const columns = useMemo<ListColumn<SalesDocument>[]>(
     () => [
       {
         id: "code",
-        label: salesLabels[kind].single,
+        label: "Code",
         required: true,
         cell: (record) => (
-          <>
-            <strong>{record.code}</strong>
-            <small>{record.document_date}</small>
-          </>
+          <Button
+            type="button"
+            variant="link"
+            className="h-auto p-0"
+            onClick={() => onNavigate("sales", salesPages[record.kind], record.id)}
+          >
+            {record.code}
+          </Button>
         ),
       },
+      { id: "date", label: "Date", cell: (record) => record.document_date },
       {
         id: "customer",
         label: kind === "recurring" ? "Billing customers" : "Customer",
@@ -106,47 +105,47 @@ export function PersistentSalesList({
       { id: "owner", label: "Created by", optional: true, cell: (record) => record.maker_name },
       {
         id: "next",
-        label: "Next step",
+        label: "Actions",
         optional: kind === "invoice",
         cell: (record) => (
           <Button
             type="button"
-            variant="link"
+            variant="outline"
             size="sm"
             onClick={() => onNavigate("sales", salesPages[record.kind], record.id)}
           >
-            Review {record.code}
+            Open
           </Button>
         ),
       },
     ],
     [kind, onNavigate],
   );
-  const view = useListView(`persistent.${kind}`, columns);
+  const visibleColumns = columns.filter((column) => !column.optional);
   const scope = salesQuery({
     company_id: company,
     kind,
     search,
     state: state || undefined,
-    limit: view.pageSize,
-    offset: view.page * view.pageSize,
+    limit,
+    offset,
   });
   const [loaded, setLoaded] = useState<{
     scope: string;
     data: SalesDirectory | null;
-    overview: SalesOverview | null;
     error: string;
   } | null>(null);
   useEffect(() => {
     let active = true;
     const timer = setTimeout(
       () =>
-        Promise.all([api.getSalesDocuments(scope), api.getSalesOverview(company)])
-          .then(([data, overview]) => {
-            if (active) setLoaded({ scope, data, overview, error: "" });
+        api
+          .getSalesDocuments(scope)
+          .then((data) => {
+            if (active) setLoaded({ scope, data, error: "" });
           })
           .catch((error) => {
-            if (active) setLoaded({ scope, data: null, overview: null, error: salesError(error) });
+            if (active) setLoaded({ scope, data: null, error: salesError(error) });
           }),
       150,
     );
@@ -157,11 +156,7 @@ export function PersistentSalesList({
   }, [api, company, scope, refresh]);
   const current = loaded?.scope === scope ? loaded : null,
     data = current?.data;
-  const count = (status: string) =>
-    current?.overview?.counts.find((row) => row.kind === kind && row.state === status)?.count ?? 0;
-  const total = current?.overview?.counts.filter((row) => row.kind === kind).reduce((sum, row) => sum + row.count, 0);
-  const pages = Math.max(1, Math.ceil((data?.total ?? 0) / view.pageSize)),
-    canCreate = session?.user.permissions.includes("sales.document.create");
+  const canCreate = session?.user.permissions.includes("sales.document.create") && !session.impersonation;
   const openNew = () => onNavigate("sales", salesPages[kind], `new?kind=${kind}`);
   return (
     <div className="grid min-w-0 gap-4">
@@ -171,7 +166,6 @@ export function PersistentSalesList({
         description="Company records and their actual commercial and accounting status."
         actions={
           <>
-            <ListViewMenu view={view} />
             {kind === "invoice" ? (
               <Button type="button" variant="outline" onClick={() => onNavigate("sales", "invoices", "accounting")}>
                 Accounting history
@@ -190,21 +184,6 @@ export function PersistentSalesList({
           </>
         }
       />
-      <MetricTiles
-        metrics={[
-          { label: "Total records", value: current?.overview ? total : "—", hint: "Current company" },
-          {
-            label: "Pending approval",
-            value: current?.overview ? count("submitted") : "—",
-            hint: "Waiting for named review",
-          },
-          {
-            label: "Approved",
-            value: current?.overview ? count("approved") : "—",
-            hint: "Commercial records; accounting shown separately",
-          },
-        ]}
-      />
       {onKindChange && ["invoice", "credit", "delivery", "return"].includes(kind) ? (
         <div className="flex gap-2" aria-label="Sales document type">
           {(kind === "invoice" || kind === "credit"
@@ -215,7 +194,10 @@ export function PersistentSalesList({
               key={value}
               type="button"
               variant={kind === value ? "default" : "outline"}
-              onClick={() => onKindChange(value)}
+              onClick={() => {
+                setOffset(0);
+                onKindChange(value);
+              }}
             >
               {salesLabels[value].plural}
             </Button>
@@ -228,7 +210,7 @@ export function PersistentSalesList({
             value={search}
             onChange={(value) => {
               setSearch(value);
-              view.setPage(0);
+              setOffset(0);
             }}
             placeholder="Search code, customer or reference"
           />
@@ -240,7 +222,7 @@ export function PersistentSalesList({
             )}
             onChange={(value) => {
               setState(value);
-              view.setPage(0);
+              setOffset(0);
             }}
           />
           <Button type="button" variant="outline" onClick={() => setRefresh((value) => value + 1)}>
@@ -261,26 +243,54 @@ export function PersistentSalesList({
             hint="Create a new record or change the filters."
           />
         ) : (
-          <ListTable
-            view={view}
-            rows={data.items}
-            rowKey={(record) => record.id}
-            selected={selected}
-            onOpen={(record) => onNavigate("sales", salesPages[record.kind], record.id)}
-          />
+          <WorkTable
+            tableId={`sales-register-${kind}`}
+            label={salesLabels[kind].plural}
+            className="w-full min-w-[760px] border-collapse text-sm"
+            pagination={{
+              offset,
+              total: data.total,
+              limit,
+              onOffsetChange: setOffset,
+              onLimitChange: (size) => {
+                setLimit(size);
+                setOffset(0);
+              },
+            }}
+          >
+            <thead className="bg-muted text-left">
+              <tr>
+                {visibleColumns.map((column) => (
+                  <th
+                    key={column.id}
+                    scope="col"
+                    className={column.align === "right" ? "px-3 py-2 text-right font-medium" : "px-3 py-2 font-medium"}
+                  >
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.items.map((record) => (
+                <tr
+                  key={record.id}
+                  aria-selected={record.id === selected || undefined}
+                  className="border-t border-border"
+                >
+                  {visibleColumns.map((column) => (
+                    <td
+                      key={column.id}
+                      className={column.align === "right" ? "px-3 py-2 text-right tabular-nums" : "px-3 py-2"}
+                    >
+                      {column.cell(record)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </WorkTable>
         )}
-        <ListPager
-          view={view}
-          noun={salesLabels[kind].plural.toLowerCase()}
-          paging={{
-            pageRows: data?.items ?? [],
-            page: view.page,
-            pages,
-            total: data?.total ?? 0,
-            from: data?.total ? view.page * view.pageSize + 1 : 0,
-            to: Math.min((view.page + 1) * view.pageSize, data?.total ?? 0),
-          }}
-        />
       </Card>
     </div>
   );

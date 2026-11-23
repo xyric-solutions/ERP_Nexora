@@ -3,7 +3,7 @@ import { salesLookupDirectorySchema, type SalesLookupQuery } from "@nexora/contr
 import { operationalFailure as fail } from "../shared/operational-transaction.js";
 
 /** Workflow-owned, bounded master directories; no fixture fallback or master writes. */
-export async function lookupSales(client: PoolClient, tenant: string, query: SalesLookupQuery) {
+export async function lookupSales(client: PoolClient, tenant: string, query: SalesLookupQuery, creatorId: string) {
   const params = [
     tenant,
     query.company_id,
@@ -13,6 +13,7 @@ export async function lookupSales(client: PoolClient, tenant: string, query: Sal
     query.warehouse_id ?? null,
     query.currency ?? null,
     query.source_kind ?? null,
+    creatorId,
   ];
   let source: string;
   switch (query.kind) {
@@ -42,7 +43,7 @@ export async function lookupSales(client: PoolClient, tenant: string, query: Sal
       break;
     case "approver":
       source = `select u.id,u.id code,coalesce(nullif(btrim(u.display_name),''),u.id) name,'approver'::text type,null::text currency,null::text price,null::text unit,null::text quantity,null::int decimal_places
-      from security_user_account u where u.tenant_id=$1 and u.status='active' and u.archived_at is null and bank_has_live_permission(u.tenant_id,$2,u.id,'sales.document.approve')`;
+      from security_user_account u where u.tenant_id=$1 and u.status='active' and u.archived_at is null and u.id<>$9::text and bank_has_live_permission(u.tenant_id,$2,u.id,'sales.document.approve')`;
       break;
     case "currency":
       source = `select c.currency_code id,c.currency_code code,s.name,'currency'::text type,c.currency_code currency,null::text price,null::text unit,null::text quantity,s.decimal_places
@@ -66,9 +67,9 @@ export async function lookupSales(client: PoolClient, tenant: string, query: Sal
   }
   // Typed placeholder anchors keep each branch's prepared parameter types stable.
   const filter =
-    "(code ilike $3 escape '\\' or name ilike $3 escape '\\' or id ilike $3 escape '\\') and($4::date is null or true) and($5::text is null or true) and($6::text is null or true) and($7::text is null or true) and($8::text is null or true)";
+    "(code ilike $3 escape '\\' or name ilike $3 escape '\\' or id ilike $3 escape '\\') and($4::date is null or true) and($5::text is null or true) and($6::text is null or true) and($7::text is null or true) and($8::text is null or true) and($9::text is null or true)";
   const items = (
-    await client.query(`select * from(${source})s where ${filter} order by code,id limit $9 offset $10`, [
+    await client.query(`select * from(${source})s where ${filter} order by code,id limit $10 offset $11`, [
       ...params,
       query.limit,
       query.offset,

@@ -17,6 +17,7 @@ const client = await format(
 import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions,TaxConfiguration,TaxConfigurationInput} from "@nexora/contracts";
 import type {BudgetOptions,BudgetDirectory,BudgetDetail,BudgetReport,BudgetDrill,BudgetPlanInput,BudgetVersionInput,BudgetVersionUpdate,BudgetAction,BudgetGenerate,BudgetModelInput,BudgetModel,BudgetApplyModel,BudgetPolicyInput,BudgetPolicy,BudgetRequestInput,BudgetRequestAction,BudgetRequest,BudgetImport,BudgetCommentInput,BudgetSourceControl} from "@nexora/contracts";
 import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPartyConfiguration,SubledgerPartyConfigurationInput,SubledgerSupplierDirectory,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
+import type {CustomerMaster,CustomerMasterDirectory,CustomerMasterInput,CustomerMasterMutation,CustomerMasterUpdate} from "@nexora/contracts";
 import type {StockWorkspace,StockOperation,StockMovementInput,StockAction,StockPolicyInput,StockPolicy,StockValuationInput,StockValuation,StockLookupDirectory} from "@nexora/contracts";
 import type {SalesDocumentInput,SalesDocumentUpdate,SalesDirectory,SalesDetail,SalesLookupDirectory,SalesAction,SalesDerivedDraftInput,SalesSourcePrepare,SalesStockPrepare,SalesOverview} from "@nexora/contracts";
 import type {HrLearningWorkspace,HrLearningAction,HrLearningCertificate} from "@nexora/contracts";
@@ -1390,6 +1391,18 @@ export class NexoraApiClient {
   getSubledgerReport(query: string): Promise<SubledgerReport> { return this.request("/api/v1/finance/subledger/reports" + query); }
   createSubledgerParty(payload: SubledgerPartyInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerParty> {
     return this.request("/api/v1/finance/subledger/parties", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  listCustomerMasters(query: string): Promise<CustomerMasterDirectory> {
+    return this.request("/api/v1/finance/subledger/customers" + query);
+  }
+  getCustomerMaster(id: string, company: string): Promise<CustomerMaster> {
+    return this.request("/api/v1/finance/subledger/customers/" + encodeURIComponent(id) + "?" + new URLSearchParams({company_id: company}));
+  }
+  createCustomerMaster(payload: CustomerMasterInput, csrfToken: string, idempotencyKey: string): Promise<CustomerMasterMutation> {
+    return this.request("/api/v1/finance/subledger/customers", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey }, body: JSON.stringify(payload) });
+  }
+  updateCustomerMaster(id: string, payload: CustomerMasterUpdate, csrfToken: string, idempotencyKey: string): Promise<CustomerMasterMutation> {
+    return this.request("/api/v1/finance/subledger/customers/" + encodeURIComponent(id), { method: "PUT", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": '"' + payload.expected_version + '"' }, body: JSON.stringify(payload) });
   }
   configureSubledgerPolicy(payload: SubledgerPolicyInput, csrfToken: string, idempotencyKey: string): Promise<SubledgerPolicy> {
     return this.request("/api/v1/finance/subledger/policy", { method: "POST", headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey, "if-match": '"' + payload.expected_version + '"' }, body: JSON.stringify(payload) });

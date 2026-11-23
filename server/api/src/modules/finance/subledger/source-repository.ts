@@ -4,6 +4,13 @@ import { z } from "zod";
 import {
   purchaseDocumentSchema,
   supplierSchema,
+  supplierProfileSchema,
+  customerMasterDirectorySchema,
+  customerMasterSchema,
+  customerMasterMutationSchema,
+  type CustomerMasterInput,
+  type CustomerMasterQuery,
+  type CustomerMasterUpdate,
   purchaseTotals,
   financialPaymentSchedule,
   subledgerPartyConfigurationInputSchema,
@@ -47,6 +54,7 @@ import type { BankingActorContext } from "../../banking/source-repository.js";
 import { companyAuthoritySql } from "../../security/company-authority.js";
 import { hasAssetJournalReferences } from "../../fixed-assets/sources.js";
 import { procurementDigest, writeProcurementEvidence } from "../../procurement/audit-writer.js";
+import type { SupplierProfileCrypto } from "../../procurement/supplier-profile-crypto.js";
 import { SourceAssetRepository, AssetError } from "../../fixed-assets/source-repository.js";
 import { registerPostedPurchase } from "../../fixed-assets/purchase-registration.js";
 import { resolveTax, recordTaxApplications, reverseTaxApplications, TaxError } from "../taxes/resolver.js";
@@ -109,11 +117,17 @@ type OperationRow = {
   preview_hash: string | null;
 };
 const operationProjection = `id,code,company_id,type,operation_date::text as date,state,version,maker_id,approver_id,journal_id,payload as input,preview,preview_hash`;
+const customerSource = `finance_party_directory d JOIN party p
+  ON (p.tenant_id,p.company_id,p.id)=(d.tenant_id,d.company_id,d.canonical_party_id)
+  LEFT JOIN sales_customer_profile c ON (c.tenant_id,c.company_id,c.party_id)=(p.tenant_id,p.company_id,p.id)`;
+const customerSummary = `d.id,d.company_id,d.code,p.name,p.tax_id,p.status,d.default_currency,
+  coalesce(c.email,'') email,coalesce(c.phone,'') phone,coalesce(c.version,0) version`;
 
 export class SourceSubledgerRepository {
   constructor(
     readonly pool: Pool,
     private readonly finance = new FinancePostingService(),
+    private readonly customerCrypto?: SupplierProfileCrypto,
   ) {}
 
   async transaction<T>(
@@ -278,7 +292,154 @@ export class SourceSubledgerRepository {
     });
   }
 
-  async createParty(context: BankingActorContext, raw: SubledgerPartyInput, key: string) {
+  async customerMasters(context: BankingActorContext, query: CustomerMasterQuery) {
+    return this.transaction(context, query.company_id, "finance.subledger.read", false, async (client) => {
+      const filter = `d.tenant_id=$1 AND d.company_id=$2 AND d.kind='customer'
+        AND ($3='' OR strpos(lower(d.code || ' ' || p.name || ' ' || p.tax_id || ' ' || coalesce(c.email,'')),lower($3))>0)`;
+      const args = [context.tenantId, query.company_id, query.search];
+      const rows = await client.query(
+        `select ${customerSummary} from ${customerSource} where ${filter}
+        order by d.code desc,d.id limit $4 offset $5`,
+        [...args, query.limit, query.offset],
+      );
+      const count = await client.query<{ total: number }>(
+        `select count(*)::integer total from ${customerSource} where ${filter}`,
+        args,
+      );
+      const base = await resolveCompanyBaseCurrency(client, context.tenantId, query.company_id, false);
+      const currencies = await client.query(
+        `select s.code,s.name from company_currency c join currency s
+        on (s.tenant_id,s.code)=(c.tenant_id,c.currency_code)
+        where c.tenant_id=$1 and c.company_id=$2 and c.status='active' and s.status='active' order by s.code`,
+        args.slice(0, 2),
+      );
+      return customerMasterDirectorySchema.parse({
+        items: rows.rows,
+        total: count.rows[0]!.total,
+        base_currency: base.code,
+        currencies: currencies.rows,
+      });
+    });
+  }
+
+  async customerMaster(context: BankingActorContext, company: string, id: string) {
+    if (context.realActorId || context.impersonationRequestId)
+      reject("Customer profile details are unavailable during impersonation.", "IMPERSONATION_RESTRICTED", 403);
+    return this.transaction(context, company, "finance.subledger.manage", false, async (client) => {
+      const result = await client.query(
+        `select ${customerSummary},d.canonical_party_id,coalesce(c.address,'') address,c.profile
+        from ${customerSource} where d.tenant_id=$1 and d.company_id=$2 and d.kind='customer' and d.id=$3`,
+        [context.tenantId, company, id],
+      );
+      const row = result.rows[0];
+      if (!row) reject("The customer could not be found.", "CUSTOMER_NOT_FOUND", 404);
+      const { canonical_party_id: canonical, profile, ...fields } = row;
+      return customerMasterSchema.parse({
+        ...fields,
+        profile: profile
+          ? this.profileCrypto().decrypt(profile, this.customerScope(context.tenantId, company, canonical))
+          : supplierProfileSchema.parse({}),
+      });
+    });
+  }
+
+  async createCustomerMaster(context: BankingActorContext, customer: CustomerMasterInput, key: string) {
+    const { company_id, name, default_currency } = customer;
+    const created = await this.createParty(
+      context,
+      { company_id, name, default_currency, kind: "customer" },
+      key,
+      customer,
+    );
+    return customerMasterMutationSchema.parse({ id: created.id, code: created.code, version: 1 });
+  }
+
+  async updateCustomerMaster(context: BankingActorContext, id: string, input: CustomerMasterUpdate, key: string) {
+    return this.transaction(context, input.company_id, "finance.subledger.manage", true, (client) =>
+      this.idempotent(
+        client,
+        context,
+        input.company_id,
+        key,
+        { action: "update_customer", id, input },
+        (value) => customerMasterMutationSchema.parse(value),
+        async () => {
+          const result = await client.query<{ canonical_party_id: string; code: string; version: number }>(
+            `select d.canonical_party_id,d.code,coalesce(c.version,0) version
+            from ${customerSource} where d.tenant_id=$1 and d.company_id=$2 and d.kind='customer' and d.id=$3
+            for update of p`,
+            [context.tenantId, input.company_id, id],
+          );
+          const record = result.rows[0];
+          if (!record) reject("The customer could not be found.", "CUSTOMER_NOT_FOUND", 404);
+          if (record.version !== input.expected_version)
+            reject("This customer has changed. Reload before saving.", "CUSTOMER_VERSION_CONFLICT", 412);
+          const version = record.version + 1;
+          await this.writeCustomerProfile(client, context, record.canonical_party_id, input, version);
+          await this.audit(
+            client,
+            context,
+            input.company_id,
+            "customer_profile_updated",
+            null,
+            "Updated customer master profile",
+            { id, code: record.code, version },
+          );
+          return { id, code: record.code, version };
+        },
+      ),
+    );
+  }
+
+  private profileCrypto() {
+    if (!this.customerCrypto)
+      reject("Customer profile encryption is unavailable.", "CUSTOMER_PROFILE_UNAVAILABLE", 503);
+    return this.customerCrypto;
+  }
+
+  private customerScope(tenant: string, company: string, canonical: string) {
+    return JSON.stringify(["sales-customer", tenant, company, canonical]);
+  }
+
+  private async writeCustomerProfile(
+    client: PoolClient,
+    context: BankingActorContext,
+    canonical: string,
+    input: Omit<CustomerMasterInput, "default_currency">,
+    version: number,
+  ) {
+    const { tenantId } = context;
+    const company = input.company_id;
+    const profile = this.profileCrypto().encrypt(input.profile, this.customerScope(tenantId, company, canonical));
+    await client.query(
+      `update party set name=$4,tax_id=$5,status=$6 where tenant_id=$1 and company_id=$2 and id=$3 and type='customer'`,
+      [tenantId, company, canonical, input.name, input.tax_id, input.status],
+    );
+    await client.query(
+      `insert into sales_customer_profile(tenant_id,company_id,party_id,email,phone,address,profile,version,updated_by)
+      values($1,$2,$3,$4,$5,$6,$7,$8,$9) on conflict(tenant_id,company_id,party_id) do update set
+      email=excluded.email,phone=excluded.phone,address=excluded.address,profile=excluded.profile,
+      version=excluded.version,updated_by=excluded.updated_by,updated_at=now()`,
+      [
+        tenantId,
+        company,
+        canonical,
+        input.email,
+        input.phone,
+        input.address,
+        JSON.stringify(profile),
+        version,
+        context.actor.userId,
+      ],
+    );
+  }
+
+  async createParty(
+    context: BankingActorContext,
+    raw: SubledgerPartyInput,
+    key: string,
+    customer?: CustomerMasterInput,
+  ) {
     const input = subledgerPartyInputSchema.parse(raw);
     return this.transaction(context, input.company_id, "finance.subledger.manage", true, (client) =>
       this.idempotent(
@@ -286,7 +447,7 @@ export class SourceSubledgerRepository {
         context,
         input.company_id,
         key,
-        { action: "party", input },
+        { action: "party", input, ...(customer ? { customer } : {}) },
         (value) => subledgerPartySchema.parse(value),
         async () => {
           const currency = await client.query(
@@ -335,6 +496,7 @@ export class SourceSubledgerRepository {
               context.actor.userId,
             ],
           );
+          if (customer) await this.writeCustomerProfile(client, context, result.id, customer, 1);
           const canonical = (
             await client.query(
               "select id,company_id,kind,code,name,default_currency,source_supplier_id,canonical_party_id,status,risk_status from finance_party_directory where tenant_id=$1 and company_id=$2 and id=$3",

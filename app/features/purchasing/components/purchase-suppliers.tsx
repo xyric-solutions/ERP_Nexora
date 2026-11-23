@@ -7,17 +7,16 @@ import { supplierInputSchema, supplierProfileSchema, type Supplier } from "@nexo
 import { useSession } from "@/lib/session/session-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { LabeledField } from "@/shared/ui/labeled-field";
+import { ProfileFormFooter, ProfileFormHeader } from "@/shared/ui/profile-form";
 import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { purchaseError } from "../api/purchasing-api";
 import {
-  SupplierProfileFields,
+  BusinessProfileFields,
   supplierErrorTab,
   type SupplierFormInput,
   type SupplierTab,
-} from "./supplier-profile-fields";
+} from "@/shared/ui/business-profile-fields";
 
 function emptySupplier(company: string): SupplierFormInput {
   return {
@@ -230,24 +229,17 @@ export function PurchaseSuppliers({
           }}
           className="grid min-w-0 gap-4"
         >
-          <header className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-            <div className="grid min-w-0 gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="secondary">{editing ? "Edit supplier" : "New supplier"}</Badge>
-                <Badge variant="outline">{input.profile.entity_type === "company" ? "Company" : "Individual"}</Badge>
-              </div>
-              <h2 className="m-0 break-words text-xl font-semibold">{input.name || "Create a supplier"}</h2>
-              <p className="m-0 text-sm text-muted-foreground">
-                A complete supplier profile, from first contact to payment details.
-              </p>
-            </div>
-            <LabeledField label="Supplier code" hint="Generated automatically on save.">
-              <Input className="max-w-xs font-mono" readOnly value={editing?.code ?? "SUP-…"} />
-            </LabeledField>
-          </header>
+          <ProfileFormHeader
+            action={editing ? "Edit supplier" : "New supplier"}
+            category={input.profile.entity_type === "company" ? "Company" : "Individual"}
+            title={input.name || "Create a supplier"}
+            description="A complete supplier profile, from first contact to payment details."
+            codeLabel="Supplier code"
+            code={editing?.code ?? "SUP-…"}
+          />
           <fieldset disabled={saving || !canManage} className="m-0 grid min-w-0 gap-4 border-0 p-0">
             <legend className="sr-only">Supplier details</legend>
-            <SupplierProfileFields
+            <BusinessProfileFields
               input={input}
               onChange={change}
               tab={tab}
@@ -256,33 +248,28 @@ export function PurchaseSuppliers({
               currencies={currencies}
             />
           </fieldset>
-          <footer className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
-            <p className="m-0 text-xs text-muted-foreground">
-              {dirty ? "Unsaved changes" : "Fields marked * are required."}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={saving}
-                onClick={() => {
-                  if (!dirty || window.confirm("Discard the unsaved supplier changes?")) {
-                    setEditing(undefined);
-                    setDirty(false);
-                    setError("");
-                    setFieldErrors({});
-                    onDirtyChange?.(false);
-                    onClose?.();
-                  }
-                }}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={!canManage || saving}>
-                {saving ? "Saving…" : "Save Supplier"}
-              </Button>
-            </div>
-          </footer>
+          <ProfileFormFooter message={dirty ? "Unsaved changes" : "Fields marked * are required."}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => {
+                if (!dirty || window.confirm("Discard the unsaved supplier changes?")) {
+                  setEditing(undefined);
+                  setDirty(false);
+                  setError("");
+                  setFieldErrors({});
+                  onDirtyChange?.(false);
+                  onClose?.();
+                }
+              }}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!canManage || saving}>
+              {saving ? "Saving…" : "Save Supplier"}
+            </Button>
+          </ProfileFormFooter>
         </WorkForm>
       ) : null}
       {editing === undefined ? (
@@ -291,7 +278,16 @@ export function PurchaseSuppliers({
             className="min-w-0 overflow-x-auto rounded-lg border border-border bg-card"
             aria-busy={busy || searching}
           >
-            <WorkTable continuation={{cursor:cursor,hasMore:!!((search.trim() ? !!cursor : canLoadMore)),busy:!!(busy || searching),loadMore:() => void more()}} tableId="app/features/purchasing/components/purchase-suppliers:1" className="w-full min-w-[600px] border-collapse text-sm">
+            <WorkTable
+              continuation={{
+                cursor: cursor,
+                hasMore: !!(search.trim() ? !!cursor : canLoadMore),
+                busy: !!(busy || searching),
+                loadMore: () => void more(),
+              }}
+              tableId="app/features/purchasing/components/purchase-suppliers:1"
+              className="w-full min-w-[600px] border-collapse text-sm"
+            >
               <thead className="bg-muted text-left">
                 <tr>
                   {["Code", "Name", "Tax ID", "Contact", "Status", ""].map((heading) => (
@@ -334,7 +330,6 @@ export function PurchaseSuppliers({
               </tbody>
             </WorkTable>
           </div>
-
         </>
       ) : null}
     </div>

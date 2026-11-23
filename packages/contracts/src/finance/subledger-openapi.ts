@@ -1,6 +1,13 @@
 import { z } from "zod";
 import { connectedReportIds, connectedReportSchema } from "./connected-reports.js";
 import {
+  customerMasterDirectorySchema,
+  customerMasterInputSchema,
+  customerMasterMutationSchema,
+  customerMasterSchema,
+  customerMasterUpdateSchema,
+} from "./customer-master.js";
+import {
   subledgerActionSchema,
   subledgerOperationRequestSchema,
   subledgerOperationSchema,
@@ -59,6 +66,42 @@ export function subledgerPaths() {
     responses: { [status]: { description: "Validated financial result", content: json(output) }, ...errors },
   });
   return {
+    "/finance/subledger/customers": {
+      get: {
+        operationId: "listCustomerMasters",
+        security: [{ cookieAuth: [] }],
+        parameters: [
+          scope,
+          { in: "query", name: "search", schema: { type: "string", maxLength: 100 } },
+          { in: "query", name: "limit", schema: { type: "integer", minimum: 1, maximum: 100 } },
+          { in: "query", name: "offset", schema: { type: "integer", minimum: 0, maximum: 1000000 } },
+        ],
+        responses: {
+          200: { description: "Company customer directory", content: json(customerMasterDirectorySchema) },
+          ...errors,
+        },
+      },
+      post: post("createCustomerMaster", customerMasterInputSchema, customerMasterMutationSchema, false, 201),
+    },
+    "/finance/subledger/customers/{customerId}": {
+      get: {
+        operationId: "getCustomerMaster",
+        security: [{ cookieAuth: [] }],
+        parameters: [scope, { in: "path", name: "customerId", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Customer profile for authorized editors", content: json(customerMasterSchema) },
+          ...errors,
+        },
+      },
+      put: {
+        ...post("updateCustomerMaster", customerMasterUpdateSchema, customerMasterMutationSchema, true),
+        parameters: [
+          ...mutation,
+          { in: "header", name: "if-match", required: true, schema: { type: "string" } },
+          { in: "path", name: "customerId", required: true, schema: { type: "string" } },
+        ],
+      },
+    },
     "/finance/subledger/supplier-masters": {
       get: {
         operationId: "getSubledgerSupplierMasters",

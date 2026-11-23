@@ -360,6 +360,21 @@ describe("Canonical persistent commercial Sales", () => {
     }
     expect((await repo.get(actor(), fixture.company, saved.record.id)).record.version).toBe(1);
   });
+  it("excludes the creator from independent approver lookups without removing creator approval", async () => {
+    const scope = salesLookupQuerySchema.parse({ company_id: fixture.company, kind: "approver" });
+    const makerReviewers = await repo.lookups(actor(), scope);
+    expect(makerReviewers.items.map((item) => item.id)).not.toContain("r06.maker");
+    expect(makerReviewers.items.map((item) => item.id)).toContain("r06.checker");
+    const checkerReviewers = await repo.lookups(actor("r06.checker"), scope);
+    expect(checkerReviewers.items.map((item) => item.id)).not.toContain("r06.checker");
+    expect(checkerReviewers.items.map((item) => item.id)).toContain("r06.maker");
+    await expect(repo.save(actor(), null, input({ approver_id: "r06.maker" }), key(), key())).rejects.toMatchObject({
+      code: "SALES_APPROVER_INVALID",
+    });
+    const draft = await repo.save(actor(), null, input({ approver_id: null }), key(), key());
+    expect(draft.record).toMatchObject({ state: "draft", approver_id: null });
+    expect((await action(draft, "approve")).record.state).toBe("approved");
+  });
   it("enforces optional named review, current authority, immutable approval and replay", async () => {
     let saved = await repo.save(actor(), null, input({ approver_id: "r06.checker" }), key(), key());
     await expect(action(saved, "approve")).rejects.toMatchObject({ code: "SALES_STATE_CONFLICT" });

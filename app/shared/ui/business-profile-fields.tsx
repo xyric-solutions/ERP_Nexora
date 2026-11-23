@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { purchaseSelectClass } from "../model/purchase-workflow";
+import { workSelectClass as purchaseSelectClass } from "./work-table";
 
 export const supplierTabs = [
   { id: "overview", label: "Overview", icon: Building2 },
@@ -124,21 +124,26 @@ type ProfileTextKey =
   | "payment_reference";
 type BankTextKey = Exclude<keyof SupplierBankAccount, "is_default" | "id">;
 
-export function SupplierProfileFields({
+export function BusinessProfileFields<T extends SupplierFormInput>({
   input,
   onChange,
   tab,
   onTabChange,
   errors,
   currencies,
+  party = "Supplier",
+  overviewExtra,
 }: {
-  input: SupplierFormInput;
+  input: T;
   onChange: (patch: Partial<SupplierFormInput>) => void;
   tab: SupplierTab;
   onTabChange: (tab: SupplierTab) => void;
   errors: Record<string, string>;
   currencies: { code: string; name: string }[];
+  party?: "Supplier" | "Customer";
+  overviewExtra?: ReactNode;
 }) {
+  const noun = party.toLowerCase();
   const profile = input.profile;
   const patch = (value: Partial<SupplierProfile>) => onChange({ profile: { ...profile, ...value } });
   const text = (key: ProfileTextKey, label: string, max = 200, type: "text" | "url" | "tel" = "text") => (
@@ -182,7 +187,7 @@ export function SupplierProfileFields({
       className="gap-4"
     >
       <div className="min-w-0 overflow-x-auto pb-1">
-        <TabsList aria-label="Supplier details" variant="line" className="h-auto min-h-10 gap-3">
+        <TabsList aria-label={`${party} details`} variant="line" className="h-auto min-h-10 gap-3">
           {supplierTabs.map(({ id, label, icon: Icon }) => (
             <TabsTrigger key={id} value={id} className="min-h-10 px-2">
               <Icon aria-hidden="true" />
@@ -201,10 +206,10 @@ export function SupplierProfileFields({
       </div>
       <TabsContent value="overview">
         <Section
-          title="Supplier identity"
+          title={`${party} identity`}
           description="Use the registered legal name for a company, or the full name for an individual."
         >
-          <Field label="Supplier type" field="profile.entity_type">
+          <Field label={`${party} type`} field="profile.entity_type">
             {(id) => (
               <select
                 id={id}
@@ -220,14 +225,14 @@ export function SupplierProfileFields({
             )}
           </Field>
           <TextField
-            label="Supplier name *"
+            label={`${party} name *`}
             field="name"
             value={input.name}
             error={errors.name}
             onChange={(name) => onChange({ name })}
           />
           {text("trading_name", "Trading / display name")}
-          {text("category", "Supplier category", 100)}
+          {text("category", `${party} category`, 100)}
           {text("registration_number", "Business registration number", 128)}
           {text("website", "Website", 500, "url")}
           <Field label="Status" field="status">
@@ -243,6 +248,7 @@ export function SupplierProfileFields({
               </select>
             )}
           </Field>
+          {overviewExtra}
         </Section>
       </TabsContent>
       <TabsContent value="contacts" className="grid gap-4">
@@ -273,7 +279,7 @@ export function SupplierProfileFields({
           />
           {text("mobile", "Mobile", 64, "tel")}
         </Section>
-        <Section title="Billing address" description="The supplier's registered or invoicing address.">
+        <Section title="Billing address" description={`The ${noun}'s registered or invoicing address.`}>
           <div className="sm:col-span-2 xl:col-span-3">
             <Field label="Billing street address" field="address" error={errors.address}>
               {(id, description) => (
@@ -306,7 +312,7 @@ export function SupplierProfileFields({
           </label>
         </div>
         {!profile.delivery_same_as_billing ? (
-          <Section title="Delivery address" description="An alternate supplier dispatch or delivery location.">
+          <Section title="Delivery address" description={`An alternate ${noun} dispatch or delivery location.`}>
             {(
               [
                 ["street", "Delivery street address", 1000],
@@ -330,10 +336,7 @@ export function SupplierProfileFields({
         ) : null}
       </TabsContent>
       <TabsContent value="tax">
-        <Section
-          title="Tax & registration"
-          description="Record the supplier's declared tax information for purchasing reference."
-        >
+        <Section title="Tax & registration" description={`Record the ${noun}'s declared tax information.`}>
           <TextField
             label="NTN / Tax ID"
             field="tax_id"
@@ -367,7 +370,7 @@ export function SupplierProfileFields({
       <TabsContent value="terms">
         <Section
           title="Commercial terms"
-          description="Agreed supplier terms for reference. Purchase documents retain their own dates and currencies."
+          description={`Agreed ${noun} terms for reference. Documents retain their own dates and currencies.`}
         >
           <Field label="Preferred payment method" field="profile.payment_method">
             {(id) => (
@@ -427,13 +430,13 @@ export function SupplierProfileFields({
               </select>
             )}
           </Field>
-          {text("payment_reference", "Supplier payment reference", 128)}
+          {text("payment_reference", `${party} payment reference`, 128)}
         </Section>
       </TabsContent>
       <TabsContent value="bank" className="grid gap-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="m-0 text-base font-semibold">Supplier bank accounts</h3>
+            <h3 className="m-0 text-base font-semibold">{party} bank accounts</h3>
             <p className="mb-0 mt-1 text-sm text-muted-foreground">
               Record up to 10 accounts. These details do not verify an account or initiate payments.
             </p>
@@ -476,7 +479,7 @@ export function SupplierProfileFields({
             <Landmark aria-hidden="true" className="size-6 text-muted-foreground" />
             <p className="m-0 font-medium">No bank accounts added</p>
             <p className="m-0 text-sm text-muted-foreground">
-              Add the supplier&apos;s beneficiary details when available.
+              Add the {noun}&apos;s beneficiary details when available.
             </p>
           </div>
         ) : null}

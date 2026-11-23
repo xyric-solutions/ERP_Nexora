@@ -12,15 +12,43 @@ import { cn } from "cn";
 type Tone = "success" | "warning" | "danger" | "info" | "purple" | "neutral";
 
 const STATUS_TONE: Record<string, Tone> = {
-  Open: "info", Saved: "neutral", Ordered: "neutral", Confirmed: "info", Issued: "success",
-  Delivered: "purple", Invoiced: "success", Unpaid: "warning", "Partially paid": "warning", Overdue: "danger",
-  Paid: "success", Recorded: "success", Active: "success", Inactive: "neutral", Paused: "neutral",
-  "Pending approval": "warning", Approved: "success", Rejected: "danger", "On credit hold": "danger",
-  "Not invoiced": "warning", Draft: "warning", "Prototype only": "neutral", "Changes requested": "warning",
-  "Not submitted": "neutral", "Not started": "neutral", "Not applicable": "neutral", "Ready to confirm": "info",
-  "Ready for delivery": "info", "Ready to invoice": "info", "Ready to deliver": "info",
-  Posted: "success", Allocated: "success", "Partly allocated": "warning", "On account": "info", Returned: "purple",
-  "Partly returned": "warning", Outstanding: "warning",
+  Open: "info",
+  Saved: "neutral",
+  Ordered: "neutral",
+  Confirmed: "info",
+  Issued: "success",
+  Delivered: "purple",
+  Invoiced: "success",
+  Unpaid: "warning",
+  "Partially paid": "warning",
+  Overdue: "danger",
+  Paid: "success",
+  Recorded: "success",
+  Active: "success",
+  Inactive: "neutral",
+  Paused: "neutral",
+  "Pending approval": "warning",
+  Approved: "success",
+  Rejected: "danger",
+  "On credit hold": "danger",
+  "Not invoiced": "warning",
+  Draft: "warning",
+  "Prototype only": "neutral",
+  "Changes requested": "warning",
+  "Not submitted": "neutral",
+  "Not started": "neutral",
+  "Not applicable": "neutral",
+  "Ready to confirm": "info",
+  "Ready for delivery": "info",
+  "Ready to invoice": "info",
+  "Ready to deliver": "info",
+  Posted: "success",
+  Allocated: "success",
+  "Partly allocated": "warning",
+  "On account": "info",
+  Returned: "purple",
+  "Partly returned": "warning",
+  Outstanding: "warning",
 };
 
 const TONE_CLASS: Record<Tone, string> = {
@@ -77,7 +105,9 @@ export function PageHead({
   description?: string;
   actions?: ReactNode;
 }) {
-  return <WorkspaceHeader eyebrow={eyebrow} title={title} status={status} description={description} actions={actions} />;
+  return (
+    <WorkspaceHeader eyebrow={eyebrow} title={title} status={status} description={description} actions={actions} />
+  );
 }
 
 export interface Metric {
@@ -95,7 +125,9 @@ export function MetricTiles({ metrics }: { metrics: readonly Metric[] }) {
         const body = (
           <>
             <span className="block text-xs text-muted-foreground">{metric.label}</span>
-            <strong className="my-2 block text-[1.625rem] font-semibold tracking-tight text-foreground">{metric.value}</strong>
+            <strong className="my-2 block text-[1.625rem] font-semibold tracking-tight text-foreground">
+              {metric.value}
+            </strong>
             <small className="block text-xs text-muted-foreground">{metric.hint}</small>
           </>
         );
@@ -106,7 +138,10 @@ export function MetricTiles({ metrics }: { metrics: readonly Metric[] }) {
             type="button"
             aria-pressed={metric.selected}
             onClick={metric.onSelect}
-            className={cn(base, "cursor-pointer hover:border-[var(--nx-border-strong)] aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-ring/30")}
+            className={cn(
+              base,
+              "cursor-pointer hover:border-[var(--nx-border-strong)] aria-pressed:border-primary aria-pressed:ring-2 aria-pressed:ring-ring/30",
+            )}
           >
             {body}
           </button>
@@ -120,9 +155,21 @@ export function MetricTiles({ metrics }: { metrics: readonly Metric[] }) {
   );
 }
 
-export function Card({ title, aside, children, className }: { title?: string; aside?: ReactNode; children: ReactNode; className?: string }) {
+export function Card({
+  title,
+  aside,
+  children,
+  className,
+}: {
+  title?: string;
+  aside?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <section className={cn("min-w-0 overflow-hidden rounded-[10px] border border-border bg-card shadow-none", className)}>
+    <section
+      className={cn("min-w-0 overflow-hidden rounded-[10px] border border-border bg-card shadow-none", className)}
+    >
       {title ? (
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
           <h2 className="m-0 text-sm font-bold text-foreground">{title}</h2>
@@ -139,7 +186,8 @@ export function Card({ title, aside, children, className }: { title?: string; as
 export const tableClass =
   "w-full border-collapse text-[0.8125rem] [&_th]:whitespace-nowrap [&_th]:border-b [&_th]:border-border [&_th]:bg-muted [&_th]:px-3 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-medium [&_th]:normal-case [&_th]:tracking-normal [&_th]:text-muted-foreground [&_td]:border-b [&_td]:border-border [&_td]:px-4 [&_td]:py-4 [&_td]:align-middle [&_tbody_tr:last-child_td]:border-b-0 [&_td_small]:block [&_td_small]:text-xs [&_td_small]:text-muted-foreground";
 
-export const clickableRow = "cursor-pointer hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
+export const clickableRow =
+  "cursor-pointer hover:bg-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
 
 export function rowKeyHandler(open: () => void) {
   return (event: React.KeyboardEvent<HTMLTableRowElement>) => {
@@ -151,10 +199,22 @@ export function rowKeyHandler(open: () => void) {
 }
 
 export function ListToolbar({ children }: { children: ReactNode }) {
-  return <div className="flex flex-wrap items-center gap-2 rounded-t-[10px] border-b border-border bg-card px-4 py-3">{children}</div>;
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-t-[10px] border-b border-border bg-card px-4 py-3">
+      {children}
+    </div>
+  );
 }
 
-export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (value: string) => void; placeholder: string }) {
+export function SearchBox({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
   return (
     <div className="flex min-w-0 max-w-md flex-[1_1_18rem] items-center gap-2 rounded-[var(--nx-radius-md)] border border-input bg-card px-2.5 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
       <Search className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -187,8 +247,12 @@ export function FilterSelect({
   return (
     <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
       <span className="sr-only">{label}</span>
-      <select className={cn(selectClass, "h-9 w-auto")} value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">All {label === "Status" ? "statuses" : label.toLowerCase()+"s"}</option>
+      <select
+        className={cn(selectClass, "h-9 w-auto")}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option value="">All {label === "Status" ? "statuses" : label.toLowerCase() + "s"}</option>
         {options.map((option) => {
           const [optionValue, optionLabel] = typeof option === "string" ? [option, option] : option;
           return (
@@ -235,9 +299,14 @@ export function Field({
 }) {
   return (
     <label className={cn("grid min-w-0 content-start gap-1.5", className)}>
-      <span className="text-xs font-semibold text-muted-foreground">
+      <span className="text-sm font-medium leading-tight text-foreground">
         {label}
-        {required ? <b className="text-[var(--nx-danger)]" aria-hidden="true"> *</b> : null}
+        {required ? (
+          <b className="text-[var(--nx-danger)]" aria-hidden="true">
+            {" "}
+            *
+          </b>
+        ) : null}
       </span>
       {children}
       {error ? <small className="text-xs font-semibold text-[var(--nx-danger)]">{error}</small> : null}
@@ -271,41 +340,52 @@ export function EntryActionBar({
   error,
   onSave,
   onDiscard,
+  submit = false,
 }: {
   saveLabel: string;
   lifecycle: readonly string[];
   state: string;
   error?: string;
-  onSave: () => void;
+  onSave?: () => void;
   onDiscard: () => void;
+  submit?: boolean;
 }) {
   return (
     <section
-      className="grid min-h-12.5 grid-cols-1 items-center gap-3 rounded border border-border bg-card p-2.5 shadow-sm lg:grid-cols-[auto_minmax(0,1fr)_auto]"
+      className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3"
       aria-label="Document actions"
     >
       <div className="flex flex-wrap items-center gap-1.5">
-        <Button type="button" onClick={onSave}>{saveLabel}</Button>
-        <Button type="button" variant="outline" onClick={onDiscard}>Discard</Button>
+        <Button type={submit ? "submit" : "button"} onClick={onSave}>
+          {saveLabel}
+        </Button>
+        <Button type="button" variant="outline" onClick={onDiscard}>
+          Discard
+        </Button>
       </div>
-      <ol className="m-0 flex min-w-0 list-none items-center justify-start overflow-x-auto p-0 lg:justify-center" aria-label="Document lifecycle">
+      <ol className="m-0 flex min-w-0 list-none flex-wrap gap-1 p-0 text-xs" aria-label="Document lifecycle">
         {lifecycle.map((step, index) => (
           <li
             key={step}
+            aria-current={index === 0 ? "step" : undefined}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs font-bold not-last:after:mx-1.5 not-last:after:h-px not-last:after:w-5.5 not-last:after:bg-border",
-              index === 0 ? "text-[var(--nx-brand)]" : "text-muted-foreground",
+              "rounded-md border px-2 py-1",
+              index === 0
+                ? "border-primary bg-accent font-semibold text-accent-foreground"
+                : "border-border text-muted-foreground",
             )}
           >
-            <i className={cn("grid size-6 shrink-0 place-items-center rounded-full border border-border text-xs not-italic", index === 0 && "border-primary bg-primary text-primary-foreground")}>
-              {index + 1}
-            </i>
             <span>{step}</span>
           </li>
         ))}
       </ol>
-      <span className={cn("flex items-center gap-1.5 text-xs whitespace-nowrap", error ? "font-semibold text-[var(--nx-danger)]" : "text-muted-foreground")} role={error ? "alert" : undefined}>
-        <i className={cn("size-1.75 rounded-full", error ? "bg-[var(--nx-danger)]" : "bg-[var(--nx-warning)]")} />
+      <span
+        className={cn(
+          "min-w-0 break-words text-xs",
+          error ? "font-semibold text-destructive" : "text-muted-foreground",
+        )}
+        role={error ? "alert" : undefined}
+      >
         {error || state}
       </span>
     </section>
@@ -326,7 +406,11 @@ export function EntryTabs<T extends string>({
   label: string;
 }) {
   return (
-    <div className="flex min-h-11 items-end gap-1 overflow-x-auto border-b border-border bg-card px-3" role="tablist" aria-label={label}>
+    <div
+      className="flex min-h-11 items-end gap-3 overflow-x-auto border-b border-border bg-card px-4"
+      role="tablist"
+      aria-label={label}
+    >
       {tabs.map(([id, text]) => (
         <button
           key={id}
@@ -335,12 +419,19 @@ export function EntryTabs<T extends string>({
           aria-selected={active === id}
           onClick={() => onChange(id)}
           className={cn(
-            "min-h-10.5 shrink-0 border-0 border-b-2 bg-transparent px-3.5 text-sm font-semibold whitespace-nowrap",
-            active === id ? "border-primary bg-card text-[var(--nx-brand)]" : "border-transparent text-muted-foreground hover:text-foreground",
+            "min-h-10 shrink-0 border-0 border-b-2 bg-transparent px-2 text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+            active === id
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground",
           )}
         >
           {text}
-          {errors.includes(id) ? <span className="ml-1.5 inline-block size-1.75 rounded-full bg-[var(--nx-danger)] align-middle" aria-label="has errors" /> : null}
+          {errors.includes(id) ? (
+            <span
+              className="ml-1.5 inline-block size-1.75 rounded-full bg-[var(--nx-danger)] align-middle"
+              aria-label="has errors"
+            />
+          ) : null}
         </button>
       ))}
     </div>
@@ -396,7 +487,8 @@ export function FlowStrip({ steps }: { steps: readonly FlowStep[] }) {
             <i
               className={cn(
                 "relative z-1 grid size-7.5 shrink-0 place-items-center rounded-full border bg-card text-xs font-bold not-italic text-muted-foreground",
-                step.done && "border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] text-[var(--nx-success-text)]",
+                step.done &&
+                  "border-[var(--nx-success-border)] bg-[var(--nx-success-soft)] text-[var(--nx-success-text)]",
                 next && "border-primary bg-primary text-primary-foreground shadow-[0_0_0_4px_var(--nx-focus-ring)]",
                 step.skipped && "border-dashed",
                 !step.done && !next && "border-border",
@@ -405,13 +497,21 @@ export function FlowStrip({ steps }: { steps: readonly FlowStep[] }) {
               {step.done ? "✓" : step.skipped ? "–" : index + 1}
             </i>
             <div className="relative z-1 min-w-0 bg-card pr-2">
-              <strong className={cn("block text-xs whitespace-nowrap", next && "text-[var(--nx-brand)]")}>{step.label}</strong>
+              <strong className={cn("block text-xs whitespace-nowrap", next && "text-[var(--nx-brand)]")}>
+                {step.label}
+              </strong>
               {step.link ? (
-                <button type="button" onClick={step.link.onOpen} className="block border-0 bg-transparent p-0 font-mono text-[0.6875rem] font-semibold text-[var(--nx-brand)] underline underline-offset-2">
+                <button
+                  type="button"
+                  onClick={step.link.onOpen}
+                  className="block border-0 bg-transparent p-0 font-mono text-[0.6875rem] font-semibold text-[var(--nx-brand)] underline underline-offset-2"
+                >
                   {step.link.code}
                 </button>
               ) : null}
-              <small className="block truncate text-[0.6875rem] text-muted-foreground">{step.detail || (next ? "Next" : "Pending")}</small>
+              <small className="block truncate text-[0.6875rem] text-muted-foreground">
+                {step.detail || (next ? "Next" : "Pending")}
+              </small>
             </div>
           </li>
         );
@@ -435,10 +535,10 @@ export function NextActionBar({
   children?: ReactNode;
 }) {
   const toneClass = {
-      action: "border-border border-l-primary bg-card",
-      wait: "border-border border-l-[var(--nx-warning)] bg-card",
-      done: "border-border border-l-[var(--nx-success)] bg-card",
-      stopped: "border-border border-l-[var(--nx-danger)] bg-card",
+    action: "border-border border-l-primary bg-card",
+    wait: "border-border border-l-[var(--nx-warning)] bg-card",
+    done: "border-border border-l-[var(--nx-success)] bg-card",
+    stopped: "border-border border-l-[var(--nx-danger)] bg-card",
   }[tone];
   const eyebrowClass = {
     action: "text-[var(--nx-brand)]",
@@ -447,7 +547,13 @@ export function NextActionBar({
     stopped: "text-[var(--nx-danger)]",
   }[tone];
   return (
-    <section className={cn("flex flex-wrap items-center justify-between gap-3 rounded-lg border border-l-4 px-4 py-3.5", toneClass)} aria-label="Next action">
+    <section
+      className={cn(
+        "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-l-4 px-4 py-3.5",
+        toneClass,
+      )}
+      aria-label="Next action"
+    >
       <div className="min-w-0">
         <span className={cn("text-xs font-bold uppercase tracking-[0.06em]", eyebrowClass)}>{eyebrow}</span>
         <strong className="mt-0.5 block text-base font-bold text-foreground">{title}</strong>
@@ -462,7 +568,10 @@ export function SummaryCells({ cells }: { cells: readonly [string, ReactNode][] 
   return (
     <section className="grid overflow-hidden rounded border border-border bg-card sm:grid-cols-2 xl:grid-cols-5">
       {cells.map(([label, value]) => (
-        <div key={label} className="min-w-0 border-b border-border px-3.5 py-3 xl:border-r xl:border-b-0 xl:last:border-r-0">
+        <div
+          key={label}
+          className="min-w-0 border-b border-border px-3.5 py-3 xl:border-r xl:border-b-0 xl:last:border-r-0"
+        >
           <span className="block text-xs text-muted-foreground">{label}</span>
           <strong className="mt-1 block text-[0.8125rem] break-words">{value}</strong>
         </div>
@@ -484,19 +593,33 @@ export function KeyValues({ rows }: { rows: readonly [string, ReactNode][] }) {
   );
 }
 
-export function ActivityList({ entries }: { entries: readonly { step: string; at: string; by: string; note?: string }[] }) {
+export function ActivityList({
+  entries,
+}: {
+  entries: readonly { step: string; at: string; by: string; note?: string }[];
+}) {
   const ordered = [...entries].reverse();
   if (!ordered.length) return <p className="m-0 p-4 text-[0.8125rem] text-muted-foreground">No activity yet.</p>;
   return (
     <ul className="m-0 grid list-none px-4 py-2">
       {ordered.map((entry, index) => (
-        <li key={`${entry.step}-${entry.at}-${index}`} className="grid grid-cols-[1.75rem_1fr] gap-2 border-b border-border py-2.5 last:border-b-0">
+        <li
+          key={`${entry.step}-${entry.at}-${index}`}
+          className="grid grid-cols-[1.75rem_1fr] gap-2 border-b border-border py-2.5 last:border-b-0"
+        >
           <i className="grid size-7 place-items-center rounded-full bg-primary/10 text-[0.625rem] font-extrabold not-italic text-[var(--nx-brand)]">
-            {entry.by.split(/[ .]/).map((part) => part[0] ?? "").join("").slice(0, 2).toUpperCase()}
+            {entry.by
+              .split(/[ .]/)
+              .map((part) => part[0] ?? "")
+              .join("")
+              .slice(0, 2)
+              .toUpperCase()}
           </i>
           <div className="min-w-0">
             <strong className="block text-[0.8125rem]">{entry.step}</strong>
-            <small className="block text-xs text-muted-foreground">{entry.at} · {entry.by}</small>
+            <small className="block text-xs text-muted-foreground">
+              {entry.at} · {entry.by}
+            </small>
             {entry.note ? <small className="block text-xs text-muted-foreground">{entry.note}</small> : null}
           </div>
         </li>

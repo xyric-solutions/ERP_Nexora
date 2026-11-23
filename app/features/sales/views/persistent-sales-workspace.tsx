@@ -10,6 +10,7 @@ import { PersistentSalesRecord, type SalesNavigate } from "../components/persist
 import { salesLayer } from "../components/sales-ui";
 import { salesPages, salesToday, salesError } from "../model/persistent-sales";
 import { PersistentSalesList } from "./persistent-sales-list";
+import { CustomerMasterWorkspace } from "./customer-master-workspace";
 
 export function PersistentSalesWorkspace({
   context,
@@ -23,19 +24,27 @@ export function PersistentSalesWorkspace({
   const { activeCompany, session, loading } = useSession();
   if (loading) return <p role="status">Loading your session…</p>;
   if (!activeCompany) return <p role="alert">Choose your authorized company before opening Sales.</p>;
-  if (context.pageId === "customers")
+  if (context.pageId === "customers") {
+    if (context.recordRef?.startsWith("ledger?"))
+      return (
+        <MultiCurrencyWorkspace
+          operational
+          initialTab="balances"
+          initialSide="receivable"
+          onOpenCustomerForm={() => onNavigate("sales", "customers", "new")}
+          initialPartyId={new URLSearchParams(context.recordRef.slice(7)).get("party") ?? undefined}
+        />
+      );
     return (
-      <MultiCurrencyWorkspace
-        operational
-        initialTab="balances"
-        initialSide="receivable"
-        initialPartyId={
-          context.recordRef?.startsWith("ledger?")
-            ? (new URLSearchParams(context.recordRef.slice(7)).get("party") ?? undefined)
-            : undefined
-        }
+      <CustomerMasterWorkspace
+        key={`${activeCompany.id}:${context.recordRef ?? "list"}`}
+        company={activeCompany.id}
+        recordRef={context.recordRef}
+        onNavigate={onNavigate}
+        onDirtyChange={onDirtyChange}
       />
     );
+  }
   if (context.pageId === "receipts")
     return context.recordRef?.startsWith("receive:") ? (
       <SalesFinancialFocus
@@ -46,7 +55,7 @@ export function PersistentSalesWorkspace({
         onNavigate={onNavigate}
       />
     ) : (
-      <MultiCurrencyWorkspace operational initialTab="settlement" initialSide="receivable" />
+      <MultiCurrencyWorkspace operational focusedReceipt initialTab="settlement" initialSide="receivable" />
     );
   if (context.recordRef === "accounting")
     return <MultiCurrencyWorkspace operational initialTab="documents" initialSide="receivable" />;
@@ -268,6 +277,7 @@ function SalesFinancialFocus({
       </div>
       <MultiCurrencyWorkspace
         operational
+        focusedReceipt={receipt}
         initialTab={receipt ? "settlement" : "documents"}
         initialSide="receivable"
         salesDocumentId={record.id}

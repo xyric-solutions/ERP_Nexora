@@ -1,5 +1,150 @@
 # Remaining UI migration checklist
 
+## 2026-11-23 - Quotation creator approval save fix
+
+- The Sales approver directory now excludes the authenticated creator in both
+  its paged items and total count. The same active/company/live-permission
+  checks still apply; `SALES_APPROVER_INVALID` still rejects a named self-reviewer.
+  No public API schema or generated-client change was needed.
+- The optional reviewer choice is labeled Creator approval (no reviewer), with
+  a note that saving creates a draft and approval is a separate action. The UI
+  filters self from outdated lookup results, disables a stale self selection and
+  gives a specific pre-save explanation rather than sending an invalid request.
+  Quotation and recurring entry share this control. No stylesheets were retired.
+- Verification: the new PostgreSQL regression failed before the fix, then the
+  full Sales persistence suite passed (22 tests). Five focused UI unit tests,
+  API/web builds, focused ESLint, UI theme audit --write/--check, and diff checks
+  passed. Six browser cases cover light/dark at 390/768/1440px, independent
+  reviewer selection and switching back to creator approval, on port 3000.
+  Evidence: `tmp/sales-approver-fix/browser/`.
+- Current API build passed readiness on a preview port before activation on
+  port 4000. The existing protected runtime configuration was reused without
+  displaying values, and automatic migrations remained disabled. The web server
+  was restarted with the updated build. Creator and independent approval remain
+  separate from any accounting, stock or bank posting.
+
+
+## 2026-11-23 - Sales units and customer receipts
+
+- Yellow-theme follow-up: receipt invoice headers and all three save actions use
+  Nexora's shared primary colours. The reference layout and draft/print behavior
+  are unchanged. Verification: production build, focused ESLint, UI theme audit
+  --write/--check, diff check, and six responsive light/dark browser cases on
+  port 3000. Updated screenshots: `tmp/receipt-yellow-theme/`.
+
+- Reference-layout correction: `customer-receipt-form.tsx` now uses three
+  explicit inline label/control groups, a full-width invoice grid with a Nexora-yellow
+  header, a half-width multiline Notes box and a bottom SR Detailed format
+  selector with rounded Save and Print / Save and New / Save and Close actions.
+  Extra accounting fields and credit-offset entry remain under Accounting options.
+  Receipt-scoped Tailwind selectors override the shared Sales design surface's
+  neutral table headers and button radii. Header and save actions now use the
+  existing bg-primary/text-primary-foreground yellow theme in light/dark modes;
+  the temporary blue-header role and green save overrides were removed. Fonts
+  remain global.
+- All three save actions create server-reviewed drafts. Print opens an accessible
+  dialog of the returned saved draft, explicitly marked pending approval. New
+  clears the entry after success; Close returns to receipt history. Failed saves
+  retain entered values, and unchanged retries retain their idempotency key.
+  Existing tenant authorization, allocation validation and posting safeguards
+  remain on the server. No stylesheet was retired.
+- Current verification: `npm.cmd run build:web`, focused ESLint and Prettier,
+  `git diff --check`, theme audit --write/--check, 25 focused unit tests and six
+  Chromium cases on the restarted port-3000 production server. Browser coverage
+  includes light/dark at 390/768/1440px, actual header colours, inline alignment,
+  print output, New/Close behaviour and a lost-response retry without duplicates.
+  Evidence: `tmp/receipt-reference-complete/`, including `receipt.png` and
+  `receipt-draft-print.png` in the 1440px light case. Safe resume: extend governed
+  mode/withholding/discount contracts before enabling those controls.
+
+- Follow-up: Sales Receipts and invoice-linked receipt entry now request a
+  focused receipt presentation, matching the Purchase Payment page structure.
+  The shared Finance heading and Currency accounting sections bar are omitted
+  only on these receipt routes. Accounting pages retain their full navigation;
+  receipt allocations, drafts, approval actions and history remain available.
+  The production build, focused lint, theme audits and diff checks passed.
+  Six responsive Chromium cases on the restarted port-3000 server assert the
+  receipt bar is absent and the accounting page navigation remains visible.
+  Evidence: `tmp/receipt-focused-page/`. No stylesheet was retired.
+
+- The Sales product-unit field now uses the shared searchable selector with
+  product-first/loading states and Retry units. Compatible options still come
+  from the Sales-authorized API. Unit IDs, source locks, other-charge units and
+  server validation are preserved.
+- Operational customer settlements use the new finance component
+  `customer-receipt-form.tsx`: customer mailing address, grouped bank/date/amount
+  fields, reference, outstanding invoices, exact totals separated by currency,
+  notes and bottom draft actions. Other settlement forms retain their behavior.
+- Mode, receipt WHT, additional WHT and discount have no supported customer
+  settlement contract and remain visibly unavailable. Save creates a reviewable
+  draft with the existing approval/posting rules. Print/New/Close are implemented
+  in the reference-layout correction above. No stylesheet was retired.
+- Verification: 22 focused receipt/unit/routing tests; six mocked-API Chromium
+  cases in light/dark at 390/768/1440px; TypeScript; focused ESLint; production
+  web build; diff whitespace check; UI audit --write and --check. Evidence:
+  `tmp/receipt-unit-browser-verified/`. The existing port-3000 web process was
+  restarted after discovering it predated the build; the production-server
+  receipt/unit browser case passed on port 3000. Runtime evidence:
+  `tmp/receipt-live-port-3000/`. Zero direct feature-view font/colour
+  exceptions; two existing source colour exceptions are unchanged. This source
+  audit does not measure all menu screens.
+- Safe resume: define governed withholding/discount and mode contracts before
+  enabling those fields. Preserve draft review and independent approval.
+
+
+## 2026-11-22 - Sales customer directory and profiles
+
+- The Customers submenu now opens a searchable, paginated master directory with
+  the same table columns and Add/Edit flow as Suppliers. The shared six-tab form
+  covers identity, contacts and addresses, tax details, payment terms, bank
+  accounts, and notes. The Receivables link opens balances, transactions,
+  statements, and reviewed financial terms.
+- Sales document registers use the Purchase work table and retain their existing
+  document actions, route links, and server approval and posting rules.
+- Sales migration `0005_customer_profiles` adds company-scoped encrypted profile
+  storage. Existing customer IDs, codes, and accounting history stay linked to
+  the canonical master. The financial account's default currency is assigned
+  at creation. Profile payment terms remain distinct from reviewed credit and
+  accounting terms.
+- The local release passed the production build, generated API check, focused
+  unit and PostgreSQL integration tests, and six live browser cases covering
+  light and dark at 390, 768 and 1440 pixels. Relate browser screenshots and the
+  migration backup to `tmp/customer-master-release/`. No stylesheet was retired.
+
+## 2026-11-22 - Sales and Purchase form workflow
+
+- Sales quotations, orders, deliveries, invoices and recurring bills share a
+  native form and a Purchase-style editable line table. The table gives product,
+  description, quantity, unit, price, discount and tax their own columns, with
+  keyboard scrolling at narrow widths. The existing save and approval rules
+  still apply to the Sales document types.
+- Add Customer opens a dedicated page. Save and Cancel return to Customers,
+  and the financial terms editor is available from that directory. The live
+  customer API supports customer name and default currency on creation.
+- Responsive browser checks cover adding and removing lines and other charges,
+  save validation, customer save and cancel, and opening the Sales document and
+  receipt forms. Evidence is under `tmp/sales-form-parity/`.
+
+## 2026-11-20 - Sales form design aligned with Purchase
+
+- The shared Sales document editor uses the Purchase-style action row, lifecycle
+  labels, section spacing, and totals panel. The Sales receipt, financial draft,
+  and prototype editors also use the shared work form surfaces and theme tokens.
+- Add Customer and Add Supplier share the profile header, read-only code display,
+  and action footer. Customer name and default currency save through the existing
+  customer API. Financial terms and credit remain available through their existing
+  review form. No stylesheet was retired.
+- The focused Sales browser suite covers light and dark at 390, 768 and 1440px,
+  customer save and cancel, receipt entry, and shared document editor routes.
+  Screenshots are under `tmp/sales-form-design/final-browser/`. Representative
+  failures in older Sales and Purchase browser suites also occurred on the
+  previous release. Resume any wider browser-suite repair from the older company
+  session and prototype-route fixtures.
+- On 21 November, the Sales presentation changes were applied to the active
+  operational release as a web-only build. All six browser cases passed on port
+  3000. Release evidence is in `tmp/sales-form-live/web-3000-runtime.json` and
+  `tmp/sales-form-live/browser-3000/`.
+
 ## 2026-11-20 - Persistent Sales integration released locally
 
 - Normal quotation, order, delivery/return, invoice/credit, recurring, customer and
@@ -9182,6 +9327,7 @@ Remaining / resume point:
 - This maintenance change grants access in the running release; deployment of
   the new tax configuration screen and finance migration 0041 remains separate.
 
+
 # 2026-11-21 - BOM templates and category configuration
 
 - Added category Configuration under Products, managed category selection/filtering,
@@ -9204,3 +9350,17 @@ Remaining / resume point:
   business tables. Build, theme audit, lint, formatting and regressions passed.
 - Evidence and commands: [BOM save/dropdown repair](bom-save-dropdown-fix.md).
   No feature stylesheet was changed or retired.
+
+## 2026-11-23 - Release validation
+
+- Kept the dedicated receipt layout limited to the explicit Sales receipt routes;
+  generic operational settlement screens retain their existing allocation form.
+- Verified the affected settlement, receipt and approver unit tests (23 passed),
+  customer/Sales database integration tests (23 passed), API generation checks
+  and the complete production build. Existing posting and approval guards remain.
+- Updated the explicit OpenAPI path expectation for the customer master endpoints.
+- Final release checks passed: 1,667 unit tests in 210 files; 29 contract tests
+  in 7 files; changed-source formatting/lint; generated API check; theme audit
+  write/check; staged diff whitespace check. Responsive browser evidence remains
+  under `tmp/sales-approver-fix/browser/` and the receipt workflow evidence paths
+  recorded above.

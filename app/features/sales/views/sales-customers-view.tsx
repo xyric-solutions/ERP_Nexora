@@ -2,10 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ProfileFormFooter, ProfileFormHeader } from "@/shared/ui/profile-form";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 import {
   Card,
   EmptyState,
-  EntryActionBar,
   EntryTabs,
   FilterSelect,
   ListToolbar,
@@ -14,7 +15,14 @@ import {
   SearchBox,
   StatusPill,
 } from "../components/sales-ui";
-import { ListPager, ListTable, ListViewMenu, usePagedRows, useListView, type ListColumn } from "../components/list-view-options";
+import {
+  ListPager,
+  ListTable,
+  ListViewMenu,
+  usePagedRows,
+  useListView,
+  type ListColumn,
+} from "../components/list-view-options";
 import { useDiscardGuard } from "../components/discard-guard";
 import { CustomerPanel } from "../components/customer-panel";
 import { CustomerSectionBody, useCustomerEditor } from "../components/customer-sections";
@@ -28,14 +36,20 @@ import type { SalesCustomer, SalesState } from "../model/sales-types";
 
 function customerColumns(state: SalesState): ListColumn<SalesCustomer>[] {
   return [
-    { id: "code", label: "Code", optional: true, cell: (customer) => <span className="font-mono font-semibold">{customer.code}</span> },
+    {
+      id: "code",
+      label: "Code",
+      optional: true,
+      cell: (customer) => <span className="font-mono font-semibold">{customer.code}</span>,
+    },
     {
       id: "name",
       label: "Customer",
       required: true,
       cell: (customer) => (
         <>
-          <strong>{customer.display || customer.name}</strong><small>{customer.code}</small>
+          <strong>{customer.display || customer.name}</strong>
+          <small>{customer.code}</small>
           {customer.display && customer.display !== customer.name ? <small>{customer.name}</small> : null}
         </>
       ),
@@ -60,10 +74,33 @@ function customerColumns(state: SalesState): ListColumn<SalesCustomer>[] {
     { id: "salesperson", label: "Salesperson", optional: true, cell: (customer) => customer.salesperson || "—" },
     { id: "terms", label: "Payment terms", cell: (customer) => termsLabel(customer) },
     { id: "ntn", label: "NTN", optional: true, cell: (customer) => customer.ntn || "—" },
-    { id: "opening", label: "Opening balance", align: "right", optional: true, cell: (customer) => moneyWhole(customer.openingBalance) },
-    { id: "onAccount", label: "On account", align: "right", optional: true, cell: (customer) => moneyWhole(onAccountCredit(state, customer.id)) },
-    { id: "outstanding", label: "Outstanding", align: "right", cell: (customer) => <span className="font-semibold">{moneyWhole(openBalance(state, customer.id))}</span> },
-    { id: "limit", label: "Credit limit", align: "right", optional: true, cell: (customer) => (customer.creditLimit ? moneyWhole(customer.creditLimit) : "No limit") },
+    {
+      id: "opening",
+      label: "Opening balance",
+      align: "right",
+      optional: true,
+      cell: (customer) => moneyWhole(customer.openingBalance),
+    },
+    {
+      id: "onAccount",
+      label: "On account",
+      align: "right",
+      optional: true,
+      cell: (customer) => moneyWhole(onAccountCredit(state, customer.id)),
+    },
+    {
+      id: "outstanding",
+      label: "Outstanding",
+      align: "right",
+      cell: (customer) => <span className="font-semibold">{moneyWhole(openBalance(state, customer.id))}</span>,
+    },
+    {
+      id: "limit",
+      label: "Credit limit",
+      align: "right",
+      optional: true,
+      cell: (customer) => (customer.creditLimit ? moneyWhole(customer.creditLimit) : "No limit"),
+    },
     { id: "creditStatus", label: "Credit status", cell: (customer) => <StatusPill status={customer.creditStatus} /> },
     {
       id: "status",
@@ -94,7 +131,17 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
         (!status || customer.status === status) &&
         (!type || customer.type === type) &&
         (!needle ||
-          [customer.code, customer.name, customer.display, customer.contactName, customer.email, customerPhone(customer), customer.mobile, customer.billing.city, customer.ntn]
+          [
+            customer.code,
+            customer.name,
+            customer.display,
+            customer.contactName,
+            customer.email,
+            customerPhone(customer),
+            customer.mobile,
+            customer.billing.city,
+            customer.ntn,
+          ]
             .join(" ")
             .toLowerCase()
             .includes(needle)),
@@ -111,17 +158,29 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
         description="Customer profiles, contacts, payment terms and account information."
         actions={
           <>
-            <Button type="button" onClick={() => nav.openNew("customers")}>+ New Customer</Button>
+            <Button type="button" onClick={() => nav.openNew("customers")}>
+              + New Customer
+            </Button>
           </>
         }
       />
       <MetricTiles
         metrics={[
-          { label: "Customers", value: state.customers.length, hint: `${state.customers.filter((item) => item.status === "Active").length} active` },
-          { label: "Outstanding", value: moneyWhole(state.customers.reduce((sum, item) => sum + openBalance(state, item.id), 0)), hint: "Opening balances + unpaid invoices − money on account" },
+          {
+            label: "Customers",
+            value: state.customers.length,
+            hint: `${state.customers.filter((item) => item.status === "Active").length} active`,
+          },
+          {
+            label: "Outstanding",
+            value: moneyWhole(state.customers.reduce((sum, item) => sum + openBalance(state, item.id), 0)),
+            hint: "Opening balances + unpaid invoices − money on account",
+          },
           {
             label: "Over 80% of credit limit",
-            value: state.customers.filter((item) => item.creditLimit && exposure(state, item.id) / item.creditLimit > 0.8).length,
+            value: state.customers.filter(
+              (item) => item.creditLimit && exposure(state, item.id) / item.creditLimit > 0.8,
+            ).length,
             hint: "Watch before confirming orders",
           },
         ]}
@@ -135,7 +194,13 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
         </ListToolbar>
         {rows.length ? (
           <>
-            <ListTable view={view} rows={paging.pageRows} rowKey={(customer) => customer.code} onOpen={(customer) => nav.open(customer.code, true)} selected={selected ?? ""} />
+            <ListTable
+              view={view}
+              rows={paging.pageRows}
+              rowKey={(customer) => customer.code}
+              onOpen={(customer) => nav.open(customer.code, true)}
+              selected={selected ?? ""}
+            />
             <ListPager view={view} paging={paging} of={state.customers.length} noun="customers" />
           </>
         ) : (
@@ -143,9 +208,22 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
             title={state.customers.length ? "No customers match" : "No customers yet"}
             action={
               state.customers.length ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => { setQuery(""); setStatus(""); setType(""); }}>Clear filters</Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setQuery("");
+                    setStatus("");
+                    setType("");
+                  }}
+                >
+                  Clear filters
+                </Button>
               ) : (
-                <Button type="button" size="sm" onClick={() => nav.openNew("customers")}>+ New Customer</Button>
+                <Button type="button" size="sm" onClick={() => nav.openNew("customers")}>
+                  + New Customer
+                </Button>
               )
             }
           />
@@ -156,34 +234,60 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
   );
 }
 
-function NewCustomerEditor({ initial, nav, onSaved }: { initial: SalesCustomer; nav: SalesNav; onSaved: (code: string) => void }) {
+function NewCustomerEditor({
+  initial,
+  nav,
+  onSaved,
+}: {
+  initial: SalesCustomer;
+  nav: SalesNav;
+  onSaved: (code: string) => void;
+}) {
   const editor = useCustomerEditor(initial, nav, onSaved);
   const { guard, dialog } = useDiscardGuard(editor.dirty);
   const close = () => guard(nav.back);
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
-      <PageHead
-        eyebrow="Customers · Customer"
-        title="New Customer"
+    <WorkFormLayout className="grid grid-cols-1 gap-4" aria-label="Customer form">
+      <ProfileFormHeader
+        action="New Customer"
+        title={editor.draft.display.trim() || editor.draft.name.trim() || "Create a customer"}
         description="Only the Overview is required. Contact, address, tax, payment, bank and notes sections are optional and can be completed later."
-        actions={<Button type="button" variant="outline" onClick={close}>Close</Button>}
+        codeLabel="Customer code"
+        code={editor.draft.code}
       />
-      <EntryActionBar
-        saveLabel="Save customer"
-        lifecycle={["Saved"]}
-        state="Not saved yet"
-        error={Object.keys(editor.errors).length ? "Some details need fixing. Sections with a red dot have errors." : undefined}
-        onSave={editor.save}
-        onDiscard={close}
-      />
-      <Card>
-        <EntryTabs label="Customer sections" tabs={CUSTOMER_SECTIONS} active={editor.section} onChange={editor.setSection} errors={editor.errorSections} />
+      <Card className="rounded-xl">
+        <EntryTabs
+          label="Customer sections"
+          tabs={CUSTOMER_SECTIONS}
+          active={editor.section}
+          onChange={editor.setSection}
+          errors={editor.errorSections}
+        />
         <div className="p-4" role="tabpanel">
-          <CustomerSectionBody section={editor.section} customer={editor.draft} errors={editor.errors} update={editor.update} nav={nav} />
+          <CustomerSectionBody
+            section={editor.section}
+            customer={editor.draft}
+            errors={editor.errors}
+            update={editor.update}
+            nav={nav}
+          />
         </div>
       </Card>
+      {Object.keys(editor.errors).length ? (
+        <p role="alert" className="m-0 text-sm text-destructive">
+          Review the highlighted fields before saving.
+        </p>
+      ) : null}
+      <ProfileFormFooter message={editor.dirty ? "Unsaved changes" : "Fields marked * are required."}>
+        <Button type="button" variant="outline" onClick={close}>
+          Cancel
+        </Button>
+        <Button type="button" onClick={editor.save}>
+          Save Customer
+        </Button>
+      </ProfileFormFooter>
       {dialog}
-    </div>
+    </WorkFormLayout>
   );
 }
 

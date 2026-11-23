@@ -132,7 +132,11 @@ const app = createApp({
   financeNominalRepository: new SourceFinanceNominalRepository(pool),
   financeCurrencyRepository: new SourceFinanceCurrencyRepository(pool),
   financeJournalRepository: new SourceFinanceJournalRepository(pool, new FinancePostingService()),
-  subledgerRepository: new SourceSubledgerRepository(pool),
+  subledgerRepository: new SourceSubledgerRepository(
+    pool,
+    undefined,
+    new SupplierProfileCrypto(config.bankingDataEncryptionKey, config.bankingDataEncryptionKeyVersion),
+  ),
   taxRepository: new SourceTaxRepository(pool),
   budgetRepository: new SourceBudgetRepository(pool),
   financeHierarchyRepository: new SourceCoaHierarchyRepository(pool),
@@ -153,6 +157,12 @@ const app = createApp({
   bankSelfApprovalRepository: new SourceBankSelfApprovalRepository(pool),
   hrRepository: new SourceHrRepository(pool, "production", objectStorage),
   readiness: {
+    customer_profiles: async () => {
+      const result = await pool.query<{ available: boolean }>(
+        "select to_regclass('public.sales_customer_profile') is not null and exists(select 1 from nexora_schema_migration where module_name='sales' and version=5 and name='customer_profiles') as available",
+      );
+      if (!result.rows[0]?.available) throw new Error("Customer profile migration is required");
+    },
     operational_integration: async () => {
       const result = await pool.query<{ available: boolean }>(
         "select to_regclass('public.inventory_stock_entry') is not null and to_regclass('public.sales_document') is not null and exists(select 1 from nexora_schema_migration where module_name='inventory' and version=5 and name='purchase_receipt_accrual') and exists(select 1 from nexora_schema_migration where module_name='sales' and version=4 and name='compensation_and_tax') and exists(select 1 from nexora_schema_migration where module_name='security' and version=29 and name='persistent_sales_permissions') as available",

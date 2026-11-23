@@ -11,6 +11,10 @@ import {
   subledgerReportQuerySchema,
   purchaseAccountingPrepareSchema,
   connectedReportQuerySchema,
+  customerMasterQuerySchema,
+  customerMasterScopeSchema,
+  customerMasterInputSchema,
+  customerMasterUpdateSchema,
 } from "@nexora/contracts";
 import { HttpError } from "../../../http/errors.js";
 import { loadBankingSessionContext, type BankingSessionContextDependencies } from "../../banking/session-context.js";
@@ -82,6 +86,57 @@ export function createSubledgerRouter(
           dependencies.repository.createParty(await loadBankingSessionContext(req, dependencies, true), input, key),
         ),
       );
+  });
+  router.get("/customers", async (req, res) => {
+    const query = customerMasterQuerySchema.parse(req.query);
+    res.json(
+      await handle(async () =>
+        dependencies.repository.customerMasters(await loadBankingSessionContext(req, dependencies), query),
+      ),
+    );
+  });
+  router.get("/customers/:id", async (req, res) => {
+    const scope = customerMasterScopeSchema.parse(req.query);
+    const id = z.string().trim().min(1).max(128).parse(req.params.id);
+    res.json(
+      await handle(async () =>
+        dependencies.repository.customerMaster(
+          await loadBankingSessionContext(req, dependencies),
+          scope.company_id,
+          id,
+        ),
+      ),
+    );
+  });
+  router.post("/customers", async (req, res) => {
+    const input = customerMasterInputSchema.parse(req.body);
+    const key = guard(req);
+    res
+      .status(201)
+      .json(
+        await handle(async () =>
+          dependencies.repository.createCustomerMaster(
+            await loadBankingSessionContext(req, dependencies, true),
+            input,
+            key,
+          ),
+        ),
+      );
+  });
+  router.put("/customers/:id", async (req, res) => {
+    const input = customerMasterUpdateSchema.parse(req.body);
+    const key = guard(req, input.expected_version);
+    const id = z.string().trim().min(1).max(128).parse(req.params.id);
+    res.json(
+      await handle(async () =>
+        dependencies.repository.updateCustomerMaster(
+          await loadBankingSessionContext(req, dependencies, true),
+          id,
+          input,
+          key,
+        ),
+      ),
+    );
   });
   router.post("/policy", async (req, res) => {
     const input = subledgerPolicyInputSchema.parse(req.body),

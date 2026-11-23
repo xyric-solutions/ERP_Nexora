@@ -3,6 +3,7 @@ export * from "./auth/index.js";
 export * from "./banking/index.js";
 export * from "./budget/index.js";
 export * from "./finance/index.js";
+export * from "./finance/customer-master.js";
 export * from "./fleet/index.js";
 export * from "./health.js";
 export * from "./hr/index.js";

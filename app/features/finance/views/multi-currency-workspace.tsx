@@ -26,11 +26,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { CustomerReceiptForm } from "../components/customer-receipt-form";
 import { PartyFinancialSetup } from "../components/party-financial-setup";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useSession } from "@/lib/session/session-provider";
 import { ApiError } from "@/lib/api/generated";
 import { WorkTable, workSelectClass } from "@/shared/ui/work-table";
+import { WorkForm } from "@/shared/ui/work-form";
+import { LabeledField } from "@/shared/ui/labeled-field";
+import { ProfileFormFooter, ProfileFormHeader } from "@/shared/ui/profile-form";
+import { useActionFeedback } from "@/shared/ui/action-feedback";
 import { reportCsvCell, downloadReportCsv } from "@/features/reports/model/connected-report-export";
 
 type Tab = "balances" | "documents" | "settlement" | "revaluation" | "reports" | "setup";
@@ -89,6 +94,7 @@ function Money({ currency, value }: { currency: string; value: string }) {
 type WorkspaceProps = {
   operational?: boolean;
   embedded?: boolean;
+  focusedReceipt?: boolean;
   initialTab?: Tab;
   initialSide?: Side;
   initialReport?: SubledgerReport["report"];
@@ -98,13 +104,15 @@ type WorkspaceProps = {
   initialCurrency?: string;
   initialReference?: string;
   initialDimensions?: Record<string, string>;
+  onOpenCustomerForm?: () => void;
+  onCloseCustomerForm?: () => void;
 };
 
 export function MultiCurrencyWorkspace(props: WorkspaceProps) {
   const { activeCompany } = useSession();
   return (
     <CompanyCurrencyWorkspace
-      key={`${activeCompany?.id}:${props.initialSide}:${props.initialTab}:${props.initialReport}:${props.sourceDocumentId}:${props.salesDocumentId}:${props.initialPartyId}`}
+      key={`${activeCompany?.id}:${props.initialSide}:${props.initialTab}:${props.initialReport}:${props.sourceDocumentId}:${props.salesDocumentId}:${props.initialPartyId}:${props.focusedReceipt}`}
       {...props}
     />
   );
@@ -113,6 +121,7 @@ export function MultiCurrencyWorkspace(props: WorkspaceProps) {
 function CompanyCurrencyWorkspace({
   operational = false,
   embedded = false,
+  focusedReceipt = false,
   initialTab = "balances",
   initialSide = "receivable",
   initialReport = "statement",
@@ -122,8 +131,11 @@ function CompanyCurrencyWorkspace({
   initialCurrency,
   initialReference,
   initialDimensions,
+  onOpenCustomerForm,
+  onCloseCustomerForm,
 }: WorkspaceProps) {
   const { api, activeCompany, session, csrfToken } = useSession();
+  const notify = useActionFeedback();
   const [tab, setTab] = useState<Tab>(initialTab),
     [side, setSide] = useState<Side>(initialSide);
   const [asOf, setAsOf] = useState(today),
@@ -185,6 +197,8 @@ function CompanyCurrencyWorkspace({
   function companyTaxContext() {
     return !!activeCompany && !!session?.user.permissions.includes("finance.tax.read");
   }
+  const [receiptFormOpen, setReceiptFormOpen] = useState(true);
+  const receiptRequest = useRef<{ body: string; key: string } | null>(null);
   const [bankId, setBankId] = useState(""),
     [paymentAmount, setPaymentAmount] = useState("");
   const [bankFee, setBankFee] = useState("0"),
@@ -192,6 +206,7 @@ function CompanyCurrencyWorkspace({
     [dealReference, setDealReference] = useState(""),
     [monetary, setMonetary] = useState(true),
     [allocations, setAllocations] = useState<Record<string, string>>({});
+  const [customerCurrency, setCustomerCurrency] = useState<string>();
   const [partyName, setPartyName] = useState(""),
     [advanceAccount, setAdvanceAccount] = useState(""),
     [documentCounterAccount, setDocumentCounterAccount] = useState(""),
@@ -430,16 +445,17 @@ function CompanyCurrencyWorkspace({
     };
   }, [api, company, sourceDocumentId, canManage]);
 
-  async function perform(work: () => Promise<unknown>, success: string) {
+  async function perform<T>(work: () => Promise<T>, success: string) {
     if (busy) return;
     setBusy(true);
     setError("");
     setMessage("");
     try {
-      await work();
+      const result = await work();
       await load();
       setMessage(success);
       setAllocations({});
+      return result;
     } catch (caught) {
       setError(explain(caught));
     } finally {
@@ -655,10 +671,19 @@ function CompanyCurrencyWorkspace({
       };
     else if (type === "offset") input = { ...common, type, side, party_id: partyId, allocations: alloc };
     else input = { ...common, type, side, currency, ...(partyId ? { party_id: partyId } : {}) };
-    await perform(
-      () => api.createSubledgerOperation(input, csrfToken(), crypto.randomUUID()),
+    const body = JSON.stringify(input);
+    let requestKey = crypto.randomUUID();
+    if (type === "settlement" && focusedReceipt) {
+      const attempt = receiptRequest.current?.body === body ? receiptRequest.current : { body, key: requestKey };
+      receiptRequest.current = attempt;
+      requestKey = attempt.key;
+    }
+    const result = await perform(
+      () => api.createSubledgerOperation(input, csrfToken(), requestKey),
       "Draft saved. Review the calculated posting, then submit for independent approval.",
     );
+    if (result && type === "settlement" && focusedReceipt) receiptRequest.current = null;
+    return result;
   }
   const currencyOptions = (
     <>
@@ -693,23 +718,10 @@ function CompanyCurrencyWorkspace({
       ))}
     </>
   );
-  const commonFields = (
+  const receiptEntry = focusedReceipt && operational && side === "receivable" && tab === "settlement";
+  const receiptPage = receiptEntry;
+  const dimensionFields = (
     <>
-      <Field label="Posting date">
-        <Input type="date" value={operationDate} onChange={(event) => setOperationDate(event.target.value)} required />
-      </Field>
-      <Field label="Reference">
-        <Input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={160} />
-      </Field>
-      <Field label="Reason">
-        <Input
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-          required
-          minLength={3}
-          maxLength={500}
-        />
-      </Field>
       {(
         [
           "project",
@@ -754,6 +766,26 @@ function CompanyCurrencyWorkspace({
       })}
     </>
   );
+  const commonFields = (
+    <>
+      <Field label="Posting date">
+        <Input type="date" value={operationDate} onChange={(event) => setOperationDate(event.target.value)} required />
+      </Field>
+      <Field label="Reference">
+        <Input value={reference} onChange={(event) => setReference(event.target.value)} maxLength={160} />
+      </Field>
+      <Field label="Reason">
+        <Input
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          required
+          minLength={3}
+          maxLength={500}
+        />
+      </Field>
+      {dimensionFields}
+    </>
+  );
   if (!company)
     return (
       <div className="rounded-lg border border-border bg-card p-5 text-muted-foreground">
@@ -767,128 +799,165 @@ function CompanyCurrencyWorkspace({
         appropriate company-scoped role.
       </div>
     );
+  const customerSetup =
+    operational && side === "receivable" && tab === "setup" && (!onOpenCustomerForm || !!onCloseCustomerForm);
+  const defaultCustomerCurrency = currency || data?.base_currency || "";
+  const customerCurrencyValue = customerCurrency ?? defaultCustomerCurrency;
+  const customerDirty = Boolean(partyName.trim()) || customerCurrencyValue !== defaultCustomerCurrency;
+  const partyFinancialSetup = data ? (
+    <PartyFinancialSetup
+      company={company}
+      parties={data.parties}
+      baseCurrency={data.base_currency}
+      disabled={busy || !canManage}
+      onSave={(id, input) => {
+        void perform(
+          () => api.configureSubledgerParty(id, input, csrfToken(), crypto.randomUUID()),
+          "Reviewed financial terms saved.",
+        );
+      }}
+    />
+  ) : null;
   return (
-    <section className="grid min-w-0 gap-4 text-foreground" aria-label="Multi-currency accounting">
-      <header
-        className={
-          embedded ? "flex justify-end" : "flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4"
-        }
-      >
-        {!embedded && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Finance</p>
-            <h1 className="mt-1 text-2xl font-semibold">
-              {operational
-                ? side === "receivable"
-                  ? "Customer receipts & invoices"
-                  : "Supplier payments & bills"
-                : "Multi-currency accounting"}
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Original currency balances, posted carrying values and auditable exchange movements.
-            </p>
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <Badge variant="outline">{data?.base_currency ?? "—"} functional currency</Badge>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy}
-            onClick={() => void perform(load, "Balances refreshed.")}
-          >
-            Refresh
-          </Button>
-        </div>
-      </header>
-      <nav className="flex flex-wrap gap-1" aria-label="Currency accounting sections">
-        {(Object.keys(titles) as Tab[])
-          .filter((key) => !operational || key !== "revaluation")
-          .map((key) => (
+    <section
+      className="grid min-w-0 gap-4 text-foreground"
+      aria-label={receiptPage ? "Customer receipts" : "Multi-currency accounting"}
+    >
+      {!onCloseCustomerForm && !receiptPage && (
+        <header
+          className={
+            embedded
+              ? "flex justify-end"
+              : "flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4"
+          }
+        >
+          {!embedded && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Finance</p>
+              <h1 className="mt-1 text-2xl font-semibold">
+                {operational
+                  ? side === "receivable"
+                    ? "Customer receipts & invoices"
+                    : "Supplier payments & bills"
+                  : "Multi-currency accounting"}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Original currency balances, posted carrying values and auditable exchange movements.
+              </p>
+            </div>
+          )}
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">{data?.base_currency ?? "—"} functional currency</Badge>
             <Button
               type="button"
-              key={key}
-              variant={tab === key ? "default" : "outline"}
-              aria-pressed={tab === key}
-              onClick={() => {
-                setTab(key);
-                if (operational && key === "settlement") {
-                  setCurrency("");
-                  setAllocations({});
-                }
-                setOffset(0);
-                setReport(null);
-              }}
+              variant="outline"
+              disabled={busy}
+              onClick={() => void perform(load, "Balances refreshed.")}
             >
-              {operational && key === "setup"
-                ? side === "receivable"
-                  ? "Add customer"
-                  : "Add supplier account"
-                : titles[key]}
+              Refresh
             </Button>
-          ))}
-      </nav>
-      <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Field label="Ledger">
-          <select
-            className={workSelectClass}
-            value={side}
-            disabled={operational}
-            onChange={(event) => {
-              setSide(event.target.value === "payable" ? "payable" : "receivable");
-              setPartyId("");
-              setCurrency("");
-              setAllocations({});
-              setBankId("");
-              setOffset(0);
-              setReport(null);
-            }}
-          >
-            <option value="receivable">Customer receivables</option>
-            <option value="payable">Supplier payables</option>
-          </select>
-        </Field>
-        <Field label="Customer / supplier">
-          <select
-            className={workSelectClass}
-            value={partyId}
-            onChange={(event) => {
-              setPartyId(event.target.value);
-              setAllocations({});
-              setOffset(0);
-              setReport(null);
-            }}
-          >
-            {partyOptions}
-          </select>
-        </Field>
-        {!(operational && (tab === "settlement" || (tab === "documents" && kind === "advance"))) && (
-          <Field label="Original currency">
+            {onOpenCustomerForm && canManage ? (
+              <Button type="button" onClick={onOpenCustomerForm}>
+                Add Customer
+              </Button>
+            ) : null}
+          </div>
+        </header>
+      )}
+      {!onCloseCustomerForm && !receiptPage && (
+        <nav className="flex flex-wrap gap-1" aria-label="Currency accounting sections">
+          {(Object.keys(titles) as Tab[])
+            .filter((key) => !operational || key !== "revaluation")
+            .map((key) => (
+              <Button
+                type="button"
+                key={key}
+                variant={tab === key ? "default" : "outline"}
+                aria-pressed={tab === key}
+                onClick={() => {
+                  setTab(key);
+                  if (operational && key === "settlement") {
+                    setCurrency("");
+                    setAllocations({});
+                  }
+                  setOffset(0);
+                  setReport(null);
+                }}
+              >
+                {operational && key === "setup"
+                  ? side === "receivable"
+                    ? onOpenCustomerForm
+                      ? "Financial terms"
+                      : "Add customer"
+                    : "Add supplier account"
+                  : titles[key]}
+              </Button>
+            ))}
+        </nav>
+      )}
+      {!customerSetup && !receiptEntry && (
+        <div className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field label="Ledger">
             <select
               className={workSelectClass}
-              value={currency}
+              value={side}
+              disabled={operational}
               onChange={(event) => {
-                setCurrency(event.target.value);
+                setSide(event.target.value === "payable" ? "payable" : "receivable");
+                setPartyId("");
+                setCurrency("");
+                setAllocations({});
+                setBankId("");
                 setOffset(0);
                 setReport(null);
               }}
             >
-              {currencyOptions}
+              <option value="receivable">Customer receivables</option>
+              <option value="payable">Supplier payables</option>
             </select>
           </Field>
-        )}
-        <Field label="Balances as of">
-          <Input
-            type="date"
-            value={asOf}
-            onChange={(event) => {
-              setAsOf(event.target.value);
-              setOffset(0);
-              setReport(null);
-            }}
-          />
-        </Field>
-      </div>
+          <Field label="Customer / supplier">
+            <select
+              className={workSelectClass}
+              value={partyId}
+              onChange={(event) => {
+                setPartyId(event.target.value);
+                setAllocations({});
+                setOffset(0);
+                setReport(null);
+              }}
+            >
+              {partyOptions}
+            </select>
+          </Field>
+          {!(operational && (tab === "settlement" || (tab === "documents" && kind === "advance"))) && (
+            <Field label="Original currency">
+              <select
+                className={workSelectClass}
+                value={currency}
+                onChange={(event) => {
+                  setCurrency(event.target.value);
+                  setOffset(0);
+                  setReport(null);
+                }}
+              >
+                {currencyOptions}
+              </select>
+            </Field>
+          )}
+          <Field label="Balances as of">
+            <Input
+              type="date"
+              value={asOf}
+              onChange={(event) => {
+                setAsOf(event.target.value);
+                setOffset(0);
+                setReport(null);
+              }}
+            />
+          </Field>
+        </div>
+      )}
       {error && (
         <div
           role="alert"
@@ -1016,8 +1085,8 @@ function CompanyCurrencyWorkspace({
             </>
           )}
           {tab === "documents" && !salesDocumentId && (
-            <form
-              className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3"
+            <WorkForm
+              className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3"
               onSubmit={(event) => {
                 event.preventDefault();
                 void create("recognition");
@@ -1295,12 +1364,76 @@ function CompanyCurrencyWorkspace({
               >
                 Save financial draft
               </Button>
-            </form>
+            </WorkForm>
           )}
-          {tab === "settlement" && (
+          {receiptPage && !receiptFormOpen && (
+            <header className="flex items-center justify-between gap-3">
+              <h1 className="text-2xl font-semibold">Receipts</h1>
+              <Button type="button" onClick={() => setReceiptFormOpen(true)}>
+                Add Receipt
+              </Button>
+            </header>
+          )}
+          {receiptEntry && (!receiptPage || receiptFormOpen) && (
+            <CustomerReceiptForm
+              data={data}
+              party={partyId}
+              bank={bankId}
+              date={operationDate}
+              reference={reference}
+              amount={paymentAmount}
+              fee={bankFee}
+              notes={reason}
+              allocations={allocations}
+              busy={busy}
+              canManage={canManage}
+              contextFields={dimensionFields}
+              onParty={(value) => {
+                setPartyId(value);
+                setAllocations({});
+                setOffset(0);
+                setReport(null);
+              }}
+              onBank={selectBank}
+              onDate={setOperationDate}
+              onReference={setReference}
+              onAmount={setPaymentAmount}
+              onFee={setBankFee}
+              onNotes={setReason}
+              onAllocate={(id, value) => setAllocations((previous) => ({ ...previous, [id]: value }))}
+              onSave={async (action) => {
+                const operation = await create("settlement");
+                if (operation && action !== "print") {
+                  setPartyId(initialPartyId ?? "");
+                  setBankId("");
+                  setPaymentAmount("");
+                  setBankFee("0");
+                  setReason("");
+                  setReference(initialReference ?? "");
+                  setDimensions(initialDimensions ?? {});
+                  if (action === "close") setReceiptFormOpen(false);
+                }
+                return operation;
+              }}
+              onOffset={() => void create("offset")}
+              onCancel={() => {
+                setReceiptFormOpen(false);
+                setPartyId("");
+                setBankId("");
+                setPaymentAmount("");
+                setBankFee("0");
+                setReason("");
+                setReference("");
+                setAllocations({});
+                setDimensions({});
+                setOffset(0);
+              }}
+            />
+          )}
+          {tab === "settlement" && !receiptEntry && (
             <>
-              <form
-                className="grid gap-3 rounded-lg border border-border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3"
+              <WorkForm
+                className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:grid-cols-2 sm:p-5 lg:grid-cols-3"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void create("settlement");
@@ -1393,7 +1526,7 @@ function CompanyCurrencyWorkspace({
                     Save credit offset draft
                   </Button>
                 </div>
-              </form>
+              </WorkForm>
               <div className="overflow-x-auto rounded-lg border border-border bg-card">
                 <WorkTable tableId="multi-currency-allocation" paging={false}>
                   <caption className="p-3 text-left font-semibold">
@@ -1612,87 +1745,178 @@ function CompanyCurrencyWorkspace({
               )}
             </>
           )}
-          {tab === "setup" && (
-            <div className={operational ? "grid gap-4" : "grid gap-4 lg:grid-cols-2"}>
-              <form
-                className="grid content-start gap-3 rounded-lg border border-border bg-card p-4"
+          {customerSetup && (
+            <>
+              <WorkForm
+                aria-label="Customer form"
+                aria-busy={busy}
+                className="grid gap-4"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (company)
-                    void perform(
-                      () =>
-                        api.createSubledgerParty(
-                          {
-                            company_id: company,
-                            name: partyName,
-                            kind: side === "receivable" ? "customer" : "supplier",
-                            default_currency: currency,
-                            ...(side === "payable" && sourceSupplier ? { source_supplier_id: sourceSupplier } : {}),
-                          },
-                          csrfToken(),
-                          crypto.randomUUID(),
-                        ),
-                      "Shared master account saved with its stable reference.",
+                  if (!company || !canManage || !customerCurrencyValue || !partyName.trim()) return;
+                  void perform(async () => {
+                    await api.createSubledgerParty(
+                      {
+                        company_id: company,
+                        kind: "customer",
+                        name: partyName,
+                        default_currency: customerCurrencyValue,
+                      },
+                      csrfToken(),
+                      crypto.randomUUID(),
                     );
+                    if (onCloseCustomerForm) {
+                      notify("Customer saved with its stable reference.");
+                      onCloseCustomerForm();
+                    } else {
+                      setPartyName("");
+                      setCustomerCurrency(undefined);
+                      setTab("balances");
+                    }
+                  }, "Customer saved with its stable reference.");
                 }}
               >
-                <h2 className="font-semibold">Add a financial {side === "receivable" ? "customer" : "supplier"}</h2>
-                <Field label="Name">
-                  <Input
-                    value={partyName}
-                    onChange={(event) => setPartyName(event.target.value)}
-                    required
-                    maxLength={200}
-                    readOnly={side === "payable" && !!sourceSupplier}
-                  />
-                </Field>
-                <p className="text-sm text-muted-foreground">
-                  The original currency above becomes the default for new documents. This party can transact in every
-                  active company currency.
-                </p>
-                {side === "payable" && (
-                  <>
-                    <Field label="Find existing supplier">
+                <ProfileFormHeader
+                  action="New customer"
+                  title={partyName.trim() || "Create a customer"}
+                  codeLabel="Customer code"
+                  code="Assigned on save"
+                />
+                <section className="grid gap-3 rounded-xl border border-border bg-card p-4 sm:p-5">
+                  <h3 className="m-0 text-base font-semibold">Customer details</h3>
+                  <fieldset disabled={!canManage || busy} className="m-0 grid gap-4 border-0 p-0 sm:grid-cols-2">
+                    <LabeledField label="Customer name *">
                       <Input
-                        value={supplierSearch}
-                        maxLength={100}
-                        onChange={(event) => setSupplierSearch(event.target.value)}
+                        value={partyName}
+                        onChange={(event) => setPartyName(event.target.value)}
+                        required
+                        maxLength={200}
                       />
-                    </Field>
-                    <Field label="Existing supplier (optional)">
+                    </LabeledField>
+                    <LabeledField
+                      label="Default currency *"
+                      hint="Used for new documents. The customer can transact in any active company currency."
+                    >
                       <select
                         className={workSelectClass}
-                        value={sourceSupplier}
-                        disabled={supplierLoading}
-                        onChange={(event) => {
-                          const id = event.target.value;
-                          setSourceSupplier(id);
-                          setPartyName(supplierMasters.items.find((item) => item.id === id)?.name ?? "");
-                        }}
+                        value={customerCurrencyValue}
+                        required
+                        onChange={(event) => setCustomerCurrency(event.target.value)}
                       >
-                        <option value="">Create a new supplier master</option>
-                        {sourceSupplier && !supplierMasters.items.some((item) => item.id === sourceSupplier) && (
-                          <option value={sourceSupplier}>{partyName}</option>
-                        )}
-                        {supplierMasters.items.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.code} · {item.name}
-                          </option>
-                        ))}
+                        {currencyOptions}
                       </select>
-                    </Field>
-                    <p className="text-sm text-muted-foreground" role="status">
-                      {supplierLoading
-                        ? "Loading suppliers…"
-                        : `${supplierMasters.items.length} of ${supplierMasters.total} matching suppliers. Search to narrow the list.`}{" "}
-                      New suppliers require vendor review before use in Purchasing.
-                    </p>
-                  </>
-                )}
-                <Button type="submit" disabled={busy || !canManage || !currency}>
-                  Create financial party
-                </Button>
-              </form>
+                    </LabeledField>
+                  </fieldset>
+                </section>
+                <ProfileFormFooter message={customerDirty ? "Unsaved changes" : "Fields marked * are required."}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => {
+                      if (customerDirty && !window.confirm("Discard the unsaved customer changes?")) return;
+                      if (onCloseCustomerForm) onCloseCustomerForm();
+                      else {
+                        setPartyName("");
+                        setCustomerCurrency(undefined);
+                        setError("");
+                        setTab("balances");
+                      }
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={busy || !canManage || !customerCurrencyValue}>
+                    {busy ? "Saving…" : "Save Customer"}
+                  </Button>
+                </ProfileFormFooter>
+              </WorkForm>
+              {!onCloseCustomerForm && partyFinancialSetup}
+            </>
+          )}
+          {tab === "setup" && !customerSetup && (
+            <div className={operational ? "grid gap-4" : "grid gap-4 lg:grid-cols-2"}>
+              {!onOpenCustomerForm && (
+                <form
+                  className="grid content-start gap-3 rounded-lg border border-border bg-card p-4"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (company)
+                      void perform(
+                        () =>
+                          api.createSubledgerParty(
+                            {
+                              company_id: company,
+                              name: partyName,
+                              kind: side === "receivable" ? "customer" : "supplier",
+                              default_currency: currency,
+                              ...(side === "payable" && sourceSupplier ? { source_supplier_id: sourceSupplier } : {}),
+                            },
+                            csrfToken(),
+                            crypto.randomUUID(),
+                          ),
+                        "Shared master account saved with its stable reference.",
+                      );
+                  }}
+                >
+                  <h2 className="font-semibold">Add a financial {side === "receivable" ? "customer" : "supplier"}</h2>
+                  <Field label="Name">
+                    <Input
+                      value={partyName}
+                      onChange={(event) => setPartyName(event.target.value)}
+                      required
+                      maxLength={200}
+                      readOnly={side === "payable" && !!sourceSupplier}
+                    />
+                  </Field>
+                  <p className="text-sm text-muted-foreground">
+                    The original currency above becomes the default for new documents. This party can transact in every
+                    active company currency.
+                  </p>
+                  {side === "payable" && (
+                    <>
+                      <Field label="Find existing supplier">
+                        <Input
+                          value={supplierSearch}
+                          maxLength={100}
+                          onChange={(event) => setSupplierSearch(event.target.value)}
+                        />
+                      </Field>
+                      <Field label="Existing supplier (optional)">
+                        <select
+                          className={workSelectClass}
+                          value={sourceSupplier}
+                          disabled={supplierLoading}
+                          onChange={(event) => {
+                            const id = event.target.value;
+                            setSourceSupplier(id);
+                            setPartyName(supplierMasters.items.find((item) => item.id === id)?.name ?? "");
+                          }}
+                        >
+                          <option value="">Create a new supplier master</option>
+                          {sourceSupplier && !supplierMasters.items.some((item) => item.id === sourceSupplier) && (
+                            <option value={sourceSupplier}>{partyName}</option>
+                          )}
+                          {supplierMasters.items.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.code} · {item.name}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <p className="text-sm text-muted-foreground" role="status">
+                        {supplierLoading
+                          ? "Loading suppliers…"
+                          : `${supplierMasters.items.length} of ${supplierMasters.total} matching suppliers. Search to narrow the list.`}{" "}
+                        New suppliers require vendor review before use in Purchasing.
+                      </p>
+                    </>
+                  )}
+                  <Button type="submit" disabled={busy || !canManage || !currency}>
+                    Create financial party
+                  </Button>
+                </form>
+              )}
               {!operational && (
                 <form
                   className="grid gap-3 rounded-lg border border-border bg-card p-4"
@@ -1742,18 +1966,7 @@ function CompanyCurrencyWorkspace({
                   </Button>
                 </form>
               )}
-              <PartyFinancialSetup
-                company={company}
-                parties={data.parties}
-                baseCurrency={data.base_currency}
-                disabled={busy || !canManage}
-                onSave={(id, input) => {
-                  void perform(
-                    () => api.configureSubledgerParty(id, input, csrfToken(), crypto.randomUUID()),
-                    "Reviewed financial terms saved.",
-                  );
-                }}
-              />
+              {partyFinancialSetup}
             </div>
           )}
           {!["reports", "setup"].includes(tab) && (

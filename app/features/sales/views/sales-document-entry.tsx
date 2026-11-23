@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { WorkFormLayout } from "@/shared/ui/work-form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { SearchableSelect } from "@/shared/ui/searchable-select";
@@ -108,7 +109,10 @@ export function DocumentEntry({
   const approverOptions = useMemo(
     () => [
       { value: "", label: "No approver · I approve it myself" },
-      ...approverDirectory(nav.actor).map((person) => ({ value: person.name, label: `${person.name} · ${person.title}` })),
+      ...approverDirectory(nav.actor).map((person) => ({
+        value: person.name,
+        label: `${person.name} · ${person.title}`,
+      })),
     ],
     [nav.actor],
   );
@@ -188,13 +192,18 @@ export function DocumentEntry({
         <PageHead
           eyebrow={`Sales · ${meta.label}`}
           title="Create Invoice"
-          actions={<Button type="button" variant="outline" onClick={onCancel ?? nav.back}>Close</Button>}
+          actions={
+            <Button type="button" variant="outline" onClick={onCancel ?? nav.back}>
+              Close
+            </Button>
+          }
         />
         <Card>
           <div className="grid gap-1 p-5" role="alert">
             <strong className="text-sm font-bold">This invoice cannot be created</strong>
             <p className="m-0 text-[0.8125rem] text-muted-foreground">
-              {source.error}{fromTemplate ? "" : " It may already have been invoiced, or its delivery is not saved yet."}
+              {source.error}
+              {fromTemplate ? "" : " It may already have been invoiced, or its delivery is not saved yet."}
             </p>
           </div>
         </Card>
@@ -203,11 +212,15 @@ export function DocumentEntry({
   }
 
   return (
-    <div className="grid min-w-0 grid-cols-1 gap-3.5 text-foreground">
+    <WorkFormLayout className="grid grid-cols-1 gap-4" aria-label={`${meta.label} form`}>
       <PageHead
         eyebrow={`Sales · ${meta.label}`}
         title={sourceCode ? `Create Invoice · ${sourceCode}` : isNew ? `New ${meta.label}` : `Edit ${draft.code}`}
-        actions={<Button type="button" variant="outline" onClick={cancel}>Close</Button>}
+        actions={
+          <Button type="button" variant="outline" onClick={cancel}>
+            Close
+          </Button>
+        }
       />
       <EntryActionBar
         saveLabel={sourceTemplate ? "Save & Post" : meta.saveLabel}
@@ -220,16 +233,20 @@ export function DocumentEntry({
       <Card>
         <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3.5">
           <div>
-            <span className="text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">{meta.label}</span>
-            <h2 className="m-0 mt-0.5 text-base font-semibold">{isNew ? "Customer & commercial details" : draft.code}</h2>
+            <span className="text-[0.6875rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">
+              {meta.label}
+            </span>
+            <h2 className="m-0 mt-0.5 text-base font-semibold">
+              {isNew ? "Customer & commercial details" : draft.code}
+            </h2>
             <p className="m-0 mt-0.5 text-xs text-muted-foreground">
               {sourceTemplate
                 ? `Prefilled from recurring template ${sourceTemplate.code} for the ${formatDate(sourceTemplate.next)} period. Review, then Save & Post; the invoice number is assigned then.`
                 : sourceOrder
-                ? `Prefilled from ${sourceOrder.code}. Review and edit any field; the invoice number is assigned when you save.`
-                : isNew
-                  ? "The number is assigned when you save."
-                  : "Changes apply when you save."}
+                  ? `Prefilled from ${sourceOrder.code}. Review and edit any field; the invoice number is assigned when you save.`
+                  : isNew
+                    ? "The number is assigned when you save."
+                    : "Changes apply when you save."}
             </p>
           </div>
           <div className="grid justify-items-end gap-1">
@@ -240,19 +257,39 @@ export function DocumentEntry({
 
         <section className="grid grid-cols-1 gap-x-6 gap-y-3.5 border-b border-border p-5 md:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2 [&>*:first-child]:sm:col-span-2">
-            <Field label="Customer" required error={errors.customerId} hint={sourceCode ? `Billed to the customer of ${sourceCode}.` : undefined}>
-              <select className={selectClass} value={draft.customerId} disabled={Boolean(sourceCode)} aria-invalid={Boolean(errors.customerId)} onChange={(event) => chooseCustomer(event.target.value)}>
+            <Field
+              label="Customer"
+              required
+              error={errors.customerId}
+              hint={sourceCode ? `Billed to the customer of ${sourceCode}.` : undefined}
+            >
+              <select
+                className={selectClass}
+                value={draft.customerId}
+                disabled={Boolean(sourceCode)}
+                aria-invalid={Boolean(errors.customerId)}
+                onChange={(event) => chooseCustomer(event.target.value)}
+              >
                 <option value="">Select customer</option>
                 {state.customers
                   .filter((item) => item.status === "Active" || item.id === draft.customerId)
                   .map((item) => (
-                    <option key={item.id} value={item.id}>{item.code} · {item.display}</option>
+                    <option key={item.id} value={item.id}>
+                      {item.code} · {item.display}
+                    </option>
                   ))}
               </select>
             </Field>
             <ProjectLocationFields value={draft} errors={errors} onChange={update} />
             {kind === "quotation" ? (
-              <Field label="Approver" hint={draft.approver ? `Saved as draft, then submitted to ${draft.approver} for approval.` : "Optional. Leave empty when no manager approval is needed; you approve it yourself."}>
+              <Field
+                label="Approver"
+                hint={
+                  draft.approver
+                    ? `Saved as draft, then submitted to ${draft.approver} for approval.`
+                    : "Optional. Leave empty when no manager approval is needed; you approve it yourself."
+                }
+              >
                 <SearchableSelect
                   label="Approver"
                   value={draft.approver ?? ""}
@@ -276,28 +313,58 @@ export function DocumentEntry({
               </ReadField>
             )}
             <Field label={meta.referenceLabel}>
-              <Input value={draft.reference} placeholder="Optional" onChange={(event) => update({ reference: event.target.value })} />
+              <Input
+                value={draft.reference}
+                placeholder="Optional"
+                onChange={(event) => update({ reference: event.target.value })}
+              />
             </Field>
             <ReadField label={kind === "invoice" ? "Billing address" : "Delivery address"}>
-              {customer ? deliveryAddress(customer) : <span className="text-muted-foreground">Loaded from the customer</span>}
+              {customer ? (
+                deliveryAddress(customer)
+              ) : (
+                <span className="text-muted-foreground">Loaded from the customer</span>
+              )}
             </ReadField>
           </div>
           <div className="grid min-w-0 content-start gap-3 sm:grid-cols-2">
             <Field label={meta.date1} required error={errors.date}>
-              <Input type="date" value={draft.date} aria-invalid={Boolean(errors.date)} onChange={(event) => update({ date: event.target.value })} />
+              <Input
+                type="date"
+                value={draft.date}
+                aria-invalid={Boolean(errors.date)}
+                onChange={(event) => update({ date: event.target.value })}
+              />
             </Field>
             <Field label={meta.date2} error={errors.date2}>
-              <Input type="date" value={draft.date2} aria-invalid={Boolean(errors.date2)} onChange={(event) => update({ date2: event.target.value })} />
+              <Input
+                type="date"
+                value={draft.date2}
+                aria-invalid={Boolean(errors.date2)}
+                onChange={(event) => update({ date2: event.target.value })}
+              />
             </Field>
             <Field label="Payment terms">
-              <select className={selectClass} value={draft.terms} onChange={(event) => update({ terms: event.target.value })}>
-                {SALES_TERMS.map((term) => <option key={term}>{term}</option>)}
+              <select
+                className={selectClass}
+                value={draft.terms}
+                onChange={(event) => update({ terms: event.target.value })}
+              >
+                {SALES_TERMS.map((term) => (
+                  <option key={term}>{term}</option>
+                ))}
               </select>
             </Field>
             {kind === "order" ? (
               <Field label="Ship from">
-                <select className={selectClass} value={draft.warehouse} onChange={(event) => update({ warehouse: event.target.value })}>
-                  {SALES_WAREHOUSES.map((warehouse) => <option key={warehouse}>{warehouse}</option>)}
+                <select
+                  className={selectClass}
+                  value={draft.warehouse}
+                  onChange={(event) => update({ warehouse: event.target.value })}
+                >
+                  {SALES_WAREHOUSES.map((warehouse) => (
+                    <option key={warehouse}>{warehouse}</option>
+                  ))}
                 </select>
               </Field>
             ) : null}
@@ -307,7 +374,11 @@ export function DocumentEntry({
               onChange={update}
               disabled={Boolean(sourceOrder)}
               amount={totals.total}
-              hint={customer && customer.currency !== docCurrency(draft) ? `${customer.display} prefers ${customer.currency}.` : undefined}
+              hint={
+                customer && customer.currency !== docCurrency(draft)
+                  ? `${customer.display} prefers ${customer.currency}.`
+                  : undefined
+              }
             />
           </div>
         </section>
@@ -316,20 +387,35 @@ export function DocumentEntry({
           <div>
             <span>Customer status</span>
             <strong className={onCreditHold(customer) ? "text-[var(--nx-danger)]" : undefined}>
-              {customer ? (onCreditHold(customer) ? `Credit ${customer.creditStatus.toLowerCase()}` : `${customer.status} · ${customer.taxRegistration}`) : "Select a customer"}
+              {customer
+                ? onCreditHold(customer)
+                  ? `Credit ${customer.creditStatus.toLowerCase()}`
+                  : `${customer.status} · ${customer.taxRegistration}`
+                : "Select a customer"}
             </strong>
           </div>
-          <div><span>Credit limit</span><strong>{customer ? moneyWhole(customer.creditLimit) : "—"}</strong></div>
+          <div>
+            <span>Credit limit</span>
+            <strong>{customer ? moneyWhole(customer.creditLimit) : "—"}</strong>
+          </div>
           <div>
             <span>Available after this</span>
-            <strong className={overLimit ? "text-[var(--nx-danger)]" : undefined}>{customer ? moneyWhole(customer.creditLimit - after) : "—"}</strong>
+            <strong className={overLimit ? "text-[var(--nx-danger)]" : undefined}>
+              {customer ? moneyWhole(customer.creditLimit - after) : "—"}
+            </strong>
           </div>
-          <div><span>Salesperson</span><strong>{draft.owner || customer?.salesperson || nav.actor}</strong></div>
+          <div>
+            <span>Salesperson</span>
+            <strong>{draft.owner || customer?.salesperson || nav.actor}</strong>
+          </div>
         </section>
 
         <EntryTabs<EntryTab>
           label="Document sections"
-          tabs={[["lines", "Products & services"], ["other", "Other information"]]}
+          tabs={[
+            ["lines", "Products & services"],
+            ["other", "Other information"],
+          ]}
           active={tab}
           onChange={setTab}
           errors={errors.lines ? ["lines"] : []}
@@ -349,12 +435,23 @@ export function DocumentEntry({
           ) : (
             <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
               <Field label="Salesperson">
-                <select className={selectClass} value={draft.owner || customer?.salesperson || SALESPEOPLE[0]} onChange={(event) => update({ owner: event.target.value })}>
-                  {SALESPEOPLE.map((person) => <option key={person}>{person}</option>)}
+                <select
+                  className={selectClass}
+                  value={draft.owner || customer?.salesperson || SALESPEOPLE[0]}
+                  onChange={(event) => update({ owner: event.target.value })}
+                >
+                  {SALESPEOPLE.map((person) => (
+                    <option key={person}>{person}</option>
+                  ))}
                 </select>
               </Field>
               <Field label="Notes printed on the document" className="md:col-span-2">
-                <Textarea rows={3} value={draft.notes} placeholder="Delivery terms, site details or anything the customer should see" onChange={(event) => update({ notes: event.target.value })} />
+                <Textarea
+                  rows={3}
+                  value={draft.notes}
+                  placeholder="Delivery terms, site details or anything the customer should see"
+                  onChange={(event) => update({ notes: event.target.value })}
+                />
               </Field>
             </div>
           )}
@@ -366,8 +463,8 @@ export function DocumentEntry({
               ? sourceTemplate
                 ? `Save & Post issues the invoice and marks this customer as billed on ${sourceTemplate.code} for the ${formatDate(sourceTemplate.next)} period. Close without saving to leave it unbilled.`
                 : sourceOrder
-                ? `Saving issues the invoice, links it to ${sourceOrder.code}${draft.links.quotation ? ` and ${draft.links.quotation}` : ""}, and returns to Invoices, where payments are recorded. Close without saving to leave the order uninvoiced.`
-                : "Saving issues the invoice and opens it in the invoice panel, where payments are recorded."
+                  ? `Saving issues the invoice, links it to ${sourceOrder.code}${draft.links.quotation ? ` and ${draft.links.quotation}` : ""}, and returns to Invoices, where payments are recorded. Close without saving to leave the order uninvoiced.`
+                  : "Saving issues the invoice and opens it in the invoice panel, where payments are recorded."
               : kind === "quotation"
                 ? "Saving keeps the quotation as a draft. With an approver, submit it for approval; without one, approve it yourself. Confirm Order is a separate step once it is approved."
                 : "After saving, Confirm Order appears on the sales order."}
@@ -376,13 +473,15 @@ export function DocumentEntry({
             rows={[
               ["Untaxed amount", docAmount(totals.sub)],
               ["Sales tax", docAmount(totals.tax)],
-              ...(docCurrency(draft) !== "PKR" && (draft.fxRate ?? 0) > 0 ? ([["Total in PKR", money(toBase(totals.total, draft))]] as [string, string][]) : []),
+              ...(docCurrency(draft) !== "PKR" && (draft.fxRate ?? 0) > 0
+                ? ([["Total in PKR", money(toBase(totals.total, draft))]] as [string, string][])
+                : []),
             ]}
             total={["Total", docAmount(totals.total)]}
           />
         </footer>
       </Card>
       {dialog}
-    </div>
+    </WorkFormLayout>
   );
 }
