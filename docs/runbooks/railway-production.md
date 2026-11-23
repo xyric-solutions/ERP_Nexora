@@ -56,6 +56,42 @@ The 23 November 2026 release used GitHub `main` at `f1667c2` plus the Railway de
 
 The database upgrade preserved its mounted data directory. The worker passed its dependency check and processed a synthetic job after one retry. The private bucket passed the application adapter's upload, checksum verification, download, and anonymous-access checks. The synthetic storage object was removed, and the test job's execution record was retained as evidence. All five Railway services reported `SUCCESS`. Both private and public readiness returned HTTP 200 with all 13 checks passing. Chrome verification at 1440, 768, and 390 pixels covered dashboard-to-login redirects and password visibility. Also verified were invalid-login and anonymous-company denial, clearing of an invalid session with a Secure, HttpOnly, SameSite=Strict cookie, and rejection of an untrusted origin.
 
-## Tenant onboarding
+## First tenant and administrator
 
-The launch provisions a fresh schema. The existing registration page only validates its form, and the repository's UAT seeders require isolated non-production data. A production tenant and administrator need an approved onboarding path or verified source backup. The credential-email outbox is unconnected in the production runtime and needs an implemented delivery path and verified sender before it can deliver mail.
+The operator command creates one tenant, its first company, its initial fiscal calendar, and the first company-authorized Super Administrator in a single audited transaction. The calendar starts with no posting periods. Use the existing Finance setup flows to configure periods, currencies, and posting controls. The public registration page remains a prototype. Re-running the command with the same tenant profile returns the existing IDs without rotating the password, adding grants, or sending another credential.
+
+Add these variables to the **`api`** service in Railway and apply the changes. Keep credentials in Railway and use a new, unique temporary password if you choose out-of-band delivery.
+
+| Variable                                                              | Value                                                                                                                                                           |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXORA_BOOTSTRAP_ENABLED`                                            | `true` when you are ready to run the operator command. The default is `false`.                                                                                  |
+| `NEXORA_BOOTSTRAP_TENANT_ID`                                          | Unique lowercase slug with 3–64 characters, starting with a letter. Use letters, numbers, and hyphens.                                                          |
+| `NEXORA_BOOTSTRAP_ORGANISATION_NAME`                                  | Legal organization name.                                                                                                                                        |
+| `NEXORA_BOOTSTRAP_ORGANISATION_TYPE`                                  | Existing registration type such as `private_limited`. Defaults to `other`.                                                                                      |
+| `NEXORA_BOOTSTRAP_COUNTRY_CODE`                                       | Uppercase two-letter country code.                                                                                                                              |
+| `NEXORA_BOOTSTRAP_FINANCIAL_YEAR_START_MONTH`                         | Month number from `1` to `12`.                                                                                                                                  |
+| `NEXORA_BOOTSTRAP_ADMIN_FULL_NAME` and `NEXORA_BOOTSTRAP_ADMIN_EMAIL` | Name and verified work address for the first administrator.                                                                                                     |
+| `NEXORA_BOOTSTRAP_ADMIN_USERNAME`                                     | Optional username. Defaults to `admin-<tenant-id>`.                                                                                                             |
+| `NEXORA_BOOTSTRAP_ADMIN_PASSWORD`                                     | Optional temporary password of at least 16 characters for out-of-band delivery. Leave empty to generate and queue a password through the configured email path. |
+
+Use Railway SSH to verify the inputs and then run the operator command. The command uses the existing `DATABASE_MIGRATION_URL` and `AUTH_LOGIN_DIRECTORY_SECRET` and prints identifiers and delivery status only.
+
+```sh
+railway ssh --service api -- node server/api/dist/cli/bootstrap-tenant.js --check
+railway ssh --service api -- node server/api/dist/cli/bootstrap-tenant.js
+```
+
+After completion, set `NEXORA_BOOTSTRAP_ENABLED=false` and clear the temporary password variable. The administrator must change the temporary password before Nexora issues a session.
+
+## Credential email
+
+Credential email is optional for service startup. After approval, the existing governed account creation and password reset transactions enqueue an encrypted email for the current credential version. The worker leases one message at a time, retries transient failures up to five attempts, and clears the encrypted payload on delivery, terminal failure, or expiry. A credential that has been replaced or used is skipped. Existing one-time-password handoff remains available to the approving operator.
+
+| Service          | Variables                                                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `worker`         | Set `CREDENTIAL_EMAIL_ENCRYPTION_KEY` to a dedicated 32-byte base64 key. The API references this same variable. Keep it stable while messages are pending.         |
+| `worker`, Resend | Set `CREDENTIAL_EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, and `RESEND_FROM` for the verified sender.                                                               |
+| `worker`, SMTP   | Set `CREDENTIAL_EMAIL_PROVIDER=smtp`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM`. The default port is `587`. Production requires TLS. |
+| `api`            | Use `CREDENTIAL_EMAIL_ENABLED=true` when the worker has a verified sender and key. `CREDENTIAL_EMAIL_ORIGIN` is the public HTTPS origin.                           |
+
+Resend uses the stable outbox message ID as the provider idempotency key. SMTP has no equivalent guarantee if a server accepts a message immediately before Nexora loses the receipt. Railway supports outbound SMTP on Pro plans and above. [Railway outbound email guidance](https://docs.railway.com/networking/outbound-networking)

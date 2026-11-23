@@ -9,6 +9,7 @@ import { PostgresBankRevaluationReversalRepository } from "./jobs/bank-revaluati
 import { readBankRevaluationReversalConfig } from "./revaluation-config.js";
 import { readRecurringJournalConfig } from "./recurring-journal-config.js";
 import { PostgresRecurringJournalGenerationRepository } from "./jobs/recurring-journal-generation.js";
+import { startCredentialEmailDelivery } from "./email/credential-delivery.js";
 import { createJobRuntime } from "./runtime.js";
 import { createWorkerObjectStorage, readBankStatementCleanupConfig } from "./storage-config.js";
 
@@ -55,14 +56,21 @@ const runtime = createJobRuntime({
     : {}),
 });
 await Promise.all([runtime.schedulerReady, runtime.worker.waitUntilReady()]);
-logger.info({ bankRevaluationReversalsEnabled: revaluations !== null }, "Worker ready");
+const stopCredentialEmailDelivery = startCredentialEmailDelivery(pool, logger);
+logger.info(
+  {
+    bankRevaluationReversalsEnabled: revaluations !== null,
+    credentialEmailConfigured: stopCredentialEmailDelivery !== null,
+  },
+  "Worker ready",
+);
 
 let stopping = false;
 async function shutdown(signal: string) {
   if (stopping) return;
   stopping = true;
   logger.info({ signal }, "worker shutdown started");
-  await runtime.close();
+  await Promise.all([runtime.close(), stopCredentialEmailDelivery?.()]);
   storage.close();
   await Promise.allSettled([redis.quit(), pool.end()]);
 }

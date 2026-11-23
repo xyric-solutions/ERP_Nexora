@@ -4,3 +4,4 @@ export * from "./schema/index.js";
 export * from "./source-migrations.js";
 export * from "./login-directory-backfill.js";
 export * from "./user-company-access-backfill.js";
+export * from "./credential-email.js";

@@ -37,7 +37,7 @@ describe("production PostgreSQL source migrations", () => {
   it("is deterministic and idempotent", async () => {
     await expect(migrateSourceSchema(pool)).resolves.toEqual([]);
     await expect(inspectSourceMigrationState(pool)).resolves.toEqual({
-      platform: 11,
+      platform: 12,
       security: 27,
       workflow: 1,
       master_data: 2,
@@ -49,7 +49,7 @@ describe("production PostgreSQL source migrations", () => {
       fixed_assets: 7,
       budget: 3,
       fleet: 2,
-      runtime: 1,
+      runtime: 2,
     });
   });
 
@@ -91,7 +91,7 @@ describe("production PostgreSQL source migrations", () => {
     try {
       await migrateSourceSchema(fresh);
       await expect(inspectSourceMigrationState(fresh)).resolves.toMatchObject({
-        platform: 11,
+        platform: 12,
         security: 27,
         finance: 41,
         budget: 3,
@@ -352,9 +352,9 @@ describe("production PostgreSQL source migrations", () => {
       { module_name: "inventory", migration_count: "3", latest: 3 },
       { module_name: "manufacturing", migration_count: "4", latest: 4 },
       { module_name: "master_data", migration_count: "2", latest: 2 },
-      { module_name: "platform", migration_count: "11", latest: 11 },
+      { module_name: "platform", migration_count: "12", latest: 12 },
       { module_name: "procurement", migration_count: "7", latest: 7 },
-      { module_name: "runtime", migration_count: "1", latest: 1 },
+      { module_name: "runtime", migration_count: "2", latest: 2 },
       { module_name: "security", migration_count: "27", latest: 27 },
       { module_name: "workflow", migration_count: "1", latest: 1 },
     ]);

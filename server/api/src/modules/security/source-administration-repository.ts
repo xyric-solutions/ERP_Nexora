@@ -30,7 +30,7 @@ import type {
   SecurityUserOptions,
   SecurityUserPage,
 } from "@nexora/contracts";
-import type { DatabasePool } from "@nexora/db";
+import { enqueueCredentialEmail, type CredentialEmailConfig, type DatabasePool } from "@nexora/db";
 import type { PoolClient } from "pg";
 
 import {
@@ -131,6 +131,7 @@ export class SourceSecurityAdministrationRepository {
   constructor(
     private readonly pool: DatabasePool,
     private readonly loginDirectorySecret?: string,
+    private readonly credentialEmail?: CredentialEmailConfig | null,
   ) {}
 
   listSessionPolicies(context: SecurityActorContext): Promise<SecurityPage> {
@@ -3126,6 +3127,14 @@ export class SourceSecurityAdministrationRepository {
         const applied = await this.applyApprovedUserChange(client, context, request, commandId, action.request_id);
         credentialDelivery = applied.oneTimePassword;
       }
+    }
+    if (this.credentialEmail && credentialDelivery && userId) {
+      await enqueueCredentialEmail(client, this.credentialEmail, {
+        tenantId: context.tenantId,
+        userId,
+        template: request.requested_action === "create" ? "account_created" : "password_reset",
+        temporaryPassword: credentialDelivery,
+      });
     }
     await client.query(
       `update security_user_change_request
