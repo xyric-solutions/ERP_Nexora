@@ -116,4 +116,11 @@ describe("Bank Revaluation automatic reversal worker", () => {
       }),
     ).toThrow("between 1 and 100");
   });
+
+  it("allows a deployment to disable reversals without an actor and rejects ambiguous flags", () => {
+    expect(readBankRevaluationReversalConfig({ BANK_REVALUATION_REVERSAL_ENABLED: "false" })).toBeNull();
+    expect(() => readBankRevaluationReversalConfig({ BANK_REVALUATION_REVERSAL_ENABLED: "no" })).toThrow(
+      "BANK_REVALUATION_REVERSAL_ENABLED must be true or false",
+    );
+  });
 });

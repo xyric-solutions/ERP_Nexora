@@ -1,0 +1,61 @@
+# Nexora production on Railway
+
+The `production` environment of [ERP_Nexora](https://railway.com/project/33d799cb-e354-48bb-8cf1-ef7b624a7bcf) uses the US West region. The [public web service](https://web-production-f1e9530f.up.railway.app) serves Next.js and proxies `/api/v1` to the private Express API. Requests and session cookies stay on the same public origin.
+
+| Resource         | Production configuration                                                                                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web`            | Docker `web` target on port 3000, using the public HTTPS origin for `APP_URL` and `NEXT_PUBLIC_API_BASE_URL`. `NEXORA_API_PROXY_ORIGIN` points to `http://api.railway.internal:4000` at build time.                                   |
+| `api`            | Docker `api` target on port 4000. Railway runs the versioned database migrations with `DATABASE_MIGRATION_URL` before starting the API with its restricted `DATABASE_URL`. Railway checks `/api/v1/health/ready` on both API and web. |
+| `worker`         | Docker `worker` target. Startup checks PostgreSQL, Redis, S3, and queue scheduler registration. `BANK_REVALUATION_REVERSAL_ENABLED=false` until a governed actor is assigned.                                                         |
+| `postgres`       | PostgreSQL 18.7, attached volume at `/var/lib/postgresql`, distinct bootstrap, migration, and runtime roles, and daily Railway volume backups.                                                                                        |
+| `Redis`          | Private authenticated Redis on its `/data` volume. The start command enables append-only persistence with `appendfsync everysec` and `noeviction`.                                                                                    |
+| `nexora-private` | Private S3-compatible bucket. The API and worker use Railway bucket references and virtual-hosted URLs.                                                                                                                               |
+
+Production passwords, session and login-directory keys, the banking encryption key, and the storage credentials live in Railway variables. PostgreSQL keeps six days of daily snapshots. Preserve them across deploys and database imports. The PostgreSQL initialization script runs only when the data directory is empty. Run database schema updates through the migration gate. Leave the source migrations applied when rolling back an app image.
+
+## Deploy with the Railway CLI
+
+Railway receives CLI uploads from a reviewed source revision. From the intended release checkout, build and test, then stage only the versioned files needed by the Docker build. The following copies the working-tree version of each tracked file. Run it from a reviewed release checkout with the intended source changes applied.
+
+```sh
+npm run typecheck
+npm run test:unit
+npm run test:contract
+npm run api:check
+npm run build:web
+npm audit --omit=dev
+
+test -d tmp || mkdir tmp
+release_dir=$(mktemp -d "$PWD/tmp/railway-release.XXXXXXXX")
+git ls-files -z -- app server packages public docker package.json package-lock.json \
+  tsconfig.json tsconfig.base.json next-env.d.ts next.config.ts postcss.config.mjs \
+  .dockerignore .gitignore |
+  tar -cf - --null -T - | tar -xf - -C "$release_dir"
+
+railway link --project 33d799cb-e354-48bb-8cf1-ef7b624a7bcf --environment production
+railway status --project 33d799cb-e354-48bb-8cf1-ef7b624a7bcf --environment production
+railway up "$release_dir" --path-as-root --environment production --service api --detach
+railway deployment list --service api --limit 1
+```
+
+After the API succeeds, repeat the upload for `worker` and `web` using the same release directory. The PostgreSQL image has a separate lifecycle and keeps its attached volume during image updates. The Redis image is managed separately. Check the latest deployment for each service and use these smoke checks after rollout.
+
+```sh
+railway logs --service api --deployment --lines 30
+railway logs --service worker --deployment --lines 30
+railway ssh --service worker -- node server/worker/dist/healthcheck.js
+railway postgres pitr schedule list --service postgres
+railway postgres pitr backup list --service postgres
+curl --fail --silent --show-error \
+  https://web-production-f1e9530f.up.railway.app/api/v1/health/ready
+```
+
+## Release verification
+
+The 23 November 2026 release used GitHub `main` at `f1667c2` plus the Railway deployment and dependency updates in this checkout. Local TypeScript checks, the production web build, 1,622 unit tests, 26 API contract tests, the generated client check, and the production dependency audit passed. The four npm runtime advisories were resolved. The Railway API migration reapplied cleanly and found zero changes, with 264 ledger entries across 13 modules.
+
+The database upgrade preserved its mounted data directory. The worker passed its dependency check and processed a synthetic job after one retry. The private bucket passed the application adapter's upload, checksum verification, download, and anonymous-access checks. The synthetic storage object was removed, and the test job's execution record was retained as evidence. All five Railway services reported `SUCCESS`. Both private and public readiness returned HTTP 200 with all 13 checks passing. Chrome verification at 1440, 768, and 390 pixels covered dashboard-to-login redirects and password visibility. Also verified were invalid-login and anonymous-company denial, clearing of an invalid session with a Secure, HttpOnly, SameSite=Strict cookie, and rejection of an untrusted origin.
+
+## Tenant onboarding
+
+The launch provisions a fresh schema. The existing registration page only validates its form, and the repository's UAT seeders require isolated non-production data. A production tenant and administrator need an approved onboarding path or verified source backup. The credential-email outbox is unconnected in the production runtime and needs an implemented delivery path and verified sender before it can deliver mail.

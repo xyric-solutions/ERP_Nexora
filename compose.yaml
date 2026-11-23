@@ -1,7 +1,7 @@
 name: nexora
 services:
   postgres:
-    image: postgres:18.1-alpine
+    image: postgres:18.7-alpine
     environment:
       POSTGRES_DB: postgres
       POSTGRES_USER: nexora_bootstrap

@@ -13,7 +13,12 @@ export type BankRevaluationReversalWorkerConfig = {
 
 export function readBankRevaluationReversalConfig(
   environment: NodeJS.ProcessEnv = process.env,
-): BankRevaluationReversalWorkerConfig {
+): BankRevaluationReversalWorkerConfig | null {
+  const enabled = environment.BANK_REVALUATION_REVERSAL_ENABLED;
+  if (enabled === "false") return null;
+  if (enabled !== undefined && enabled !== "true")
+    throw new Error("BANK_REVALUATION_REVERSAL_ENABLED must be true or false");
+
   const actorId = required(environment, "BANK_REVALUATION_REVERSAL_ACTOR_ID");
   const configuredWorkerId = environment.BANK_REVALUATION_REVERSAL_WORKER_ID?.trim();
   const workerId = configuredWorkerId || `fxr-${process.pid}-${randomUUID()}`;

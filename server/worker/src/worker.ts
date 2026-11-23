@@ -28,8 +28,12 @@ await redis.ping();
 const storage = createWorkerObjectStorage();
 await storage.checkReady();
 const revaluationConfig = readBankRevaluationReversalConfig();
-const revaluationRepository = new PostgresBankRevaluationReversalRepository(pool);
-await revaluationRepository.checkReady(revaluationConfig.actorId, revaluationConfig.tenantLimit);
+let revaluations = null;
+if (revaluationConfig) {
+  const repository = new PostgresBankRevaluationReversalRepository(pool);
+  await repository.checkReady(revaluationConfig.actorId, revaluationConfig.tenantLimit);
+  revaluations = { repository, ...revaluationConfig };
+}
 const recurringJournalConfig = readRecurringJournalConfig();
 const runtime = createJobRuntime({
   connection: redis,
@@ -40,10 +44,7 @@ const runtime = createJobRuntime({
     repository: new PostgresBankStatementCleanupRepository(pool),
     ...readBankStatementCleanupConfig(),
   },
-  revaluations: {
-    repository: revaluationRepository,
-    ...revaluationConfig,
-  },
+  revaluations,
   ...(recurringJournalConfig
     ? {
         recurringJournals: {
@@ -53,7 +54,8 @@ const runtime = createJobRuntime({
       }
     : {}),
 });
-await runtime.schedulerReady;
+await Promise.all([runtime.schedulerReady, runtime.worker.waitUntilReady()]);
+logger.info({ bankRevaluationReversalsEnabled: revaluations !== null }, "Worker ready");
 
 let stopping = false;
 async function shutdown(signal: string) {
