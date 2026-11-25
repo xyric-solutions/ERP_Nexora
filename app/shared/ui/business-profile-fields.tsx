@@ -94,12 +94,11 @@ function TextField({
   );
 }
 
-function Section({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+function Section({ title, children }: { title: string; description: string; children: ReactNode }) {
   return (
     <section className="grid gap-4 rounded-xl border border-border bg-card p-4 sm:p-5">
       <header>
         <h3 className="m-0 text-base font-semibold text-foreground">{title}</h3>
-        <p className="mb-0 mt-1 text-sm text-muted-foreground">{description}</p>
       </header>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
     </section>

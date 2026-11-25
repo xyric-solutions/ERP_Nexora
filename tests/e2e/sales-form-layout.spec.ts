@@ -284,7 +284,11 @@ for (const theme of ["light", "dark"] as const) {
       const quotation = page.getByRole("form", { name: "Quotation form", exact: true });
       await expect(quotation.getByRole("button", { name: "Save", exact: true })).toBeVisible();
       const approver = quotation.getByRole("combobox", { name: "Approver (optional)", exact: true });
+      await expect(quotation).not.toContainText("Choose another reviewer");
+      await expect(quotation).not.toContainText("Save the draft, then review");
+      await expect(quotation).not.toContainText("Choose the actual customer");
       await expect(approver).toContainText("Creator approval (no reviewer)");
+      await quotation.screenshot({ path: testInfo.outputPath("quotation-compact.png") });
       await approver.click();
       await expect(page.getByRole("option", { name: /Sales Maker/ })).toHaveCount(0);
       await page.getByRole("option", { name: /Independent Reviewer/ }).click();

@@ -273,7 +273,7 @@ export function BankingTransactionForm({
             />
           </Field>
           {!type.isMasterData ? (
-            <Field label="Value date" htmlFor="txn-value-date" helper="Date the funds actually clear the account.">
+            <Field label="Value date" htmlFor="txn-value-date">
               <Input
                 id="txn-value-date"
                 type="date"
@@ -318,7 +318,6 @@ export function BankingTransactionForm({
           <FormSection
             eyebrow="Account"
             title="Bank account record"
-            description="Details used on payments, statements and reconciliation."
           >
             <Field label="Account name" htmlFor="ba-name" required error={errorFor("accountName")}>
               <Input
@@ -511,7 +510,6 @@ export function BankingTransactionForm({
                   htmlFor="txn-cheque-date"
                   required
                   error={errorFor("chequeDate")}
-                  helper="A future date marks the cheque as post dated."
                 >
                   <Input
                     id="txn-cheque-date"
@@ -571,13 +569,13 @@ export function BankingTransactionForm({
             </Field>
           ) : null}
           {type.needsRevaluation ? (
-            <Field label="Closing rate" htmlFor="txn-reval-rate" required error={errorFor("revaluedRate")} helper="Rate used to restate the balance at period end.">
+            <Field label="Closing rate" htmlFor="txn-reval-rate" required error={errorFor("revaluedRate")}>
               <AmountInput id="txn-reval-rate" decimals={6} value={draft.revaluedRate} onValueChange={(raw) => set("revaluedRate", raw)} placeholder="e.g. 1.0925" />
             </Field>
           ) : null}
           {type.allowsBankCharge ? (
             <>
-              <Field label="Bank charge (optional)" htmlFor="txn-charge" helper="Adds a separate expense line to the same entry.">
+              <Field label="Bank charge (optional)" htmlFor="txn-charge">
                 <AmountInput id="txn-charge" value={draft.bankChargeAmount} onValueChange={(raw) => set("bankChargeAmount", raw)} placeholder="0.00" />
               </Field>
               <div className="grid min-w-0 content-start gap-1.5">
@@ -597,7 +595,6 @@ export function BankingTransactionForm({
         <FormSection
           eyebrow="Accounting"
           title="Nominal posting"
-          description="Selected from the existing Chart of Accounts. The resulting debit and credit are shown in the accounting effect panel."
         >
           {type.needsCounterBank ? (
             <div className="col-span-full grid min-w-0 content-start gap-1.5">
@@ -654,7 +651,6 @@ export function BankingTransactionForm({
           <Field
             label="Description"
             htmlFor="txn-description"
-            helper="Appears on the journal line and the bank statement match."
           >
             <Input
               id="txn-description"

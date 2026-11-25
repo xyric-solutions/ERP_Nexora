@@ -73,6 +73,8 @@ async function lookup(value = "", onChange = vi.fn()) {
 }
 it("offers explicit creator approval and excludes self even from an outdated API response", async () => {
   await lookup();
+  expect(container.textContent).not.toContain("Choose another reviewer");
+  expect(container.querySelector("p")).toBeNull();
   const options = harness.selects.get("Approver")!.options;
   expect(options).toContainEqual({ value: "", label: "Creator approval (no reviewer)" });
   expect(options.some((option) => option.value === "maker")).toBe(false);

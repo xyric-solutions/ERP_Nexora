@@ -83,7 +83,6 @@ export function MaintenanceForm({
   return (
     <FleetFormShell
       title="Add Maintenance"
-      description="Record the maintenance or repair carried out on a vehicle."
       status={form.dirty ? "Unsaved changes" : "New"}
       error={form.error}
       loading={false}
@@ -188,7 +187,7 @@ export function MaintenanceForm({
               }}
             />
           </LabeledField>
-          <LabeledField label="Vendor invoice no." hint="The vendor bill is created from this later.">
+          <LabeledField label="Vendor invoice no.">
             <Input
               maxLength={80}
               value={form.input.supplier_invoice_ref ?? ""}

@@ -344,7 +344,7 @@ export function EntryActionBar({
 }: {
   saveLabel: string;
   lifecycle: readonly string[];
-  state: string;
+  state?: string;
   error?: string;
   onSave?: () => void;
   onDiscard: () => void;
@@ -379,15 +379,17 @@ export function EntryActionBar({
           </li>
         ))}
       </ol>
-      <span
-        className={cn(
-          "min-w-0 break-words text-xs",
-          error ? "font-semibold text-destructive" : "text-muted-foreground",
-        )}
-        role={error ? "alert" : undefined}
-      >
-        {error || state}
-      </span>
+      {error || state ? (
+        <span
+          className={cn(
+            "min-w-0 break-words text-xs",
+            error ? "font-semibold text-destructive" : "text-muted-foreground",
+          )}
+          role={error ? "alert" : undefined}
+        >
+          {error || state}
+        </span>
+      ) : null}
     </section>
   );
 }

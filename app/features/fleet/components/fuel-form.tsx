@@ -98,7 +98,6 @@ export function FuelForm({
   return (
     <FleetFormShell
       title="Add Fuel Entry"
-      description="Enter the odometer reading and litres added. The fuel average is calculated for you."
       status={form.dirty ? "Unsaved changes" : "New"}
       error={form.error || vehicleError}
       loading={false}
@@ -150,7 +149,7 @@ export function FuelForm({
             onChange={(e) => set("entry_date", e.target.value)}
           />
         </LabeledField>
-        <LabeledField label="Previous reading (km)" hint="Last fuel entry, or the opening odometer.">
+        <LabeledField label="Previous reading (km)">
           <Input readOnly value={previous ? formatNumber(previous) : "Choose a vehicle"} />
         </LabeledField>
         <LabeledField label="Current odometer (km) *">
@@ -173,7 +172,7 @@ export function FuelForm({
         <LabeledField label="Fuel average (km/L)">
           <Input readOnly value={average ?? "—"} />
         </LabeledField>
-        <LabeledField label="Driver" hint="Defaults to the vehicle's current driver.">
+        <LabeledField label="Driver">
           <FleetLookup
             company={company}
             kind="driver"
@@ -187,7 +186,7 @@ export function FuelForm({
             }}
           />
         </LabeledField>
-        <LabeledField label="Vendor" hint="Only when fuel is bought from a vendor on credit or invoice.">
+        <LabeledField label="Vendor">
           <FleetLookup
             company={company}
             kind="supplier"
@@ -202,7 +201,7 @@ export function FuelForm({
           />
         </LabeledField>
         {form.input.supplier_id ? (
-          <LabeledField label="Vendor invoice no." hint="The vendor bill is created from this later.">
+          <LabeledField label="Vendor invoice no.">
             <Input
               maxLength={80}
               value={form.input.supplier_invoice_ref ?? ""}

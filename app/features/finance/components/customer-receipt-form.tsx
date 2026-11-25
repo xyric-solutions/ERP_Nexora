@@ -383,10 +383,6 @@ export function CustomerReceiptForm(props: Props) {
             Save credit offset draft
           </Button>
         </details>
-        <p className="text-xs text-muted-foreground">
-          Save a draft to review calculated amounts and submit for independent approval. Amounts cleared are entered in
-          the original invoice currency. Showing up to 50 open items.
-        </p>
         <footer className="mt-1 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 print:hidden">
           <Button
             type="button"

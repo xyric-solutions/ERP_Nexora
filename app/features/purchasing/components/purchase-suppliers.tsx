@@ -233,7 +233,6 @@ export function PurchaseSuppliers({
             action={editing ? "Edit supplier" : "New supplier"}
             category={input.profile.entity_type === "company" ? "Company" : "Individual"}
             title={input.name || "Create a supplier"}
-            description="A complete supplier profile, from first contact to payment details."
             codeLabel="Supplier code"
             code={editing?.code ?? "SUP-…"}
           />
@@ -248,7 +247,7 @@ export function PurchaseSuppliers({
               currencies={currencies}
             />
           </fieldset>
-          <ProfileFormFooter message={dirty ? "Unsaved changes" : "Fields marked * are required."}>
+          <ProfileFormFooter message={dirty ? "Unsaved changes" : undefined}>
             <Button
               type="button"
               variant="outline"

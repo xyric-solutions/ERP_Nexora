@@ -114,11 +114,6 @@ export function PersistentSalesLookup({
           ) : undefined
         }
       />
-      {kind === "approver" ? (
-        <p className="m-0 text-xs text-muted-foreground">
-          Choose another reviewer, or use creator approval. Save creates a draft; approval is a separate action.
-        </p>
-      ) : null}
       {data?.error ? (
         <p role="alert" className="m-0 text-xs text-destructive">
           {data.error}

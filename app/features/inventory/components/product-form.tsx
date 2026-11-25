@@ -714,9 +714,6 @@ export function ProductForm({
                   );
                 })}
               </FormSection>
-              <p className="text-sm text-muted-foreground">
-                Optional product defaults. Saving a product does not post a journal.
-              </p>
             </fieldset>
           </TabsContent>
         </Tabs>

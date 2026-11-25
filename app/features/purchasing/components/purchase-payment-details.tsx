@@ -339,12 +339,6 @@ export function PurchasePaymentDetailsForm({
               ) : null}
             </div>
           )}
-          {savedValue ? (
-            <p className="m-0 text-xs text-muted-foreground">
-              Enter the applicable WHT percentage of the gross amount. WHT rounds to two decimals; additional WHT is
-              deducted separately.
-            </p>
-          ) : null}
           {value.fx_snapshot ? (
             <div role="group" className="grid gap-1 text-sm tabular-nums" aria-label="Accounting currency conversion">
               <p className="m-0 text-muted-foreground">
@@ -355,11 +349,7 @@ export function PurchasePaymentDetailsForm({
                 Net bank amount in base currency: {value.fx_snapshot.base_currency} {value.fx_snapshot.net_base}
               </p>
             </div>
-          ) : (
-            <p className="m-0 text-xs text-muted-foreground">
-              Save the instruction to retrieve its Accounting exchange rate and base-currency amounts.
-            </p>
-          )}
+          ) : null}
         </fieldset>
       </div>
     </section></WorkFormLayout>

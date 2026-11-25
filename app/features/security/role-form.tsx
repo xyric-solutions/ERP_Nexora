@@ -144,7 +144,6 @@ export default function RoleForm({
     >
       <header>
         <h3 className="text-xl font-semibold text-foreground">{initial ? "Edit draft permissions" : "Add role"}</h3>
-        <p className="mt-1 text-sm text-muted-foreground">Save a draft, then submit it for independent approval.</p>
       </header>
       <div className="mt-5 grid gap-4 md:grid-cols-3">
         <Label className="grid gap-2 text-sm text-muted-foreground">

@@ -955,9 +955,6 @@ function RowsBatch({
               }));
             }}
           />
-          <p className="m-0 text-xs text-muted-foreground sm:col-span-2">
-            Applies to every line. Use a separate batch for another project or location.
-          </p>
         </div>
         <div className="relative overflow-x-auto">
           <table className={cn(tableClass, "min-w-215 [&_td]:px-1.5 [&_td]:py-1.5 [&_th]:px-1.5")}>

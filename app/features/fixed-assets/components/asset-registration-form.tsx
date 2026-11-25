@@ -155,10 +155,7 @@ export function AssetRegistrationForm({
       className="space-y-4"
     >
       <fieldset disabled={busy || uploadBusy} className="min-w-0 space-y-4">
-        <Section
-          title="Acquisition source"
-          description="Register the asset against an existing posted acquisition. Registration creates no acquisition journal."
-        >
+        <Section title="Acquisition source">
           <Field label="Posted Purchase invoice or Bank Payment">
             <select
               className="h-9 min-w-0 rounded-md border border-input bg-card px-2 text-sm"
@@ -256,10 +253,7 @@ export function AssetRegistrationForm({
             />
           )}
         </Section>
-        <Section
-          title="Individual assets"
-          description="Each unit receives its own permanent asset code and assignment history."
-        >
+        <Section title="Individual assets">
           <Field label="Number of units">
             <Input
               type="number"

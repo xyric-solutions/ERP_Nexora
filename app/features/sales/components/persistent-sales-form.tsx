@@ -227,17 +227,11 @@ export function PersistentSalesForm({
       <PageHead
         eyebrow="Sales · Entry"
         title={`${existing ? "Edit" : "New"} ${salesLabels[kind].single.toLowerCase()}`}
-        description={
-          draft.source_id
-            ? `From ${draft.reference}. Review the source quantities and values before saving.`
-            : "Choose the actual customer, products and company context."
-        }
       />
       <fieldset disabled={busy} className="m-0 grid min-w-0 gap-3 border-0 p-0">
         <EntryActionBar
           saveLabel={busy ? "Saving…" : "Save"}
           lifecycle={["Draft", "Commercial confirmation", "Accounting review", "Posted"]}
-          state="Save the draft, then review its calculated totals and next action."
           error={error}
           submit
           onDiscard={() => guard(onCancel)}
@@ -579,7 +573,7 @@ export function PersistentSalesForm({
             </div>
           ) : (
             <div className="grid gap-4 p-4 sm:grid-cols-2 sm:p-5">
-              <Field label="Untaxed treatment reason" hint="Required for any line without a governed tax.">
+              <Field label="Untaxed treatment reason">
                 <Textarea
                   aria-label="Untaxed treatment reason"
                   value={draft.no_tax_reason}

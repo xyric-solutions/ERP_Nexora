@@ -93,7 +93,7 @@ export function DriverForm({
             ]
               .filter(Boolean)
               .join(" · ")
-          : "Choose the HR employee who will drive, then add their licence details."
+          : undefined
       }
       status={form.dirty ? "Unsaved changes" : record ? (record.status === "active" ? "Active" : "Inactive") : "New"}
       error={form.error}
@@ -104,7 +104,6 @@ export function DriverForm({
       canSave={writable && (form.dirty || !record)}
       saveLabel="Save Driver"
       saving={form.saving}
-      hint="Assign the driver to a vehicle from the vehicle record."
       onSubmit={() => void form.save()}
       onClose={() => form.confirmDiscard() && (onDirtyChange?.(false), onClose())}
       onRetry={form.reload}
@@ -138,7 +137,7 @@ export function DriverForm({
             onChange={(e) => set("licence_number", e.target.value)}
           />
         </LabeledField>
-        <LabeledField label="Licence class *" hint="For example LTV or HTV.">
+        <LabeledField label="Licence class *">
           <Input
             maxLength={40}
             value={form.input.licence_class}

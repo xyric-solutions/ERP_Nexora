@@ -155,7 +155,6 @@ export function CustomerList({ nav, selected }: { nav: SalesNav; selected?: stri
         eyebrow="Customers"
         title="Customers"
         status={<StatusPill status="Prototype only" />}
-        description="Customer profiles, contacts, payment terms and account information."
         actions={
           <>
             <Button type="button" onClick={() => nav.openNew("customers")}>
@@ -251,7 +250,6 @@ function NewCustomerEditor({
       <ProfileFormHeader
         action="New Customer"
         title={editor.draft.display.trim() || editor.draft.name.trim() || "Create a customer"}
-        description="Only the Overview is required. Contact, address, tax, payment, bank and notes sections are optional and can be completed later."
         codeLabel="Customer code"
         code={editor.draft.code}
       />
@@ -278,7 +276,7 @@ function NewCustomerEditor({
           Review the highlighted fields before saving.
         </p>
       ) : null}
-      <ProfileFormFooter message={editor.dirty ? "Unsaved changes" : "Fields marked * are required."}>
+      <ProfileFormFooter message={editor.dirty ? "Unsaved changes" : undefined}>
         <Button type="button" variant="outline" onClick={close}>
           Cancel
         </Button>

@@ -175,10 +175,7 @@ export function AssetLifecycleForm({
       className="space-y-4"
     >
       <fieldset disabled={busy} className="min-w-0 space-y-4">
-        <Section
-          title={`Prepare ${lifecycleLabels[type].toLowerCase()}`}
-          description="Save a draft, review the calculated effect, then submit for independent approval. Posting is a separate action."
-        >
+        <Section title={`Prepare ${lifecycleLabels[type].toLowerCase()}`}>
           <Field label="Asset">
             <Select
               required

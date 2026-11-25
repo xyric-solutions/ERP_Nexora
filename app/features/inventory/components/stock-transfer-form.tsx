@@ -138,7 +138,6 @@ export function StockTransferForm({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="m-0 text-lg font-semibold">{form.record?.code ?? "New stock transfer"}</h2>
-          <p className="m-0 mt-0.5 text-sm text-muted-foreground">Prepare a movement between warehouses.</p>
         </div>
         <Badge variant="outline">{form.dirty ? "Unsaved draft" : "Draft"}</Badge>
       </header>

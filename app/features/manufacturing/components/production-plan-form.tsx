@@ -144,9 +144,6 @@ export function ProductionPlanForm({
           <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">
             {form.record?.code ?? "New Production Planning"}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Choose the finished product and how many units to produce.
-          </p>
         </div>
         <Badge variant={converted ? "secondary" : "outline"}>
           {form.dirty ? "Unsaved changes" : form.record ? planStateLabels[form.record.state] : "New"}
@@ -178,7 +175,7 @@ export function ProductionPlanForm({
         className="m-0 min-w-0 space-y-5 rounded-xl border border-border bg-card p-4 sm:p-5"
       >
         <div className="grid min-w-0 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <LabeledField label="Finished product *" hint="Products marked for manufacture in Inventory.">
+          <LabeledField label="Finished product *">
             <ManufacturingLookup
               company={company}
               surface="plans"

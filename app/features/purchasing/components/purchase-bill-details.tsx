@@ -172,9 +172,6 @@ export function PurchaseBillDetailsForm({
                 </select>
               </Field>
             </div>
-            <p className="m-0 text-xs text-muted-foreground">
-              Payment terms use the bill date. Choose Specific due date to enter a date directly.
-            </p>
             {schedule.length > 1 ? (
               <div
                 className="grid gap-2 rounded-lg bg-accent px-3 py-2 text-sm"

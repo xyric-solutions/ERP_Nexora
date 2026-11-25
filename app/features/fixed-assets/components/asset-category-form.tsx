@@ -116,10 +116,7 @@ export function AssetCategoryForm({
             />
           </Field>
         )}
-        <Section
-          title={category ? `Edit ${category.code}` : "Add asset category"}
-          description="Policies are configured by the company. Registered assets retain their approved policy snapshot."
-        >
+        <Section title={category ? `Edit ${category.code}` : "Add asset category"}>
           <Field label="Asset numbering prefix">
             <Input
               required

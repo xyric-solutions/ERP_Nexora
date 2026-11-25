@@ -26,7 +26,7 @@ export function FleetFormShell({
   children,
 }: {
   title: string;
-  description: string;
+  description?: string;
   status: string;
   error: string;
   loading: boolean;
@@ -80,7 +80,7 @@ export function FleetFormShell({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="m-0 text-[1.625rem] font-semibold tracking-tight">{title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          {description ? <p className="m-0 mt-1 text-sm text-muted-foreground">{description}</p> : null}
         </div>
         <Badge variant="outline">{status}</Badge>
       </header>
@@ -95,8 +95,8 @@ export function FleetFormShell({
       >
         {children}
       </fieldset>
-      <footer className="sticky bottom-3 z-20 flex flex-wrap items-center justify-between gap-3 rounded-[10px] border border-border bg-card p-4 shadow-sm">
-        <div className="max-w-xl text-sm text-muted-foreground">{hint}</div>
+      <footer className="sticky bottom-3 z-20 flex flex-wrap items-center justify-end gap-3 rounded-[10px] border border-border bg-card p-4 shadow-sm">
+        {hint ? <div className="mr-auto max-w-xl text-sm text-muted-foreground">{hint}</div> : null}
         <div className="flex flex-wrap gap-2">
           {actions}
           <Button type="button" variant="outline" disabled={busy} onClick={onClose}>

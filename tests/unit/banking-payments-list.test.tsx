@@ -8,6 +8,7 @@ import { ApiError } from "../../app/lib/api/generated.js";
 import { BankingPayments } from "../../app/features/banking/views/banking-payments.js";
 
 const state = vi.hoisted(() => ({
+  connectedReport: vi.fn(() => null),
   loading: false,
   session: {
     tenant_id: "tenant-1",
@@ -30,6 +31,10 @@ const state = vi.hoisted(() => ({
 
 vi.mock("../../app/lib/session/session-provider", () => ({
   useSession: () => ({ api: state.api, session: state.session, loading: state.loading }),
+}));
+
+vi.mock("../../app/features/reports/views/connected-report", () => ({
+  ConnectedReportView: state.connectedReport,
 }));
 
 const payment = {
@@ -90,14 +95,6 @@ function control<T extends HTMLInputElement | HTMLSelectElement>(label: string):
   const result = field?.control ?? field?.querySelector("input, select");
   if (!result) throw new Error(`Missing control: ${label}`);
   return result as T;
-}
-
-async function change(element: HTMLInputElement | HTMLSelectElement, value: string) {
-  await act(async () => {
-    const descriptor = Object.getOwnPropertyDescriptor(element.constructor.prototype, "value");
-    descriptor?.set?.call(element, value);
-    element.dispatchEvent(new Event("change", { bubbles: true }));
-  });
 }
 
 async function click(label: string) {
@@ -163,6 +160,14 @@ describe("BankingPayments", () => {
     expect(onOpenPayment).not.toHaveBeenCalledWith("BP-2026-0001");
     await click("Add bank payment");
     expect(onCreatePayment).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps Purchase-owned payments off the Bank Payments work page", async () => {
+    await render();
+
+    expect(container.textContent).toContain("BP-2026-0001");
+    expect(state.connectedReport).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("Purchase-owned outgoing payments");
   });
 
   it("sends every directory filter, sort and cursor to the server", async () => {

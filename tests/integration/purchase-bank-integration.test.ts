@@ -281,8 +281,16 @@ run("Purchase-owned AP / Bank integration", () => {
   }
   it.each(["0", "10"])("posts one USD credit and AP relief with %s percent governed withholding", async (wht) => {
     const bill = await supplierBill();
+    const bankClosing = async () => {
+      const balances = await report("bank-balance-report");
+      const bank = balances.rows.find((row) => row.source_id === f.banks.USD);
+      expect(bank).toBeDefined();
+      return decimal(bank!.values.closing, 8, true);
+    };
+    const before = await bankClosing();
     const source = await payment([bill], { wht });
     const draft = await prepare(source, wht === "10" ? { tax_definition_id: tax } : {});
+    expect(await bankClosing()).toBe(before);
     expect((await prepare(source)).id).toBe(draft.id);
     const posted = await post(draft);
     const bankLines = (
@@ -293,6 +301,7 @@ run("Purchase-owned AP / Bank integration", () => {
     ).rows;
     expect(bankLines).toHaveLength(1);
     expect(bankLines[0].credit).toBe(wht === "10" ? "9.00000000" : "10.00000000");
+    expect(await bankClosing()).toBe(before - decimal(bankLines[0].credit, 8));
     const read = await procurement.get(maker, f.company, bill.bill.id);
     expect(decimal(read.outstanding_amount!, 8)).toBe(0n);
     expect(read.reserved_amount).toBe("0.00");

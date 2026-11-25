@@ -472,10 +472,6 @@ export function CustomerSectionBody({
         {choice("salesperson", "Salesperson", SALESPEOPLE, true, "Select salesperson")}
         {text("industry", "Industry", { placeholder: "Optional" })}
         {!inPanel ? choice("status", "Status", ["Active", "Inactive"]) : null}
-        <p className="col-span-full m-0 text-xs text-muted-foreground">
-          Fields marked <b className="text-[var(--nx-danger)]">*</b> are required. All other sections are optional and
-          can be completed later.
-        </p>
         {footer}
       </>
     );

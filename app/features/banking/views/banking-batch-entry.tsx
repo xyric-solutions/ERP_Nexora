@@ -184,7 +184,6 @@ export function BankingBatchEntry({
         <div>
           <span>{kind === "payment" ? "Money out" : "Money in"} · Batch entry</span>
           <h1>{settings.title}</h1>
-          <p>Enter multiple lines against one bank account, review the accounting effect, then route the batch for approval.</p>
         </div>
         <span className="nx-status nx-status-draft">Draft</span>
       </header>
@@ -239,7 +238,6 @@ export function BankingBatchEntry({
         <div>
           <span>Transaction lines</span>
           <h2>{kind === "payment" ? "Payment details" : "Receipt details"}</h2>
-          <p>Enter each allocation as a separate line. Required fields are marked and the journal updates below.</p>
         </div>
         <div>
           <strong>{lines.length}</strong>

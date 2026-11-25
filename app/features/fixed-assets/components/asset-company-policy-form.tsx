@@ -65,10 +65,7 @@ export function AssetCompanyPolicyForm({
       }}
     >
       <fieldset disabled={busy} className="flex min-w-0 flex-col gap-4">
-        <Section
-          title="Company Asset Policy"
-          description="New registrations inherit these settings when configured. Existing approved assets retain their policy snapshots. Daily accrual is reported separately from posted GL balances."
-        >
+        <Section title="Company Asset Policy">
           <Field label="Default method">
             <Select
               required
@@ -194,10 +191,7 @@ export function AssetNominalClassificationForm({
         }
       }}
     >
-      <Section
-        title="Chart of Accounts · Fixed Asset classification"
-        description="Classify any eligible asset nominal. Bank, AP/AR and tax controls cannot be used as fixed asset acquisition accounts."
-      >
+      <Section title="Chart of Accounts · Fixed Asset classification">
         <Field label="Asset nominal">
           <Select
             required

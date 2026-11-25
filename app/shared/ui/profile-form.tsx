@@ -6,7 +6,6 @@ import { LabeledField } from "./labeled-field";
 export function ProfileFormHeader({
   action,
   title,
-  description,
   codeLabel,
   code,
   category,
@@ -26,19 +25,18 @@ export function ProfileFormHeader({
           {category ? <Badge variant="outline">{category}</Badge> : null}
         </div>
         <h2 className="m-0 break-words text-xl font-semibold">{title}</h2>
-        {description ? <p className="m-0 text-sm text-muted-foreground">{description}</p> : null}
       </div>
-      <LabeledField label={codeLabel} hint="Generated automatically on save.">
+      <LabeledField label={codeLabel}>
         <Input className="w-full max-w-xs font-mono" readOnly value={code} />
       </LabeledField>
     </header>
   );
 }
 
-export function ProfileFormFooter({ message, children }: { message: ReactNode; children: ReactNode }) {
+export function ProfileFormFooter({ message, children }: { message?: ReactNode; children: ReactNode }) {
   return (
-    <footer className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
-      <p className="m-0 text-xs text-muted-foreground">{message}</p>
+    <footer className="flex flex-wrap items-center justify-end gap-3 rounded-xl border border-border bg-card p-4">
+      {message ? <p className="m-0 mr-auto text-xs text-muted-foreground">{message}</p> : null}
       <div className="flex flex-wrap gap-2">{children}</div>
     </footer>
   );

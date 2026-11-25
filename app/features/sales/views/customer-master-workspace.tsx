@@ -318,7 +318,6 @@ function CustomerEditor({
           action={record ? "Edit customer" : "New customer"}
           category={input.profile.entity_type === "company" ? "Company" : "Individual"}
           title={input.name.trim() || "Create a customer"}
-          description="A complete customer profile, from first contact to payment details."
           codeLabel="Customer code"
           code={record?.code ?? "CUS-…"}
         />
@@ -362,7 +361,7 @@ function CustomerEditor({
             }
           />
         </fieldset>
-        <ProfileFormFooter message={dirty ? "Unsaved changes" : "Fields marked * are required."}>
+        <ProfileFormFooter message={dirty ? "Unsaved changes" : undefined}>
           <Button
             type="button"
             variant="outline"

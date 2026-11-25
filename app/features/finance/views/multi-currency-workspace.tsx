@@ -1208,12 +1208,6 @@ function CompanyCurrencyWorkspace({
                             ))}
                         </select>
                       </Field>
-                      {taxDefinition && (
-                        <p className="text-sm text-muted-foreground md:col-span-2">
-                          Enter the taxable amount before tax. The server calculates the tax, nominal posting and
-                          resulting document balance.
-                        </p>
-                      )}
                     </>
                   )}
                   {!taxDefinition && !sourceGovernedTax && (
@@ -1509,10 +1503,6 @@ function CompanyCurrencyWorkspace({
                     )}
                   </>
                 )}
-                <p className="col-span-full text-sm text-muted-foreground">
-                  Enter amounts cleared in each invoice’s own currency below. The payment must agree with those
-                  allocations at the company’s effective cross-currency rates. FX and bank fees are posted separately.
-                </p>
                 <div className="col-span-full flex flex-wrap gap-2">
                   <Button type="submit" disabled={busy || !canManage || !partyId || !selectedBank}>
                     Save settlement draft
@@ -1793,10 +1783,7 @@ function CompanyCurrencyWorkspace({
                         maxLength={200}
                       />
                     </LabeledField>
-                    <LabeledField
-                      label="Default currency *"
-                      hint="Used for new documents. The customer can transact in any active company currency."
-                    >
+                    <LabeledField label="Default currency *">
                       <select
                         className={workSelectClass}
                         value={customerCurrencyValue}
@@ -1808,7 +1795,7 @@ function CompanyCurrencyWorkspace({
                     </LabeledField>
                   </fieldset>
                 </section>
-                <ProfileFormFooter message={customerDirty ? "Unsaved changes" : "Fields marked * are required."}>
+                <ProfileFormFooter message={customerDirty ? "Unsaved changes" : undefined}>
                   <Button
                     type="button"
                     variant="outline"
@@ -1869,10 +1856,6 @@ function CompanyCurrencyWorkspace({
                       readOnly={side === "payable" && !!sourceSupplier}
                     />
                   </Field>
-                  <p className="text-sm text-muted-foreground">
-                    The original currency above becomes the default for new documents. This party can transact in every
-                    active company currency.
-                  </p>
                   {side === "payable" && (
                     <>
                       <Field label="Find existing supplier">

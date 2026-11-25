@@ -216,11 +216,7 @@ export function TaxDefinitionForm({
                     onChange={(e) => setBaseRate(e.target.value)}
                   />
                 </LabeledField>
-                <LabeledField
-                  className="grid gap-1.5 text-sm"
-                  label="Additional Tax Rate (%)"
-                  hint="Added to the base rate on the same taxable amount; not compounded."
-                >
+                <LabeledField className="grid gap-1.5 text-sm" label="Additional Tax Rate (%)">
                   <Input
                     required
                     inputMode="decimal"

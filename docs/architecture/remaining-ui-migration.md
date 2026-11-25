@@ -9364,3 +9364,46 @@ Remaining / resume point:
   write/check; staged diff whitespace check. Responsive browser evidence remains
   under `tmp/sales-approver-fix/browser/` and the receipt workflow evidence paths
   recorded above.
+
+## 2026-11-25 - Purchase payment visibility
+
+- Removed the embedded Purchase-owned outgoing payments report and its unused
+  import from `banking-payments.tsx`. Purchase documents stay in the Purchase
+  Payments workflow; direct Bank Payments retain their list, filters and actions.
+- Left posting, journal history, Bank balance reports, reconciliation and reversal
+  logic unchanged. Added exact balance assertions for Purchase payments with and
+  without withholding: drafts do not affect cash, posting reduces Bank closing
+  balance by the net credit, and no duplicate Bank Payment voucher is created.
+- Verified five Bank Payments unit tests, fourteen Purchase/Bank database
+  integration tests, targeted ESLint, `npm.cmd run build:web`, theme audit
+  write/check and `git diff --check`. No stylesheets changed or retired.
+- Production browser smoke checks passed in light/dark at 390, 768 and 1440px,
+  using mocked directory/session responses. The direct Bank payment is visible
+  and no Purchase report is mounted or requested. Evidence:
+  `tmp/purchase-payment-visibility/{light,dark}-{390,768,1440}.png`.
+- No API contract, database migration or new financial posting behavior is needed.
+
+## 2026-11-25 - Compact form guidance cleanup
+
+- Removed the Sales reviewer/save instructions, routine header descriptions,
+  static field instructions and repeated footer guidance across Banking, Finance,
+  Sales, Purchasing, Fleet, Fixed Assets, Inventory, Manufacturing, Master Data
+  and role forms. Shared profile headers/sections no longer render descriptions;
+  WorkspaceHeader omits descriptions inside WorkForm/WorkFormLayout only.
+- Omitted vacant message/footer/helper containers, retaining labels, codes,
+  actions, required markers, validation, lifecycle states, calculations, units,
+  record summaries, empty states and unavailable/prototype feature notices.
+  No business logic or posting/approval guards changed; no stylesheets retired.
+- Verification passed: `npm.cmd run typecheck`, `npm.cmd run build:web`,
+  `npm.cmd run test:unit -- --maxWorkers=4 --reporter=dot` (211 files, 1,671 tests),
+  six Sales form/customer/receipt browser workflows at 390/768/1440 in light/dark,
+  theme audit write/check and `git diff --check`. Regression tests cover absent
+  helper rows, preserved errors/actions and read-only codes.
+- ESLint passed for other changed files. Five label-association errors in
+  banking-batch-entry.tsx and master-data-form.tsx reproduce on their committed
+  versions; these legacy findings remain. Files with a clean formatting baseline
+  were formatted; legacy dense source was preserved to avoid unrelated churn.
+- The scoped design detector reports the pre-existing Sales callout border only;
+  report: `tmp/form-guidance-cleanup/design-detector.json`. Browser evidence:
+  `tmp/form-guidance-cleanup/browser/`, including quotation-compact.png at each
+  size/theme. Preserve the previous Purchase payment ownership fix on resume.

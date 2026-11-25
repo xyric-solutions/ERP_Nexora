@@ -104,11 +104,7 @@ export function VehicleForm({
     <>
       <FleetFormShell
         title={record ? `${record.registration_no}` : "Add Vehicle"}
-        description={
-          record
-            ? `${record.code} · ${record.make_model}`
-            : "Bring a vehicle into Fleet when it goes into operation, then assign its driver."
-        }
+        description={record ? `${record.code} · ${record.make_model}` : undefined}
         status={form.dirty ? "Unsaved changes" : record ? vehicleStatusLabels[record.status] : "New"}
         error={form.error}
         loading={form.loading}
@@ -121,7 +117,7 @@ export function VehicleForm({
         hint={
           record
             ? `Odometer ${formatNumber(record.current_odometer)} km${record.average_km_per_litre ? ` · average ${record.average_km_per_litre} km/L` : ""}`
-            : "Save the vehicle to record its tools, fuel and maintenance."
+            : undefined
         }
         actions={
           record ? (
@@ -158,7 +154,7 @@ export function VehicleForm({
               onChange={(e) => set("registration_no", e.target.value.toUpperCase())}
             />
           </LabeledField>
-          <LabeledField label="Asset no." hint="The vehicle's number in Assets, if it has one.">
+          <LabeledField label="Asset no.">
             <Input
               maxLength={40}
               value={form.input.asset_number}
@@ -231,7 +227,7 @@ export function VehicleForm({
               ))}
             </select>
           </LabeledField>
-          <LabeledField label="Driver" hint="Fleet drivers who are not assigned to another vehicle.">
+          <LabeledField label="Driver">
             <FleetLookup
               company={company}
               kind="driver"

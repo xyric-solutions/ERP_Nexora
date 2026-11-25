@@ -2,6 +2,7 @@
 
 import { createContext, useContext, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useWorkForm } from "./work-surface-context";
 
 const ModuleDesignContext = createContext(false);
 export const useModuleDesign = () => useContext(ModuleDesignContext);
@@ -64,6 +65,7 @@ export function WorkspaceHeader({
   status?: ReactNode;
   actions?: ReactNode;
 }) {
+  const inWorkForm = useWorkForm();
   return (
     <header className="flex flex-col items-start justify-between gap-4 pb-1 sm:flex-row sm:gap-6">
       <div className="min-w-0">
@@ -74,7 +76,7 @@ export function WorkspaceHeader({
           <h1 className="m-0 text-[1.625rem] leading-tight font-semibold tracking-tight">{title}</h1>
           {status}
         </div>
-        {description ? (
+        {description && !inWorkForm ? (
           <p className="m-0 mt-2 max-w-2xl text-[13px] leading-relaxed text-muted-foreground">{description}</p>
         ) : null}
       </div>

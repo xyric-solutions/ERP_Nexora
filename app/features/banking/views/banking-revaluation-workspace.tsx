@@ -699,9 +699,6 @@ function RevaluationForm({
             </h1>
             {detail ? <Badge variant={stateVariant(detail.state)}>{stateLabel(detail.state)}</Badge> : null}
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Apply previews authoritative balances. Save persists a draft; posting remains a separate governed action.
-          </p>
         </div>
         <Button type="button" variant="outline" onClick={() => onNavigate()}>
           Back to work page

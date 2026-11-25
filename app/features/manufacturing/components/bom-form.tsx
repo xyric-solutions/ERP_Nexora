@@ -143,9 +143,6 @@ export function BomForm({
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="m-0 text-lg font-semibold">{form.record?.code ?? "New BOM template"}</h1>
-          <p className="m-0 text-sm text-muted-foreground">
-            Template for material planning and approved manufacturing requirements.
-          </p>
         </div>
         <Badge variant="outline">{form.record ? "Saved template" : "Draft template"}</Badge>
       </header>

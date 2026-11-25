@@ -1993,10 +1993,6 @@ export function PurchaseDocumentForm({
                 onChange={(event) => change({ discount_amount: event.target.value })}
               />
             </LabeledField>
-            <p className="m-0 text-xs text-muted-foreground">
-              Discounts apply before tax. Freight and other charges are added once. Receipts and bills inherit approved
-              order adjustments.
-            </p>
             {(input.additional_charges ?? []).map((charge, index) => {
               const update = (patch: Partial<typeof charge>) =>
                 change({
