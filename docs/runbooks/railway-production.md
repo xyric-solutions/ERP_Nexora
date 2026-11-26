@@ -13,6 +13,12 @@ The `production` environment of [ERP_Nexora](https://railway.com/project/33d799c
 
 Production passwords, session and login-directory keys, the banking encryption key, and the storage credentials live in Railway variables. PostgreSQL keeps six days of daily snapshots. Preserve them across deploys and database imports. The PostgreSQL initialization script runs only when the data directory is empty. Run database schema updates through the migration gate. Leave the source migrations applied when rolling back an app image.
 
+## GitHub deployments
+
+Build from `/` with `RAILWAY_DOCKERFILE_PATH=docker/Dockerfile`. Set `NEXORA_RUNTIME` to the corresponding `web`, `api`, `worker`, or `postgres` stage for each service. Production web uses `NEXORA_API_PROXY_ORIGIN` at build time to route `/api/v1` to the private API. Keep `/api/v1/health/ready` as the web and API healthcheck so Railway waits for a working proxy and its dependencies before switching traffic.
+
+PostgreSQL watches `/docker/Dockerfile` and `/docker/postgres/001-provision-roles.sh` for GitHub redeployments. Build the `postgres` image and verify `postgres --version` before publishing changes to those paths. If a PostgreSQL deployment starts the wrong process, roll back to the last working image on the existing volume and verify `pg_isready` plus the public readiness endpoint.
+
 ## Deploy with the Railway CLI
 
 Railway receives CLI uploads from a reviewed source revision. From the intended release checkout, build and test, then stage only the versioned files needed by the Docker build. The following copies the working-tree version of each tracked file. Run it from a reviewed release checkout with the intended source changes applied.
