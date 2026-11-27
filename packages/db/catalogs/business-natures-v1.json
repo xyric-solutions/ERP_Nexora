@@ -1,0 +1,2274 @@
+[
+  {
+    "catalog_key": "nexora-business-it_software",
+    "name": "IT & Software Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "it_software",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Share Capital",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Software and Service Revenue",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Software Delivery Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Cloud Hosting",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Software Subscriptions",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Research and Development",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:it_software:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "9f378ca44db89016c1c2f92cc674a182c27c942409949d2862726beea1a29a02"
+  },
+  {
+    "catalog_key": "nexora-business-non_profit",
+    "name": "Non-Profit Organization Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "non_profit",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Accumulated Funds",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Donations and Grants",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Program Delivery Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Restricted Program Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Fundraising Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Volunteer Support",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:non_profit:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "75dc38de71342546612918b7b3e8881170fc8364ad1985947ec44b5e11fb72d8"
+  },
+  {
+    "catalog_key": "nexora-business-corporate",
+    "name": "Corporate Business Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "corporate",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Share Capital",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Sales Revenue",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Cost of Sales",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Professional Fees",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Office Expenses",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Staff Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:corporate:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "bb0ff5018191fbd095e3ff629c3f62430a2ee1483ea428b21a8633f9b31a57f7"
+  },
+  {
+    "catalog_key": "nexora-business-retail",
+    "name": "Retail & Wholesale Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "retail",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Owner Capital",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Merchandise Sales",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Merchandise Cost of Sales",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Freight and Delivery",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Store Expenses",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Inventory Handling",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:retail:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "00395123653aff9f8e9b9f75e852aee49cf748361305f204dd6a5b71afdd1534"
+  },
+  {
+    "catalog_key": "nexora-business-manufacturing",
+    "name": "Manufacturing Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "manufacturing",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Share Capital",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Product Sales",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Production Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Raw Material Consumption",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Factory Overheads",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Production Labour",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:manufacturing:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "468f7800885559f4a6985fc6527aae4b3835a684da00a5ef73ab0dc90a8a3158"
+  },
+  {
+    "catalog_key": "nexora-business-services",
+    "name": "Professional Services Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "services",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Owner Capital",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Service Fees",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Service Delivery Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Professional Subscriptions",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Travel Expenses",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Contractor Fees",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:services:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "cc97663c577ef3a203a68d87fd81066939159071fe1934d56d7931c2a560d033"
+  },
+  {
+    "catalog_key": "nexora-business-government",
+    "name": "Government Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "government",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Public Funds",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Appropriations and Income",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Public Service Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Program Administration",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Public Works Expenses",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Personnel Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:government:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "6b36a0a82b292cf2e914efc1a93063b45434dd4216a0360f93b5e8d986ccb805"
+  },
+  {
+    "catalog_key": "nexora-business-other",
+    "name": "Other Business Accounting Defaults",
+    "revision": "1",
+    "source_filename": "business-natures-v1.json",
+    "business_nature_key": "other",
+    "initialization_roles": {
+      "receivable": "200101",
+      "payable": "100101",
+      "revenue": "400101",
+      "expense": "500101",
+      "realized_gain": "400201",
+      "unrealized_gain": "400202",
+      "realized_loss": "500201",
+      "unrealized_loss": "500202",
+      "cash_and_bank_section": "2309",
+      "bank_charge": "500301",
+      "rounding": "500302"
+    },
+    "categories": [
+      {
+        "key": "assets",
+        "name": "Current Assets",
+        "type": "asset"
+      },
+      {
+        "key": "liabilities",
+        "name": "Current Liabilities",
+        "type": "liability"
+      },
+      {
+        "key": "equity",
+        "name": "Capital and Reserves",
+        "type": "equity"
+      },
+      {
+        "key": "income",
+        "name": "Income",
+        "type": "revenue"
+      },
+      {
+        "key": "expenses",
+        "name": "Expenses",
+        "type": "expense"
+      }
+    ],
+    "sections": [
+      {
+        "code": "1001",
+        "name": "Accounts Payable",
+        "category_key": "liabilities"
+      },
+      {
+        "code": "2001",
+        "name": "Accounts Receivable",
+        "category_key": "assets"
+      },
+      {
+        "code": "2309",
+        "name": "Cash and Bank",
+        "category_key": "assets"
+      },
+      {
+        "code": "3001",
+        "name": "Capital and Funds",
+        "category_key": "equity"
+      },
+      {
+        "code": "4001",
+        "name": "Operating Income",
+        "category_key": "income"
+      },
+      {
+        "code": "4002",
+        "name": "Foreign Exchange Gains",
+        "category_key": "income"
+      },
+      {
+        "code": "5001",
+        "name": "Operating Expenses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5002",
+        "name": "Foreign Exchange Losses",
+        "category_key": "expenses"
+      },
+      {
+        "code": "5003",
+        "name": "Bank Charges and Rounding",
+        "category_key": "expenses"
+      }
+    ],
+    "nominals": [
+      {
+        "code": "100101",
+        "name": "Accounts Payable",
+        "section_code": "1001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 1
+          }
+        ]
+      },
+      {
+        "code": "200101",
+        "name": "Accounts Receivable",
+        "section_code": "2001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 2
+          }
+        ]
+      },
+      {
+        "code": "230901",
+        "name": "Cash in Hand",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 3
+          }
+        ]
+      },
+      {
+        "code": "230902",
+        "name": "Bank Accounts",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 4
+          }
+        ]
+      },
+      {
+        "code": "230903",
+        "name": "Petty Cash",
+        "section_code": "2309",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 5
+          }
+        ]
+      },
+      {
+        "code": "300101",
+        "name": "Owner Capital",
+        "section_code": "3001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 6
+          }
+        ]
+      },
+      {
+        "code": "400101",
+        "name": "Operating Revenue",
+        "section_code": "4001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 7
+          }
+        ]
+      },
+      {
+        "code": "400201",
+        "name": "Realized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 8
+          }
+        ]
+      },
+      {
+        "code": "400202",
+        "name": "Unrealized Exchange Gain",
+        "section_code": "4002",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 9
+          }
+        ]
+      },
+      {
+        "code": "500101",
+        "name": "Operating Costs",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 10
+          }
+        ]
+      },
+      {
+        "code": "500201",
+        "name": "Realized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 11
+          }
+        ]
+      },
+      {
+        "code": "500202",
+        "name": "Unrealized Exchange Loss",
+        "section_code": "5002",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 12
+          }
+        ]
+      },
+      {
+        "code": "500102",
+        "name": "Administrative Expenses",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 13
+          }
+        ]
+      },
+      {
+        "code": "500103",
+        "name": "Utilities",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 14
+          }
+        ]
+      },
+      {
+        "code": "500104",
+        "name": "Professional Fees",
+        "section_code": "5001",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 15
+          }
+        ]
+      },
+      {
+        "code": "500301",
+        "name": "Bank Charges",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 16
+          }
+        ]
+      },
+      {
+        "code": "500302",
+        "name": "Rounding Adjustments",
+        "section_code": "5003",
+        "source_rows": [
+          {
+            "source": "business-nature:other:v1",
+            "row": 17
+          }
+        ]
+      }
+    ],
+    "source_sha256": "7c9ca0cedce9dafaeee0d2d197edff2491157a0b8b538591d09ec13aa257f714"
+  }
+]

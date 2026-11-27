@@ -1,3 +1,9 @@
+import {
+  businessNatureDirectorySchema,
+  businessSetupInputSchema,
+  businessSetupResultSchema,
+  businessSetupStatusSchema,
+} from "./finance/business-setup.js";
 import { fleetPaths } from "./fleet/openapi.js";
 import {
   fleetCompaniesSchema,
@@ -1233,6 +1239,65 @@ export function buildOpenApiDocument() {
       ...salesPaths(),
       ...manufacturingPaths(),
       ...fixedAssetPaths(),
+      "/finance/business_setup/natures": {
+        get: {
+          operationId: "listBusinessNatures",
+          summary: "List database business natures",
+          security: [{ cookieAuth: [] }],
+          responses: {
+            "200": {
+              description: "Active business natures",
+              content: { "application/json": { schema: schema(businessNatureDirectorySchema) } },
+            },
+          },
+        },
+      },
+      "/finance/business_setup": {
+        get: {
+          operationId: "getBusinessSetup",
+          summary: "Read persisted company accounting setup",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            {
+              in: "query",
+              name: "company_id",
+              required: true,
+              schema: { type: "string", minLength: 1, maxLength: 128 },
+            },
+          ],
+          responses: {
+            "200": {
+              description: "Company accounting setup",
+              content: { "application/json": { schema: schema(businessSetupStatusSchema) } },
+            },
+          },
+        },
+        post: {
+          operationId: "initializeBusiness",
+          summary: "Atomically initialize company master data and AP/AR mappings",
+          description:
+            "Requires live global Super Admin, company access, chart administration/adoption/classification and nominal permissions. No journals or bank facilities are created. Existing mappings are never overwritten.",
+          security: [{ cookieAuth: [] }],
+          parameters: [
+            { in: "header", name: "x-csrf-token", required: true, schema: { type: "string" } },
+            { in: "header", name: "idempotency-key", required: true, schema: { type: "string", maxLength: 255 } },
+          ],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: schema(businessSetupInputSchema) } },
+          },
+          responses: {
+            "201": {
+              description: "Company accounting initialized",
+              content: { "application/json": { schema: schema(businessSetupResultSchema) } },
+            },
+            "200": {
+              description: "Idempotent replay",
+              content: { "application/json": { schema: schema(businessSetupResultSchema) } },
+            },
+          },
+        },
+      },
       ...fleetPaths(),
       "/auth/login": {
         post: {

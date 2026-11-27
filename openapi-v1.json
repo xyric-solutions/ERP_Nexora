@@ -87453,6 +87453,492 @@
         }
       }
     },
+    "/finance/business_setup/natures": {
+      "get": {
+        "operationId": "listBusinessNatures",
+        "summary": "List database business natures",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Active business natures",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 128
+                          },
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 160
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "name"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/finance/business_setup": {
+      "get": {
+        "operationId": "getBusinessSetup",
+        "summary": "Read persisted company accounting setup",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company_id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Company accounting setup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "setup": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "company_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "company_name": {
+                              "type": "string",
+                              "minLength": 2,
+                              "maxLength": 200
+                            },
+                            "business_nature_key": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "organisation_type": {
+                              "type": "string",
+                              "enum": [
+                                "sole_proprietorship",
+                                "partnership",
+                                "private_limited",
+                                "public_limited",
+                                "non_profit",
+                                "government",
+                                "other"
+                              ]
+                            },
+                            "country_code": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{2}$"
+                            },
+                            "base_currency": {
+                              "type": "string",
+                              "pattern": "^[A-Z]{3}$"
+                            },
+                            "financial_year_start_month": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 12
+                            },
+                            "accounting_method": {
+                              "default": "accrual",
+                              "type": "string",
+                              "enum": [
+                                "accrual",
+                                "cash"
+                              ]
+                            },
+                            "template_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 128
+                            },
+                            "initialized_at": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "company_id",
+                            "company_name",
+                            "business_nature_key",
+                            "organisation_type",
+                            "country_code",
+                            "base_currency",
+                            "financial_year_start_month",
+                            "accounting_method",
+                            "template_id",
+                            "initialized_at"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "setup"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "initializeBusiness",
+        "summary": "Atomically initialize company master data and AP/AR mappings",
+        "description": "Requires live global Super Admin, company access, chart administration/adoption/classification and nominal permissions. No journals or bank facilities are created. Existing mappings are never overwritten.",
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-csrf-token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "idempotency-key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "company_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "company_name": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 200
+                  },
+                  "business_nature_key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "organisation_type": {
+                    "type": "string",
+                    "enum": [
+                      "sole_proprietorship",
+                      "partnership",
+                      "private_limited",
+                      "public_limited",
+                      "non_profit",
+                      "government",
+                      "other"
+                    ]
+                  },
+                  "country_code": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{2}$"
+                  },
+                  "base_currency": {
+                    "type": "string",
+                    "pattern": "^[A-Z]{3}$"
+                  },
+                  "financial_year_start_month": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 12
+                  },
+                  "accounting_method": {
+                    "default": "accrual",
+                    "type": "string",
+                    "enum": [
+                      "accrual",
+                      "cash"
+                    ]
+                  }
+                },
+                "required": [
+                  "company_name",
+                  "business_nature_key",
+                  "organisation_type",
+                  "country_code",
+                  "base_currency",
+                  "financial_year_start_month",
+                  "accounting_method"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Idempotent replay",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "setup": {
+                      "type": "object",
+                      "properties": {
+                        "company_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "company_name": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 200
+                        },
+                        "business_nature_key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "organisation_type": {
+                          "type": "string",
+                          "enum": [
+                            "sole_proprietorship",
+                            "partnership",
+                            "private_limited",
+                            "public_limited",
+                            "non_profit",
+                            "government",
+                            "other"
+                          ]
+                        },
+                        "country_code": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$"
+                        },
+                        "base_currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        },
+                        "financial_year_start_month": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 12
+                        },
+                        "accounting_method": {
+                          "default": "accrual",
+                          "type": "string",
+                          "enum": [
+                            "accrual",
+                            "cash"
+                          ]
+                        },
+                        "template_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "initialized_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "company_id",
+                        "company_name",
+                        "business_nature_key",
+                        "organisation_type",
+                        "country_code",
+                        "base_currency",
+                        "financial_year_start_month",
+                        "accounting_method",
+                        "template_id",
+                        "initialized_at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "audit_event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "setup",
+                    "audit_event_id",
+                    "replayed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Company accounting initialized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "setup": {
+                      "type": "object",
+                      "properties": {
+                        "company_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "company_name": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 200
+                        },
+                        "business_nature_key": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "organisation_type": {
+                          "type": "string",
+                          "enum": [
+                            "sole_proprietorship",
+                            "partnership",
+                            "private_limited",
+                            "public_limited",
+                            "non_profit",
+                            "government",
+                            "other"
+                          ]
+                        },
+                        "country_code": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{2}$"
+                        },
+                        "base_currency": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3}$"
+                        },
+                        "financial_year_start_month": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 12
+                        },
+                        "accounting_method": {
+                          "default": "accrual",
+                          "type": "string",
+                          "enum": [
+                            "accrual",
+                            "cash"
+                          ]
+                        },
+                        "template_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "initialized_at": {
+                          "type": "string",
+                          "format": "date-time",
+                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                        }
+                      },
+                      "required": [
+                        "company_id",
+                        "company_name",
+                        "business_nature_key",
+                        "organisation_type",
+                        "country_code",
+                        "base_currency",
+                        "financial_year_start_month",
+                        "accounting_method",
+                        "template_id",
+                        "initialized_at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "audit_event_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "replayed": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "setup",
+                    "audit_event_id",
+                    "replayed"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/fleet/companies": {
       "get": {
         "operationId": "listFleetCompanies",
@@ -154551,6 +155037,83 @@
           "source_sha256": {
             "type": "string",
             "pattern": "^[a-f0-9]{64}$"
+          },
+          "business_nature_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "initialization_roles": {
+            "type": "object",
+            "properties": {
+              "receivable": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "payable": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "revenue": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "expense": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "realized_gain": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "realized_loss": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "unrealized_gain": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "unrealized_loss": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "bank_charge": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "rounding": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "cash_and_bank_section": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            },
+            "required": [
+              "receivable",
+              "payable",
+              "revenue",
+              "expense",
+              "realized_gain",
+              "realized_loss",
+              "unrealized_gain",
+              "unrealized_loss",
+              "cash_and_bank_section"
+            ],
+            "additionalProperties": false
           },
           "categories": {
             "minItems": 1,

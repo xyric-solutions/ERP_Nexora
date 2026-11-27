@@ -303,7 +303,7 @@ export class SourceFinanceNominalRepository {
         `select m.template_id,m.node_key,source.code,source.name,parent.account_id as section_id,(m.account_id is not null) as configured
         from finance_chart_company_node m join finance_chart_template_node source on source.tenant_id=m.tenant_id and source.template_id=m.template_id and source.node_key=m.node_key
         join finance_chart_company_node parent on parent.tenant_id=m.tenant_id and parent.company_id=m.company_id and parent.template_id=m.template_id and parent.node_key=source.parent_key
-        where m.tenant_id=$1 and m.company_id=$2 and source.kind='nominal' and source.parent_key='section:2309' order by source.code limit 100`,
+        where m.tenant_id=$1 and m.company_id=$2 and source.kind='nominal' and source.parent_key=finance_template_bank_section_key(m.tenant_id,m.template_id) order by source.code limit 100`,
         [context.tenantId, companyId],
       );
       return {
@@ -614,7 +614,7 @@ export class SourceFinanceNominalRepository {
             `select source.code,source.name,m.account_id,parent.account_id as section_id from finance_chart_company_node m
             join finance_chart_template_node source on source.tenant_id=m.tenant_id and source.template_id=m.template_id and source.node_key=m.node_key
             join finance_chart_company_node parent on parent.tenant_id=m.tenant_id and parent.company_id=m.company_id and parent.template_id=m.template_id and parent.node_key=source.parent_key
-            where m.tenant_id=$1 and m.company_id=$2 and m.template_id=$3 and m.node_key=$4 and source.kind='nominal' and source.parent_key='section:2309' for update of m`,
+            where m.tenant_id=$1 and m.company_id=$2 and m.template_id=$3 and m.node_key=$4 and source.kind='nominal' and source.parent_key=finance_template_bank_section_key(m.tenant_id,m.template_id) for update of m`,
             [context.tenantId, input.company_id, input.chart_template_id, input.chart_node_key],
           );
           const row = definition.rows[0];

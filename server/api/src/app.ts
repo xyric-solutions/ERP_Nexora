@@ -57,6 +57,10 @@ import type { SourceTaxRepository } from "./modules/finance/taxes/source-reposit
 import { createSubledgerRouter } from "./modules/finance/subledger/router.js";
 import type { SourceSubledgerRepository } from "./modules/finance/subledger/source-repository.js";
 import { createChartTemplateRouter } from "./modules/finance/templates/router.js";
+import {
+  createBusinessSetupRouter,
+  type BusinessSetupRepository,
+} from "./modules/finance/templates/business-setup-router.js";
 import type { ChartTemplateRepository } from "./modules/finance/templates/service.js";
 import { createReferenceMasterRouter } from "./modules/master-data/router.js";
 import { createProcurementRouter, type ProcurementRepository } from "./modules/procurement/router.js";
@@ -112,6 +116,7 @@ export interface AppDependencies {
   budgetRepository?: SourceBudgetRepository;
   financeHierarchyRepository?: import("./modules/finance/coa-hierarchy-repository.js").SourceCoaHierarchyRepository;
   chartTemplateRepository?: ChartTemplateRepository;
+  businessSetupRepository?: BusinessSetupRepository;
   referenceMasterRepository?: ReferenceMasterRepository;
   procurementRepository?: ProcurementRepository;
   fixedAssetsService?: FixedAssetsService;
@@ -487,6 +492,18 @@ export function createApp(dependencies: AppDependencies): Express {
     );
   }
 
+  if (dependencies.businessSetupRepository && dependencies.authService && dependencies.sessionService) {
+    app.use(
+      "/api/v1/finance/business_setup",
+      createBusinessSetupRouter({
+        repository: dependencies.businessSetupRepository,
+        authentication: dependencies.authService,
+        sessions: dependencies.sessionService,
+        secureCookies: dependencies.config.nodeEnv === "production",
+        allowedOrigins: dependencies.config.allowedOrigins,
+      }),
+    );
+  }
   if (dependencies.chartTemplateRepository && dependencies.authService && dependencies.sessionService) {
     app.use(
       "/api/v1/finance/chart_templates",

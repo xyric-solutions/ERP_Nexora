@@ -65,7 +65,7 @@ run("Central Chart template PostgreSQL authority", () => {
       [sourceTestTenantId, company],
     );
     await pool.query(
-      "insert into currency(tenant_id,code,name,decimal_places,is_base,status) values($1,'USD','Synthetic USD',2,true,'active') on conflict do nothing",
+      "insert into currency(tenant_id,code,name,decimal_places,is_base,status) values($1,'USD','Synthetic USD',2,false,'active') on conflict do nothing",
       [sourceTestTenantId],
     );
     await pool.query(
@@ -109,7 +109,7 @@ run("Central Chart template PostgreSQL authority", () => {
     expect(result).toMatchObject({
       blocked: true,
       totals: {
-        categories_to_create: 14,
+        categories_to_create: 13,
         sections_to_create: 77,
         nominal_drafts_to_create: 227,
         conflicts: 1,

@@ -13,7 +13,8 @@ const prettierConfig = await resolveConfig(clientPath);
 
 const openApi = `${JSON.stringify(buildOpenApiDocument(), null, 2)}\n`;
 const client = await format(
-  `import type {AssetOptions,AssetWorkspace,AssetDashboard,AssetSources,AssetDetail,AssetCategoryInput,AssetCategory,AssetCreate,FixedAsset,AssetUpdate,AssetAction,AssetEventInput,AssetEvent,AssetEventAction,AssetDepreciationInput,AssetDepreciationRun,AssetDepreciationAction,AssetAttachment,AssetAttachmentInput,AssetCompanyPolicyInput,AssetCompanyPolicy,AssetValuation} from "@nexora/contracts";
+  `import type {BusinessNatureDirectory,BusinessSetupInput,BusinessSetupResult,BusinessSetupStatus} from "@nexora/contracts";
+import type {AssetOptions,AssetWorkspace,AssetDashboard,AssetSources,AssetDetail,AssetCategoryInput,AssetCategory,AssetCreate,FixedAsset,AssetUpdate,AssetAction,AssetEventInput,AssetEvent,AssetEventAction,AssetDepreciationInput,AssetDepreciationRun,AssetDepreciationAction,AssetAttachment,AssetAttachmentInput,AssetCompanyPolicyInput,AssetCompanyPolicy,AssetValuation} from "@nexora/contracts";
 import type {AssetJournalDirectory,TaxInput,TaxUpdate,TaxStatus,TaxDirectory,TaxDetail,TaxOptions,TaxConfiguration,TaxConfigurationInput} from "@nexora/contracts";
 import type {BudgetOptions,BudgetDirectory,BudgetDetail,BudgetReport,BudgetDrill,BudgetPlanInput,BudgetVersionInput,BudgetVersionUpdate,BudgetAction,BudgetGenerate,BudgetModelInput,BudgetModel,BudgetApplyModel,BudgetPolicyInput,BudgetPolicy,BudgetRequestInput,BudgetRequestAction,BudgetRequest,BudgetImport,BudgetCommentInput,BudgetSourceControl} from "@nexora/contracts";
 import type {SubledgerWorkspace,SubledgerReport,SubledgerParty,SubledgerPartyInput,SubledgerPartyConfiguration,SubledgerPartyConfigurationInput,SubledgerSupplierDirectory,SubledgerPolicy,SubledgerPolicyInput,SubledgerRequest,SubledgerOperation,SubledgerAction,PurchaseAccountingPrepare,ConnectedReport} from "@nexora/contracts";
@@ -587,6 +588,9 @@ export class NexoraApiClient {
   }
   listBankingCompanies(): Promise<BankingCompanyDirectory> { return this.request("/api/v1/banking/companies"); }
   listBankingLedgerAccounts(query: string): Promise<BankingLedgerAccountDirectory> { return this.request(\`/api/v1/banking/ledger_accounts\${query}\`); }
+  listBusinessNatures(): Promise<BusinessNatureDirectory> { return this.request('/api/v1/finance/business_setup/natures'); }
+  getBusinessSetup(companyId: string): Promise<BusinessSetupStatus> { return this.request('/api/v1/finance/business_setup?company_id='+encodeURIComponent(companyId)); }
+  initializeBusiness(payload: BusinessSetupInput, csrfToken: string, idempotencyKey: string): Promise<BusinessSetupResult> { return this.request('/api/v1/finance/business_setup',{method:'POST',headers:{'x-csrf-token':csrfToken,'idempotency-key':idempotencyKey},body:JSON.stringify(payload)}); }
   listChartTemplates(query: string): Promise<ChartTemplateDirectory> { return this.request(\`/api/v1/finance/chart_templates\${query}\`); }
   previewChartCompanyAdoption(id: string, query: string): Promise<ChartCompanyPreview> { return this.request(\`/api/v1/finance/chart_templates/\${encodeURIComponent(id)}/company_preview\${query}\`); }
   adoptCompanyChart(id:string,payload:AdoptCompanyChartRequest,csrfToken:string,idempotencyKey:string):Promise<AdoptCompanyChartResult>{

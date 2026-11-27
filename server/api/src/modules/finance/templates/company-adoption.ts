@@ -156,6 +156,12 @@ export async function adoptCompanyChart(
     `select node_key as key,kind,code,name,parent_key,account_type as type,source_rows,review_note from finance_chart_template_node where tenant_id=$1 and template_id=$2 order by case kind when 'category' then 1 when 'section' then 2 else 3 end,code,node_key`,
     [context.tenantId, template.id],
   );
+  const bankSectionCode = (
+    await client.query<{ code: string }>(
+      "select coalesce(initialization_roles->>'cash_and_bank_section','2309') as code from finance_chart_template where tenant_id=$1 and id=$2",
+      [context.tenantId, template.id],
+    )
+  ).rows[0]!.code;
   const id = `chart-adoption-${randomUUID()}`;
   await client.query(
     "insert into finance_chart_company_adoption(tenant_id,company_id,id,template_id,catalog_key,currency,created_by) values($1,$2,$3,$4,$5,$6,$7)",
@@ -223,7 +229,7 @@ export async function adoptCompanyChart(
       account_id: accountId,
       classification: node.kind === "nominal" ? "review_required" : "not_applicable",
     });
-    if (node.kind === "section" && node.code !== "2309") {
+    if (node.kind === "section" && node.code !== bankSectionCode) {
       const sourceCodes = nodes.rows
         .filter((child) => child.kind === "nominal" && child.parent_key === node.key)
         .map((child) => child.code!);

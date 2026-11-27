@@ -9407,3 +9407,25 @@ Remaining / resume point:
   report: `tmp/form-guidance-cleanup/design-detector.json`. Browser evidence:
   `tmp/form-guidance-cleanup/browser/`, including quotation-compact.png at each
   size/theme. Preserve the previous Purchase payment ownership fix on resume.
+## 2026-11-27 - Persistent company accounting setup
+
+- Companies now opens a shared-control setup sheet backed by the Finance API,
+  with database business-nature and country/currency choices. New company and
+  chart records are persisted transactionally in PostgreSQL. Existing company
+  setup is read back from the database; it does not use browser master lists.
+- Preserved HR company identities, Finance hierarchy, manual nominal creation,
+  bank-definition workflow, permissions, credit review and financial maker/checker
+  controls. No legacy stylesheet was retired and no new palette/font was added.
+- Verification: production build, full typecheck, 1,675 unit tests, 29 contracts,
+  14 new PostgreSQL scenarios, targeted accounting regressions (including six
+  transfer regressions rerun after treasury approval), 21 database
+  security tests, six browser checks at 390/834/1440 in light/dark, dialog a11y,
+  changed-file lint/format, theme audit write/check and diff check passed.
+- Browser evidence: `tmp/business-setup-evidence/`. The browser tests use API
+  transport fixtures; real HTTP/database integration is tested separately.
+- Technical report: `docs/architecture/business-nature-accounting-technical-report.md`.
+  Safe resume: restore Railway login/project access, perform production read-only
+  preflight and deploy migration 0044/API/web together. Treasury-policy defaults
+  were explicitly approved and implemented with zero rounding tolerance, existing
+  permissions and immutable audit evidence; `/register` remains the existing
+  tenant-signup prototype.

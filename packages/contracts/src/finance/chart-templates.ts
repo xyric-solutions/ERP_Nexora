@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { businessTemplateRolesSchema } from "./business-setup.js";
 
 const key = z.string().trim().min(1).max(128);
 const label = z.string().trim().min(1).max(160);
@@ -13,6 +14,8 @@ export const importChartTemplateRequestSchema = z
     revision: key,
     source_filename: key,
     source_sha256: digest,
+    business_nature_key: key.optional(),
+    initialization_roles: businessTemplateRolesSchema.optional(),
     categories: z
       .array(z.strictObject({ key, name: label, type: accountType }))
       .min(1)
@@ -35,6 +38,55 @@ export const importChartTemplateRequestSchema = z
       .max(10_000),
   })
   .superRefine((input, ctx) => {
+    if (!!input.business_nature_key !== !!input.initialization_roles)
+      ctx.addIssue({
+        code: "custom",
+        path: ["initialization_roles"],
+        message: "Business nature and initialization roles must be supplied together.",
+      });
+    if (input.initialization_roles) {
+      const nominalRoles = Object.entries(input.initialization_roles).filter(
+        ([role]) => role !== "cash_and_bank_section",
+      );
+      if (new Set(nominalRoles.map(([, code]) => code)).size !== nominalRoles.length)
+        ctx.addIssue({
+          code: "custom",
+          path: ["initialization_roles"],
+          message: "Accounting control roles must use distinct nominals.",
+        });
+      for (const [role, code] of Object.entries(input.initialization_roles)) {
+        const found =
+          role === "cash_and_bank_section"
+            ? input.sections.some((section) => section.code === code)
+            : input.nominals.some((nominal) => nominal.code === code);
+        if (!found)
+          ctx.addIssue({
+            code: "custom",
+            path: ["initialization_roles", role],
+            message: "Role must reference a template definition.",
+          });
+        const sectionCode =
+          role === "cash_and_bank_section"
+            ? code
+            : input.nominals.find((nominal) => nominal.code === code)?.section_code;
+        const section = input.sections.find((item) => item.code === sectionCode);
+        const type = input.categories.find((item) => item.key === section?.category_key)?.type;
+        const expected =
+          role === "receivable" || role === "cash_and_bank_section"
+            ? "asset"
+            : role === "payable"
+              ? "liability"
+              : role === "revenue" || role.endsWith("gain")
+                ? "revenue"
+                : "expense";
+        if (type !== expected)
+          ctx.addIssue({
+            code: "custom",
+            path: ["initialization_roles", role],
+            message: `Role requires an ${expected} classification.`,
+          });
+      }
+    }
     const seen = new Set<string>();
     for (const [index, category] of input.categories.entries()) {
       if (seen.has(category.key))

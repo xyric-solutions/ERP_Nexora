@@ -147,6 +147,7 @@ const app = createApp({
   fiscalCalendarRepository: new SourceFiscalCalendarRepository(pool),
   financePeriodRepository: new SourceFinancePeriodRepository(pool),
   chartTemplateRepository: new SourceChartTemplateRepository(pool),
+  businessSetupRepository: new SourceChartTemplateRepository(pool),
   referenceMasterRepository: new SourceReferenceMasterRepository(pool),
   procurementRepository: new SourceProcurementRepository(
     pool,

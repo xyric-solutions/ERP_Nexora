@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { beforeAll, afterAll, describe, it, expect } from "vitest";
 import { createDatabasePool, type DatabasePool } from "../../packages/db/src/index.js";
-import { ensureSourceSuperAdministratorFixture, sourceTestTenantId as tenant } from "./source-security-fixture.js";
+import {
+  ensureSourceSuperAdministratorFixture,
+  ensureCompanyCurrencyFixture,
+  sourceTestTenantId as tenant,
+} from "./source-security-fixture.js";
 import { SourceChartTemplateRepository } from "../../server/api/src/modules/finance/templates/source-repository.js";
 import {
   SourceFinanceNominalRepository,
@@ -64,7 +68,7 @@ run("Company Chart adoption and posting review", () => {
       );
     }
     await pool.query(
-      "insert into currency(tenant_id,code,name,decimal_places,is_base,status) values($1,'USD','Synthetic USD',2,true,'active') on conflict do nothing",
+      "insert into currency(tenant_id,code,name,decimal_places,is_base,status) values($1,'USD','Synthetic USD',2,false,'active') on conflict do nothing",
       [tenant],
     );
     const source = importChartTemplateRequestSchema.parse(
@@ -91,6 +95,7 @@ run("Company Chart adoption and posting review", () => {
       "insert into security_user_company_access(tenant_id,access_id,user_id,company_id,is_default,granted_by,source_kind,source_reference) values($1,$2,'r06.override-admin',$3,false,'r06.last-admin-a','governed_administration','synthetic-adoption')",
       [tenant, key(), company],
     );
+    await ensureCompanyCurrencyFixture(pool, company, "USD", []);
     for (const permission of permissions.filter(
       (item) => !["finance.chart_template.read", "finance.chart_template.admin"].includes(item),
     )) {
