@@ -1,4 +1,10 @@
 import type {
+  BusinessNatureDirectory,
+  BusinessSetupInput,
+  BusinessSetupResult,
+  BusinessSetupStatus,
+} from "@nexora/contracts";
+import type {
   AssetOptions,
   AssetWorkspace,
   AssetDashboard,
@@ -1514,6 +1520,23 @@ export class NexoraApiClient {
   }
   listBankingLedgerAccounts(query: string): Promise<BankingLedgerAccountDirectory> {
     return this.request(`/api/v1/banking/ledger_accounts${query}`);
+  }
+  listBusinessNatures(): Promise<BusinessNatureDirectory> {
+    return this.request("/api/v1/finance/business_setup/natures");
+  }
+  getBusinessSetup(companyId: string): Promise<BusinessSetupStatus> {
+    return this.request("/api/v1/finance/business_setup?company_id=" + encodeURIComponent(companyId));
+  }
+  initializeBusiness(
+    payload: BusinessSetupInput,
+    csrfToken: string,
+    idempotencyKey: string,
+  ): Promise<BusinessSetupResult> {
+    return this.request("/api/v1/finance/business_setup", {
+      method: "POST",
+      headers: { "x-csrf-token": csrfToken, "idempotency-key": idempotencyKey },
+      body: JSON.stringify(payload),
+    });
   }
   listChartTemplates(query: string): Promise<ChartTemplateDirectory> {
     return this.request(`/api/v1/finance/chart_templates${query}`);

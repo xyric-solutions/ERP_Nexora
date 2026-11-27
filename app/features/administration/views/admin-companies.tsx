@@ -2,24 +2,25 @@
 
 import { useEffect, useState } from "react";
 
-import { Info } from "lucide-react";
-
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import { useAdministration } from "../api/use-administration";
 import { AdminPage, AdminPanel, AdminTable, EmptyRow } from "../components/admin-page";
+import { BusinessSetupSheet } from "../components/business-setup-sheet";
 
 type Company = { id: string; code: string; name: string };
 
-/**
- * Live, read-only: companies come from the HR company directory (the shared
- * organisation units, plan D8). Creating and editing companies needs the
- * `/api/v1/admin/companies` endpoints, which are not enabled yet.
- */
+/** Companies share HR organisation identities. Accounting setup is persisted
+ * through the Finance API and may be initialized only by a live Super Admin. */
 export function AdminCompaniesView({ onOpenStructure }: { onOpenStructure: () => void }) {
-  const { client } = useAdministration();
+  const { client, session } = useAdministration();
+  const canSetup =
+    !!session?.user.roles.includes("super_administrator") &&
+    !!session.user.permissions.includes("finance.chart_template.admin");
+  const [setupCompany, setSetupCompany] = useState<Company | null | undefined>(undefined);
+  const [revision, setRevision] = useState(0);
   const [companies, setCompanies] = useState<Company[] | null>(null);
   const [error, setError] = useState(false);
 
@@ -37,25 +38,32 @@ export function AdminCompaniesView({ onOpenStructure }: { onOpenStructure: () =>
     return () => {
       active = false;
     };
-  }, [client]);
+  }, [client, revision]);
 
   return (
     <AdminPage
       title="Companies"
       description="Companies in your organisation. The same records are used by HR and Accounting."
       actions={
-        <Button type="button" variant="outline" onClick={onOpenStructure}>
-          Open structure
-        </Button>
+        <>
+          <Button type="button" variant="outline" onClick={onOpenStructure}>
+            Open structure
+          </Button>
+          {canSetup && (
+            <Button type="button" onClick={() => setSetupCompany(null)}>
+              Create company
+            </Button>
+          )}
+        </>
       }
     >
-      <p className="m-0 flex items-start gap-2 rounded-[var(--nx-radius-md)] border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-        <Info className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <span>
-          Read only for now. Adding and editing companies arrives with the Administration API; locations, projects and
-          departments can already be maintained under Structure.
-        </span>
-      </p>
+      {setupCompany !== undefined && (
+        <BusinessSetupSheet
+          company={setupCompany}
+          onClose={() => setSetupCompany(undefined)}
+          onCompleted={() => setRevision((value) => value + 1)}
+        />
+      )}
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>Companies could not be loaded. Check your connection and try again.</AlertDescription>
@@ -77,16 +85,24 @@ export function AdminCompaniesView({ onOpenStructure }: { onOpenStructure: () =>
                     Code
                   </th>
                   <th scope="col">Company</th>
+                  {canSetup && <th scope="col">Accounting</th>}
                 </tr>
               </thead>
               <tbody>
                 {companies.length === 0 ? (
-                  <EmptyRow colSpan={2}>No companies are available to your account.</EmptyRow>
+                  <EmptyRow colSpan={canSetup ? 3 : 2}>No companies are available to your account.</EmptyRow>
                 ) : (
                   companies.map((company) => (
                     <tr key={company.id}>
                       <td className="font-mono text-xs whitespace-nowrap text-muted-foreground">{company.code}</td>
                       <td className="font-medium">{company.name}</td>
+                      {canSetup && (
+                        <td>
+                          <Button type="button" size="sm" variant="outline" onClick={() => setSetupCompany(company)}>
+                            Accounting setup
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 )}

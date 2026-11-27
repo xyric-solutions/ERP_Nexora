@@ -13,6 +13,12 @@ import {
   type ChartTemplateDirectory,
   type ChartTemplateNodes,
   type ChartTemplateMutation,
+  type BusinessSetupInput,
+  type BusinessSetupResult,
+  type BusinessSetupStatus,
+  type BusinessNatureDirectory,
+  businessSetupInputSchema,
+  businessSetupSchema,
   type PublishChartTemplateRequest,
   chartCompanyPreviewQuerySchema,
   type ChartCompanyPreviewQuery,
@@ -38,6 +44,7 @@ import {
   companyChartPermission,
   companyReplay,
 } from "./company-adoption.js";
+import { initializeBusinessCompany, readBusinessSetup } from "./business-setup.js";
 const projection = `select id,catalog_key,name,revision,state,row_version as version,source_filename,
  source_sha256,content_sha256,category_count,section_count,nominal_count,
  to_char(created_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at,
@@ -71,6 +78,7 @@ export class SourceChartTemplateRepository {
     try {
       await client.query(consistentSnapshot ? "begin isolation level repeatable read" : "begin");
       await client.query("select set_config('nexora.tenant_id',$1,true)", [context.tenantId]);
+      await client.query("select set_config('nexora.user_id',$1,true)", [context.actor.userId]);
       if (permission.endsWith(".admin") && !(await hasLiveCoaMasterAuthority(client, context)))
         throw new ChartTemplateError(403, "COA_SUPER_ADMIN_REQUIRED", "Live global Super Admin authority is required.");
       const grant = await client.query(
@@ -201,6 +209,18 @@ export class SourceChartTemplateRepository {
     const expected = template.category_count + template.section_count + template.nominal_count;
     if (definitions.rows.length !== expected)
       throw new ChartTemplateError(409, "TEMPLATE_INTEGRITY_CONFLICT", "The template definition totals do not match.");
+    const bankSectionCode = (
+      await client.query<{ code: string }>(
+        "select coalesce(initialization_roles->>'cash_and_bank_section','2309') as code from finance_chart_template where tenant_id=$1 and id=$2",
+        [context.tenantId, id],
+      )
+    ).rows[0]!.code;
+    const headers = (
+      await client.query<{ code: string; name: string; type: string; parent_id: string | null; status: string }>(
+        "select code,name,type,parent_id,status from account where tenant_id=$1 and company_id=$2 and is_header order by id",
+        [context.tenantId, input.company_id],
+      )
+    ).rows;
     // An existing governed Cash & Bank policy establishes header identity.
     // Reuse its category only when the section ALREADY matches the source
     // code/name and its active root category matches the source classification.
@@ -210,16 +230,31 @@ export class SourceChartTemplateRepository {
           join account s on s.tenant_id=p.tenant_id and s.company_id=p.company_id and s.id=p.section_id
           join account c on c.tenant_id=p.tenant_id and c.company_id=p.company_id and c.id=p.category_id and s.parent_id=c.id
           where p.tenant_id=$1 and p.company_id=$2 and p.section_role='cash_and_bank' and p.status='active'
-          and s.code='2309' and s.name='Cash and Bank' and s.type='asset' and s.is_header and s.status='active'
+          and s.code=$3 and s.type='asset' and s.is_header and s.status='active'
           and c.type='asset' and c.is_header and c.status='active' and c.parent_id is null`,
-      [context.tenantId, input.company_id],
+      [context.tenantId, input.company_id, bankSectionCode],
     );
     const sourceBankCategoryKey = definitions.rows.find(
-      (node) => node.kind === "section" && node.code === "2309",
+      (node) => node.kind === "section" && node.code === bankSectionCode,
     )?.parent_key;
     const categoryCode = (nodeKey: string) => {
       const source = definitions.rows.find((node) => node.key === nodeKey && node.kind === "category");
       const governed = governedCategory.rows[0];
+      if (source) {
+        const matches = headers.filter(
+          (header) =>
+            header.parent_id === null &&
+            header.name.trim().toLowerCase() === source.name.trim().toLowerCase() &&
+            header.type === source.type,
+        );
+        if (matches.length > 1 || matches.some((header) => header.status !== "active" || header.name !== source.name))
+          throw new ChartTemplateError(
+            409,
+            "CHART_CATEGORY_AMBIGUOUS",
+            "Existing category identity needs review; no duplicate defaults will be created.",
+          );
+        if (matches[0]) return matches[0].code;
+      }
       return nodeKey === sourceBankCategoryKey &&
         source &&
         governed &&
@@ -266,7 +301,9 @@ export class SourceChartTemplateRepository {
     );
     const boundBanks = new Map(bindings.rows.map((binding) => [binding.node_key, binding.nominal_id]));
     const bankSections = new Set(
-      definitions.rows.filter((node) => node.kind === "section" && node.code === "2309").map((node) => node.key),
+      definitions.rows
+        .filter((node) => node.kind === "section" && node.code === bankSectionCode)
+        .map((node) => node.key),
     );
     const resolved = new Map<string, string>();
     const items: ChartCompanyPreview["items"] = [];
@@ -307,6 +344,20 @@ export class SourceChartTemplateRepository {
       } else if (bankSections.has(node.key) && policies.rows.some((policy) => policy.section_code !== code)) {
         status = "conflict";
         message = `Existing Cash & Bank section ${policies.rows[0]!.section_code} uses a protected code series. An explicit preservation/mapping decision is required; no replacement or reparenting will occur.`;
+      } else if (
+        !current &&
+        node.kind === "section" &&
+        headers.some(
+          (header) =>
+            header.parent_id !== null &&
+            header.name.trim().toLowerCase() === node.name.trim().toLowerCase() &&
+            header.type === node.type &&
+            header.code !== code,
+        )
+      ) {
+        status = "conflict";
+        message =
+          "An existing section with this identity uses a different protected code. Import a compatible template; history will not be renumbered.";
       } else if (current) {
         const parentId = node.parent_key ? resolved.get(node.parent_key) : null;
         const exact =
@@ -555,79 +606,90 @@ export class SourceChartTemplateRepository {
   ): Promise<ChartTemplateMutation> {
     const input = importChartTemplateRequestSchema.parse(request);
     this.validateKey(key);
+    return this.transaction(context, "finance.chart_template.admin", (client) =>
+      this.importWithinTransaction(client, context, input, key, correlation),
+    );
+  }
+  private async importWithinTransaction(
+    client: PoolClient,
+    context: Context,
+    input: ImportChartTemplateRequest,
+    key: string,
+    correlation: string,
+  ): Promise<ChartTemplateMutation> {
     const digest = chartTemplateHash(input);
-    return this.transaction(context, "finance.chart_template.admin", async (client) => {
-      const replay = await this.replay(client, context, "imported", key, digest);
-      if (replay) return replay;
-      const id = `chart-${randomUUID()}`;
+    const replay = await this.replay(client, context, "imported", key, digest);
+    if (replay) return replay;
+    const id = `chart-${randomUUID()}`;
+    await client.query(
+      `insert into finance_chart_template(tenant_id,id,catalog_key,name,revision,source_filename,source_sha256,content_sha256,category_count,section_count,nominal_count,created_by,business_nature_key,initialization_roles)
+       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [
+        context.tenantId,
+        id,
+        input.catalog_key,
+        input.name,
+        input.revision,
+        input.source_filename,
+        input.source_sha256,
+        digest,
+        input.categories.length,
+        input.sections.length,
+        input.nominals.length,
+        context.actor.userId,
+        input.business_nature_key ?? null,
+        input.initialization_roles ? JSON.stringify(input.initialization_roles) : null,
+      ],
+    );
+    const categoryMap = new Map(input.categories.map((category) => [category.key, category]));
+    const sectionMap = new Map(input.sections.map((section) => [section.code, section]));
+    const categoryNodes = input.categories.map((c) => ({
+      key: `category:${c.key}`,
+      kind: "category",
+      code: null,
+      name: c.name,
+      parent: null,
+      type: c.type,
+      source: [],
+      note: null,
+    }));
+    const sectionNodes = input.sections.map((s) => ({
+      key: `section:${s.code}`,
+      kind: "section",
+      code: s.code,
+      name: s.name,
+      parent: `category:${s.category_key}`,
+      type: categoryMap.get(s.category_key)!.type,
+      source: [],
+      note: null,
+    }));
+    const nominalNodes = input.nominals.map((n) => ({
+      key: `nominal:${n.code}`,
+      kind: "nominal",
+      code: n.code,
+      name: n.name,
+      parent: `section:${n.section_code}`,
+      type: categoryMap.get(sectionMap.get(n.section_code)!.category_key)!.type,
+      source: n.source_rows,
+      note: n.review_note ?? null,
+    }));
+    // Insert levels separately so parent validation sees each completed preceding level.
+    for (const level of [categoryNodes, sectionNodes, nominalNodes])
       await client.query(
-        `insert into finance_chart_template(tenant_id,id,catalog_key,name,revision,source_filename,source_sha256,content_sha256,category_count,section_count,nominal_count,created_by)
-       values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
-        [
-          context.tenantId,
-          id,
-          input.catalog_key,
-          input.name,
-          input.revision,
-          input.source_filename,
-          input.source_sha256,
-          digest,
-          input.categories.length,
-          input.sections.length,
-          input.nominals.length,
-          context.actor.userId,
-        ],
-      );
-      const categoryMap = new Map(input.categories.map((category) => [category.key, category]));
-      const sectionMap = new Map(input.sections.map((section) => [section.code, section]));
-      const categoryNodes = input.categories.map((c) => ({
-        key: `category:${c.key}`,
-        kind: "category",
-        code: null,
-        name: c.name,
-        parent: null,
-        type: c.type,
-        source: [],
-        note: null,
-      }));
-      const sectionNodes = input.sections.map((s) => ({
-        key: `section:${s.code}`,
-        kind: "section",
-        code: s.code,
-        name: s.name,
-        parent: `category:${s.category_key}`,
-        type: categoryMap.get(s.category_key)!.type,
-        source: [],
-        note: null,
-      }));
-      const nominalNodes = input.nominals.map((n) => ({
-        key: `nominal:${n.code}`,
-        kind: "nominal",
-        code: n.code,
-        name: n.name,
-        parent: `section:${n.section_code}`,
-        type: categoryMap.get(sectionMap.get(n.section_code)!.category_key)!.type,
-        source: n.source_rows,
-        note: n.review_note ?? null,
-      }));
-      // Insert levels separately so parent validation sees each completed preceding level.
-      for (const level of [categoryNodes, sectionNodes, nominalNodes])
-        await client.query(
-          `insert into finance_chart_template_node(tenant_id,template_id,node_key,kind,code,name,parent_key,account_type,source_rows,review_note)
+        `insert into finance_chart_template_node(tenant_id,template_id,node_key,kind,code,name,parent_key,account_type,source_rows,review_note)
        select $1,$2,x.key,x.kind,x.code,x.name,x.parent,x.type,x.source,x.note
        from jsonb_to_recordset($3::jsonb) as x(key text,kind text,code text,name text,parent text,type text,source jsonb,note text)`,
-          [context.tenantId, id, JSON.stringify(level)],
-        );
-      return this.evidence(
-        client,
-        context,
-        "imported",
-        key,
-        digest,
-        await this.load(client, context.tenantId, id),
-        correlation,
+        [context.tenantId, id, JSON.stringify(level)],
       );
-    });
+    return this.evidence(
+      client,
+      context,
+      "imported",
+      key,
+      digest,
+      await this.load(client, context.tenantId, id),
+      correlation,
+    );
   }
   async publish(
     context: Context,
@@ -638,34 +700,108 @@ export class SourceChartTemplateRepository {
   ): Promise<ChartTemplateMutation> {
     input = publishChartTemplateRequestSchema.parse(input);
     this.validateKey(key);
+    return this.transaction(context, "finance.chart_template.admin", (client) =>
+      this.publishWithinTransaction(client, context, id, input, key, correlation),
+    );
+  }
+  private async publishWithinTransaction(
+    client: PoolClient,
+    context: Context,
+    id: string,
+    input: PublishChartTemplateRequest,
+    key: string,
+    correlation: string,
+  ): Promise<ChartTemplateMutation> {
     const digest = chartTemplateHash({ id, ...input });
-    return this.transaction(context, "finance.chart_template.admin", async (client) => {
-      const replay = await this.replay(client, context, "published", key, digest);
-      if (replay) return replay;
-      await client.query("select id from finance_chart_template where tenant_id=$1 and id=$2 for update", [
-        context.tenantId,
-        id,
-      ]);
-      const before = await this.load(client, context.tenantId, id);
-      if (before.version !== input.expected_version || before.state !== "draft")
-        throw new ChartTemplateError(
-          409,
-          "TEMPLATE_VERSION_CONFLICT",
-          "Refresh the current draft revision before publishing.",
-        );
-      await client.query(
-        "update finance_chart_template set state='published',row_version=2,published_by=$3,published_at=clock_timestamp() where tenant_id=$1 and id=$2",
-        [context.tenantId, id, context.actor.userId],
+    const replay = await this.replay(client, context, "published", key, digest);
+    if (replay) return replay;
+    await client.query("select id from finance_chart_template where tenant_id=$1 and id=$2 for update", [
+      context.tenantId,
+      id,
+    ]);
+    const before = await this.load(client, context.tenantId, id);
+    if (before.version !== input.expected_version || before.state !== "draft")
+      throw new ChartTemplateError(
+        409,
+        "TEMPLATE_VERSION_CONFLICT",
+        "Refresh the current draft revision before publishing.",
       );
-      return this.evidence(
-        client,
-        context,
-        "published",
-        key,
-        digest,
-        await this.load(client, context.tenantId, id),
-        correlation,
-      );
+    await client.query(
+      "update finance_chart_template set state='published',row_version=2,published_by=$3,published_at=clock_timestamp() where tenant_id=$1 and id=$2",
+      [context.tenantId, id, context.actor.userId],
+    );
+    return this.evidence(
+      client,
+      context,
+      "published",
+      key,
+      digest,
+      await this.load(client, context.tenantId, id),
+      correlation,
+    );
+  }
+  async businessNatures(context: Context): Promise<BusinessNatureDirectory> {
+    return this.transaction(context, "finance.chart_template.read", async (client) => {
+      await this.requireBusinessSetupSchema(client);
+      return {
+        items: (
+          await client.query(
+            "select key,name from finance_business_nature_catalog where status='active' order by name limit 100",
+          )
+        ).rows,
+      };
     });
+  }
+  async businessSetup(context: Context, companyId: string): Promise<BusinessSetupStatus> {
+    return this.transaction(context, "finance.chart_template.read", async (client) => {
+      await this.requireBusinessSetupSchema(client);
+      await companyChartPermission(client, context, companyId, "finance.nominal.read");
+      const row = await readBusinessSetup(client, context.tenantId, companyId);
+      return { setup: row ? businessSetupSchema.parse(row) : null };
+    });
+  }
+  async initializeBusiness(
+    context: Context,
+    request: BusinessSetupInput,
+    key: string,
+    correlation: string,
+  ): Promise<BusinessSetupResult> {
+    const input = businessSetupInputSchema.parse(request);
+    this.validateKey(key);
+    return this.transaction(context, "finance.chart_template.admin", async (client) => {
+      await this.requireBusinessSetupSchema(client);
+      return initializeBusinessCompany(client, context, input, key, correlation, {
+        import: (manifest) =>
+          this.importWithinTransaction(
+            client,
+            context,
+            manifest,
+            `business-import-${manifest.business_nature_key}`,
+            correlation,
+          ),
+        publish: (id) =>
+          this.publishWithinTransaction(
+            client,
+            context,
+            id,
+            { expected_version: 1 },
+            `business-publish-${id}`,
+            correlation,
+          ),
+        load: (id) => this.load(client, context.tenantId, id),
+        preview: (id, query) => this.buildCompanyPreview(client, context, id, query),
+      });
+    });
+  }
+  private async requireBusinessSetupSchema(client: PoolClient) {
+    const state = await client.query<{ available: boolean }>(
+      "select to_regclass('public.finance_company_business_setup') is not null as available",
+    );
+    if (!state.rows[0]?.available)
+      throw new ChartTemplateError(
+        503,
+        "BUSINESS_SETUP_MIGRATION_REQUIRED",
+        "Company accounting setup requires the business-nature database migration.",
+      );
   }
 }

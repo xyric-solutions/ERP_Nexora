@@ -1,4 +1,5 @@
 import { procurementDigest as digest, writeProcurementEvidence } from "./audit-writer.js";
+import { ensureSupplierFinanceLink } from "./supplier-finance-link.js";
 import { purchaseReservationSql } from "./accounting-projection.js";
 import { reserveBudgetPurchase } from "../budget/accounting-bridge.js";
 import { BudgetError } from "../budget/transaction.js";
@@ -687,6 +688,12 @@ export class SourceProcurementRepository {
         );
       }
       const record = await this.vendor(client, context.tenantId, parsed.company_id, id, false);
+      await ensureSupplierFinanceLink(client, {
+        tenantId: context.tenantId,
+        companyId: parsed.company_id,
+        supplierId: id,
+        actorId: context.actor.userId,
+      });
       const auditId = await this.evidence(
         client,
         context,

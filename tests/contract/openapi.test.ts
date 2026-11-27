@@ -234,6 +234,8 @@ describe("OpenAPI contract", () => {
       "/assets/events/{id}/actions",
       "/assets/depreciation",
       "/assets/depreciation/{id}/actions",
+      "/finance/business_setup/natures",
+      "/finance/business_setup",
       "/fleet/companies",
       "/fleet/lookups",
       "/fleet/vehicles",
