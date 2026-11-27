@@ -7,6 +7,7 @@ export interface EmailMessage {
   subject: string;
   text: string;
   html?: string;
+  idempotencyKey?: string;
 }
 
 /** Delivers one message or throws. Kept as an interface so the processor can be tested without a server. */
@@ -23,6 +24,7 @@ export interface SmtpConfig {
   password: string | null;
   from: string;
   timeoutMs: number;
+  requireTls?: boolean;
 }
 
 const addressPattern = /^[^\s<>@",;:\\]+@[^\s<>@",;:\\]+\.[^\s<>@",;:\\]+$|^[^\s<>@",;:\\]+@localhost$/i;
@@ -252,6 +254,7 @@ export class SmtpEmailSender implements EmailSender {
         encrypted = true;
         hello = await connection.command(`EHLO ${this.heloName}`, [250]);
       }
+      if (!encrypted && this.config.requireTls) throw new SmtpError("SMTP transport requires TLS", false);
       if (this.config.user && this.config.password !== null) {
         if (!encrypted && !isLoopback(this.config.host)) {
           throw new SmtpError("Refusing to send SMTP credentials over an unencrypted connection", false);

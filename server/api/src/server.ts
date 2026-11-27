@@ -15,7 +15,7 @@ import {
   TenantSelectionService,
   TenantSessionService,
 } from "@nexora/auth";
-import { checkDatabase, createDatabasePool, migrateSourceSchema } from "@nexora/db";
+import { checkDatabase, createDatabasePool, migrateSourceSchema, readCredentialEmailConfig } from "@nexora/db";
 import { S3ObjectStorage } from "@nexora/domain/storage";
 import { createLogger, createMetrics } from "@nexora/observability";
 
@@ -70,7 +70,11 @@ const objectStorage = new S3ObjectStorage({
 });
 if (config.databaseAutoMigrate) await migrateSourceSchema(pool);
 const authRepository = new SourceTenantAuthenticationRepository(pool);
-const securityRepository = new SourceSecurityAdministrationRepository(pool, config.authLoginDirectorySecret);
+const securityRepository = new SourceSecurityAdministrationRepository(
+  pool,
+  config.authLoginDirectorySecret,
+  readCredentialEmailConfig(),
+);
 const securityPolicyAuthority = new CachedTenantSecurityPolicyAuthority(securityRepository);
 const authService = await TenantAuthenticationService.create({
   repository: authRepository,

@@ -36,15 +36,19 @@ function key(row: Pick<ExistingIdentifierRow, "tenant_id" | "user_id" | "identif
   return `${row.tenant_id}\0${row.user_id}\0${row.identifier_kind}`;
 }
 
+export function loginDirectorySecretVerifier(loginDirectorySecret: string): string {
+  if (Buffer.byteLength(loginDirectorySecret, "utf8") < 32) {
+    throw new Error("AUTH_LOGIN_DIRECTORY_SECRET must contain at least 32 bytes");
+  }
+  return hmac(Buffer.from(loginDirectorySecret, "utf8"), "nexora-login-directory-secret", "v1");
+}
+
 export async function backfillLoginDirectory(
   pool: pg.Pool,
   loginDirectorySecret: string,
 ): Promise<LoginDirectoryBackfillResult> {
-  if (Buffer.byteLength(loginDirectorySecret, "utf8") < 32) {
-    throw new Error("AUTH_LOGIN_DIRECTORY_SECRET must contain at least 32 bytes");
-  }
+  const verifier = loginDirectorySecretVerifier(loginDirectorySecret);
   const secret = Buffer.from(loginDirectorySecret, "utf8");
-  const verifier = hmac(secret, "nexora-login-directory-secret", "v1");
   const client = await pool.connect();
   try {
     await client.query("begin isolation level serializable");

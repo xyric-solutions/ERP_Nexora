@@ -9,6 +9,7 @@ import { PostgresBankRevaluationReversalRepository } from "./jobs/bank-revaluati
 import { readBankRevaluationReversalConfig } from "./revaluation-config.js";
 import { readRecurringJournalConfig } from "./recurring-journal-config.js";
 import { PostgresRecurringJournalGenerationRepository } from "./jobs/recurring-journal-generation.js";
+import { startCredentialEmailDelivery } from "./email/credential-delivery.js";
 import { createJobRuntime } from "./runtime.js";
 import { createWorkerObjectStorage, readBankStatementCleanupConfig } from "./storage-config.js";
 
@@ -28,8 +29,12 @@ await redis.ping();
 const storage = createWorkerObjectStorage();
 await storage.checkReady();
 const revaluationConfig = readBankRevaluationReversalConfig();
-const revaluationRepository = new PostgresBankRevaluationReversalRepository(pool);
-await revaluationRepository.checkReady(revaluationConfig.actorId, revaluationConfig.tenantLimit);
+let revaluations = null;
+if (revaluationConfig) {
+  const repository = new PostgresBankRevaluationReversalRepository(pool);
+  await repository.checkReady(revaluationConfig.actorId, revaluationConfig.tenantLimit);
+  revaluations = { repository, ...revaluationConfig };
+}
 const recurringJournalConfig = readRecurringJournalConfig();
 const runtime = createJobRuntime({
   connection: redis,
@@ -40,10 +45,7 @@ const runtime = createJobRuntime({
     repository: new PostgresBankStatementCleanupRepository(pool),
     ...readBankStatementCleanupConfig(),
   },
-  revaluations: {
-    repository: revaluationRepository,
-    ...revaluationConfig,
-  },
+  revaluations,
   ...(recurringJournalConfig
     ? {
         recurringJournals: {
@@ -53,14 +55,22 @@ const runtime = createJobRuntime({
       }
     : {}),
 });
-await runtime.schedulerReady;
+await Promise.all([runtime.schedulerReady, runtime.worker.waitUntilReady()]);
+const stopCredentialEmailDelivery = startCredentialEmailDelivery(pool, logger);
+logger.info(
+  {
+    bankRevaluationReversalsEnabled: revaluations !== null,
+    credentialEmailConfigured: stopCredentialEmailDelivery !== null,
+  },
+  "Worker ready",
+);
 
 let stopping = false;
 async function shutdown(signal: string) {
   if (stopping) return;
   stopping = true;
   logger.info({ signal }, "worker shutdown started");
-  await runtime.close();
+  await Promise.all([runtime.close(), stopCredentialEmailDelivery?.()]);
   storage.close();
   await Promise.allSettled([redis.quit(), pool.end()]);
 }

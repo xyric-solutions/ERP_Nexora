@@ -23,6 +23,6 @@
     "api:check": "tsx src/generate-client-c4.ts --check"
   },
   "dependencies": {
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   }
 }

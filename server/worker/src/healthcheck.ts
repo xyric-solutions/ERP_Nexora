@@ -13,14 +13,17 @@ if (!databaseUrl || !redisUrl) throw new Error("DATABASE_URL and REDIS_URL are r
 const pool = createDatabasePool(databaseUrl);
 const redis = new Redis(redisUrl, { lazyConnect: true, maxRetriesPerRequest: 1 });
 const storage = createWorkerObjectStorage();
-const revaluationConfig = readBankRevaluationReversalConfig();
-const revaluationRepository = new PostgresBankRevaluationReversalRepository(pool);
 try {
+  const revaluationConfig = readBankRevaluationReversalConfig();
   await Promise.all([
     checkDatabase(pool),
     redis.connect().then(async () => redis.ping()),
     storage.checkReady(),
-    revaluationRepository.checkReady(revaluationConfig.actorId, revaluationConfig.tenantLimit),
+    revaluationConfig &&
+      new PostgresBankRevaluationReversalRepository(pool).checkReady(
+        revaluationConfig.actorId,
+        revaluationConfig.tenantLimit,
+      ),
   ]);
   const schema = await pool.query<{ available: boolean }>(
     "select to_regclass('public.job_execution') is not null as available",

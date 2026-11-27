@@ -1,6 +1,7 @@
 import { createServer, type AddressInfo, type Server } from "node:net";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ResendEmailSender } from "../../server/worker/src/email/resend.js";
 
 import {
   buildMimeMessage,
@@ -287,5 +288,31 @@ describe("SMTP sender against a local test server", () => {
     await expect(
       new SmtpEmailSender(config(port)).send({ to: "nobody@example.test", subject: "s", text: "t" }),
     ).rejects.toMatchObject({ transient: false });
+  });
+});
+
+describe("Resend credential delivery", () => {
+  it("sends a message with its stable outbox idempotency key and never follows provider redirects", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ id: "provider-receipt" }));
+    const sender = new ResendEmailSender("synthetic-key", "erp@example.test", request);
+    const message = {
+      to: "amina@example.test",
+      subject: "Nexora",
+      text: "Synthetic message",
+      idempotencyKey: "outbox-id",
+    };
+    await expect(sender.send(message)).resolves.toEqual({ messageId: "provider-receipt" });
+    expect(request).toHaveBeenCalledWith(
+      "https://api.resend.com/emails",
+      expect.objectContaining({
+        method: "POST",
+        redirect: "error",
+        headers: expect.objectContaining({ "Idempotency-Key": "outbox-id" }),
+      }),
+    );
+    request.mockResolvedValue(Response.json({ name: "concurrent_idempotent_requests" }, { status: 409 }));
+    await expect(sender.send(message)).rejects.toMatchObject({ transient: true });
+    request.mockResolvedValue(Response.json({ name: "invalid_idempotent_request" }, { status: 409 }));
+    await expect(sender.send(message)).rejects.toMatchObject({ transient: false });
   });
 });

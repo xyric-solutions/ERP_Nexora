@@ -27,7 +27,7 @@ export async function processQueuedJob(
   job: Job<WorkerJobData>,
   repository: JobExecutionRepository,
   cleanup?: CleanupRuntimeOptions,
-  revaluations?: RevaluationRuntimeOptions,
+  revaluations?: RevaluationRuntimeOptions | null,
   recurringJournals?: RecurringJournalRuntimeOptions,
 ) {
   if (job.name === BANK_STATEMENT_CLEANUP_JOB) {
@@ -149,7 +149,7 @@ export function createJobRuntime(options: {
   logger: Logger;
   queueName?: string;
   cleanup?: CleanupRuntimeOptions;
-  revaluations?: RevaluationRuntimeOptions;
+  revaluations?: RevaluationRuntimeOptions | null;
   recurringJournals?: RecurringJournalRuntimeOptions;
 }) {
   const queueName = options.queueName ?? "nexora";
@@ -188,7 +188,7 @@ export function createJobRuntime(options: {
             opts: { attempts: 1, removeOnComplete: 100 },
           },
         )
-      : Promise.resolve(),
+      : options.revaluations === null && queue.removeJobScheduler(BANK_REVALUATION_REVERSAL_JOB),
     options.recurringJournals
       ? queue.upsertJobScheduler(
           RECURRING_JOURNAL_GENERATION_JOB,

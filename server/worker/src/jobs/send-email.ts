@@ -6,8 +6,7 @@ export const SEND_EMAIL_JOB = "send-email";
 export type EmailTemplateKind = "account_created" | "password_reset";
 
 /**
- * One queued email (plan Phase 4 `email_outbox`). The temporary password is held only until the row is sent or
- * permanently failed; the store must clear it at that point.
+ * One leased credential email. The store clears the encrypted payload once delivery is terminal.
  */
 export interface EmailOutboxRecord {
   id: string;
@@ -25,8 +24,7 @@ export interface EmailOutboxRecord {
 }
 
 /**
- * Persistence for the outbox. Not bound to a table yet: plan Phase 2 creates `email_outbox`. A Postgres
- * implementation should claim rows with `for update skip locked` so several workers never send the same row.
+ * Persistence for the outbox. Claims are exclusive across workers for the duration of a delivery attempt.
  */
 export interface EmailOutboxStore {
   /** Claims up to `limit` rows that are pending and due (`next_attempt_at <= now`). */
@@ -87,16 +85,16 @@ export async function processSendEmailBatch(
   const result: SendEmailResult = { claimed: records.length, sent: 0, retried: 0, failed: 0 };
   for (const record of records) {
     const attempts = record.attempts + 1;
+    let delivered: { messageId: string };
     try {
       const rendered = renderOutboxEmail(record);
-      const delivered = await dependencies.sender.send({
+      delivered = await dependencies.sender.send({
         to: record.recipient,
         subject: rendered.subject,
         text: rendered.text,
         html: rendered.html,
+        idempotencyKey: `nexora-credential-email/${record.id}`,
       });
-      await dependencies.store.markSent(record.id, options.now, delivered.messageId);
-      result.sent += 1;
     } catch (error) {
       const { code, transient } = errorCodeOf(error);
       if (transient && attempts < maxAttempts) {
@@ -111,7 +109,10 @@ export async function processSendEmailBatch(
         await dependencies.store.markFailed(record.id, attempts, options.now, code);
         result.failed += 1;
       }
+      continue;
     }
+    await dependencies.store.markSent(record.id, options.now, delivered.messageId);
+    result.sent += 1;
   }
   return result;
 }

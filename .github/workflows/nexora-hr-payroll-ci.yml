@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:18.1-alpine
+        image: postgres:18.7-alpine
         env:
           POSTGRES_DB: nexora_test
           POSTGRES_USER: nexora

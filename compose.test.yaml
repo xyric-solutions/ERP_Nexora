@@ -1,7 +1,7 @@
 name: nexora-test
 services:
   postgres:
-    image: postgres:18.1-alpine
+    image: postgres:18.7-alpine
     environment:
       POSTGRES_DB: nexora_test
       POSTGRES_USER: nexora
