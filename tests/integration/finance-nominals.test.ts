@@ -162,6 +162,17 @@ run("Bank nominal transactional workflow", () => {
         })
       ).items.map((account) => account.id),
     ).toContain(created.bank_account_id);
+    const filtered = await accounts.listAccounts(maker, {
+      company_id: company,
+      bank: detail.account_name,
+      sort_by: "account_name",
+      sort_direction: "asc",
+      limit: 10,
+    });
+    expect(filtered.items.map((account) => account.id)).toContain(created.bank_account_id);
+    expect(filtered.items.every((account) => (account.bank_name ?? account.account_name) === detail.account_name)).toBe(
+      true,
+    );
     await expect(
       accounts.submitAccount(
         maker,

@@ -20,10 +20,7 @@ import type { Pool, PoolClient } from "pg";
 
 import { BankingIdentifierCrypto } from "./crypto.js";
 import { bankDecisionEvidence } from "./decision-evidence.js";
-import {
-  ApprovalOverrideWriterError,
-  writeApprovalOverrideEvent,
-} from "../security/approval-override-writer.js";
+import { ApprovalOverrideWriterError, writeApprovalOverrideEvent } from "../security/approval-override-writer.js";
 
 export class BankingApiError extends Error {
   constructor(
@@ -256,7 +253,9 @@ export class SourceBankingRepository {
           `(bank.account_name ilike $${parameter} escape '\\' or bank.bank_name ilike $${parameter} escape '\\' or bank.reference ilike $${parameter} escape '\\' or bank.account_number_masked ilike $${parameter} escape '\\' or ledger.code ilike $${parameter} escape '\\' or bank.currency ilike $${parameter} escape '\\')`,
         );
       }
-      if (query.bank) filters.push(`bank.bank_name=$${values.push(query.bank)}`);
+      // Nominal-created cash/bank accounts have no separate institution identity.
+      // Match the same saved account name displayed by the Banking register.
+      if (query.bank) filters.push(`coalesce(bank.bank_name,bank.account_name)=$${values.push(query.bank)}`);
       if (query.currency) filters.push(`bank.currency=$${values.push(query.currency)}`);
       if (query.ledger_account_id) filters.push(`bank.account_id=$${values.push(query.ledger_account_id)}`);
       if (query.state) filters.push(`bank.status=$${values.push(query.state)}`);
@@ -870,7 +869,11 @@ export class SourceBankingRepository {
         "The bank account is unavailable in your company scope.",
       );
     if (row.identity_mode === "nominal_only")
-      throw new BankingApiError(409, "BANK_NOMINAL_WORKFLOW_REQUIRED", "Use the governed Nominal workflow to change this account.");
+      throw new BankingApiError(
+        409,
+        "BANK_NOMINAL_WORKFLOW_REQUIRED",
+        "Use the governed Nominal workflow to change this account.",
+      );
     return row;
   }
 

@@ -1,5 +1,32 @@
 # Remaining UI migration checklist
 
+## 2026-11-27 - Finance-created Bank nominal visibility
+
+- Bank & Cash Accounts / Account Balances now display and filter nominal-created
+  accounts using their saved account name when no separate bank name exists.
+  The server applies the same fallback. Detailed bank names remain unchanged,
+  and a selected Bank filter is retained when another filter produces no rows.
+- Preserved existing nominal/bank identities, company and tenant authorization,
+  lifecycle controls, posting rules and financial history. No CSS was retired.
+  Read-only verification found Cash on hand 230901 active and available through
+  the named Bank filter and both Payment/Receipt account selectors.
+- Verification passed: 29 focused unit tests, nine isolated PostgreSQL nominal
+  integration tests, API build, `npm.cmd run build:web`, focused ESLint/Prettier,
+  `git diff --check`, and theme audit `--write` / `--check`. Six Chromium cases
+  passed on preview and local port 3000 at 390/768/1440px in light/dark modes,
+  covering Finance creation, Bank filtering, detail navigation and reload.
+  Browser API responses are synthetic; the existing-account selector checks
+  used the real database without business writes.
+- Replaced the stale local web runtime, which referenced missing JavaScript
+  chunks returning HTTP 500, with the verified isolated build under
+  `tmp/bank-nominal-visibility-build`. The rebuilt API passed readiness with
+  automatic migrations disabled. All 23 referenced web assets returned 200.
+  Evidence: `tmp/bank-nominal-visibility/`, including responsive screenshots in
+  `browser-live/`, `asset-verification.json` and `real-account-readback.json`.
+- Safe resume: keep the running build directory immutable; build future
+  candidates in a different directory before switching services. Other
+  prototype Banking surfaces remain outside this focused visibility repair.
+
 ## 2026-11-23 - Quotation creator approval save fix
 
 - The Sales approver directory now excludes the authenticated creator in both

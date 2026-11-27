@@ -65,7 +65,9 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const directoryRequest = useRef(0);
-  const invalidateDirectory=useCallback(()=>{directoryRequest.current+=1;},[]);
+  const invalidateDirectory = useCallback(() => {
+    directoryRequest.current += 1;
+  }, []);
 
   useEffect(() => {
     if (sessionLoading || !canRead) return;
@@ -149,11 +151,11 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
       window.removeEventListener("focus", onReturn);
       document.removeEventListener("visibilitychange", onReturn);
     };
-  }, [load,invalidateDirectory]);
+  }, [load, invalidateDirectory]);
 
   const banks = useMemo(
-    () => [...new Set(rows.map((row) => row.bank_name).filter((name): name is string => name !== null))].sort(),
-    [rows],
+    () => [...new Set([bank, ...rows.map((row) => row.bank_name ?? row.account_name)].filter(Boolean))].sort(),
+    [bank, rows],
   );
   const currencies = useMemo(() => [...new Set(rows.map((row) => row.currency))].sort(), [rows]);
 
@@ -302,10 +304,10 @@ export function BankingAccountBalances({ onOpenAccount }: { onOpenAccount: (acco
                   <tr key={account.id} className="border-b border-border/70 transition-colors hover:bg-muted/35">
                     <td className="px-4 py-1.5 align-top">
                       <BankAccountCapsule
-                        aria-label={`Open ${account.bank_name ?? account.ledger_account_code}`}
+                        aria-label={`Open ${account.bank_name ?? account.account_name}`}
                         onClick={() => onOpenAccount(account.id)}
                       >
-                        {account.bank_name ?? account.ledger_account_code}
+                        {account.bank_name ?? account.account_name}
                       </BankAccountCapsule>
                       <small className="mt-1 block text-muted-foreground">
                         {account.branch || "Branch not recorded"}
